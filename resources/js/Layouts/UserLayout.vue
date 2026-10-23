@@ -88,7 +88,7 @@ const navigation = [
                         </div>
                         <div class="truncate">
                             <p class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ user?.name }}</p>
-                            <p class="text-[10px] text-slate-400 truncate">{{ user?.email }}</p>
+                            <p class="text-[10px] text-slate-400 truncate dir-ltr font-mono">@{{ user?.username }}</p>
                         </div>
                     </div>
                     <Link

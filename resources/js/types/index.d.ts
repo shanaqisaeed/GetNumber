@@ -1,8 +1,17 @@
 export interface User {
     id: number;
     name: string;
-    email: string;
-    email_verified_at?: string;
+    username: string;
+    role: 'admin' | 'user';
+    status: 'active' | 'suspended' | 'inactive';
+    is_admin?: boolean;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface FlashMessages {
+    success?: string | null;
+    error?: string | null;
 }
 
 export type PageProps<
@@ -11,4 +20,6 @@ export type PageProps<
     auth: {
         user: User;
     };
+    flash?: FlashMessages;
 };
+

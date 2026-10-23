@@ -6,7 +6,6 @@ import UpdateProfileInformationForm from './Partials/UpdateProfileInformationFor
 import { Head } from '@inertiajs/vue3';
 
 defineProps<{
-    mustVerifyEmail?: boolean;
     status?: string;
 }>();
 </script>
@@ -26,10 +25,7 @@ defineProps<{
 
         <div class="py-4 space-y-6 max-w-4xl">
             <div class="p-6 sm:p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <UpdateProfileInformationForm
-                    :must-verify-email="mustVerifyEmail"
-                    :status="status"
-                />
+                <UpdateProfileInformationForm :status="status" />
             </div>
 
             <div class="p-6 sm:p-8 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
