@@ -1,0 +1,174 @@
+<script setup lang="ts">
+import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+
+const page = usePage();
+const user = computed(() => page.props.auth?.user);
+
+const isMobileSidebarOpen = ref(false);
+
+const adminNavigation = [
+    {
+        name: 'پیشخوان مدیریت',
+        href: '#',
+        active: false,
+        icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z',
+    },
+    {
+        name: 'مدیریت کاربران و دسترسی‌ها',
+        href: '#',
+        active: false,
+        icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+    },
+    {
+        name: 'مدیریت خطوط سازمانی',
+        href: '#',
+        active: false,
+        icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
+    },
+    {
+        name: 'سرشماره‌های سامانه',
+        href: '#',
+        active: false,
+        icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10',
+    },
+    {
+        name: 'بررسی درخواست‌های سرشماره',
+        href: '#',
+        active: false,
+        icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4',
+    },
+    {
+        name: 'مدیریت و نظارت بر پیام‌ها',
+        href: '#',
+        active: false,
+        icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
+    },
+    {
+        name: 'کلیدهای ارتباطی و وب‌سرویس',
+        href: '#',
+        active: false,
+        icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z',
+    },
+    {
+        name: 'گزارش رویدادها و امنیت',
+        href: '#',
+        active: false,
+        icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+    },
+];
+</script>
+
+<template>
+    <div class="min-h-screen bg-slate-900/5 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row transition-colors duration-300">
+        <!-- Admin Desktop Sidebar -->
+        <aside class="hidden md:flex flex-col w-72 bg-slate-900 text-slate-200 border-l border-slate-800 shrink-0">
+            <!-- Brand & Admin Badge -->
+            <div class="h-20 flex flex-col justify-center px-6 border-b border-slate-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-900/40">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-black text-base text-white">سامانه مدیریت خطوط</span>
+                            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30">مدیریت</span>
+                        </div>
+                        <span class="block text-[11px] text-slate-400">کنسول راهبری سامانه</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin Navigation -->
+            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto">
+                <Link
+                    v-for="item in adminNavigation"
+                    :key="item.name"
+                    :href="item.href"
+                    class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all"
+                    :class="[
+                        item.active
+                            ? 'bg-rose-500/20 text-rose-400 font-bold border border-rose-500/30'
+                            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    ]"
+                >
+                    <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
+                    </svg>
+                    <span>{{ item.name }}</span>
+                </Link>
+            </nav>
+
+            <!-- Bottom Return to User Area / Profile -->
+            <div class="p-4 border-t border-slate-800 space-y-2">
+                <Link
+                    :href="route('dashboard')"
+                    class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    <span>ورود به پیشخوان کاربری</span>
+                </Link>
+
+                <div class="p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5 truncate">
+                        <div class="w-9 h-9 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center font-bold text-sm shrink-0">
+                            A
+                        </div>
+                        <div class="truncate">
+                            <p class="text-xs font-bold text-white truncate">{{ user?.name }}</p>
+                            <p class="text-[10px] text-rose-400 font-medium">راهبر ارشد سامانه</p>
+                        </div>
+                    </div>
+                    <Link
+                        :href="route('logout')"
+                        method="post"
+                        as="button"
+                        class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition-colors"
+                        title="خروج از سامانه"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </Link>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <!-- Top Admin Header -->
+            <header class="h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 flex items-center justify-between sticky top-0 z-30">
+                <div class="flex items-center gap-3">
+                    <button
+                        type="button"
+                        @click="isMobileSidebarOpen = true"
+                        class="md:hidden p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                    >
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                    <div>
+                        <slot name="header" />
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <ThemeSwitcher />
+                </div>
+            </header>
+
+            <!-- Admin Body -->
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+                <div class="max-w-7xl mx-auto">
+                    <slot />
+                </div>
+            </main>
+        </div>
+    </div>
+</template>
