@@ -661,9 +661,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div
             v-if="isSecretModalOpen && revealedSecret"
             @click.self="closeSecretModal"
-            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl border border-indigo-500/30 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl border border-indigo-500/30 shadow-2xl p-6 sm:p-8 space-y-6 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-start gap-4 shrink-0">
                     <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -731,9 +731,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div
             v-if="isCreateModalOpen"
             @click.self="closeCreateModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
+            class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-xl max-h-[calc(100dvh-2.5rem)] flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-5 my-auto">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-xl max-h-[calc(100dvh-2.5rem)] flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-5 my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
@@ -970,9 +970,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div
             v-if="isRotateModalOpen && tokenToRotate"
             @click.self="closeRotateModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+            class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5 my-auto responsive-modal-scroll-card">
                 <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1013,9 +1013,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div
             v-if="isRevokeModalOpen && tokenToRevoke"
             @click.self="closeRevokeModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+            class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5 my-auto responsive-modal-scroll-card">
                 <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1055,9 +1055,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div
             v-if="isDeleteModalOpen && tokenToDelete"
             @click.self="closeDeleteModal"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
+            class="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5 my-auto responsive-modal-scroll-card">
                 <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

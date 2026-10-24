@@ -140,13 +140,13 @@ class AdminMessageChatTest extends TestCase
 
         $this->assertDatabaseHas('messages', [
             'phone_number_id' => $this->lineAli->id,
-            'body' => 'پیام رسمی مدیریت سیستم',
+            'body' => "این پیام از سمت راهبر سیستم ارسال شده:\nپیام رسمی مدیریت سیستم",
             'direction' => MessageDirection::Outbound->value,
         ]);
 
         $this->assertDatabaseHas('messages', [
             'phone_number_id' => $this->lineReza->id,
-            'body' => 'پیام رسمی مدیریت سیستم',
+            'body' => "این پیام از سمت راهبر سیستم ارسال شده:\nپیام رسمی مدیریت سیستم",
             'direction' => MessageDirection::Inbound->value,
         ]);
     }

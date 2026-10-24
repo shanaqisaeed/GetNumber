@@ -309,8 +309,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             </div>
 
             <!-- Create Modal -->
-            <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isCreateModalOpen = false">
-                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+            <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isCreateModalOpen = false">
+                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">افزودن پیش‌شماره سازمانی جدید</h3>
                         <button type="button" @click="isCreateModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
@@ -389,8 +389,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             </div>
 
             <!-- Edit Modal -->
-            <div v-if="isEditModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isEditModalOpen = false">
-                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+            <div v-if="isEditModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isEditModalOpen = false">
+                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش پیش‌شماره {{ editingPrefix?.prefix }}</h3>
                         <button type="button" @click="isEditModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>

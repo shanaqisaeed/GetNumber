@@ -506,8 +506,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         </div>
 
         <!-- Full User Edit Modal (Requirement 2: Full management, change username, role, status, password) -->
-        <div v-if="isEditModalOpen && editingUser" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isEditModalOpen && editingUser" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -647,8 +647,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         </div>
 
         <!-- User Numbers Modal (Requirement 2: View numbers belonging to user) -->
-        <div v-if="isNumbersModalOpen && selectedUserForNumbers" @click.self="closeNumbersModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isNumbersModalOpen && selectedUserForNumbers" @click.self="closeNumbersModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">

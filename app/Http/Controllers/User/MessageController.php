@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Contracts\MessageServiceInterface;
+use App\Enums\MessageDirection;
 use App\Enums\MessageProcessingStatus;
 use App\Enums\PhoneNumberStatus;
 use App\Http\Controllers\Controller;
@@ -63,17 +64,46 @@ class MessageController extends Controller
 
                 $defaultPrefix = \App\Models\PhonePrefix::getDefaultPrefixString();
                 $peerRecord = PhoneNumber::with('user')->where('number', $activePeer)->first();
+                $isCommercial = $peerRecord ? $peerRecord->type->isService() : false;
+                $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$activePeer}"));
+
+                $canReply = true;
+                $canReplyReason = null;
+                if ($peerRecord) {
+                    if (! $peerRecord->accepts_incoming_sms) {
+                        $canReply = false;
+                        $canReplyReason = 'این سرشماره تجاری صرفاً یک‌طرفه بوده و امکان دریافت پیامک یا پاسخ را ندارد.';
+                    } else {
+                        $check = $peerRecord->canReceiveMessagesFrom($currentNumber, $user);
+                        if (! $check['allowed']) {
+                            $canReply = false;
+                            $canReplyReason = $check['reason'];
+                        }
+                    }
+                }
+
                 $activePeerDetails = [
                     'number' => $activePeer,
                     'formatted_number' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$activePeer}",
-                    'title' => $peerRecord?->effective_title ?? ("{$defaultPrefix} {$activePeer}"),
+                    'title' => $peerTitle,
                     'type' => $peerRecord?->type->value,
                     'type_label' => $peerRecord?->type->label(),
                     'badge_class' => $peerRecord?->type->badgeClasses(),
                     'is_own_number' => $peerRecord && $peerRecord->user_id === $user->id,
+                    'is_commercial' => $isCommercial,
+                    'accepts_incoming_sms' => $peerRecord ? (bool) $peerRecord->accepts_incoming_sms : true,
+                    'can_reply' => $canReply,
+                    'can_reply_reason' => $canReplyReason,
                 ];
             }
         }
+
+        $unreadCounts = Message::whereIn('phone_number_id', $allocatedNumbers->pluck('id'))
+            ->where('direction', MessageDirection::Inbound)
+            ->where('processing_status', MessageProcessingStatus::Received)
+            ->selectRaw('phone_number_id, count(*) as count')
+            ->groupBy('phone_number_id')
+            ->pluck('count', 'phone_number_id');
 
         $stats = [
             'total_messages' => $user->messages()->count(),
@@ -90,6 +120,7 @@ class MessageController extends Controller
                 'type' => $p->type->value,
                 'type_label' => $p->type->label(),
                 'badge_class' => $p->type->badgeClasses(),
+                'unread_count' => (int) ($unreadCounts[$p->id] ?? 0),
             ]),
             'currentNumber' => $currentNumber ? [
                 'id' => $currentNumber->id,
@@ -99,6 +130,7 @@ class MessageController extends Controller
                 'type' => $currentNumber->type->value,
                 'type_label' => $currentNumber->type->label(),
                 'badge_class' => $currentNumber->type->badgeClasses(),
+                'unread_count' => (int) ($unreadCounts[$currentNumber->id] ?? 0),
             ] : null,
             'conversations' => $conversations,
             'activePeer' => $activePeer,
@@ -193,6 +225,7 @@ class MessageController extends Controller
         $phoneNumberId = (int) $request->input('phone_number_id');
         $peerNumber = trim((string) $request->input('peer'));
         $afterId = $request->filled('after_id') ? (int) $request->input('after_id') : null;
+        $beforeId = $request->filled('before_id') ? (int) $request->input('before_id') : null;
 
         /** @var PhoneNumber $phoneNumber */
         $phoneNumber = PhoneNumber::findOrFail($phoneNumberId);
@@ -201,10 +234,11 @@ class MessageController extends Controller
             throw new AccessDeniedHttpException('عدم دسترسی به این خط.');
         }
 
-        $messages = $this->messageService->getConversationMessages($phoneNumber, $peerNumber, $afterId);
+        $messages = $this->messageService->getConversationMessages($phoneNumber, $peerNumber, $afterId, $beforeId);
 
         return response()->json([
             'success' => true,
+            'count' => $messages->count(),
             'messages' => $messages->map(fn (Message $m) => [
                 'id' => $m->id,
                 'phone_number_id' => $m->phone_number_id,
@@ -283,6 +317,13 @@ class MessageController extends Controller
                 ->all();
         }
 
+        $unreadCountsByLine = Message::whereIn('phone_number_id', $user->phoneNumbers()->where('status', PhoneNumberStatus::Allocated)->pluck('id'))
+            ->where('direction', MessageDirection::Inbound)
+            ->where('processing_status', MessageProcessingStatus::Received)
+            ->selectRaw('phone_number_id, count(*) as count')
+            ->groupBy('phone_number_id')
+            ->pluck('count', 'phone_number_id');
+
         return response()->json([
             'success' => true,
             'count' => $newMessages->count(),
@@ -290,6 +331,7 @@ class MessageController extends Controller
             'new_messages' => $mappedMessages,
             'statuses' => $statuses,
             'conversations' => $conversations,
+            'unread_counts_by_line' => $unreadCountsByLine,
         ]);
     }
 

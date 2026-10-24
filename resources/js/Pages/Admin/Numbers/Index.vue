@@ -715,8 +715,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Batch Generation Modal (With manual digits length input) -->
-        <div v-if="isBatchModalOpen" @click.self="closeBatchModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isBatchModalOpen" @click.self="closeBatchModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تولید دسته‌ای شماره‌های آزاد</h3>
                     <button @click="closeBatchModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -799,8 +799,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Single Number Creation Modal -->
-        <div v-if="isSingleModalOpen" @click.self="closeSingleModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isSingleModalOpen" @click.self="closeSingleModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت دستی شماره جدید</h3>
                     <button @click="closeSingleModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -901,8 +901,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Searchable Assign Modal (Scalable for 1000+ users) -->
-        <div v-if="isAssignModalOpen" @click.self="closeAssignModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isAssignModalOpen" @click.self="closeAssignModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تخصیص خط سازمانی به کاربر</h3>
                     <button @click="closeAssignModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -1027,8 +1027,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Status Change Modal -->
-        <div v-if="isStatusModalOpen" @click.self="closeStatusModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isStatusModalOpen" @click.self="closeStatusModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تغییر وضعیت خط سازمانی</h3>
                     <button @click="closeStatusModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -1093,8 +1093,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Edit Line Modal -->
-        <div v-if="isEditModalOpen" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isEditModalOpen" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش مشخصات خط سازمانی</h3>

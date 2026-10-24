@@ -518,6 +518,22 @@ class MessageService implements MessageServiceInterface
                 ->count();
 
             $isOwn = $peerRecord && $peerRecord->user_id === $phoneNumber->user_id;
+            $isCommercial = $peerRecord ? $peerRecord->type->isService() : false;
+
+            $canReply = true;
+            $canReplyReason = null;
+            if ($peerRecord) {
+                if (! $peerRecord->accepts_incoming_sms) {
+                    $canReply = false;
+                    $canReplyReason = 'این سرشماره تجاری صرفاً یک‌طرفه بوده و امکان دریافت پیامک یا پاسخ را ندارد.';
+                } else {
+                    $check = $peerRecord->canReceiveMessagesFrom($phoneNumber, $phoneNumber->user);
+                    if (! $check['allowed']) {
+                        $canReply = false;
+                        $canReplyReason = $check['reason'];
+                    }
+                }
+            }
 
             $conversations->push([
                 'peer_number' => $peer,
@@ -527,6 +543,10 @@ class MessageService implements MessageServiceInterface
                 'peer_type_label' => $peerRecord?->type->label(),
                 'peer_badge_class' => $peerRecord?->type->badgeClasses(),
                 'is_own_number' => $isOwn,
+                'is_commercial' => $isCommercial,
+                'accepts_incoming_sms' => $peerRecord ? (bool) $peerRecord->accepts_incoming_sms : true,
+                'can_reply' => $canReply,
+                'can_reply_reason' => $canReplyReason,
                 'latest_message' => [
                     'id' => $latestMessage->id,
                     'body' => $latestMessage->body,
@@ -546,8 +566,13 @@ class MessageService implements MessageServiceInterface
     /**
      * Retrieve all messages in a specific conversation thread between this line and a peer.
      */
-    public function getConversationMessages(PhoneNumber $phoneNumber, string $peerNumber, ?int $afterId = null): Collection
-    {
+    public function getConversationMessages(
+        PhoneNumber $phoneNumber,
+        string $peerNumber,
+        ?int $afterId = null,
+        ?int $beforeId = null,
+        int $limit = 50
+    ): Collection {
         $cleanPeer = PhoneNumberNormalizer::resolveToStoredNumber($peerNumber);
 
         $query = Message::where('phone_number_id', $phoneNumber->id)
@@ -584,9 +609,19 @@ class MessageService implements MessageServiceInterface
                 ->get();
         }
 
+        if ($beforeId) {
+            return $query->where('id', '<', $beforeId)
+                ->latest('server_received_at')
+                ->latest('id')
+                ->limit($limit)
+                ->get()
+                ->reverse()
+                ->values();
+        }
+
         return $query->latest('server_received_at')
             ->latest('id')
-            ->limit(150)
+            ->limit($limit)
             ->get()
             ->reverse()
             ->values();

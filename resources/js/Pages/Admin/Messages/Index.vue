@@ -1185,8 +1185,8 @@ watch(() => props.messages, (newMessages) => {
             </div>
 
             <!-- Detail Modal -->
-            <div v-if="isDetailOpen && activeMessage" @click.self="closeDetail" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+            <div v-if="isDetailOpen && activeMessage" @click.self="closeDetail" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0 mb-4">
                         <h3 class="text-sm font-bold text-slate-900 dark:text-white">جزییات فنی پیام #{{ activeMessage.id }}</h3>
                         <button type="button" @click="closeDetail" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
@@ -1234,8 +1234,8 @@ watch(() => props.messages, (newMessages) => {
             </div>
 
             <!-- Delete Confirmation Modal -->
-            <div v-if="isDeleteModalOpen && messageToDelete" @click.self="closeDeleteModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+            <div v-if="isDeleteModalOpen && messageToDelete" @click.self="closeDeleteModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="overflow-y-auto flex-1 space-y-4">
                         <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -67,7 +67,7 @@ interface MessageServiceInterface
     /**
      * Retrieve all messages in a specific conversation thread between this line and a peer.
      */
-    public function getConversationMessages(PhoneNumber $phoneNumber, string $peerNumber, ?int $afterId = null): Collection;
+    public function getConversationMessages(PhoneNumber $phoneNumber, string $peerNumber, ?int $afterId = null, ?int $beforeId = null, int $limit = 50): Collection;
 
     /**
      * Retrieve all conversation threads for administration oversight (system-wide dialogues).

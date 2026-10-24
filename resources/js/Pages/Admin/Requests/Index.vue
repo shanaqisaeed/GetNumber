@@ -505,8 +505,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Admin Review Modal (Approve / Reject) -->
-        <div v-if="isReviewModalOpen && activeRequest" @click.self="closeReviewModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isReviewModalOpen && activeRequest" @click.self="closeReviewModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-start sm:items-center justify-center p-3 sm:p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <!-- Modal Header -->
                 <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
@@ -715,8 +715,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         </div>
 
         <!-- Details Modal -->
-        <div v-if="isDetailsModalOpen && detailsRequest" @click.self="closeDetailsModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+        <div v-if="isDetailsModalOpen && detailsRequest" @click.self="closeDetailsModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-start sm:items-center justify-center p-3 sm:p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">

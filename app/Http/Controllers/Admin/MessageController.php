@@ -137,14 +137,31 @@ class MessageController extends Controller
         ]);
 
         $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
+
+        $adminNotice = "این پیام از سمت راهبر سیستم ارسال شده:\n";
+        $body = trim($validated['body']);
+        if (! str_starts_with($body, $adminNotice)) {
+            $body = $adminNotice . $body;
+        }
+
         $result = $this->messageService->sendSms(
             $fromNumber,
             $validated['destinations'],
-            $validated['body'],
+            $body,
             $request->user()
         );
 
-        return response()->json($result);
+        $isSuccess = ($result['sent_count'] ?? 0) > 0;
+
+        return response()->json([
+            'success' => $isSuccess,
+            'message' => $isSuccess
+                ? 'پیامک با موفقیت از طرف راهبر سیستم ارسال شد.'
+                : ($result['results'][0]['reason'] ?? 'خطا در ارسال پیامک مدیریت'),
+            'sent_count' => $result['sent_count'] ?? 0,
+            'failed_count' => $result['failed_count'] ?? 0,
+            'results' => $result['results'] ?? [],
+        ]);
     }
 
     /**

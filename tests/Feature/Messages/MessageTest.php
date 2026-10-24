@@ -871,4 +871,39 @@ class MessageTest extends TestCase
         $this->assertEquals('پیام شماره 1', $messages->first()->body);
         $this->assertEquals('پیام شماره 20', $messages->last()->body);
     }
+
+    public function test_conversation_messages_supports_before_id_pagination_to_read_older_messages(): void
+    {
+        $messageIds = [];
+        for ($i = 1; $i <= 30; $i++) {
+            $msg = Message::create([
+                'phone_number_id' => $this->userNumber->id,
+                'destination_number' => $this->otherUserNumber->number,
+                'sender' => $this->userNumber->number,
+                'peer_number' => $this->otherUserNumber->number,
+                'body' => "پیام تاریخچه {$i}",
+                'server_received_at' => now()->subMinutes(60 - $i),
+                'direction' => \App\Enums\MessageDirection::Outbound,
+                'processing_status' => MessageProcessingStatus::Received,
+            ]);
+            $messageIds[] = $msg->id;
+        }
+
+        // Suppose user has loaded messages 21 to 30. Oldest ID currently visible is message 21's ID.
+        $oldestVisibleId = $messageIds[20]; // 21st message (0-indexed 20)
+
+        $response = $this->actingAs($this->user)->getJson(
+            "/messages/conversation?phone_number_id={$this->userNumber->id}&peer={$this->otherUserNumber->number}&before_id={$oldestVisibleId}"
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('success', true);
+
+        $fetched = collect($response->json('messages'));
+        $this->assertTrue($fetched->isNotEmpty());
+        // All fetched messages must have ID less than $oldestVisibleId
+        foreach ($fetched as $m) {
+            $this->assertLessThan($oldestVisibleId, $m['id']);
+        }
+    }
 }

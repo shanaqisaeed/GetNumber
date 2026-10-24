@@ -233,6 +233,36 @@ html:not(.dark) .app-container {
     display: none;
 }
 
+/* Dedicated Chat Messages Scroll Area - Guaranteed Scroll & Momentum */
+.chat-messages-scroll-area {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    overscroll-behavior-y: contain !important;
+    touch-action: pan-y !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.45) transparent;
+}
+
+.chat-messages-scroll-area::-webkit-scrollbar {
+    width: 6px;
+    display: block !important;
+}
+
+.chat-messages-scroll-area::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 9999px;
+}
+
+.chat-messages-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.7);
+}
+
 /* Liquid Glass Components */
 .glass-card {
     background: var(--glass-card-bg);
@@ -1185,6 +1215,16 @@ html:not(.dark) .form-select option {
     background-color: rgba(7, 9, 14, 0.72);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+}
+
+@media (max-width: 640px) {
+    .modal-overlay {
+        align-items: flex-start !important;
+        padding: 0.75rem 0.5rem 2rem 0.5rem !important;
+    }
 }
 
 .modal-dialog {
@@ -1194,11 +1234,45 @@ html:not(.dark) .form-select option {
     background-color: rgba(22, 28, 44, 0.95);
     border: 1px solid rgba(255, 255, 255, 0.12);
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px -5px rgba(99, 102, 241, 0.2);
-    overflow: hidden;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     display: flex;
     flex-direction: column;
-    max-height: calc(100vh - 2.5rem);
-    max-height: calc(100dvh - 2.5rem);
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    margin: auto 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+.modal-dialog::-webkit-scrollbar {
+    width: 5px;
+}
+
+.modal-dialog::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 9999px;
+}
+
+/* Responsive Scrollable Modal Card for Custom Modals */
+.responsive-modal-scroll-card {
+    max-height: calc(100vh - 2.5rem) !important;
+    max-height: calc(100dvh - 2.5rem) !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.3) transparent;
+}
+
+.responsive-modal-scroll-card::-webkit-scrollbar {
+    width: 5px;
+}
+
+.responsive-modal-scroll-card::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.4);
+    border-radius: 9999px;
 }
 
 html.light .modal-dialog,
