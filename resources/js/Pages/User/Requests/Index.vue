@@ -400,173 +400,301 @@ const copyToClipboard = async (text: string) => {
         </div>
 
         <!-- 4. Create Request Modal -->
-        <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت درخواست سرشماره جدید</h3>
-                    <button type="button" @click="closeCreateModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
-                </div>
-
-                <form @submit.prevent="submitCreate" class="space-y-3.5">
-                    <!-- Length Chips -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">طول شماره درخواستی:</label>
-                        <div class="grid grid-cols-5 gap-1.5">
+        <teleport to="body">
+            <transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="isCreateModalOpen"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md"
+                    @click.self="closeCreateModal"
+                >
+                    <div
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                    >
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
+                                    📋
+                                </div>
+                                <div>
+                                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت درخواست سرشماره جدید</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">بررسی و تخصیص سرشماره‌های خاص ۴ تا ۸ رقمی</p>
+                                </div>
+                            </div>
                             <button
-                                v-for="l in availableLengths"
-                                :key="l"
                                 type="button"
-                                @click="createForm.requested_length = l"
-                                class="py-2 rounded-xl text-xs font-mono font-bold transition-all border"
-                                :class="[
-                                    createForm.requested_length === l
-                                        ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/25'
-                                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
-                                ]"
+                                @click="closeCreateModal"
+                                class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
                             >
-                                {{ l }} رقم
+                                ✕
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitCreate" class="space-y-3.5">
+                            <!-- Length Chips -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">طول شماره درخواستی:</label>
+                                <div class="grid grid-cols-5 gap-1.5">
+                                    <button
+                                        v-for="l in availableLengths"
+                                        :key="l"
+                                        type="button"
+                                        @click="createForm.requested_length = l"
+                                        class="py-2 rounded-2xl text-xs font-mono font-bold transition-all border"
+                                        :class="[
+                                            createForm.requested_length === l
+                                                ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/25'
+                                                : 'bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
+                                        ]"
+                                    >
+                                        {{ l }} رقم
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Service Title -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">عنوان سرویس / کاربرد:</label>
+                                <input
+                                    type="text"
+                                    v-model="createForm.service_title"
+                                    placeholder="مثال: پیامک اطلاع‌رسانی سفارشات"
+                                    required
+                                    :disabled="createForm.processing"
+                                    class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                />
+                            </div>
+
+                            <!-- Preferred Number (Optional) -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                                    شماره پیشنهادی
+                                    <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(اختیاری)</span>:
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="createForm.preferred_number"
+                                    placeholder="مثال: 8888"
+                                    dir="ltr"
+                                    :disabled="createForm.processing"
+                                    class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                />
+                            </div>
+
+                            <!-- Description -->
+                            <div>
+                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">توضیحات و نوع بهره‌برداری:</label>
+                                <textarea
+                                    v-model="createForm.description"
+                                    rows="3"
+                                    placeholder="اهداف کاربرد خط را مختصر شرح دهید..."
+                                    required
+                                    :disabled="createForm.processing"
+                                    class="w-full px-3.5 py-2.5 rounded-2xl resize-none bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                ></textarea>
+                            </div>
+
+                            <!-- Non-Affiliation Agreement & Terms Box -->
+                            <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-500/20 text-xs space-y-2.5">
+                                <div class="flex items-start gap-2 text-amber-800 dark:text-amber-200/90">
+                                    <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <p class="text-[11px] leading-relaxed">
+                                        این سامانه یک بستر مستقل ارائه خدمات ارتباطی سازمانی بوده و به هیچ حزب، گروه یا سازمان سیاسی یا دولتی وابسته نیست.
+                                    </p>
+                                </div>
+
+                                <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-amber-200/60 dark:border-amber-500/15">
+                                    <input
+                                        type="checkbox"
+                                        v-model="termsAccepted"
+                                        :disabled="createForm.processing"
+                                        required
+                                        class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
+                                    />
+                                    <span class="text-[11px] text-slate-800 dark:text-slate-200 font-bold select-none">
+                                        تأیید می‌کنم که خط صرفاً جهت مقاصد قانونی و فنی سازمانی استفاده می‌شود و ضوابط را می‌پذیرم.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    @click="closeCreateModal"
+                                    :disabled="createForm.processing"
+                                    class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
+                                >
+                                    انصراف
+                                </button>
+                                <button
+                                    type="submit"
+                                    :disabled="!termsAccepted || createForm.processing"
+                                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-purple-600/25"
+                                >
+                                    <svg
+                                        v-if="createForm.processing"
+                                        class="animate-spin h-3.5 w-3.5 text-white"
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                    </svg>
+                                    <span>
+                                        {{ createForm.processing ? 'در حال ثبت درخواست...' : 'ثبت درخواست' }}
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </transition>
+        </teleport>
+
+        <!-- 5. Details Modal -->
+        <teleport to="body">
+            <transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="isDetailsModalOpen && selectedRequest"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md"
+                    @click.self="closeDetailsModal"
+                >
+                    <div
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                    >
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
+                                    🔍
+                                </div>
+                                <h3 class="font-black text-sm text-slate-900 dark:text-white">جزئیات درخواست #{{ selectedRequest.id }}</h3>
+                            </div>
+                            <button
+                                type="button"
+                                @click="closeDetailsModal"
+                                class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div class="space-y-3 text-xs">
+                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">عنوان:</span>
+                                <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.service_title }}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">طول شماره:</span>
+                                <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ selectedRequest.requested_length }} رقمی</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">وضعیت:</span>
+                                <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border" :class="selectedRequest.status_badge">
+                                    {{ selectedRequest.status_label }}
+                                </span>
+                            </div>
+                            <div>
+                                <span class="text-slate-500 dark:text-slate-400 block mb-1 font-semibold">شرح درخواست:</span>
+                                <p class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
+                                    {{ selectedRequest.description }}
+                                </p>
+                            </div>
+                            <div v-if="selectedRequest.reviewer_name" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">بررسی‌کننده:</span>
+                                <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.reviewer_name }}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end pt-2 border-t border-slate-200/80 dark:border-white/10">
+                            <button
+                                type="button"
+                                @click="closeDetailsModal"
+                                class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
+                            >
+                                بستن
                             </button>
                         </div>
                     </div>
-
-                    <!-- Service Title -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">عنوان سرویس / کاربرد:</label>
-                        <input
-                            type="text"
-                            v-model="createForm.service_title"
-                            placeholder="مثال: پیامک اطلاع‌رسانی سفارشات"
-                            required
-                            class="glass-input !py-2 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
-                        />
-                    </div>
-
-                    <!-- Preferred Number (Optional) -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">شماره پیشنهادی (اختیاری):</label>
-                        <input
-                            type="text"
-                            v-model="createForm.preferred_number"
-                            placeholder="مثال: 8888"
-                            dir="ltr"
-                            class="glass-input !py-2 !text-xs font-mono w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
-                        />
-                    </div>
-
-                    <!-- Description -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">توضیحات و نوع بهره‌برداری:</label>
-                        <textarea
-                            v-model="createForm.description"
-                            rows="3"
-                            placeholder="اهداف کاربرد خط را مختصر شرح دهید..."
-                            required
-                            class="glass-input !py-2 !text-xs w-full resize-none bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
-                        ></textarea>
-                    </div>
-
-                    <!-- Non-Affiliation Agreement -->
-                    <label class="flex items-start gap-2 cursor-pointer pt-1">
-                        <input
-                            type="checkbox"
-                            v-model="termsAccepted"
-                            required
-                            class="mt-0.5 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-0"
-                        />
-                        <span class="text-[11px] text-slate-700 dark:text-slate-200 font-semibold leading-relaxed">
-                            تأیید می‌کنم که خط صرفاً جهت مقاصد قانونی و فنی سازمانی استفاده می‌شود و وابسته به هیچ نهاد سیاسی نیست.
-                        </span>
-                    </label>
-
-                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeCreateModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="!termsAccepted || createForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
-                        >
-                            {{ createForm.processing ? 'در حال ثبت...' : 'ثبت درخواست' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <!-- 5. Details Modal -->
-        <div v-if="isDetailsModalOpen && selectedRequest" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-3.5 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">جزئیات درخواست #{{ selectedRequest.id }}</h3>
-                    <button type="button" @click="closeDetailsModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
                 </div>
-
-                <div class="space-y-2.5 text-xs">
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">عنوان:</span>
-                        <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.service_title }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">طول شماره:</span>
-                        <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ selectedRequest.requested_length }} رقمی</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">وضعیت:</span>
-                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" :class="selectedRequest.status_badge">
-                            {{ selectedRequest.status_label }}
-                        </span>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400 block mb-1">شرح درخواست:</span>
-                        <p class="p-2.5 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 leading-relaxed">
-                            {{ selectedRequest.description }}
-                        </p>
-                    </div>
-                    <div v-if="selectedRequest.reviewer_name" class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">بررسی‌کننده:</span>
-                        <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.reviewer_name }}</span>
-                    </div>
-                </div>
-
-                <div class="flex justify-end pt-2 border-t border-slate-200 dark:border-white/10">
-                    <button type="button" @click="closeDetailsModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        بستن
-                    </button>
-                </div>
-            </div>
-        </div>
+            </transition>
+        </teleport>
 
         <!-- 6. Cancel Confirmation Modal -->
-        <div v-if="isCancelModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
-                <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </div>
-
-                <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">لغو درخواست</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                        آیا از انصراف و حذف این درخواست اطمینان دارید؟
-                    </p>
-                </div>
-
-                <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeCancelModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        انصراف
-                    </button>
-                    <button
-                        type="button"
-                        @click="confirmCancel"
-                        :disabled="cancelProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50"
+        <teleport to="body">
+            <transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div
+                    v-if="isCancelModalOpen"
+                    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md"
+                    @click.self="closeCancelModal"
+                >
+                    <div
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
                     >
-                        {{ cancelProcessing ? 'در حال لغو...' : 'تأیید و لغو درخواست' }}
-                    </button>
+                        <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center text-lg">
+                            ⚠️
+                        </div>
+
+                        <div class="space-y-1.5">
+                            <h3 class="font-black text-sm text-slate-900 dark:text-white">لغو درخواست سرشماره</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                آیا از انصراف و حذف این درخواست اطمینان دارید؟ این عمل غیرقابل بازگشت است.
+                            </p>
+                        </div>
+
+                        <div class="flex items-center justify-center gap-2.5 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                            <button
+                                type="button"
+                                @click="closeCancelModal"
+                                :disabled="cancelProcessing"
+                                class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
+                            >
+                                انصراف
+                            </button>
+                            <button
+                                type="button"
+                                @click="confirmCancel"
+                                :disabled="cancelProcessing"
+                                class="px-5 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                            >
+                                <svg
+                                    v-if="cancelProcessing"
+                                    class="animate-spin h-3.5 w-3.5 text-white"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                <span>{{ cancelProcessing ? 'در حال لغو...' : 'تأیید و لغو درخواست' }}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
+            </transition>
+        </teleport>
     </UserLayout>
 </template>

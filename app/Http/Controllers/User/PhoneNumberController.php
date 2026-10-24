@@ -84,8 +84,8 @@ class PhoneNumberController extends Controller
         try {
             $phone = $this->allocationService->allocateStandardNumberToUser(
                 user: $user,
-                preferredNumber: null,
-                displayTitle: null
+                preferredNumber: $request->validated('preferred_number'),
+                displayTitle: $request->validated('display_title')
             );
 
             return back()->with('success', "خط سازمانی جدید با شماره {$phone->formatted_number} با موفقیت به حساب شما تخصیص داده شد.");

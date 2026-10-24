@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 interface Quota {
@@ -76,24 +77,6 @@ const copyToClipboard = async (text: string, label = 'شماره در کلیپ�
 
 // Standard Number Allocation Modal State
 const isAllocateModalOpen = ref(false);
-const allocateForm = useForm({
-    display_title: '',
-    preferred_number: '',
-});
-
-const submitAllocation = () => {
-    allocateForm.post(route('numbers.store'), {
-        preserveScroll: true,
-        onSuccess: () => {
-            isAllocateModalOpen.value = false;
-            allocateForm.reset();
-            showToast('خط سازمانی جدید با موفقیت تخصیص یافت');
-        },
-        onError: () => {
-            showToast('خطا در تخصیص خط. لطفاً سهمیه و ضوابط را بررسی کنید.');
-        },
-    });
-};
 </script>
 
 <template>
@@ -355,75 +338,14 @@ const submitAllocation = () => {
             </div>
         </div>
 
-        <!-- Allocation Modal Dialog -->
-        <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
-            <div v-if="isAllocateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" @click.self="isAllocateModalOpen = false">
-                <div class="glass-card w-full max-w-sm !p-5 space-y-4 shadow-2xl animate-in zoom-in-95 duration-200">
-                    <div class="flex items-center justify-between pb-3 border-b border-white/10">
-                        <div class="flex items-center gap-2">
-                            <span class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center">
-                                📱
-                            </span>
-                            <div>
-                                <h3 class="text-xs font-extrabold text-[var(--text-primary)]">تخصیص خط سازمانی جدید</h3>
-                                <p class="text-[10px] text-[var(--text-muted)]">سرشماره ساختاریافته با پیشوند {{ props.default_prefix }}</p>
-                            </div>
-                        </div>
-                        <button type="button" @click="isAllocateModalOpen = false" class="text-xs text-[var(--text-muted)] hover:text-white p-1">
-                            ✕
-                        </button>
-                    </div>
-
-                    <form @submit.prevent="submitAllocation" class="space-y-3.5">
-                        <div class="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-[var(--text-secondary)] space-y-1">
-                            <div class="flex justify-between font-bold text-indigo-400">
-                                <span>پیشوند پیش‌فرض:</span>
-                                <span class="font-mono dir-ltr">{{ props.default_prefix }}</span>
-                            </div>
-                            <div class="flex justify-between">
-                                <span>سهمیه مجاز باقی‌مانده:</span>
-                                <span class="font-bold text-emerald-400">{{ props.quota.remaining }} شماره</span>
-                            </div>
-                        </div>
-
-                        <div class="glass-input-wrapper !mb-0">
-                            <label class="glass-label">عنوان یا شناسه نمایشی خط (اختیاری)</label>
-                            <div class="glass-input-box">
-                                <div class="glass-input-icon">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                    </svg>
-                                </div>
-                                <input
-                                    v-model="allocateForm.display_title"
-                                    type="text"
-                                    class="glass-input"
-                                    placeholder="مثال: خط ارتباطی واحد فروش"
-                                    maxlength="100"
-                                />
-                            </div>
-                        </div>
-
-                        <div class="pt-2 flex items-center gap-2">
-                            <button
-                                type="submit"
-                                :disabled="allocateForm.processing || props.quota.remaining <= 0"
-                                class="glass-btn-primary flex-1 !py-2.5 !text-xs disabled:opacity-50"
-                            >
-                                <span v-if="allocateForm.processing">در حال تخصیص شماره...</span>
-                                <span v-else>تایید و تخصیص آنی خط</span>
-                            </button>
-                            <button
-                                type="button"
-                                @click="isAllocateModalOpen = false"
-                                class="px-4 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-[var(--text-secondary)] transition-all"
-                            >
-                                انصراف
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </transition>
+        <!-- Unified Number Allocation Modal -->
+        <AllocateNumberModal
+            :show="isAllocateModalOpen"
+            :default-prefix="props.default_prefix"
+            :remaining-quota="props.quota.remaining"
+            :max-quota="props.quota.max"
+            @close="isAllocateModalOpen = false"
+            @success="showToast"
+        />
     </UserLayout>
 </template>

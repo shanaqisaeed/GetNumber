@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
+import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
 
 interface PhoneNumberItem {
     id: number;
@@ -77,24 +78,13 @@ const clearFilter = () => {
 
 // Allocation Modal State
 const isAllocateModalOpen = ref(false);
-const termsAccepted = ref(false);
-const allocateForm = useForm({});
 
 const openAllocateModal = () => {
-    termsAccepted.value = false;
-    allocateForm.reset();
     isAllocateModalOpen.value = true;
 };
 
 const closeAllocateModal = () => {
     isAllocateModalOpen.value = false;
-};
-
-const submitAllocation = () => {
-    if (!termsAccepted.value) return;
-    allocateForm.post(route('numbers.store'), {
-        onSuccess: () => closeAllocateModal(),
-    });
 };
 
 // Edit Title Modal State
@@ -399,56 +389,13 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- 4. Allocate Modal -->
-        <div v-if="isAllocateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">دریافت خط سازمانی جدید</h3>
-                    <button type="button" @click="closeAllocateModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
-                </div>
-
-                <form @submit.prevent="submitAllocation" class="space-y-4">
-                    <div class="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-500/20 text-xs space-y-1.5">
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">پیش‌شماره فعال:</span>
-                            <span dir="ltr" class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ default_prefix || '+85' }}</span>
-                        </div>
-                        <p class="text-[11px] text-slate-600 dark:text-slate-300">
-                            یک شماره ۹ رقمی استاندارد یکتا به‌صورت آنی از استخر شماره‌ها به حساب شما تخصیص می‌یابد.
-                        </p>
-                    </div>
-
-                    <div class="p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-500/20 text-xs space-y-2">
-                        <p class="text-[11px] text-amber-800 dark:text-amber-200/90 leading-relaxed">
-                            این سامانه یک بستر مستقل ارائه خدمات ارتباطی سازمانی بوده و به هیچ حزب، گروه یا سازمان سیاسی یا دولتی وابسته نیست.
-                        </p>
-                        <label class="flex items-start gap-2 cursor-pointer pt-1">
-                            <input
-                                type="checkbox"
-                                v-model="termsAccepted"
-                                required
-                                class="mt-0.5 rounded border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-0"
-                            />
-                            <span class="text-[11px] text-slate-800 dark:text-white font-semibold">
-                                ضوابط و مقررات بهره‌برداری را مطالعه نموده و می‌پذیرم.
-                            </span>
-                        </label>
-                    </div>
-
-                    <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeAllocateModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="!termsAccepted || allocateForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
-                        >
-                            {{ allocateForm.processing ? 'در حال تخصیص...' : 'تأیید و دریافت خط' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+        <AllocateNumberModal
+            :show="isAllocateModalOpen"
+            :default-prefix="default_prefix"
+            :remaining-quota="Math.max(0, quota.max - quota.active)"
+            :max-quota="quota.max"
+            @close="closeAllocateModal"
+        />
 
         <!-- 5. Edit Title Modal -->
         <div v-if="isEditTitleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
