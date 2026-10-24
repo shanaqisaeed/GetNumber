@@ -82,6 +82,15 @@ html:not(.dark) {
         -moz-osx-font-smoothing: grayscale;
         transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
     }
+
+    /* Prevent mobile browser zoom on form focus (iOS Safari & Chrome require 16px minimum font) */
+    @media (max-width: 768px) {
+        input, select, textarea,
+        .glass-input, .form-input, .form-textarea, .form-select {
+            font-size: 16px !important;
+            touch-action: manipulation;
+        }
+    }
 }
 
 /* 3D Liquid Canvas Ambient Glows */

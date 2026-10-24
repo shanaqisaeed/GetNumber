@@ -133,11 +133,19 @@ const copyToClipboard = async (text: string, label = 'شماره کپی شد') =
     }
 };
 
-const scrollToBottom = () => {
-    nextTick(() => {
+const scrollToBottom = (smooth = false) => {
+    const doScroll = () => {
         if (chatContainer.value) {
-            chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+            chatContainer.value.scrollTo({
+                top: chatContainer.value.scrollHeight,
+                behavior: smooth ? 'smooth' : 'instant',
+            });
         }
+    };
+    nextTick(() => {
+        doScroll();
+        setTimeout(doScroll, 60);
+        setTimeout(doScroll, 180);
     });
 };
 
@@ -180,12 +188,20 @@ const performSilentPoll = async () => {
                     conversationList.value = data.conversations;
                 }
 
+                if (data.statuses && typeof data.statuses === 'object') {
+                    chatMessages.value.forEach(m => {
+                        if (data.statuses[m.id]) {
+                            m.processing_status = data.statuses[m.id];
+                        }
+                    });
+                }
+
                 if (Array.isArray(data.new_messages) && data.new_messages.length > 0 && currentActivePeer.value && !isComposingNew.value) {
                     const existingIds = new Set(chatMessages.value.map(m => m.id));
                     const fresh = data.new_messages.filter((m: ChatMessage) => !existingIds.has(m.id));
                     if (fresh.length > 0) {
                         chatMessages.value = [...chatMessages.value, ...fresh];
-                        scrollToBottom();
+                        scrollToBottom(true);
                     }
                 }
             }
@@ -209,7 +225,8 @@ const handleEscape = (e: KeyboardEvent) => {
 
 onMounted(() => {
     if (currentActivePeer.value) {
-        scrollToBottom();
+        scrollToBottom(false);
+        setTimeout(() => scrollToBottom(false), 250);
     }
     pollingInterval = setInterval(performSilentPoll, 4000);
     window.addEventListener('keydown', handleEscape);
@@ -299,13 +316,13 @@ const selectConversation = async (conv: ConversationItem) => {
             const data = await res.json();
             if (data.success && Array.isArray(data.messages)) {
                 chatMessages.value = data.messages;
-                scrollToBottom();
             }
         }
     } catch {
         showToast('خطا در بارگذاری پیام‌ها');
     } finally {
         isLoadingChat.value = false;
+        scrollToBottom(false);
     }
 };
 
@@ -817,9 +834,38 @@ const smsPartCount = computed(() => {
                                     :class="msg.direction === 'outbound' ? 'text-indigo-200 justify-end' : 'text-slate-500 dark:text-slate-400 justify-start'"
                                 >
                                     <span>{{ formatTime(msg.server_received_at) || msg.server_received_at_formatted }}</span>
-                                    <svg v-if="msg.direction === 'outbound'" class="w-3.5 h-3.5 text-emerald-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                                    </svg>
+                                    <template v-if="msg.direction === 'outbound'">
+                                        <!-- Failed -->
+                                        <span v-if="msg.processing_status === 'failed'" class="text-rose-300 flex items-center" title="خطا در ارسال">
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                        </span>
+                                        <!-- Read: Two Emerald Ticks (دو تیک سبز / خوانده‌شده) -->
+                                        <span v-else-if="msg.processing_status === 'processed'" class="text-emerald-300 inline-flex items-center -space-x-1.5 rtl:space-x-reverse" title="خوانده شده توسط مخاطب">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </span>
+                                        <!-- Delivered: Two Subtle Ticks (دو تیک تحویل داده شده) -->
+                                        <span v-else-if="msg.processing_status === 'received'" class="text-indigo-200/90 inline-flex items-center -space-x-1.5 rtl:space-x-reverse" title="تحویل داده شده">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </span>
+                                        <!-- Sent / Pending: Single Tick (یک تیک ارسال شده) -->
+                                        <span v-else class="text-indigo-200/70 inline-flex items-center" title="ارسال شده">
+                                            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        </span>
+                                    </template>
                                 </div>
                             </div>
                         </div>

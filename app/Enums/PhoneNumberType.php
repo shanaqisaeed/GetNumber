@@ -11,9 +11,9 @@ enum PhoneNumberType: string
     public function label(): string
     {
         return match ($this) {
-            self::UserStandard => 'شماره عادی کاربر',
-            self::UserService => 'سرشماره اختصاصی کاربر',
-            self::PlatformService => 'سرشماره اختصاصی سامانه',
+            self::UserStandard => 'اعتباری',
+            self::UserService => 'تجاری',
+            self::PlatformService => 'تجاری سامانه',
         };
     }
 

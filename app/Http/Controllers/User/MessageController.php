@@ -267,11 +267,28 @@ class MessageController extends Controller
             'processing_status' => $m->processing_status->value,
         ]);
 
+        $statuses = [];
+        if ($activePeer) {
+            $cleanPeer = \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($activePeer);
+            $statuses = Message::where('phone_number_id', $phoneNumber->id)
+                ->where(function ($q) use ($cleanPeer, $activePeer) {
+                    $q->where('peer_number', $cleanPeer)
+                        ->orWhere('peer_number', $activePeer);
+                })
+                ->where('direction', \App\Enums\MessageDirection::Outbound)
+                ->latest('id')
+                ->limit(50)
+                ->get()
+                ->mapWithKeys(fn (Message $m) => [$m->id => $m->processing_status->value])
+                ->all();
+        }
+
         return response()->json([
             'success' => true,
             'count' => $newMessages->count(),
             'data' => $mappedMessages,
             'new_messages' => $mappedMessages,
+            'statuses' => $statuses,
             'conversations' => $conversations,
         ]);
     }

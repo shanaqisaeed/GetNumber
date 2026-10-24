@@ -99,9 +99,9 @@ const submitAllocation = () => {
                                 📱
                             </div>
                             <div>
-                                <h3 class="font-black text-sm text-slate-900 dark:text-white">دریافت خط سازمانی جدید</h3>
+                                <h3 class="font-black text-sm text-slate-900 dark:text-white">دریافت خط اعتباری جدید</h3>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    سرشماره استاندارد با پیش‌شماره {{ defaultPrefix }}
+                                    شماره اعتباری با پیش‌شماره {{ defaultPrefix }}
                                 </p>
                             </div>
                         </div>

@@ -209,14 +209,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <!-- 1. Header Banner & Action -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
-                    <span class="wallet-title">درخواست سرشماره‌های خاص</span>
+                    <span class="wallet-title">درخواست خط تجاری</span>
                     <span class="wallet-chip bg-purple-500/15 border-purple-500/35 text-purple-600 dark:text-purple-400">
                         ۴ تا ۸ رقمی
                     </span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    درخواست تخصیص خطوط کوتاه خدماتی برای سرویس‌های پیامکی ویژه یا سامانه‌های درون‌سازمانی.
+                    درخواست تخصیص خطوط تجاری کوتاه (۴ تا ۸ رقمی) جهت سامانه‌ها و پیام‌های تجاری.
                 </div>
 
                 <!-- Stats 3-Column Pill Row -->
@@ -245,7 +245,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>ثبت درخواست سرشماره جدید</span>
+                        <span>ثبت درخواست خط تجاری جدید</span>
                     </button>
                 </div>
             </div>

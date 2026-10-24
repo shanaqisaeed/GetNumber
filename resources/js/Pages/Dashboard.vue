@@ -148,14 +148,14 @@ const isAllocateModalOpen = ref(false);
                         <line x1="12" y1="5" x2="12" y2="19" stroke-width="2.5"></line>
                         <line x1="5" y1="12" x2="19" y2="12" stroke-width="2.5"></line>
                     </svg>
-                    <span>دریافت خط سازمانی</span>
+                    <span>دریافت شماره اعتباری</span>
                 </button>
 
                 <Link :href="route('requests.index')" class="wallet-btn-history">
                     <svg class="w-4 h-4 text-indigo-400 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span>خط اختصاصی</span>
+                    <span>درخواست خط تجاری</span>
                 </Link>
             </div>
         </div>

@@ -23,41 +23,97 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class MessageService implements MessageServiceInterface
 {
     /**
-     * Records an inbound message received via API or external source.
+     * Records an inbound or outbound message received via API or external source.
      */
     public function recordInboundMessage(array $data, ?User $actor = null, ?ApiToken $token = null): array
     {
-        // 1. Strict validation of destination number with full active prefix and valid length
         $rawDestination = (string) ($data['destination_number'] ?? '');
-        $numberValidation = PhoneNumberNormalizer::validateFullDestinationNumber($rawDestination);
+        $rawSender = (string) ($data['sender'] ?? ($data['from_number'] ?? ''));
+        $requestedDirection = $data['direction'] ?? null;
+        $effectiveActor = $actor ?? $token?->user;
 
-        if (! $numberValidation['valid']) {
-            throw ValidationException::withMessages([
-                'destination_number' => $numberValidation['error'],
-            ]);
+        // Resolve clean numbers
+        $cleanSender = PhoneNumberNormalizer::resolveToStoredNumber($rawSender);
+        $senderPhone = ! empty($cleanSender) ? PhoneNumber::where('number', $cleanSender)->first() : null;
+
+        $cleanDest = PhoneNumberNormalizer::resolveToStoredNumber($rawDestination);
+        $destPhone = ! empty($cleanDest) ? PhoneNumber::where('number', $cleanDest)->first() : null;
+
+        // Determine direction:
+        if ($requestedDirection === 'outbound' || $requestedDirection === MessageDirection::Outbound->value) {
+            $isOutbound = true;
+        } elseif ($requestedDirection === 'inbound' || $requestedDirection === MessageDirection::Inbound->value) {
+            $isOutbound = false;
+        } else {
+            // Auto-detect: if sender is an allocated line owned by the actor/token, it's an outbound message!
+            if ($senderPhone && ($senderPhone->user_id === $effectiveActor?->id || $effectiveActor?->isAdmin())) {
+                $isOutbound = true;
+            } elseif ($destPhone && ! $senderPhone) {
+                $isOutbound = false;
+            } else {
+                $isOutbound = false;
+            }
         }
 
-        $cleanNumber = $numberValidation['clean_number'];
+        if ($isOutbound) {
+            // Outbound message: The allocated line in our platform is the sender
+            $phoneNumber = $senderPhone;
 
-        /** @var PhoneNumber|null $phoneNumber */
-        $phoneNumber = PhoneNumber::where('number', $cleanNumber)->first();
+            // If not found by sender, check if destination was passed as the allocated line
+            if (! $phoneNumber && $destPhone) {
+                $phoneNumber = $destPhone;
+                $peerNumber = $cleanSender ?: trim($rawSender);
+            } else {
+                $peerNumber = $cleanDest ?: trim($rawDestination);
+            }
 
-        if (! $phoneNumber) {
-            throw ValidationException::withMessages([
-                'destination_number' => 'شماره مقصد در سامانه یافت نشد.',
-            ]);
-        }
+            if (! $phoneNumber) {
+                throw ValidationException::withMessages([
+                    'sender' => 'خط فرستنده در سامانه یافت نشد.',
+                ]);
+            }
 
-        if ($phoneNumber->status !== PhoneNumberStatus::Allocated) {
-            throw ValidationException::withMessages([
-                'destination_number' => "شماره مقصد در وضعیت «{$phoneNumber->status->label()}» بوده و آماده دریافت پیام نمی‌باشد.",
-            ]);
-        }
+            if ($phoneNumber->status !== PhoneNumberStatus::Allocated) {
+                throw ValidationException::withMessages([
+                    'sender' => "خط فرستنده در وضعیت «{$phoneNumber->status->label()}» بوده و آماده ارسال پیام نمی‌باشد.",
+                ]);
+            }
 
-        if (! $phoneNumber->accepts_incoming_sms) {
-            throw ValidationException::withMessages([
-                'destination_number' => 'این سرشماره برای عدم دریافت پیامک ورودی (صرفاً یک‌طرفه/اطلاع‌رسانی) پیکربندی شده است.',
-            ]);
+            // Note: accepts_incoming_sms is NOT checked for outbound messages (sending is allowed)
+        } else {
+            // Inbound message: Strict validation of destination number with full active prefix and valid length
+            $numberValidation = PhoneNumberNormalizer::validateFullDestinationNumber($rawDestination);
+
+            if (! $numberValidation['valid']) {
+                throw ValidationException::withMessages([
+                    'destination_number' => $numberValidation['error'],
+                ]);
+            }
+
+            $cleanNumber = $numberValidation['clean_number'];
+
+            /** @var PhoneNumber|null $phoneNumber */
+            $phoneNumber = PhoneNumber::where('number', $cleanNumber)->first();
+
+            if (! $phoneNumber) {
+                throw ValidationException::withMessages([
+                    'destination_number' => 'شماره مقصد در سامانه یافت نشد.',
+                ]);
+            }
+
+            if ($phoneNumber->status !== PhoneNumberStatus::Allocated) {
+                throw ValidationException::withMessages([
+                    'destination_number' => "شماره مقصد در وضعیت «{$phoneNumber->status->label()}» بوده و آماده دریافت پیام نمی‌باشد.",
+                ]);
+            }
+
+            if (! $phoneNumber->accepts_incoming_sms) {
+                throw ValidationException::withMessages([
+                    'destination_number' => 'این سرشماره برای عدم دریافت پیامک ورودی (صرفاً یک‌طرفه/اطلاع‌رسانی) پیکربندی شده است.',
+                ]);
+            }
+
+            $peerNumber = $cleanSender ?: trim($rawSender);
         }
 
         // 2. Authorization check
@@ -97,7 +153,7 @@ class MessageService implements MessageServiceInterface
         }
 
         // 4. Atomic message persistence with concurrent duplicate safety
-        return DB::transaction(function () use ($data, $phoneNumber, $sourceSystemId, $clientMessageId) {
+        return DB::transaction(function () use ($data, $phoneNumber, $sourceSystemId, $clientMessageId, $isOutbound, $peerNumber) {
             // Re-check idempotency under lock if keys are present
             if ($sourceSystemId !== null && $clientMessageId !== null) {
                 $existing = Message::where('source_system_id', $sourceSystemId)
@@ -125,15 +181,37 @@ class MessageService implements MessageServiceInterface
             try {
                 $message = Message::create([
                     'phone_number_id' => $phoneNumber->id,
-                    'destination_number' => $phoneNumber->number,
-                    'sender' => trim((string) $data['sender']),
+                    'destination_number' => $isOutbound ? $peerNumber : $phoneNumber->number,
+                    'sender' => $isOutbound ? $phoneNumber->number : trim((string) ($data['sender'] ?? '')),
+                    'peer_number' => $peerNumber,
                     'body' => trim((string) $data['body']),
                     'source_time' => $sourceTime,
                     'server_received_at' => now(),
                     'source_system_id' => $sourceSystemId,
                     'client_message_id' => $clientMessageId,
                     'processing_status' => MessageProcessingStatus::Received,
+                    'direction' => $isOutbound ? MessageDirection::Outbound : MessageDirection::Inbound,
                 ]);
+
+                // If outbound and recipient is an internal line that accepts incoming SMS, deliver inbound copy
+                if ($isOutbound) {
+                    $destPhone = PhoneNumber::where('number', $peerNumber)->first();
+                    if ($destPhone && $destPhone->status === PhoneNumberStatus::Allocated && $destPhone->accepts_incoming_sms) {
+                        Message::create([
+                            'phone_number_id' => $destPhone->id,
+                            'destination_number' => $destPhone->number,
+                            'sender' => $phoneNumber->number,
+                            'peer_number' => $phoneNumber->number,
+                            'body' => trim((string) $data['body']),
+                            'source_time' => $sourceTime,
+                            'server_received_at' => now(),
+                            'source_system_id' => $sourceSystemId ? ($sourceSystemId . ':in') : null,
+                            'client_message_id' => $clientMessageId ? ($clientMessageId . ':in') : null,
+                            'processing_status' => MessageProcessingStatus::Received,
+                            'direction' => MessageDirection::Inbound,
+                        ]);
+                    }
+                }
 
                 return [
                     'message' => $message->load('phoneNumber'),
@@ -352,7 +430,7 @@ class MessageService implements MessageServiceInterface
                     'peer_number' => $destPhone->number,
                     'body' => $body,
                     'server_received_at' => now(),
-                    'processing_status' => MessageProcessingStatus::Processed,
+                    'processing_status' => MessageProcessingStatus::Received,
                     'direction' => \App\Enums\MessageDirection::Outbound,
                 ]);
 
@@ -412,7 +490,7 @@ class MessageService implements MessageServiceInterface
 
             $defaultPrefix = PhonePrefix::getDefaultPrefixString();
             $peerRecord = PhoneNumber::with('user')->where('number', $peer)->first();
-            $peerTitle = $peerRecord?->effective_title ?? ("{$defaultPrefix} {$peer}");
+            $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$peer}"));
 
             // If search is active, check peer, title, or message bodies
             if (! empty($search)) {
@@ -478,10 +556,6 @@ class MessageService implements MessageServiceInterface
                     ->orWhere('peer_number', $peerNumber);
             });
 
-        if ($afterId) {
-            $query->where('id', '>', $afterId);
-        }
-
         // When a user explicitly opens the conversation, mark inbound messages as processed (read)
         Message::where('phone_number_id', $phoneNumber->id)
             ->where(function ($q) use ($cleanPeer, $peerNumber) {
@@ -492,7 +566,30 @@ class MessageService implements MessageServiceInterface
             ->where('processing_status', MessageProcessingStatus::Received)
             ->update(['processing_status' => MessageProcessingStatus::Processed]);
 
-        return $query->oldest('server_received_at')->oldest('id')->limit(150)->get();
+        // Also if peer is an internal allocated line, mark that line's outbound messages to this line as processed (read)
+        $peerPhone = PhoneNumber::where('number', $cleanPeer)->first();
+        if ($peerPhone) {
+            Message::where('phone_number_id', $peerPhone->id)
+                ->where('peer_number', $phoneNumber->number)
+                ->where('direction', \App\Enums\MessageDirection::Outbound)
+                ->where('processing_status', MessageProcessingStatus::Received)
+                ->update(['processing_status' => MessageProcessingStatus::Processed]);
+        }
+
+        if ($afterId) {
+            return $query->where('id', '>', $afterId)
+                ->oldest('server_received_at')
+                ->oldest('id')
+                ->limit(100)
+                ->get();
+        }
+
+        return $query->latest('server_received_at')
+            ->latest('id')
+            ->limit(150)
+            ->get()
+            ->reverse()
+            ->values();
     }
 
     /**
@@ -702,10 +799,11 @@ class MessageService implements MessageServiceInterface
             });
 
         if ($afterId) {
-            $query->where('id', '>', $afterId);
+            $query->where('id', '>', $afterId)->oldest('server_received_at')->oldest('id')->limit(100);
+            $messages = $query->get();
+        } else {
+            $messages = $query->latest('server_received_at')->latest('id')->limit(200)->get()->reverse()->values();
         }
-
-        $messages = $query->oldest('server_received_at')->oldest('id')->limit(200)->get();
 
         return $messages->map(function (Message $m) use ($lineA, $lineB, $cleanPeer) {
             $isOutbound = ($m->direction === MessageDirection::Outbound || $m->direction->value === 'outbound');

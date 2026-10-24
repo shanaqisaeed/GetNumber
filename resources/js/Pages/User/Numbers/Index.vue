@@ -266,8 +266,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     class="form-select !py-2 !text-xs !rounded-xl w-auto"
                 >
                     <option value="">همه انواع</option>
-                    <option value="standard">استاندارد ۹ رقمی</option>
-                    <option value="service">سرویس کوتاه</option>
+                    <option value="standard">خط اعتباری</option>
+                    <option value="service">خط تجاری</option>
                 </select>
 
                 <button

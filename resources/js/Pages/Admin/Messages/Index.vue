@@ -957,13 +957,29 @@ watch(() => props.messages, (newMessages) => {
                                             <!-- Status -->
                                             <span
                                                 :class="[
-                                                    'px-2 py-0.5 rounded-full text-[9px] font-bold',
+                                                    'px-2 py-0.5 rounded-full text-[9px] font-bold inline-flex items-center gap-1',
                                                     msg.is_line_a
                                                         ? 'bg-indigo-700/60 text-white'
                                                         : msg.status_badge
                                                 ]"
                                             >
-                                                {{ msg.status_label }}
+                                                <span>{{ msg.status_label }}</span>
+                                                <template v-if="msg.is_line_a">
+                                                    <span v-if="msg.processing_status === 'processed'" class="text-emerald-300 inline-flex items-center -space-x-1 rtl:space-x-reverse" title="دو تیک سبز - خوانده‌شده">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                    </span>
+                                                    <span v-else-if="msg.processing_status === 'received'" class="text-indigo-200 inline-flex items-center -space-x-1 rtl:space-x-reverse" title="دو تیک - تحویل داده شده">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                    </span>
+                                                    <span v-else-if="msg.processing_status === 'failed'" class="text-rose-300">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    </span>
+                                                    <span v-else class="text-indigo-200">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                                    </span>
+                                                </template>
                                             </span>
 
                                             <!-- Delete Button for Admin -->

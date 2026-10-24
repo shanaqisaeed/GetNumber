@@ -724,4 +724,151 @@ class MessageTest extends TestCase
                 ->where('activeMessages.0.direction', 'inbound')
             );
     }
+
+    public function test_api_v1_messages_send_records_outbound_message_and_displays_on_site(): void
+    {
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$plainToken}",
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/messages', [
+            'sender' => $this->userNumber->number,
+            'destination_number' => '+85 09129998877',
+            'body' => 'پیامک خروجی ارسالی از وب‌سرویس',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'sender' => $this->userNumber->number,
+                    'direction' => 'outbound',
+                    'body' => 'پیامک خروجی ارسالی از وب‌سرویس',
+                    'processing_status' => 'received',
+                ],
+            ]);
+
+        $this->assertDatabaseHas('messages', [
+            'phone_number_id' => $this->userNumber->id,
+            'direction' => 'outbound',
+            'body' => 'پیامک خروجی ارسالی از وب‌سرویس',
+            'processing_status' => 'received',
+        ]);
+
+        // Check that the user can see it in their conversation on the website
+        $res = $this->actingAs($this->user)->get("/messages?phone_number_id={$this->userNumber->id}&peer=09129998877");
+        $res->assertStatus(200)
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('User/Messages/Index')
+                ->has('activeMessages', 1)
+                ->where('activeMessages.0.direction', 'outbound')
+                ->where('activeMessages.0.body', 'پیامک خروجی ارسالی از وب‌سرویس')
+                ->where('activeMessages.0.processing_status', 'received')
+            );
+    }
+
+    public function test_line_with_disabled_incoming_sms_can_send_outbound_messages_freely(): void
+    {
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
+
+        // Line has accepts_incoming_sms = false
+        $sendOnlyLine = PhoneNumber::create([
+            'number' => '4004',
+            'type' => PhoneNumberType::UserService,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $this->user->id,
+            'display_title' => 'سامانه اطلاع‌رسانی یک‌طرفه',
+            'accepts_incoming_sms' => false,
+        ]);
+
+        // 1. Send via UI
+        $resUI = $this->actingAs($this->user)->postJson('/messages/send', [
+            'from_number_id' => $sendOnlyLine->id,
+            'destinations' => [$this->otherUserNumber->number],
+            'body' => 'ارسال پیام با موفقیت از خط یک‌طرفه',
+        ]);
+
+        $resUI->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'sent_count' => 1,
+            ]);
+
+        // 2. Send via API (using standard /api/v1/messages)
+        $resAPI = $this->withHeaders([
+            'Authorization' => "Bearer {$plainToken}",
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/messages', [
+            'sender' => '4004',
+            'destination_number' => $this->otherUserNumber->number,
+            'body' => 'ارسال پیام از طریق API با خط یک‌طرفه',
+        ]);
+
+        $resAPI->assertStatus(201)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'direction' => 'outbound',
+                ],
+            ]);
+    }
+
+    public function test_message_delivery_and_read_status_flow_two_ticks(): void
+    {
+        // 1. User sends SMS to OtherUser
+        $sendResponse = $this->actingAs($this->user)->postJson('/messages/send', [
+            'from_number_id' => $this->userNumber->id,
+            'destinations' => [$this->otherUserNumber->number],
+            'body' => 'سلام، تست وضعیت دریافت و خوانده شدن پیامک',
+        ]);
+        $sendResponse->assertStatus(200);
+
+        // Initially, outbound is 'received' (delivered to destination inbox - 2 subtle ticks)
+        $outbound = Message::where('phone_number_id', $this->userNumber->id)
+            ->where('direction', 'outbound')
+            ->first();
+        $this->assertEquals(MessageProcessingStatus::Received, $outbound->processing_status);
+
+        // Inbound for OtherUser is also 'received' (unread)
+        $inbound = Message::where('phone_number_id', $this->otherUserNumber->id)
+            ->where('direction', 'inbound')
+            ->first();
+        $this->assertEquals(MessageProcessingStatus::Received, $inbound->processing_status);
+
+        // 2. OtherUser opens the conversation thread with User
+        $this->actingAs($this->otherUser)->get("/messages?phone_number_id={$this->otherUserNumber->id}&peer={$this->userNumber->number}");
+
+        // Now, inbound is 'processed' (read by otherUser)
+        $inbound->refresh();
+        $this->assertEquals(MessageProcessingStatus::Processed, $inbound->processing_status);
+
+        // And outbound for User is ALSO 'processed' (two green ticks / read!)
+        $outbound->refresh();
+        $this->assertEquals(MessageProcessingStatus::Processed, $outbound->processing_status);
+    }
+
+    public function test_conversation_messages_returns_latest_messages_in_chronological_order(): void
+    {
+        // Seed 20 messages with sequential timestamps
+        for ($i = 1; $i <= 20; $i++) {
+            Message::create([
+                'phone_number_id' => $this->userNumber->id,
+                'destination_number' => $this->otherUserNumber->number,
+                'sender' => $this->userNumber->number,
+                'peer_number' => $this->otherUserNumber->number,
+                'body' => "پیام شماره {$i}",
+                'server_received_at' => now()->subMinutes(30 - $i),
+                'direction' => \App\Enums\MessageDirection::Outbound,
+                'processing_status' => MessageProcessingStatus::Received,
+            ]);
+        }
+
+        $service = app(\App\Contracts\MessageServiceInterface::class);
+        $messages = $service->getConversationMessages($this->userNumber, $this->otherUserNumber->number);
+
+        // Chronological order: first message is the oldest among the retrieved, last is the latest
+        $this->assertEquals('پیام شماره 1', $messages->first()->body);
+        $this->assertEquals('پیام شماره 20', $messages->last()->body);
+    }
 }

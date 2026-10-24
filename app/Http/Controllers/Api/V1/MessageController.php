@@ -15,7 +15,7 @@ class MessageController extends Controller
     ) {}
 
     /**
-     * Inbound message receiver API endpoint.
+     * Inbound/Outbound message receiver API endpoint.
      * Accessible by client API tokens (for their allocated numbers) or admin API tokens (for any number).
      */
     public function store(Request $request): JsonResponse
@@ -34,6 +34,8 @@ class MessageController extends Controller
         $validated = $request->validate([
             'destination_number' => ['required', 'string', 'max:30'],
             'sender' => ['required', 'string', 'max:100'],
+            'from_number' => ['nullable', 'string', 'max:100'],
+            'direction' => ['nullable', 'string', 'in:inbound,outbound'],
             'body' => ['required', 'string', 'max:5000'],
             'source_time' => ['nullable', 'date'],
             'source_system_id' => ['nullable', 'string', 'max:100'],
@@ -53,17 +55,19 @@ class MessageController extends Controller
 
         $message = $result['message'];
         $isDuplicate = $result['is_duplicate'];
+        $isOutbound = ($message->direction === \App\Enums\MessageDirection::Outbound || $message->direction->value === 'outbound');
 
         return response()->json([
             'success' => true,
             'message' => $isDuplicate
                 ? 'پیام پیش‌تر در سامانه ثبت شده است (درخواست تکراری / Idempotent).'
-                : 'پیام ورودی با موفقیت در سامانه ثبت گردید.',
+                : ($isOutbound ? 'پیام خروجی با موفقیت در سامانه ثبت گردید.' : 'پیام ورودی با موفقیت در سامانه ثبت گردید.'),
             'data' => [
                 'id' => $message->id,
                 'destination_number' => $message->destination_number,
                 'destination_title' => $message->phoneNumber?->effective_title ?? (\App\Models\PhonePrefix::getDefaultPrefixString() . $message->destination_number),
                 'sender' => $message->sender,
+                'direction' => $message->direction->value,
                 'body' => $message->body,
                 'source_time' => $message->source_time?->toIso8601String(),
                 'server_received_at' => $message->server_received_at->toIso8601String(),

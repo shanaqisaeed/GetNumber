@@ -475,9 +475,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
                         <option value="">همه انواع خطوط</option>
-                        <option value="user_standard">شماره عادی ۹ رقمی</option>
-                        <option value="user_service">سرشماره اختصاصی مشتری</option>
-                        <option value="platform_service">سرشماره اختصاصی سامانه</option>
+                        <option value="user_standard">اعتباری (۹ رقمی)</option>
+                        <option value="user_service">تجاری (۴ تا ۸ رقمی)</option>
+                        <option value="platform_service">تجاری سامانه</option>
                     </select>
                 </div>
 
@@ -768,9 +768,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             v-model="batchForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره‌های عادی کاربران (با پیشوند ۸۵+)</option>
-                            <option value="user_service">سرشماره‌های اختصاصی مشتریان</option>
-                            <option value="platform_service">سرشماره‌های اختصاصی پلتفرم</option>
+                            <option value="user_standard">شماره‌های اعتباری</option>
+                            <option value="user_service">خطوط تجاری</option>
+                            <option value="platform_service">خطوط تجاری سامانه</option>
                         </select>
                     </div>
 
@@ -830,9 +830,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             v-model="singleForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره عادی کاربر (۹ رقمی)</option>
-                            <option value="user_service">سرشماره اختصاصی مشتری (۴ تا ۸ رقم)</option>
-                            <option value="platform_service">سرشماره اختصاصی سامانه</option>
+                            <option value="user_standard">شماره اعتباری</option>
+                            <option value="user_service">خط تجاری</option>
+                            <option value="platform_service">خط تجاری سامانه</option>
                         </select>
                     </div>
 
@@ -1127,9 +1127,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             v-model="editForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره عادی کاربر (۹ رقمی)</option>
-                            <option value="user_service">سرشماره اختصاصی مشتری (۴ تا ۸ رقم)</option>
-                            <option value="platform_service">سرشماره اختصاصی سامانه</option>
+                            <option value="user_standard">شماره اعتباری</option>
+                            <option value="user_service">خط تجاری</option>
+                            <option value="platform_service">خط تجاری سامانه</option>
                         </select>
                         <p v-if="editForm.errors.type" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.type }}</p>
                     </div>
