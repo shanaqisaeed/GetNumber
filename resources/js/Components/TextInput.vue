@@ -3,6 +3,10 @@ import { onMounted, ref } from 'vue';
 
 const model = defineModel<string>({ required: true });
 
+defineProps<{
+    hasError?: boolean;
+}>();
+
 const input = ref<HTMLInputElement | null>(null);
 
 onMounted(() => {
@@ -16,8 +20,10 @@ defineExpose({ focus: () => input.value?.focus() });
 
 <template>
     <input
-        class="rounded-xl border-slate-200 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-500 dark:focus:ring-indigo-500 text-sm"
+        class="form-input"
+        :class="{ 'has-error': hasError }"
         v-model="model"
         ref="input"
     />
 </template>
+

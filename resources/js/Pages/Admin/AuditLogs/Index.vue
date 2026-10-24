@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 interface UserActor {
     id: number;
@@ -97,6 +97,15 @@ function closeInspectModal() {
     selectedLog.value = null;
     copySuccess.value = false;
 }
+
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        closeInspectModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
 async function copyPayload() {
     if (!selectedLog.value?.payload) return;
@@ -204,11 +213,11 @@ async function copyPayload() {
 
                 <!-- Action filter -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">نوع رخداد</label>
+                    <label class="form-label mb-1.5">نوع رخداد</label>
                     <select
                         v-model="action"
                         @change="applyFilters"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-rose-500 focus:ring-rose-500 py-2"
+                        class="form-select w-full text-xs rounded-xl py-2"
                     >
                         <option v-for="opt in actionOptions" :key="opt.value" :value="opt.value">
                             {{ opt.label }}
@@ -400,14 +409,15 @@ async function copyPayload() {
         <!-- JSON Payload Inspector Modal -->
         <div
             v-if="isModalOpen && selectedLog"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in"
+            @click.self="closeInspectModal"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm animate-fade-in"
         >
             <div
-                class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+                class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 max-w-2xl w-full max-h-[calc(100dvh-2.5rem)] flex flex-col shadow-2xl overflow-hidden"
                 @click.stop
             >
                 <!-- Modal Header -->
-                <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div class="flex items-center gap-2.5">
                         <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

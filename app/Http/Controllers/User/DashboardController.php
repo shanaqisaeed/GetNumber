@@ -70,7 +70,8 @@ class DashboardController extends Controller
         $unreadMessages = Message::whereIn('phone_number_id', $userPhoneIds)
             ->where('direction', MessageDirection::Inbound)
             ->where('processing_status', MessageProcessingStatus::Received)
-            ->with('phoneNumber')
+            ->with('phoneNumber.prefix')
+
             ->selectRaw('sender, phone_number_id, count(*) as count, max(server_received_at) as latest_received_at')
             ->groupBy('sender', 'phone_number_id')
             ->orderByDesc('latest_received_at')

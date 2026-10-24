@@ -120,27 +120,27 @@ function submit() {
                 <!-- Department & Priority -->
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        <label class="form-label">
                             دپارتمان <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.department"
-                            class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                            class="form-select !py-2.5 !text-xs w-full"
                         >
-                            <option v-for="d in departments" :key="d.value" :value="d.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ d.label }}</option>
+                            <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
                         </select>
                         <p v-if="form.errors.department" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.department }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        <label class="form-label">
                             اولویت <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.priority"
-                            class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                            class="form-select !py-2.5 !text-xs w-full"
                         >
-                            <option v-for="p in priorities" :key="p.value" :value="p.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ p.label }}</option>
+                            <option v-for="p in priorities" :key="p.value" :value="p.value">{{ p.label }}</option>
                         </select>
                         <p v-if="form.errors.priority" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.priority }}</p>
                     </div>
@@ -148,15 +148,15 @@ function submit() {
 
                 <!-- Optional Linked Number -->
                 <div v-if="userNumbers.length > 0">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label class="form-label">
                         خط سازمانی مرتبط (اختیاری):
                     </label>
                     <select
                         v-model="form.phone_number_id"
-                        class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                        class="form-select !py-2.5 !text-xs w-full"
                     >
-                        <option :value="null" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">بدون اتصال به خط مشخص</option>
-                        <option v-for="num in userNumbers" :key="num.id" :value="num.id" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                        <option :value="null">بدون اتصال به خط مشخص</option>
+                        <option v-for="num in userNumbers" :key="num.id" :value="num.id">
                             {{ num.formatted_number }} - {{ num.display_title }}
                         </option>
                     </select>

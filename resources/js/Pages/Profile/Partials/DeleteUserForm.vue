@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import InputError from '@/Components/InputError.vue';
 import { useForm } from '@inertiajs/vue3';
-import { nextTick, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, ref } from 'vue';
 
 const confirmingUserDeletion = ref(false);
 const passwordInput = ref<HTMLInputElement | null>(null);
@@ -32,6 +32,15 @@ const closeModal = () => {
     form.clearErrors();
     form.reset();
 };
+
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && confirmingUserDeletion.value) {
+        closeModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
@@ -86,7 +95,7 @@ const closeModal = () => {
                     @click.self="closeModal"
                 >
                     <div
-                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto"
                     >
                         <!-- Modal Header -->
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">

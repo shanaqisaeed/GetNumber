@@ -1,0 +1,612 @@
+{
+  "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js": {
+    "file": "assets/AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js",
+    "name": "AdminLayout.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "_AllocateNumberModal.vue_vue_type_script_setup_true_lang-QIFBisLj.js": {
+    "file": "assets/AllocateNumberModal.vue_vue_type_script_setup_true_lang-QIFBisLj.js",
+    "name": "AllocateNumberModal.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "_AuthLayout.vue_vue_type_script_setup_true_lang-Bkx7bTyK.js": {
+    "file": "assets/AuthLayout.vue_vue_type_script_setup_true_lang-Bkx7bTyK.js",
+    "name": "AuthLayout.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "_DeleteUserForm.vue_vue_type_script_setup_true_lang-BqJ--B1M.js": {
+    "file": "assets/DeleteUserForm.vue_vue_type_script_setup_true_lang-BqJ--B1M.js",
+    "name": "DeleteUserForm.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "_GuestLayout.vue_vue_type_script_setup_true_lang-gXGmieWt.js": {
+    "file": "assets/GuestLayout.vue_vue_type_script_setup_true_lang-gXGmieWt.js",
+    "name": "GuestLayout.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js": {
+    "file": "assets/InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js",
+    "name": "InputError.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "_UpdatePasswordForm.vue_vue_type_script_setup_true_lang-B2BqD5Lx.js": {
+    "file": "assets/UpdatePasswordForm.vue_vue_type_script_setup_true_lang-B2BqD5Lx.js",
+    "name": "UpdatePasswordForm.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "_UpdateProfileInformationForm.vue_vue_type_script_setup_true_lang-CGaoSCjH.js": {
+    "file": "assets/UpdateProfileInformationForm.vue_vue_type_script_setup_true_lang-CGaoSCjH.js",
+    "name": "UpdateProfileInformationForm.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js": {
+    "file": "assets/UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js",
+    "name": "UserLayout.vue_vue_type_script_setup_true_lang",
+    "imports": [
+      "resources/js/app.ts"
+    ]
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-300-normal.woff": {
+    "file": "assets/vazirmatn-arabic-300-normal-DLHw88_k.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-300-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-300-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-300-normal-BYd1kBEw.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-300-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-400-normal.woff": {
+    "file": "assets/vazirmatn-arabic-400-normal-C4W5XURk.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-400-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-400-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-400-normal-DMZFCm7K.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-400-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-500-normal.woff": {
+    "file": "assets/vazirmatn-arabic-500-normal-Dqq3-xo3.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-500-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-500-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-500-normal-C_lbnnKa.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-500-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-600-normal.woff": {
+    "file": "assets/vazirmatn-arabic-600-normal-CWYTfCgi.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-600-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-600-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-600-normal-CPKvAnd1.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-600-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-700-normal.woff": {
+    "file": "assets/vazirmatn-arabic-700-normal-B5nPuCFv.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-700-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-700-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-700-normal-Dge_DOjm.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-700-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-800-normal.woff": {
+    "file": "assets/vazirmatn-arabic-800-normal-BH12s3-y.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-800-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-800-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-800-normal-Bwnt96zj.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-800-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-900-normal.woff": {
+    "file": "assets/vazirmatn-arabic-900-normal-DxDkRnCr.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-900-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-900-normal.woff2": {
+    "file": "assets/vazirmatn-arabic-900-normal-BVDx3pOU.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-arabic-900-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-300-normal.woff": {
+    "file": "assets/vazirmatn-latin-300-normal-C6mM4Yld.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-300-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-300-normal.woff2": {
+    "file": "assets/vazirmatn-latin-300-normal-BoU4YpvD.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-300-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-400-normal.woff": {
+    "file": "assets/vazirmatn-latin-400-normal-GKyMcI03.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-400-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-400-normal.woff2": {
+    "file": "assets/vazirmatn-latin-400-normal-BT_DHTc7.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-400-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-500-normal.woff": {
+    "file": "assets/vazirmatn-latin-500-normal-Bg_BALlD.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-500-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-500-normal.woff2": {
+    "file": "assets/vazirmatn-latin-500-normal-6zZzgpg4.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-500-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-600-normal.woff": {
+    "file": "assets/vazirmatn-latin-600-normal-BxJiDPKT.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-600-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-600-normal.woff2": {
+    "file": "assets/vazirmatn-latin-600-normal-D-zF-Oec.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-600-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-700-normal.woff": {
+    "file": "assets/vazirmatn-latin-700-normal-DrB0PBU6.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-700-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-700-normal.woff2": {
+    "file": "assets/vazirmatn-latin-700-normal-9BlbvDRV.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-700-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-800-normal.woff": {
+    "file": "assets/vazirmatn-latin-800-normal-fM8Xz9cI.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-800-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-800-normal.woff2": {
+    "file": "assets/vazirmatn-latin-800-normal-e0EQwLmk.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-800-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-900-normal.woff": {
+    "file": "assets/vazirmatn-latin-900-normal-BGmAvq1S.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-900-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-900-normal.woff2": {
+    "file": "assets/vazirmatn-latin-900-normal-DUUbkNfs.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-900-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-300-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-300-normal-e-3YDG27.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-300-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-300-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-300-normal-C0szevm-.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-300-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-400-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-400-normal-DPxMaNjI.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-400-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-400-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-400-normal-BdGhO0lm.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-400-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-500-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-500-normal-4XgegWYb.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-500-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-500-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-500-normal-CgxvvVrG.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-500-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-600-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-600-normal-Di8rk35l.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-600-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-600-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-600-normal-CyxCUfFz.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-600-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-700-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-700-normal-DMYLqBto.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-700-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-700-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-700-normal-BfoXmNMx.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-700-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-800-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-800-normal-HbVXW2Kv.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-800-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-800-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-800-normal-BzH3Tiwu.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-800-normal.woff2"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-900-normal.woff": {
+    "file": "assets/vazirmatn-latin-ext-900-normal-5ssG3_7O.woff",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-900-normal.woff"
+  },
+  "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-900-normal.woff2": {
+    "file": "assets/vazirmatn-latin-ext-900-normal-DFoB6cWj.woff2",
+    "src": "node_modules/@fontsource/vazirmatn/files/vazirmatn-latin-ext-900-normal.woff2"
+  },
+  "resources/js/Pages/Admin/ApiTokens/Index.vue": {
+    "file": "assets/Index-Dfo6f4ak.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/ApiTokens/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/AuditLogs/Index.vue": {
+    "file": "assets/Index-NTM8BfeW.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/AuditLogs/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Dashboard.vue": {
+    "file": "assets/Dashboard-BoGf6JDU.js",
+    "name": "Dashboard",
+    "src": "resources/js/Pages/Admin/Dashboard.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js",
+      "resources/js/app.ts"
+    ]
+  },
+  "resources/js/Pages/Admin/Messages/Index.vue": {
+    "file": "assets/Index-rj_y6pT1.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Messages/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Numbers/Index.vue": {
+    "file": "assets/Index-B-tkL76u.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Numbers/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Prefixes/Index.vue": {
+    "file": "assets/Index-C9dO0hNO.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Prefixes/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Requests/Index.vue": {
+    "file": "assets/Index-Dmm21KhL.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Requests/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Tickets/Index.vue": {
+    "file": "assets/Index-CKdAo6z5.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Tickets/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Tickets/Show.vue": {
+    "file": "assets/Show-tPVHT4MV.js",
+    "name": "Show",
+    "src": "resources/js/Pages/Admin/Tickets/Show.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Users/Create.vue": {
+    "file": "assets/Create-DfycAvYE.js",
+    "name": "Create",
+    "src": "resources/js/Pages/Admin/Users/Create.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Admin/Users/Index.vue": {
+    "file": "assets/Index-CkYr5xOb.js",
+    "name": "Index",
+    "src": "resources/js/Pages/Admin/Users/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AdminLayout.vue_vue_type_script_setup_true_lang-BeWZ5km_.js"
+    ]
+  },
+  "resources/js/Pages/Auth/ConfirmPassword.vue": {
+    "file": "assets/ConfirmPassword-B7Feom5j.js",
+    "name": "ConfirmPassword",
+    "src": "resources/js/Pages/Auth/ConfirmPassword.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AuthLayout.vue_vue_type_script_setup_true_lang-Bkx7bTyK.js",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Auth/Login.vue": {
+    "file": "assets/Login-DRtHnPja.js",
+    "name": "Login",
+    "src": "resources/js/Pages/Auth/Login.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AuthLayout.vue_vue_type_script_setup_true_lang-Bkx7bTyK.js",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Auth/Register.vue": {
+    "file": "assets/Register-gUsaTLCC.js",
+    "name": "Register",
+    "src": "resources/js/Pages/Auth/Register.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AuthLayout.vue_vue_type_script_setup_true_lang-Bkx7bTyK.js",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Dashboard.vue": {
+    "file": "assets/Dashboard-Cc9I8U2e.js",
+    "name": "Dashboard",
+    "src": "resources/js/Pages/Dashboard.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_AllocateNumberModal.vue_vue_type_script_setup_true_lang-QIFBisLj.js",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/Docs/Api.vue": {
+    "file": "assets/Api-1E2-1CXd.js",
+    "name": "Api",
+    "src": "resources/js/Pages/Docs/Api.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_GuestLayout.vue_vue_type_script_setup_true_lang-gXGmieWt.js",
+      "resources/js/app.ts"
+    ]
+  },
+  "resources/js/Pages/Profile/Edit.vue": {
+    "file": "assets/Edit-CjnhGpU3.js",
+    "name": "Edit",
+    "src": "resources/js/Pages/Profile/Edit.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js",
+      "_DeleteUserForm.vue_vue_type_script_setup_true_lang-BqJ--B1M.js",
+      "_UpdatePasswordForm.vue_vue_type_script_setup_true_lang-B2BqD5Lx.js",
+      "_UpdateProfileInformationForm.vue_vue_type_script_setup_true_lang-CGaoSCjH.js",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Profile/Partials/DeleteUserForm.vue": {
+    "file": "assets/DeleteUserForm-DW7VogX5.js",
+    "name": "DeleteUserForm",
+    "src": "resources/js/Pages/Profile/Partials/DeleteUserForm.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_DeleteUserForm.vue_vue_type_script_setup_true_lang-BqJ--B1M.js",
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue": {
+    "file": "assets/UpdatePasswordForm-uFQ4dMWX.js",
+    "name": "UpdatePasswordForm",
+    "src": "resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_UpdatePasswordForm.vue_vue_type_script_setup_true_lang-B2BqD5Lx.js",
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/Profile/Partials/UpdateProfileInformationForm.vue": {
+    "file": "assets/UpdateProfileInformationForm-pMLuAZs2.js",
+    "name": "UpdateProfileInformationForm",
+    "src": "resources/js/Pages/Profile/Partials/UpdateProfileInformationForm.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "_UpdateProfileInformationForm.vue_vue_type_script_setup_true_lang-CGaoSCjH.js",
+      "resources/js/app.ts",
+      "_InputError.vue_vue_type_script_setup_true_lang-BbkJDQc_.js"
+    ]
+  },
+  "resources/js/Pages/User/ApiTokens/Index.vue": {
+    "file": "assets/Index-RrkLc0rE.js",
+    "name": "Index",
+    "src": "resources/js/Pages/User/ApiTokens/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/User/Messages/Index.vue": {
+    "file": "assets/Index-DJzjG1rs.js",
+    "name": "Index",
+    "src": "resources/js/Pages/User/Messages/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/User/Numbers/Index.vue": {
+    "file": "assets/Index-CyhzOacv.js",
+    "name": "Index",
+    "src": "resources/js/Pages/User/Numbers/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js",
+      "_AllocateNumberModal.vue_vue_type_script_setup_true_lang-QIFBisLj.js"
+    ]
+  },
+  "resources/js/Pages/User/Requests/Index.vue": {
+    "file": "assets/Index-BUuF7skA.js",
+    "name": "Index",
+    "src": "resources/js/Pages/User/Requests/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/User/Tickets/Create.vue": {
+    "file": "assets/Create-_cJG1y9e.js",
+    "name": "Create",
+    "src": "resources/js/Pages/User/Tickets/Create.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/User/Tickets/Index.vue": {
+    "file": "assets/Index-CCW7CMVg.js",
+    "name": "Index",
+    "src": "resources/js/Pages/User/Tickets/Index.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/User/Tickets/Show.vue": {
+    "file": "assets/Show-QH9WBLag.js",
+    "name": "Show",
+    "src": "resources/js/Pages/User/Tickets/Show.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_UserLayout.vue_vue_type_script_setup_true_lang-D8t-Y484.js"
+    ]
+  },
+  "resources/js/Pages/Welcome.vue": {
+    "file": "assets/Welcome-DusQxroQ.js",
+    "name": "Welcome",
+    "src": "resources/js/Pages/Welcome.vue",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.ts",
+      "_GuestLayout.vue_vue_type_script_setup_true_lang-gXGmieWt.js"
+    ]
+  },
+  "resources/js/app.ts": {
+    "file": "assets/app-CGUZ8gUY.js",
+    "name": "app",
+    "src": "resources/js/app.ts",
+    "isEntry": true,
+    "dynamicImports": [
+      "resources/js/Pages/Admin/ApiTokens/Index.vue",
+      "resources/js/Pages/Admin/AuditLogs/Index.vue",
+      "resources/js/Pages/Admin/Dashboard.vue",
+      "resources/js/Pages/Admin/Messages/Index.vue",
+      "resources/js/Pages/Admin/Numbers/Index.vue",
+      "resources/js/Pages/Admin/Prefixes/Index.vue",
+      "resources/js/Pages/Admin/Requests/Index.vue",
+      "resources/js/Pages/Admin/Tickets/Index.vue",
+      "resources/js/Pages/Admin/Tickets/Show.vue",
+      "resources/js/Pages/Admin/Users/Create.vue",
+      "resources/js/Pages/Admin/Users/Index.vue",
+      "resources/js/Pages/Auth/ConfirmPassword.vue",
+      "resources/js/Pages/Auth/Login.vue",
+      "resources/js/Pages/Auth/Register.vue",
+      "resources/js/Pages/Dashboard.vue",
+      "resources/js/Pages/Docs/Api.vue",
+      "resources/js/Pages/Profile/Edit.vue",
+      "resources/js/Pages/Profile/Partials/DeleteUserForm.vue",
+      "resources/js/Pages/Profile/Partials/UpdatePasswordForm.vue",
+      "resources/js/Pages/Profile/Partials/UpdateProfileInformationForm.vue",
+      "resources/js/Pages/User/ApiTokens/Index.vue",
+      "resources/js/Pages/User/Messages/Index.vue",
+      "resources/js/Pages/User/Numbers/Index.vue",
+      "resources/js/Pages/User/Requests/Index.vue",
+      "resources/js/Pages/User/Tickets/Create.vue",
+      "resources/js/Pages/User/Tickets/Index.vue",
+      "resources/js/Pages/User/Tickets/Show.vue",
+      "resources/js/Pages/Welcome.vue"
+    ],
+    "css": [
+      "assets/app-Cwvtd60m.css"
+    ],
+    "assets": [
+      "assets/vazirmatn-arabic-300-normal-BYd1kBEw.woff2",
+      "assets/vazirmatn-arabic-300-normal-DLHw88_k.woff",
+      "assets/vazirmatn-latin-ext-300-normal-C0szevm-.woff2",
+      "assets/vazirmatn-latin-ext-300-normal-e-3YDG27.woff",
+      "assets/vazirmatn-latin-300-normal-BoU4YpvD.woff2",
+      "assets/vazirmatn-latin-300-normal-C6mM4Yld.woff",
+      "assets/vazirmatn-arabic-400-normal-DMZFCm7K.woff2",
+      "assets/vazirmatn-arabic-400-normal-C4W5XURk.woff",
+      "assets/vazirmatn-latin-ext-400-normal-BdGhO0lm.woff2",
+      "assets/vazirmatn-latin-ext-400-normal-DPxMaNjI.woff",
+      "assets/vazirmatn-latin-400-normal-BT_DHTc7.woff2",
+      "assets/vazirmatn-latin-400-normal-GKyMcI03.woff",
+      "assets/vazirmatn-arabic-500-normal-C_lbnnKa.woff2",
+      "assets/vazirmatn-arabic-500-normal-Dqq3-xo3.woff",
+      "assets/vazirmatn-latin-ext-500-normal-CgxvvVrG.woff2",
+      "assets/vazirmatn-latin-ext-500-normal-4XgegWYb.woff",
+      "assets/vazirmatn-latin-500-normal-6zZzgpg4.woff2",
+      "assets/vazirmatn-latin-500-normal-Bg_BALlD.woff",
+      "assets/vazirmatn-arabic-600-normal-CPKvAnd1.woff2",
+      "assets/vazirmatn-arabic-600-normal-CWYTfCgi.woff",
+      "assets/vazirmatn-latin-ext-600-normal-CyxCUfFz.woff2",
+      "assets/vazirmatn-latin-ext-600-normal-Di8rk35l.woff",
+      "assets/vazirmatn-latin-600-normal-D-zF-Oec.woff2",
+      "assets/vazirmatn-latin-600-normal-BxJiDPKT.woff",
+      "assets/vazirmatn-arabic-700-normal-Dge_DOjm.woff2",
+      "assets/vazirmatn-arabic-700-normal-B5nPuCFv.woff",
+      "assets/vazirmatn-latin-ext-700-normal-BfoXmNMx.woff2",
+      "assets/vazirmatn-latin-ext-700-normal-DMYLqBto.woff",
+      "assets/vazirmatn-latin-700-normal-9BlbvDRV.woff2",
+      "assets/vazirmatn-latin-700-normal-DrB0PBU6.woff",
+      "assets/vazirmatn-arabic-800-normal-Bwnt96zj.woff2",
+      "assets/vazirmatn-arabic-800-normal-BH12s3-y.woff",
+      "assets/vazirmatn-latin-ext-800-normal-BzH3Tiwu.woff2",
+      "assets/vazirmatn-latin-ext-800-normal-HbVXW2Kv.woff",
+      "assets/vazirmatn-latin-800-normal-e0EQwLmk.woff2",
+      "assets/vazirmatn-latin-800-normal-fM8Xz9cI.woff",
+      "assets/vazirmatn-arabic-900-normal-BVDx3pOU.woff2",
+      "assets/vazirmatn-arabic-900-normal-DxDkRnCr.woff",
+      "assets/vazirmatn-latin-ext-900-normal-DFoB6cWj.woff2",
+      "assets/vazirmatn-latin-ext-900-normal-5ssG3_7O.woff",
+      "assets/vazirmatn-latin-900-normal-DUUbkNfs.woff2",
+      "assets/vazirmatn-latin-900-normal-BGmAvq1S.woff"
+    ]
+  }
+}

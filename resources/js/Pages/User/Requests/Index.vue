@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 interface AllocatedNumber {
     id: number;
@@ -168,6 +168,17 @@ const copyToClipboard = async (text: string) => {
         showToast('شماره کپی شد');
     }
 };
+
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isCreateModalOpen.value) closeCreateModal();
+        if (isDetailsModalOpen.value) closeDetailsModal();
+        if (isCancelModalOpen.value) closeCancelModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
@@ -254,12 +265,12 @@ const copyToClipboard = async (text: string) => {
                 <select
                     v-model="statusFilter"
                     @change="handleFilter"
-                    class="glass-input !py-2 !px-2.5 !text-xs !rounded-xl w-auto bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                    class="form-select !py-2 !text-xs !rounded-xl w-auto"
                 >
-                    <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">همه وضعیت‌ها</option>
-                    <option value="pending" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">در انتظار</option>
-                    <option value="approved" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">تأییدشده</option>
-                    <option value="rejected" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">ردشده</option>
+                    <option value="">همه وضعیت‌ها</option>
+                    <option value="pending">در انتظار</option>
+                    <option value="approved">تأییدشده</option>
+                    <option value="rejected">ردشده</option>
                 </select>
 
                 <button
@@ -415,7 +426,7 @@ const copyToClipboard = async (text: string) => {
                     @click.self="closeCreateModal"
                 >
                     <div
-                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto"
                     >
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
                             <div class="flex items-center gap-2.5">
@@ -436,10 +447,10 @@ const copyToClipboard = async (text: string) => {
                             </button>
                         </div>
 
-                        <form @submit.prevent="submitCreate" class="space-y-3.5">
+                        <form @submit.prevent="submitCreate" class="space-y-4">
                             <!-- Length Chips -->
                             <div>
-                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">طول شماره درخواستی:</label>
+                                <label class="form-label">طول شماره درخواستی:</label>
                                 <div class="grid grid-cols-5 gap-1.5">
                                     <button
                                         v-for="l in availableLengths"
@@ -460,20 +471,20 @@ const copyToClipboard = async (text: string) => {
 
                             <!-- Service Title -->
                             <div>
-                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">عنوان سرویس / کاربرد:</label>
+                                <label class="form-label">عنوان سرویس / کاربرد:</label>
                                 <input
                                     type="text"
                                     v-model="createForm.service_title"
                                     placeholder="مثال: پیامک اطلاع‌رسانی سفارشات"
                                     required
                                     :disabled="createForm.processing"
-                                    class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                    class="form-input !py-2.5 !text-xs"
                                 />
                             </div>
 
                             <!-- Preferred Number (Optional) -->
                             <div>
-                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                                <label class="form-label">
                                     شماره پیشنهادی
                                     <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(اختیاری)</span>:
                                 </label>
@@ -483,20 +494,20 @@ const copyToClipboard = async (text: string) => {
                                     placeholder="مثال: 8888"
                                     dir="ltr"
                                     :disabled="createForm.processing"
-                                    class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs font-mono text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                    class="form-input !py-2.5 !text-xs !font-mono text-left"
                                 />
                             </div>
 
                             <!-- Description -->
                             <div>
-                                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">توضیحات و نوع بهره‌برداری:</label>
+                                <label class="form-label">توضیحات و نوع بهره‌برداری:</label>
                                 <textarea
                                     v-model="createForm.description"
                                     rows="3"
                                     placeholder="اهداف کاربرد خط را مختصر شرح دهید..."
                                     required
                                     :disabled="createForm.processing"
-                                    class="w-full px-3.5 py-2.5 rounded-2xl resize-none bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
+                                    class="form-textarea !py-2.5 !text-xs resize-none"
                                 ></textarea>
                             </div>
 
@@ -576,7 +587,7 @@ const copyToClipboard = async (text: string) => {
                     @click.self="closeDetailsModal"
                 >
                     <div
-                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto"
                     >
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
                             <div class="flex items-center gap-2.5">
@@ -651,7 +662,7 @@ const copyToClipboard = async (text: string) => {
                     @click.self="closeCancelModal"
                 >
                     <div
-                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto"
                     >
                         <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center text-lg">
                             ⚠️

@@ -80,4 +80,39 @@ class ProfileTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function test_deleting_account_safely_releases_numbers_and_purges_messages(): void
+    {
+        $user = User::factory()->create();
+        $allocationService = app(\App\Contracts\PhoneNumberAllocationServiceInterface::class);
+
+        $phone = $allocationService->allocateStandardNumberToUser($user, '000333444');
+
+        // Add private message
+        \App\Models\Message::create([
+            'phone_number_id' => $phone->id,
+            'destination_number' => $phone->number,
+            'sender' => 'CONFIDENTIAL_BANK',
+            'body' => 'کد تایید انتقال وجه: ۱۲۳۴۵۶',
+            'server_received_at' => now(),
+        ]);
+
+        $this->assertSame(1, $phone->messages()->count());
+
+        // Delete account
+        $response = $this
+            ->actingAs($user)
+            ->delete('/profile', [
+                'password' => 'password',
+            ]);
+
+        $response->assertRedirect('/');
+
+        // Line should be returned to Available pool and its private messages purged
+        $freshPhone = $phone->fresh();
+        $this->assertSame(\App\Enums\PhoneNumberStatus::Available, $freshPhone->status);
+        $this->assertNull($freshPhone->user_id);
+        $this->assertSame(0, $freshPhone->messages()->count());
+    }
 }
+

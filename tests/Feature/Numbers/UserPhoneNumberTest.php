@@ -119,4 +119,54 @@ class UserPhoneNumberTest extends TestCase
         $response->assertStatus(403);
         $this->assertSame($user1->id, $phone->fresh()->user_id);
     }
+
+    public function test_releasing_number_permanently_purges_previous_messages_and_records_audit(): void
+    {
+        $user1 = User::factory()->create();
+        $user2 = User::factory()->create();
+
+        $phone = PhoneNumber::factory()->allocated($user1)->create([
+            'number' => '000019999',
+        ]);
+
+        // Create messages for user1
+        \App\Models\Message::create([
+            'phone_number_id' => $phone->id,
+            'destination_number' => $phone->number,
+            'sender' => 'BANK',
+            'body' => 'پیامک محرمانه کاربر اول: ۹۹۸۸۷۷',
+            'server_received_at' => now(),
+            'processing_status' => \App\Enums\MessageProcessingStatus::Received,
+        ]);
+
+        $this->assertEquals(1, $phone->messages()->count());
+
+        // user1 releases the number
+        $response = $this->actingAs($user1)->delete("/numbers/{$phone->id}");
+        $response->assertRedirect();
+
+        // 1. Assert messages are permanently purged
+        $this->assertEquals(0, $phone->messages()->count());
+        $this->assertDatabaseMissing('messages', [
+            'phone_number_id' => $phone->id,
+            'body' => 'پیامک محرمانه کاربر اول: ۹۹۸۸۷۷',
+        ]);
+
+        // 2. Assert operational audit trail exists without message body
+        $this->assertDatabaseHas('phone_number_audits', [
+            'phone_number_id' => $phone->id,
+            'action' => 'released',
+        ]);
+
+        // 3. User2 allocates the same number from available pool
+        $allocatedToUser2 = app(\App\Contracts\PhoneNumberAllocationServiceInterface::class)->allocateStandardNumberToUser(
+            user: $user2,
+            preferredNumber: $phone->number
+        );
+
+        $this->assertEquals($user2->id, $allocatedToUser2->user_id);
+        // User2 has NO messages from user1
+        $this->assertEquals(0, $allocatedToUser2->messages()->count());
+    }
 }
+

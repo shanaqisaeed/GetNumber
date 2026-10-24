@@ -150,19 +150,19 @@ function clearFilters() {
                     <select
                         v-model="status"
                         @change="applyFilters"
-                        class="glass-input !py-2 !px-2.5 !text-xs !rounded-xl w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                        class="form-select !py-2 !text-xs !rounded-xl w-full"
                     >
-                        <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">همه وضعیت‌ها</option>
-                        <option v-for="s in statuses" :key="s.value" :value="s.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ s.label }}</option>
+                        <option value="">همه وضعیت‌ها</option>
+                        <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
 
                     <select
                         v-model="department"
                         @change="applyFilters"
-                        class="glass-input !py-2 !px-2.5 !text-xs !rounded-xl w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                        class="form-select !py-2 !text-xs !rounded-xl w-full"
                     >
-                        <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">همه دپارتمان‌ها</option>
-                        <option v-for="d in departments" :key="d.value" :value="d.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ d.label }}</option>
+                        <option value="">همه دپارتمان‌ها</option>
+                        <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
                     </select>
                 </div>
 

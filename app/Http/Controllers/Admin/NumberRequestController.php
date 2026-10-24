@@ -28,7 +28,8 @@ class NumberRequestController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = NumberRequest::with(['user', 'allocatedNumber', 'reviewer']);
+        $query = NumberRequest::with(['user', 'allocatedNumber.prefix', 'reviewer']);
+
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));

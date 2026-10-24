@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface TokenItem {
     id: number;
@@ -187,10 +187,22 @@ const confirmDelete = () => {
                 closeDeleteModal();
             },
         }
-    );
+    )
+};
+const activeTab = ref<'bearer' | 'apikey'>('bearer');
+
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isSecretModalOpen.value) closeSecretModal();
+        if (isCreateModalOpen.value) closeCreateModal();
+        if (isRotateModalOpen.value) closeRotateModal();
+        if (isRevokeModalOpen.value) closeRevokeModal();
+        if (isDeleteModalOpen.value) closeDeleteModal();
+    }
 };
 
-const activeTab = ref<'bearer' | 'apikey'>('bearer');
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
@@ -403,8 +415,8 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
         </div>
 
         <!-- 4. One-Time Reveal Secret Modal -->
-        <div v-if="isSecretModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isSecretModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeSecretModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 mx-auto flex items-center justify-center">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <polyline points="20 6 9 17 4 12" stroke-width="2.5"></polyline>
@@ -449,48 +461,53 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
         </div>
 
         <!-- 5. Create Token Modal -->
-        <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeCreateModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تولید کلید جدید (API Token)</h3>
-                    <button type="button" @click="closeCreateModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
+                    <button type="button" @click="closeCreateModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
                 </div>
 
                 <form @submit.prevent="submitCreate" class="space-y-3.5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">نام یا شناسه کلید:</label>
+                        <label class="form-label">نام یا شناسه کلید:</label>
                         <input
                             type="text"
                             v-model="createForm.name"
                             placeholder="مثال: سرور اصلی یا فروشگاه اینترنتی"
                             required
-                            class="glass-input !py-2 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
+                            :disabled="createForm.processing"
+                            class="form-input !py-2 !text-xs"
                         />
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">مدت اعتبار:</label>
+                        <label class="form-label">مدت اعتبار:</label>
                         <select
                             v-model="createForm.expires_days"
-                            class="glass-input !py-2 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                            class="form-select !py-2 !text-xs"
                         >
-                            <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">نامحدود (پیشنهادی)</option>
-                            <option value="30" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">۳۰ روز</option>
-                            <option value="90" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">۹۰ روز</option>
-                            <option value="365" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">۱ سال</option>
+                            <option value="">نامحدود (پیشنهادی)</option>
+                            <option value="30">۳۰ روز</option>
+                            <option value="90">۹۰ روز</option>
+                            <option value="365">۱ سال</option>
                         </select>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeCreateModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                        <button type="button" @click="closeCreateModal" :disabled="createForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                             انصراف
                         </button>
                         <button
                             type="submit"
                             :disabled="createForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl inline-flex items-center gap-1.5"
                         >
-                            {{ createForm.processing ? 'در حال ایجاد...' : 'تولید کلید' }}
+                            <svg v-if="createForm.processing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            <span>{{ createForm.processing ? 'در حال ایجاد...' : 'تولید کلید' }}</span>
                         </button>
                     </div>
                 </form>
@@ -498,8 +515,8 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
         </div>
 
         <!-- 6. Rotate Modal -->
-        <div v-if="isRotateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isRotateModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeRotateModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-500 mx-auto flex items-center justify-center">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -512,24 +529,28 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeRotateModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                    <button type="button" @click="closeRotateModal" :disabled="rotateProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                         انصراف
                     </button>
                     <button
                         type="button"
                         @click="confirmRotate"
                         :disabled="rotateProcessing"
-                        class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-lg shadow-amber-600/30 disabled:opacity-50"
+                        class="px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-lg shadow-amber-600/30 disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
-                        {{ rotateProcessing ? 'در حال تمدید...' : 'تأیید و صدور رمز جدید' }}
+                        <svg v-if="rotateProcessing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ rotateProcessing ? 'در حال تمدید...' : 'تأیید و صدور رمز جدید' }}</span>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- 7. Revoke Modal -->
-        <div v-if="isRevokeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isRevokeModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeRevokeModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -542,24 +563,28 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeRevokeModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                    <button type="button" @click="closeRevokeModal" :disabled="revokeProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                         انصراف
                     </button>
                     <button
                         type="button"
                         @click="confirmRevoke"
                         :disabled="revokeProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50"
+                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
-                        {{ revokeProcessing ? 'در حال باطل‌سازی...' : 'باطل‌سازی قطعی' }}
+                        <svg v-if="revokeProcessing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ revokeProcessing ? 'در حال باطل‌سازی...' : 'باطل‌سازی قطعی' }}</span>
                     </button>
                 </div>
             </div>
         </div>
 
         <!-- 8. Delete Modal -->
-        <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isDeleteModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeDeleteModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -572,16 +597,20 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeDeleteModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                    <button type="button" @click="closeDeleteModal" :disabled="deleteProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                         انصراف
                     </button>
                     <button
                         type="button"
                         @click="confirmDelete"
                         :disabled="deleteProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50"
+                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
-                        {{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}
+                        <svg v-if="deleteProcessing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}</span>
                     </button>
                 </div>
             </div>

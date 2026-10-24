@@ -45,6 +45,12 @@ class ProfileController extends Controller
 
         $user = $request->user();
 
+        // Safely release any active numbers allocated to this user and purge private messages
+        $allocationService = app(\App\Contracts\PhoneNumberAllocationServiceInterface::class);
+        foreach ($user->phoneNumbers as $phoneNumber) {
+            $allocationService->releaseNumber($phoneNumber, $user, 'آزادسازی خودکار به دلیل حذف حساب کاربری');
+        }
+
         Auth::logout();
 
         $user->delete();
@@ -53,5 +59,6 @@ class ProfileController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+
     }
 }

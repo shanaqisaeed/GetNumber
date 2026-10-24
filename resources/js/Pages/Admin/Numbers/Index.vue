@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 
@@ -268,6 +268,18 @@ const copyNumber = (item: PhoneNumberItem) => {
         copiedId.value = null;
     }, 2000);
 };
+
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isBatchModalOpen.value) closeBatchModal();
+        if (isSingleModalOpen.value) closeSingleModal();
+        if (isAssignModalOpen.value) closeAssignModal();
+        if (isStatusModalOpen.value) closeStatusModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
@@ -360,7 +372,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                     <select
                         v-model="typeFilter"
                         @change="handleFilter"
-                        class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                        class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
                         <option value="">همه انواع خطوط</option>
                         <option value="user_standard">شماره عادی ۹ رقمی</option>
@@ -374,7 +386,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                     <select
                         v-model="statusFilter"
                         @change="handleFilter"
-                        class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                        class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
                         <option value="">همه وضعیت‌ها</option>
                         <option value="available">آزاد در استخر</option>
@@ -390,7 +402,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                     <select
                         v-model="lengthFilter"
                         @change="handleFilter"
-                        class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                        class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
                         <option value="">همه ارقام (طول)</option>
                         <option value="4">۴ رقمی</option>
@@ -407,7 +419,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                     <select
                         v-model="userIdFilter"
                         @change="handleFilter"
-                        class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                        class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
                         <option value="">همه کاربران</option>
                         <option v-for="u in users" :key="u.id" :value="String(u.id)">
@@ -424,7 +436,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                     <select
                         v-model="sortFilter"
                         @change="handleFilter"
-                        class="py-1.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500"
+                        class="form-select py-1.5 px-3 text-xs rounded-xl"
                     >
                         <option value="newest">جدیدترین شماره‌ها</option>
                         <option value="oldest">قدیمی‌ترین شماره‌ها</option>
@@ -560,17 +572,17 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- Batch Generation Modal (With manual digits length input) -->
-        <div v-if="isBatchModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+        <div v-if="isBatchModalOpen" @click.self="closeBatchModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تولید دسته‌ای شماره‌های آزاد</h3>
                     <button @click="closeBatchModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <form @submit.prevent="submitBatch" class="space-y-4">
+                <form @submit.prevent="submitBatch" class="space-y-4 overflow-y-auto flex-1">
                     <!-- Count Input -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             تعداد خطوط جهت تولید (حداکثر ۱۰۰ شماره در هر نوبت)
                         </label>
                         <input
@@ -578,7 +590,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                             v-model="batchForm.count"
                             min="1"
                             max="100"
-                            class="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-mono"
+                            class="form-input w-full font-mono"
                             required
                         />
                         <p v-if="batchForm.errors.count" class="text-rose-500 text-[11px] mt-1">{{ batchForm.errors.count }}</p>
@@ -586,7 +598,7 @@ const copyNumber = (item: PhoneNumberItem) => {
 
                     <!-- Digits Length Input (As requested: length entered manually) -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             طول ارقام شماره (تعداد ارقام عددی، مثلاً ۹ یا ۶ یا ۴)
                         </label>
                         <input
@@ -595,7 +607,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                             min="4"
                             max="11"
                             placeholder="مثال: ۹"
-                            class="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 font-mono"
+                            class="form-input w-full font-mono"
                             required
                         />
                         <p class="text-[11px] text-slate-400 mt-1">
@@ -606,12 +618,12 @@ const copyNumber = (item: PhoneNumberItem) => {
 
                     <!-- Type Selection -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             نوع خطوط سازمانی
                         </label>
                         <select
                             v-model="batchForm.type"
-                            class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                            class="form-select w-full"
                         >
                             <option value="user_standard">شماره‌های عادی کاربران (با پیشوند ۸۵+)</option>
                             <option value="user_service">سرشماره‌های اختصاصی مشتریان</option>
@@ -630,9 +642,13 @@ const copyNumber = (item: PhoneNumberItem) => {
                         <button
                             type="submit"
                             :disabled="batchForm.processing"
-                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            {{ batchForm.processing ? 'در حال تولید...' : 'تولید و ثبت در استخر' }}
+                            <svg v-if="batchForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ batchForm.processing ? 'در حال تولید...' : 'تولید و ثبت در استخر' }}</span>
                         </button>
                     </div>
                 </form>
@@ -640,16 +656,16 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- Single Number Creation Modal -->
-        <div v-if="isSingleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+        <div v-if="isSingleModalOpen" @click.self="closeSingleModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت دستی شماره جدید</h3>
                     <button @click="closeSingleModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <form @submit.prevent="submitSingle" class="space-y-4">
+                <form @submit.prevent="submitSingle" class="space-y-4 overflow-y-auto flex-1">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             شماره (۴ تا ۱۱ رقم عددی)
                         </label>
                         <input
@@ -657,19 +673,19 @@ const copyNumber = (item: PhoneNumberItem) => {
                             v-model="singleForm.number"
                             placeholder="مثال: 000123456 یا 1000"
                             dir="ltr"
-                            class="w-full px-4 py-2.5 text-xs font-mono rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 text-left"
+                            class="form-input w-full font-mono text-left"
                             required
                         />
                         <p v-if="singleForm.errors.number" class="text-rose-500 text-[11px] mt-1">{{ singleForm.errors.number }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             نوع خط
                         </label>
                         <select
                             v-model="singleForm.type"
-                            class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                            class="form-select w-full"
                         >
                             <option value="user_standard">شماره عادی کاربر (۹ رقمی)</option>
                             <option value="user_service">سرشماره اختصاصی مشتری (۴ تا ۸ رقم)</option>
@@ -678,14 +694,14 @@ const copyNumber = (item: PhoneNumberItem) => {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             عنوان نمایشی سرویس (اختیاری)
                         </label>
                         <input
                             type="text"
                             v-model="singleForm.display_title"
                             placeholder="مثال: پشتیبانی سامانه، مرکز اعلانات، بانکداری"
-                            class="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                            class="form-input w-full"
                         />
                         <p v-if="singleForm.errors.display_title" class="text-rose-500 text-[11px] mt-1">{{ singleForm.errors.display_title }}</p>
                     </div>
@@ -713,9 +729,13 @@ const copyNumber = (item: PhoneNumberItem) => {
                         <button
                             type="submit"
                             :disabled="singleForm.processing"
-                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            {{ singleForm.processing ? 'در حال ثبت...' : 'ثبت خط در سامانه' }}
+                            <svg v-if="singleForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ singleForm.processing ? 'در حال ثبت...' : 'ثبت خط در سامانه' }}</span>
                         </button>
                     </div>
                 </form>
@@ -723,14 +743,14 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- Searchable Assign Modal (Scalable for 1000+ users) -->
-        <div v-if="isAssignModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+        <div v-if="isAssignModalOpen" @click.self="closeAssignModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تخصیص خط سازمانی به کاربر</h3>
                     <button @click="closeAssignModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <form @submit.prevent="submitAssign" class="space-y-4">
+                <form @submit.prevent="submitAssign" class="space-y-4 overflow-y-auto flex-1">
                     <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 text-xs flex items-center justify-between">
                         <span>شماره خط انتخابی:</span>
                         <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberToAssign?.formatted_number }}</span>
@@ -738,7 +758,7 @@ const copyNumber = (item: PhoneNumberItem) => {
 
                     <!-- Searchable User Selection -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             جستجو و انتخاب کاربر مقصد (شناسه ID، نام یا نام کاربری)
                         </label>
 
@@ -768,7 +788,7 @@ const copyNumber = (item: PhoneNumberItem) => {
                                 type="text"
                                 v-model="userSearchQuery"
                                 placeholder="شناسه (مثال: 5) یا نام کاربری..."
-                                class="w-full pr-10 pl-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                                class="form-input w-full pr-10 pl-4 py-2.5"
                             />
                             <div class="absolute right-3 top-3 text-slate-400">
                                 <svg v-if="!isSearchingUsers" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -820,9 +840,13 @@ const copyNumber = (item: PhoneNumberItem) => {
                         <button
                             type="submit"
                             :disabled="assignForm.processing || !assignForm.user_id"
-                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            {{ assignForm.processing ? 'در حال ثبت تخصیص...' : 'تأیید و تخصیص خط' }}
+                            <svg v-if="assignForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ assignForm.processing ? 'در حال ثبت تخصیص...' : 'تأیید و تخصیص خط' }}</span>
                         </button>
                     </div>
                 </form>
@@ -830,26 +854,26 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- Status Change Modal -->
-        <div v-if="isStatusModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+        <div v-if="isStatusModalOpen" @click.self="closeStatusModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">تغییر وضعیت خط سازمانی</h3>
                     <button @click="closeStatusModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <form @submit.prevent="submitStatus" class="space-y-4">
+                <form @submit.prevent="submitStatus" class="space-y-4 overflow-y-auto flex-1">
                     <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 text-xs flex items-center justify-between">
                         <span>شماره خط:</span>
                         <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberForStatus?.formatted_number }}</span>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             وضعیت جدید
                         </label>
                         <select
                             v-model="statusForm.status"
-                            class="w-full py-2.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                            class="form-select w-full"
                         >
                             <option value="available">آزاد برای تخصیص</option>
                             <option value="allocated">تخصیص‌یافته</option>
@@ -860,14 +884,14 @@ const copyNumber = (item: PhoneNumberItem) => {
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             علت تغییر وضعیت (ثبت در گزارش‌های نظارتی)
                         </label>
                         <input
                             type="text"
                             v-model="statusForm.reason"
                             placeholder="مثال: دستور اداری، تعلیق موقت، یا بررسی فنی"
-                            class="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                            class="form-input w-full"
                         />
                     </div>
 
@@ -882,9 +906,13 @@ const copyNumber = (item: PhoneNumberItem) => {
                         <button
                             type="submit"
                             :disabled="statusForm.processing"
-                            class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            {{ statusForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات وضعیت' }}
+                            <svg v-if="statusForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ statusForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات وضعیت' }}</span>
                         </button>
                     </div>
                 </form>

@@ -60,9 +60,10 @@ class MessageController extends Controller
         }
 
         // 4. System-wide numbers list for filtering
-        $phoneNumbers = PhoneNumber::with('user')
+        $phoneNumbers = PhoneNumber::with(['user', 'prefix'])
             ->orderBy('number')
             ->get()
+
             ->map(fn (PhoneNumber $p) => [
                 'id' => $p->id,
                 'number' => $p->number,

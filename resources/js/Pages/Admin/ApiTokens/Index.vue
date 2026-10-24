@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
 interface UserSummary {
     id: number;
@@ -330,6 +330,19 @@ const confirmDelete = () => {
         }
     );
 };
+
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isSecretModalOpen.value) closeSecretModal();
+        if (isCreateModalOpen.value) closeCreateModal();
+        if (isRotateModalOpen.value) closeRotateModal();
+        if (isRevokeModalOpen.value) closeRevokeModal();
+        if (isDeleteModalOpen.value) closeDeleteModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
@@ -426,7 +439,7 @@ const confirmDelete = () => {
                     <div class="sm:col-span-4">
                         <select
                             v-model="statusFilter"
-                            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            class="form-select w-full py-2 text-xs rounded-xl"
                         >
                             <option value="">همه وضعیت‌ها</option>
                             <option value="active">فعال</option>
@@ -647,10 +660,11 @@ const confirmDelete = () => {
         <!-- ONE-TIME RAW SECRET MODAL (CRITICAL SECURITY) -->
         <div
             v-if="isSecretModalOpen && revealedSecret"
-            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+            @click.self="closeSecretModal"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl border border-indigo-500/30 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6">
-                <div class="flex items-start gap-4">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl border border-indigo-500/30 shadow-2xl overflow-hidden p-6 sm:p-8 space-y-6 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-start gap-4 shrink-0">
                     <div class="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -664,46 +678,48 @@ const confirmDelete = () => {
                     </div>
                 </div>
 
-                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    مقدار توکن خام زیر را کپی کرده و در محل امنی ذخیره فرمایید. این کلید دارای حداکثر اختیارات وب‌سرویس بوده و پس از بستن این پنجره امکان مشاهده مجدد آن وجود نخواهد داشت.
-                </p>
+                <div class="overflow-y-auto flex-1 space-y-4">
+                    <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                        مقدار توکن خام زیر را کپی کرده و در محل امنی ذخیره فرمایید. این کلید دارای حداکثر اختیارات وب‌سرویس بوده و پس از بستن این پنجره امکان مشاهده مجدد آن وجود نخواهد داشت.
+                    </p>
 
-                <div class="bg-slate-950 rounded-2xl p-4 border border-indigo-500/40 relative group">
-                    <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-                        <span class="font-bold text-indigo-400">کلید دسترسی خام (Secret Token):</span>
-                        <span class="font-mono text-[11px] text-slate-500">SHA-256 Hashed on Server</span>
-                    </div>
+                    <div class="bg-slate-950 rounded-2xl p-4 border border-indigo-500/40 relative group">
+                        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                            <span class="font-bold text-indigo-400">کلید دسترسی خام (Secret Token):</span>
+                            <span class="font-mono text-[11px] text-slate-500">SHA-256 Hashed on Server</span>
+                        </div>
 
-                    <div class="font-mono text-xs sm:text-sm text-emerald-400 break-all dir-ltr select-all p-3 bg-slate-900/90 rounded-xl border border-slate-800">
-                        {{ revealedSecret }}
-                    </div>
+                        <div class="font-mono text-xs sm:text-sm text-emerald-400 break-all dir-ltr select-all p-3 bg-slate-900/90 rounded-xl border border-slate-800">
+                            {{ revealedSecret }}
+                        </div>
 
-                    <div class="mt-3 flex items-center justify-between">
-                        <span class="text-[11px] text-slate-400">
-                            {{ isCopied ? 'کلید با موفقیت در کلیپ‌بورد کپی شد!' : 'روی دکمه مقابل کلیک کنید:' }}
-                        </span>
-                        <button
-                            type="button"
-                            @click="copySecretToClipboard"
-                            class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all"
-                            :class="isCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-500'"
-                        >
-                            <svg v-if="!isCopied" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                            <span>{{ isCopied ? 'کپی شد ✓' : 'کپی کلید' }}</span>
-                        </button>
+                        <div class="mt-3 flex items-center justify-between">
+                            <span class="text-[11px] text-slate-400">
+                                {{ isCopied ? 'کلید با موفقیت در کلیپ‌بورد کپی شد!' : 'روی دکمه مقابل کلیک کنید:' }}
+                            </span>
+                            <button
+                                type="button"
+                                @click="copySecretToClipboard"
+                                class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                                :class="isCopied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white hover:bg-indigo-500'"
+                            >
+                                <svg v-if="!isCopied" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>{{ isCopied ? 'کپی شد ✓' : 'کپی کلید' }}</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <div class="pt-2">
+                <div class="pt-2 shrink-0">
                     <button
                         type="button"
                         @click="closeSecretModal"
-                        class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 border border-slate-700 transition"
+                        class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
                     >
                         کلید را در محل امن ذخیره کردم و پنجره را می‌بندم
                     </button>
@@ -714,10 +730,11 @@ const confirmDelete = () => {
         <!-- CREATE TOKEN MODAL (ADMIN / USER) -->
         <div
             v-if="isCreateModalOpen"
+            @click.self="closeCreateModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in overflow-y-auto"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-xl rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-5 my-8">
-                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-xl max-h-[calc(100dvh-2.5rem)] flex flex-col rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 sm:p-7 space-y-5 my-auto">
+                <div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 shrink-0">
                     <div class="flex items-center gap-2.5">
                         <span class="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -737,7 +754,7 @@ const confirmDelete = () => {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitCreate" class="space-y-4">
+                <form @submit.prevent="submitCreate" class="space-y-4 flex-1 overflow-y-auto pr-1 pl-1">
                     <!-- Owner Selection: Admin or User -->
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
@@ -812,7 +829,7 @@ const confirmDelete = () => {
                                 @input="onUserSearchInput"
                                 type="text"
                                 placeholder="نام، نام کاربری یا شناسه کاربر را تایپ کنید..."
-                                class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                class="form-input w-full"
                             />
                             <div v-if="isSearchingUser" class="absolute left-3 top-2.5 text-xs text-slate-400">
                                 در حال جستجو...
@@ -854,7 +871,7 @@ const confirmDelete = () => {
                             v-model="createForm.name"
                             type="text"
                             placeholder="مثال: سرور مرکزی ERP، وب‌سرویس مدیریت خطوط، سیستم گزارش‌گیری"
-                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            class="form-input w-full"
                             required
                         />
                         <p v-if="createForm.errors.name" class="text-xs text-rose-500 mt-1 font-semibold">
@@ -914,7 +931,7 @@ const confirmDelete = () => {
                         </label>
                         <select
                             v-model="createForm.expires_days"
-                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                            class="form-select w-full"
                         >
                             <option value="">دائمی (بدون انقضا - توصیه برای سرورهای مدیریتی و زیرساختی)</option>
                             <option value="30">۳۰ روز (یک ماه)</option>
@@ -936,9 +953,13 @@ const confirmDelete = () => {
                         <button
                             type="submit"
                             :disabled="createForm.processing || (tokenOwnerType === 'user' && !createForm.user_id)"
-                            class="px-5 py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition shadow-md shadow-indigo-600/20"
+                            class="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:opacity-50 transition shadow-md shadow-indigo-600/20 cursor-pointer"
                         >
-                            {{ createForm.processing ? 'در حال صدور...' : 'تولید و صدور کلید دسترسی' }}
+                            <svg v-if="createForm.processing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            <span>{{ createForm.processing ? 'در حال صدور...' : 'تولید و صدور کلید دسترسی' }}</span>
                         </button>
                     </div>
                 </form>
@@ -948,9 +969,10 @@ const confirmDelete = () => {
         <!-- ROTATE CONFIRMATION MODAL -->
         <div
             v-if="isRotateModalOpen && tokenToRotate"
+            @click.self="closeRotateModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
                 <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -975,9 +997,13 @@ const confirmDelete = () => {
                         type="button"
                         @click="confirmRotate"
                         :disabled="rotateProcessing"
-                        class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition cursor-pointer"
                     >
-                        {{ rotateProcessing ? 'در حال تعویض...' : 'تأیید و صدور کلید جدید' }}
+                        <svg v-if="rotateProcessing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ rotateProcessing ? 'در حال تعویض...' : 'تأیید و صدور کلید جدید' }}</span>
                     </button>
                 </div>
             </div>
@@ -986,9 +1012,10 @@ const confirmDelete = () => {
         <!-- REVOKE CONFIRMATION MODAL -->
         <div
             v-if="isRevokeModalOpen && tokenToRevoke"
+            @click.self="closeRevokeModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
                 <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-100 dark:border-amber-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -1012,9 +1039,13 @@ const confirmDelete = () => {
                         type="button"
                         @click="confirmRevoke"
                         :disabled="revokeProcessing"
-                        class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 transition cursor-pointer"
                     >
-                        {{ revokeProcessing ? 'در حال ابطال...' : 'تایید ابطال' }}
+                        <svg v-if="revokeProcessing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ revokeProcessing ? 'در حال ابطال...' : 'تایید ابطال' }}</span>
                     </button>
                 </div>
             </div>
@@ -1023,9 +1054,10 @@ const confirmDelete = () => {
         <!-- DELETE CONFIRMATION MODAL -->
         <div
             v-if="isDeleteModalOpen && tokenToDelete"
+            @click.self="closeDeleteModal"
             class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in"
         >
-            <div class="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
+            <div class="bg-white dark:bg-slate-900 w-full max-w-md max-h-[calc(100dvh-2.5rem)] overflow-y-auto rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5">
                 <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/60">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1049,9 +1081,13 @@ const confirmDelete = () => {
                         type="button"
                         @click="confirmDelete"
                         :disabled="deleteProcessing"
-                        class="px-4 py-2 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 transition"
+                        class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 transition cursor-pointer"
                     >
-                        {{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}
+                        <svg v-if="deleteProcessing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}</span>
                     </button>
                 </div>
             </div>

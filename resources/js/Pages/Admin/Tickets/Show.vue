@@ -267,7 +267,7 @@ function changeAssignment() {
                             v-model="replyForm.message"
                             rows="5"
                             placeholder="متن پاسخ کارشناسی، راهنمایی یا اقدام انجام‌شده را در این بخش درج فرمایید..."
-                            class="w-full text-xs rounded-2xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 p-3.5 leading-relaxed"
+                            class="form-textarea w-full text-xs p-3.5 leading-relaxed"
                             required
                         ></textarea>
                         <p v-if="replyForm.errors.message" class="text-rose-500 text-[11px] font-bold">{{ replyForm.errors.message }}</p>
@@ -298,10 +298,13 @@ function changeAssignment() {
                             <button
                                 type="submit"
                                 :disabled="replyForm.processing"
-                                class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                                class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                             >
-                                <span v-if="replyForm.processing">در حال ارسال...</span>
-                                <span v-else>ارسال پاسخ و اطلاع مشترک</span>
+                                <svg v-if="replyForm.processing" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                <span>{{ replyForm.processing ? 'در حال ارسال...' : 'ارسال پاسخ و اطلاع مشترک' }}</span>
                             </button>
                         </div>
 
@@ -337,7 +340,7 @@ function changeAssignment() {
                         <select
                             v-model="selectedStatus"
                             @change="changeStatus"
-                            class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                            class="form-select w-full text-xs py-2.5"
                         >
                             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                         </select>
@@ -349,7 +352,7 @@ function changeAssignment() {
                         <select
                             v-model="selectedAgent"
                             @change="changeAssignment"
-                            class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                            class="form-select w-full text-xs py-2.5"
                         >
                             <option value="">بدون کارشناس (ارجاع به صف عمومی)</option>
                             <option v-for="staff in staffMembers" :key="staff.id" :value="staff.id">

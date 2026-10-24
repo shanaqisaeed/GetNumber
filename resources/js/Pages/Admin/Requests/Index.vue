@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 
 interface UserInfo {
     id: number;
@@ -183,6 +183,16 @@ const copyToClipboard = (text: string) => {
         copiedNumber.value = null;
     }, 2000);
 };
+
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isReviewModalOpen.value) closeReviewModal();
+        if (isDetailsModalOpen.value) closeDetailsModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleKeydown));
+onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
@@ -303,7 +313,7 @@ const copyToClipboard = (text: string) => {
                     <select
                         v-model="statusFilter"
                         @change="handleFilter"
-                        class="glass-input !py-2.5 !px-3 !text-xs cursor-pointer"
+                        class="form-select !py-2 !px-3 !text-xs cursor-pointer"
                     >
                         <option value="">همه وضعیت‌ها</option>
                         <option value="pending">در انتظار بررسی</option>
@@ -314,7 +324,7 @@ const copyToClipboard = (text: string) => {
                     <select
                         v-model="lengthFilter"
                         @change="handleFilter"
-                        class="glass-input !py-2.5 !px-3 !text-xs cursor-pointer"
+                        class="form-select !py-2 !px-3 !text-xs cursor-pointer"
                     >
                         <option value="">همه طول‌ها</option>
                         <option value="4">۴ رقمی</option>
@@ -486,10 +496,10 @@ const copyToClipboard = (text: string) => {
         </div>
 
         <!-- Admin Review Modal (Approve / Reject) -->
-        <div v-if="isReviewModalOpen && activeRequest" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div class="glass-card !p-6 w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+        <div v-if="isReviewModalOpen && activeRequest" @click.self="closeReviewModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-xl shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col">
                 <!-- Modal Header -->
-                <div class="p-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4">
+                <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">
                             بررسی و تعیین تکلیف درخواست #{{ activeRequest.id }}
@@ -501,185 +511,195 @@ const copyToClipboard = (text: string) => {
                     <button type="button" @click="closeReviewModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <!-- Request Summary Card -->
-                <div class="p-3.5 rounded-2xl bg-slate-100/60 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-xs mb-4 space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="font-bold text-slate-900 dark:text-white">عنوان سرویس:</span>
-                        <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ activeRequest.service_title }}</span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">طول درخواستی:</span>
-                        <span class="font-mono font-bold">{{ activeRequest.requested_length }} رقمی</span>
-                    </div>
-                    <div v-if="activeRequest.preferred_number" class="flex items-center justify-between">
-                        <span class="text-slate-500 dark:text-slate-400">شماره پیشنهادی متقاضی:</span>
-                        <span dir="ltr" class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ activeRequest.preferred_number }}</span>
-                    </div>
-                    <div>
-                        <span class="text-slate-500 dark:text-slate-400 block mb-1">شرح کاربرد:</span>
-                        <p class="text-slate-700 dark:text-slate-300 leading-relaxed bg-white/50 dark:bg-slate-950/50 p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5">
-                            {{ activeRequest.description }}
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Tabs: Approve vs Reject -->
-                <div class="flex border-b border-slate-200/60 dark:border-white/10 mb-4 gap-2">
-                    <button
-                        type="button"
-                        @click="reviewTab = 'approve'"
-                        class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
-                        :class="reviewTab === 'approve' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
-                    >
-                        تأیید و تخصیص سرشماره
-                    </button>
-                    <button
-                        type="button"
-                        @click="reviewTab = 'reject'"
-                        class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
-                        :class="reviewTab === 'reject' ? 'border-rose-500 text-rose-600 dark:text-rose-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
-                    >
-                        عدم تأیید و رد درخواست
-                    </button>
-                </div>
-
-                <!-- Tab 1: Approve Form -->
-                <form v-if="reviewTab === 'approve'" @submit.prevent="submitApprove" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            شیوه تخصیص سرشماره سازمانی
-                        </label>
-                        <div class="grid grid-cols-3 gap-2">
-                            <label
-                                class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
-                                :class="approveForm.mode === 'auto' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
-                            >
-                                <input type="radio" value="auto" v-model="approveForm.mode" class="sr-only" />
-                                <span class="block font-bold">تخصیص خودکار</span>
-                                <span class="text-[10px] opacity-75">سیستمی</span>
-                            </label>
-
-                            <label
-                                class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
-                                :class="approveForm.mode === 'pool' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
-                            >
-                                <input type="radio" value="pool" v-model="approveForm.mode" class="sr-only" />
-                                <span class="block font-bold">از استخر آزاد</span>
-                                <span class="text-[10px] opacity-75">انتخاب دستی</span>
-                            </label>
-
-                            <label
-                                class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
-                                :class="approveForm.mode === 'custom' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
-                            >
-                                <input type="radio" value="custom" v-model="approveForm.mode" class="sr-only" />
-                                <span class="block font-bold">شماره دستی</span>
-                                <span class="text-[10px] opacity-75">سفارشی ادمین</span>
-                            </label>
+                <div class="overflow-y-auto flex-1 space-y-4">
+                    <!-- Request Summary Card -->
+                    <div class="p-3.5 rounded-2xl bg-slate-100/60 dark:bg-slate-950/60 border border-slate-200/60 dark:border-white/5 text-xs space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-900 dark:text-white">عنوان سرویس:</span>
+                            <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ activeRequest.service_title }}</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">طول درخواستی:</span>
+                            <span class="font-mono font-bold">{{ activeRequest.requested_length }} رقمی</span>
+                        </div>
+                        <div v-if="activeRequest.preferred_number" class="flex items-center justify-between">
+                            <span class="text-slate-500 dark:text-slate-400">شماره پیشنهادی متقاضی:</span>
+                            <span dir="ltr" class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ activeRequest.preferred_number }}</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 dark:text-slate-400 block mb-1">شرح کاربرد:</span>
+                            <p class="text-slate-700 dark:text-slate-300 leading-relaxed bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5">
+                                {{ activeRequest.description }}
+                            </p>
                         </div>
                     </div>
 
-                    <!-- Mode: Auto Info -->
-                    <div v-if="approveForm.mode === 'auto'" class="p-3 rounded-xl bg-slate-100/60 dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        سامانه به صورت اتمیک یک سرشماره {{ activeRequest.requested_length }} رقمی آزاد را از استخر تخصیص داده یا به صورت تصادفی و یکتا تولید می‌نماید.
+                    <!-- Tabs: Approve vs Reject -->
+                    <div class="flex border-b border-slate-200/60 dark:border-white/10 gap-2">
+                        <button
+                            type="button"
+                            @click="reviewTab = 'approve'"
+                            class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
+                            :class="reviewTab === 'approve' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
+                        >
+                            تأیید و تخصیص سرشماره
+                        </button>
+                        <button
+                            type="button"
+                            @click="reviewTab = 'reject'"
+                            class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
+                            :class="reviewTab === 'reject' ? 'border-rose-500 text-rose-600 dark:text-rose-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
+                        >
+                            عدم تأیید و رد درخواست
+                        </button>
                     </div>
 
-                    <!-- Mode: Pool Select -->
-                    <div v-if="approveForm.mode === 'pool'" class="space-y-1.5">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                            انتخاب سرشماره آزاد از استخر (طول {{ activeRequest.requested_length }} رقم) <span class="text-rose-500">*</span>
-                        </label>
-                        <select
-                            v-if="filteredPoolNumbers.length > 0"
-                            v-model="approveForm.pool_number_id"
-                            class="glass-input !py-2.5 !px-3 !text-xs cursor-pointer font-mono"
-                        >
-                            <option value="">-- انتخاب خط آزاد --</option>
-                            <option v-for="num in filteredPoolNumbers" :key="num.id" :value="num.id">
-                                {{ num.number }} (طول: {{ num.length }} رقم)
-                            </option>
-                        </select>
-                        <div v-else class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs">
-                            در حال حاضر سرشماره آزادی با طول {{ activeRequest.requested_length }} رقم در استخر موجود نیست. لطفاً از شیوه «تخصیص خودکار» یا «شماره دستی» استفاده نمایید.
+                    <!-- Tab 1: Approve Form -->
+                    <form v-if="reviewTab === 'approve'" @submit.prevent="submitApprove" class="space-y-4">
+                        <div>
+                            <label class="form-label mb-2">
+                                شیوه تخصیص سرشماره سازمانی
+                            </label>
+                            <div class="grid grid-cols-3 gap-2">
+                                <label
+                                    class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
+                                    :class="approveForm.mode === 'auto' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
+                                >
+                                    <input type="radio" value="auto" v-model="approveForm.mode" class="sr-only" />
+                                    <span class="block font-bold">تخصیص خودکار</span>
+                                    <span class="text-[10px] opacity-75">سیستمی</span>
+                                </label>
+
+                                <label
+                                    class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
+                                    :class="approveForm.mode === 'pool' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
+                                >
+                                    <input type="radio" value="pool" v-model="approveForm.mode" class="sr-only" />
+                                    <span class="block font-bold">از استخر آزاد</span>
+                                    <span class="text-[10px] opacity-75">انتخاب دستی</span>
+                                </label>
+
+                                <label
+                                    class="p-2.5 rounded-xl border text-center cursor-pointer transition-all text-xs"
+                                    :class="approveForm.mode === 'custom' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
+                                >
+                                    <input type="radio" value="custom" v-model="approveForm.mode" class="sr-only" />
+                                    <span class="block font-bold">شماره دستی</span>
+                                    <span class="text-[10px] opacity-75">سفارشی ادمین</span>
+                                </label>
+                            </div>
                         </div>
-                        <span v-if="approveForm.errors.pool_number_id" class="text-xs text-rose-500 block">
-                            {{ approveForm.errors.pool_number_id }}
-                        </span>
-                    </div>
 
-                    <!-- Mode: Custom Manual -->
-                    <div v-if="approveForm.mode === 'custom'" class="space-y-1.5">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                            سرشماره دلخواه دستی (دقیقاً {{ activeRequest.requested_length }} رقم عددی) <span class="text-rose-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            v-model="approveForm.custom_number"
-                            dir="ltr"
-                            :maxlength="activeRequest.requested_length"
-                            placeholder="مثال: 2000"
-                            class="glass-input !py-2.5 !text-xs !font-mono text-left"
-                        />
-                        <span v-if="approveForm.errors.custom_number" class="text-xs text-rose-500 block">
-                            {{ approveForm.errors.custom_number }}
-                        </span>
-                    </div>
+                        <!-- Mode: Auto Info -->
+                        <div v-if="approveForm.mode === 'auto'" class="p-3 rounded-xl bg-slate-100/60 dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                            سامانه به صورت اتمیک یک سرشماره {{ activeRequest.requested_length }} رقمی آزاد را از استخر تخصیص داده یا به صورت تصادفی و یکتا تولید می‌نماید.
+                        </div>
 
-                    <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
-                        <button type="button" @click="closeReviewModal" class="glass-pill !py-2 !px-4 !text-xs cursor-pointer">
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="approveForm.processing"
-                            class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all cursor-pointer"
-                        >
-                            {{ approveForm.processing ? 'در حال ثبت و تخصیص...' : 'تأیید نهایی و واگذاری خط' }}
-                        </button>
-                    </div>
-                </form>
+                        <!-- Mode: Pool Select -->
+                        <div v-if="approveForm.mode === 'pool'" class="space-y-1.5">
+                            <label class="form-label">
+                                انتخاب سرشماره آزاد از استخر (طول {{ activeRequest.requested_length }} رقم) <span class="text-rose-500">*</span>
+                            </label>
+                            <select
+                                v-if="filteredPoolNumbers.length > 0"
+                                v-model="approveForm.pool_number_id"
+                                class="form-select w-full !text-xs font-mono"
+                            >
+                                <option value="">-- انتخاب خط آزاد --</option>
+                                <option v-for="num in filteredPoolNumbers" :key="num.id" :value="num.id">
+                                    {{ num.number }} (طول: {{ num.length }} رقم)
+                                </option>
+                            </select>
+                            <div v-else class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs">
+                                در حال حاضر سرشماره آزادی با طول {{ activeRequest.requested_length }} رقم در استخر موجود نیست. لطفاً از شیوه «تخصیص خودکار» یا «شماره دستی» استفاده نمایید.
+                            </div>
+                            <span v-if="approveForm.errors.pool_number_id" class="text-xs text-rose-500 block">
+                                {{ approveForm.errors.pool_number_id }}
+                            </span>
+                        </div>
 
-                <!-- Tab 2: Reject Form -->
-                <form v-if="reviewTab === 'reject'" @submit.prevent="submitReject" class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            دلیل عدم تأیید و رد درخواست <span class="text-rose-500">*</span>
-                        </label>
-                        <textarea
-                            v-model="rejectForm.reason"
-                            rows="3"
-                            placeholder="لطفاً دلیل شفاف عدم تأیید را جهت نمایش به متقاضی درج فرمایید (حداقل ۳ کاراکتر)..."
-                            class="glass-input !py-2.5 !text-xs resize-none"
-                        ></textarea>
-                        <span v-if="rejectForm.errors.reason" class="text-xs text-rose-500 block mt-1">
-                            {{ rejectForm.errors.reason }}
-                        </span>
-                    </div>
+                        <!-- Mode: Custom Manual -->
+                        <div v-if="approveForm.mode === 'custom'" class="space-y-1.5">
+                            <label class="form-label">
+                                سرشماره دلخواه دستی (دقیقاً {{ activeRequest.requested_length }} رقم عددی) <span class="text-rose-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                v-model="approveForm.custom_number"
+                                dir="ltr"
+                                :maxlength="activeRequest.requested_length"
+                                placeholder="مثال: 2000"
+                                class="form-input w-full !text-xs !font-mono text-left"
+                            />
+                            <span v-if="approveForm.errors.custom_number" class="text-xs text-rose-500 block">
+                                {{ approveForm.errors.custom_number }}
+                            </span>
+                        </div>
 
-                    <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed">
-                        با رد درخواست، وضعیت به «رد شده» تغییر یافته و دلیل فوق به متقاضی نمایش داده خواهد شد.
-                    </div>
+                        <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
+                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                                انصراف
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="approveForm.processing"
+                                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all cursor-pointer"
+                            >
+                                <svg v-if="approveForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>{{ approveForm.processing ? 'در حال ثبت و تخصیص...' : 'تأیید نهایی و واگذاری خط' }}</span>
+                            </button>
+                        </div>
+                    </form>
 
-                    <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
-                        <button type="button" @click="closeReviewModal" class="glass-pill !py-2 !px-4 !text-xs cursor-pointer">
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="rejectForm.processing"
-                            class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all cursor-pointer"
-                        >
-                            {{ rejectForm.processing ? 'در حال رد درخواست...' : 'تأیید رد درخواست' }}
-                        </button>
-                    </div>
-                </form>
+                    <!-- Tab 2: Reject Form -->
+                    <form v-if="reviewTab === 'reject'" @submit.prevent="submitReject" class="space-y-4">
+                        <div>
+                            <label class="form-label mb-1.5">
+                                دلیل عدم تأیید و رد درخواست <span class="text-rose-500">*</span>
+                            </label>
+                            <textarea
+                                v-model="rejectForm.reason"
+                                rows="3"
+                                placeholder="لطفاً دلیل شفاف عدم تأیید را جهت نمایش به متقاضی درج فرمایید (حداقل ۳ کاراکتر)..."
+                                class="form-textarea w-full !text-xs resize-none"
+                            ></textarea>
+                            <span v-if="rejectForm.errors.reason" class="text-xs text-rose-500 block mt-1">
+                                {{ rejectForm.errors.reason }}
+                            </span>
+                        </div>
+
+                        <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed">
+                            با رد درخواست، وضعیت به «رد شده» تغییر یافته و دلیل فوق به متقاضی نمایش داده خواهد شد.
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
+                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
+                                انصراف
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="rejectForm.processing"
+                                class="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all cursor-pointer"
+                            >
+                                <svg v-if="rejectForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <span>{{ rejectForm.processing ? 'در حال رد درخواست...' : 'تأیید رد درخواست' }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
 
         <!-- Details Modal -->
-        <div v-if="isDetailsModalOpen && detailsRequest" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
-            <div class="glass-card !p-6 w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-                <div class="p-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4">
+        <div v-if="isDetailsModalOpen && detailsRequest" @click.self="closeDetailsModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 backdrop-blur-md flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">
                             جزئیات درخواست سرشماره سازمانی #{{ detailsRequest.id }}
@@ -689,24 +709,24 @@ const copyToClipboard = (text: string) => {
                     <button type="button" @click="closeDetailsModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
-                <div class="space-y-4 text-xs">
+                <div class="space-y-4 text-xs overflow-y-auto flex-1">
                     <div class="grid grid-cols-2 gap-3">
-                        <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/40 dark:border-white/5">
+                        <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
                             <span class="text-slate-400 block text-[10px] mb-1">طول درخواستی</span>
                             <span class="font-bold text-slate-900 dark:text-white">{{ detailsRequest.requested_length }} رقم</span>
                         </div>
-                        <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/40 dark:border-white/5">
+                        <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
                             <span class="text-slate-400 block text-[10px] mb-1">وضعیت کنونی</span>
                             <span class="font-bold" :class="detailsRequest.status_badge">{{ detailsRequest.status_label }}</span>
                         </div>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/40 dark:border-white/5">
+                    <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
                         <span class="text-slate-400 block text-[10px] mb-1">عنوان سرویس</span>
                         <span class="font-bold text-slate-900 dark:text-white">{{ detailsRequest.service_title }}</span>
                     </div>
 
-                    <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-900/50 border border-slate-200/40 dark:border-white/5">
+                    <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
                         <span class="text-slate-400 block text-[10px] mb-1">توضیحات و کاربرد</span>
                         <p class="text-slate-700 dark:text-slate-300 leading-relaxed">{{ detailsRequest.description }}</p>
                     </div>
@@ -721,7 +741,7 @@ const copyToClipboard = (text: string) => {
                             <button
                                 type="button"
                                 @click="copyToClipboard(detailsRequest.allocated_number.number)"
-                                class="glass-pill !py-1 !px-2.5 !text-[10px] text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                                class="px-3 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors cursor-pointer"
                             >
                                 کپی شماره
                             </button>
@@ -741,8 +761,8 @@ const copyToClipboard = (text: string) => {
                     </div>
                 </div>
 
-                <div class="pt-4 border-t border-slate-200/60 dark:border-white/10 flex justify-end mt-4">
-                    <button type="button" @click="closeDetailsModal" class="glass-pill !py-2 !px-5 !text-xs cursor-pointer">
+                <div class="pt-4 border-t border-slate-200/60 dark:border-white/10 flex justify-end mt-4 shrink-0">
+                    <button type="button" @click="closeDetailsModal" class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer">
                         بستن
                     </button>
                 </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { onUnmounted, ref, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 
 const props = withDefaults(
@@ -28,6 +28,12 @@ const form = useForm({
     preferred_number: '',
 });
 
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && props.show) {
+        handleClose();
+    }
+};
+
 // Reset state when opening/closing
 watch(
     () => props.show,
@@ -36,9 +42,16 @@ watch(
             termsAccepted.value = false;
             form.reset();
             form.clearErrors();
+            window.addEventListener('keydown', handleKeydown);
+        } else {
+            window.removeEventListener('keydown', handleKeydown);
         }
     }
 );
+
+onUnmounted(() => {
+    window.removeEventListener('keydown', handleKeydown);
+});
 
 const handleClose = () => {
     if (!form.processing) {
@@ -75,10 +88,9 @@ const submitAllocation = () => {
                 v-if="show"
                 class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md"
                 @click.self="handleClose"
-                @keydown.esc="handleClose"
             >
                 <div
-                    class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                    class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto"
                 >
                     <!-- Header -->
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">

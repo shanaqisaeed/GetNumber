@@ -94,6 +94,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/requests/{numberRequest}/approve', [\App\Http\Controllers\Admin\NumberRequestController::class, 'approve'])->name('requests.approve');
     Route::post('/requests/{numberRequest}/reject', [\App\Http\Controllers\Admin\NumberRequestController::class, 'reject'])->name('requests.reject');
 
+    // Admin Phone Prefixes Management
+    Route::get('/prefixes', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'index'])->name('prefixes.index');
+    Route::post('/prefixes', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'store'])->name('prefixes.store');
+    Route::patch('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'update'])->name('prefixes.update');
+    Route::delete('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'destroy'])->name('prefixes.destroy');
+
     // Admin API Token Management & Oversight
     Route::get('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'index'])->name('api-tokens.index');
     Route::post('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'store'])->name('api-tokens.store');

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
@@ -156,6 +156,18 @@ const copyNumber = (item: PhoneNumberItem) => {
     navigator.clipboard.writeText(item.formatted_number);
     showToast(`شماره ${item.formatted_number} کپی شد`);
 };
+
+// Global escape key handler for modals
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isEditTitleModalOpen.value) closeEditTitleModal();
+        if (isReleaseModalOpen.value) closeReleaseModal();
+        if (isAllocateModalOpen.value) closeAllocateModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
@@ -251,11 +263,11 @@ const copyNumber = (item: PhoneNumberItem) => {
                 <select
                     v-model="typeFilter"
                     @change="handleFilter"
-                    class="glass-input !py-2 !px-2.5 !text-xs !rounded-xl w-auto bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
+                    class="form-select !py-2 !text-xs !rounded-xl w-auto"
                 >
-                    <option value="" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">همه انواع</option>
-                    <option value="standard" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">استاندارد ۹ رقمی</option>
-                    <option value="service" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">سرویس کوتاه</option>
+                    <option value="">همه انواع</option>
+                    <option value="standard">استاندارد ۹ رقمی</option>
+                    <option value="service">سرویس کوتاه</option>
                 </select>
 
                 <button
@@ -398,37 +410,42 @@ const copyNumber = (item: PhoneNumberItem) => {
         />
 
         <!-- 5. Edit Title Modal -->
-        <div v-if="isEditTitleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isEditTitleModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeEditTitleModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">
                         ویرایش عنوان خط {{ selectedNumberForTitle?.formatted_number }}
                     </h3>
-                    <button type="button" @click="closeEditTitleModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
+                    <button type="button" @click="closeEditTitleModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
                 </div>
 
                 <form @submit.prevent="submitTitleUpdate" class="space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">عنوان نمایشی:</label>
+                        <label class="form-label">عنوان نمایشی:</label>
                         <input
                             type="text"
                             v-model="titleForm.display_title"
                             placeholder="مثال: بخش پشتیبانی یا فروش"
                             maxlength="100"
-                            class="glass-input !py-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400"
+                            class="form-input !py-2.5 !text-xs"
+                            :disabled="titleForm.processing"
                         />
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeEditTitleModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                        <button type="button" @click="closeEditTitleModal" :disabled="titleForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                             انصراف
                         </button>
                         <button
                             type="submit"
                             :disabled="titleForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl inline-flex items-center gap-1.5"
                         >
-                            {{ titleForm.processing ? 'در حال ذخیره...' : 'ذخیره عنوان' }}
+                            <svg v-if="titleForm.processing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            <span>{{ titleForm.processing ? 'در حال ذخیره...' : 'ذخیره عنوان' }}</span>
                         </button>
                     </div>
                 </form>
@@ -436,8 +453,8 @@ const copyNumber = (item: PhoneNumberItem) => {
         </div>
 
         <!-- 6. Release Confirmation Modal -->
-        <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeReleaseModal">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center">
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -456,16 +473,20 @@ const copyNumber = (item: PhoneNumberItem) => {
                 </div>
 
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeReleaseModal" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
+                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
                         انصراف
                     </button>
                     <button
                         type="button"
                         @click="confirmRelease"
                         :disabled="releaseProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50"
+                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
                     >
-                        {{ releaseProcessing ? 'در حال آزادسازی...' : 'آزادسازی قطعی' }}
+                        <svg v-if="releaseProcessing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                        </svg>
+                        <span>{{ releaseProcessing ? 'در حال آزادسازی...' : 'آزادسازی قطعی' }}</span>
                     </button>
                 </div>
             </div>

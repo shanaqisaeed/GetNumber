@@ -455,13 +455,22 @@ const formatDate = (isoString: string | null) => {
     }
 };
 
+const handleKeydown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isDetailOpen.value) closeDetail();
+        if (isDeleteModalOpen.value) closeDeleteModal();
+    }
+};
+
 onMounted(() => {
     pollingTimer = setInterval(pollAdminMessages, 4000);
+    window.addEventListener('keydown', handleKeydown);
     scrollToBottom();
 });
 
 onUnmounted(() => {
     if (pollingTimer) clearInterval(pollingTimer);
+    window.removeEventListener('keydown', handleKeydown);
 });
 
 watch(() => props.conversations, (newConvs) => {
@@ -605,6 +614,17 @@ watch(() => props.messages, (newMessages) => {
                 </div>
             </div>
 
+            <!-- Platform Messaging Notice (Requirement 7.5) -->
+            <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center gap-3 text-xs text-amber-700 dark:text-amber-300">
+                <svg class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                    <strong>اطلاعیه عملکرد پلتفرم:</strong>
+                    کلیه پیام‌های مبادله‌شده به صورت درون‌سامانه‌ای ثبت و پردازش می‌شوند و ارسال مخابراتی پیامک به اپراتورهای تلفن همراه انجام نمی‌گیرد.
+                </span>
+            </div>
+
             <!-- Global Line & Search Filter Bar -->
             <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800">
                 <form @submit.prevent="applyGlobalFilters" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
@@ -613,7 +633,7 @@ watch(() => props.messages, (newMessages) => {
                         <select
                             v-model="selectedLineId"
                             @change="applyGlobalFilters"
-                            class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:border-indigo-500 focus:ring-indigo-500 font-medium"
+                            class="form-select w-full text-xs rounded-xl px-3 py-2.5 font-medium"
                         >
                             <option value="">همه خطوط سامانه (نمایش کلیه مکالمات)</option>
                             <option
@@ -641,7 +661,7 @@ watch(() => props.messages, (newMessages) => {
                         <select
                             v-model="selectedStatus"
                             @change="applyGlobalFilters"
-                            class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:border-indigo-500 focus:ring-indigo-500"
+                            class="form-select w-full text-xs rounded-xl px-3 py-2.5"
                         >
                             <option value="">همه وضعیت‌ها</option>
                             <option
@@ -1149,18 +1169,18 @@ watch(() => props.messages, (newMessages) => {
             </div>
 
             <!-- Detail Modal -->
-            <div v-if="isDetailOpen && activeMessage" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div v-if="isDetailOpen && activeMessage" @click.self="closeDetail" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0 mb-4">
                         <h3 class="text-sm font-bold text-slate-900 dark:text-white">جزییات فنی پیام #{{ activeMessage.id }}</h3>
-                        <button type="button" @click="closeDetail" class="text-slate-400 hover:text-slate-600">
+                        <button type="button" @click="closeDetail" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
                     </div>
 
-                    <div class="space-y-3 text-xs">
+                    <div class="space-y-3 text-xs overflow-y-auto flex-1">
                         <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl space-y-1">
                             <span class="text-slate-400 text-[11px]">متن کامل پیام:</span>
                             <p class="text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap">{{ activeMessage.body }}</p>
@@ -1189,8 +1209,8 @@ watch(() => props.messages, (newMessages) => {
                         </div>
                     </div>
 
-                    <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-                        <button type="button" @click="closeDetail" class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold">
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0 mt-4">
+                        <button type="button" @click="closeDetail" class="px-5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer">
                             بستن
                         </button>
                     </div>
@@ -1198,36 +1218,42 @@ watch(() => props.messages, (newMessages) => {
             </div>
 
             <!-- Delete Confirmation Modal -->
-            <div v-if="isDeleteModalOpen && messageToDelete" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl space-y-4">
-                    <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
+            <div v-if="isDeleteModalOpen && messageToDelete" @click.self="closeDeleteModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+                <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                    <div class="overflow-y-auto flex-1 space-y-4">
+                        <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="text-center">
+                            <h3 class="text-sm font-bold text-slate-900 dark:text-white">آیا از حذف این پیامک اطمینان دارید؟</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                                شناسه پیام: <span class="font-mono font-bold" dir="ltr">#{{ messageToDelete.id }}</span>
+                            </p>
+                            <p v-if="messageToDelete.body" class="text-xs text-slate-700 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl line-clamp-2">
+                                «{{ messageToDelete.body }}»
+                            </p>
+                        </div>
                     </div>
-                    <div class="text-center">
-                        <h3 class="text-sm font-bold text-slate-900 dark:text-white">آیا از حذف این پیامک اطمینان دارید؟</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                            شناسه پیام: <span class="font-mono font-bold" dir="ltr">#{{ messageToDelete.id }}</span>
-                        </p>
-                        <p v-if="messageToDelete.body" class="text-xs text-slate-700 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl line-clamp-2">
-                            «{{ messageToDelete.body }}»
-                        </p>
-                    </div>
-                    <div class="flex gap-2 pt-2">
+                    <div class="flex gap-2 pt-4 border-t border-slate-100 dark:border-slate-800 shrink-0 mt-4">
                         <button
                             type="button"
                             @click="executeDelete"
                             :disabled="isDeleting"
-                            class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                            class="inline-flex items-center justify-center gap-2 flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer"
                         >
-                            {{ isDeleting ? 'در حال حذف...' : 'بله، حذف شود' }}
+                            <svg v-if="isDeleting" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ isDeleting ? 'در حال حذف...' : 'بله، حذف شود' }}</span>
                         </button>
                         <button
                             type="button"
                             @click="closeDeleteModal"
                             :disabled="isDeleting"
-                            class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
+                            class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
                         >
                             انصراف
                         </button>

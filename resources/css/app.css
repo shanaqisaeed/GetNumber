@@ -1032,3 +1032,233 @@ html:not(.dark) .btn-copy-code {
     color: #fff;
 }
 
+/* ==========================================================================
+   Unified Design System: Form Controls (Input, Select, Textarea, Modal)
+   ========================================================================== */
+
+.form-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-bottom: 0.375rem;
+    color: var(--text-secondary);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+    width: 100%;
+    font-family: var(--font-main);
+    font-size: 0.8125rem;
+    line-height: 1.4;
+    padding: 0.625rem 0.875rem;
+    border-radius: 0.875rem;
+    background-color: rgba(18, 23, 37, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: var(--text-primary);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    outline: none;
+}
+
+html.light .form-input,
+html.light .form-select,
+html.light .form-textarea,
+html:not(.dark) .form-input,
+html:not(.dark) .form-select,
+html:not(.dark) .form-textarea {
+    background-color: #ffffff;
+    border: 1.5px solid rgba(203, 213, 225, 0.9);
+    color: #0f172a;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.form-input:hover,
+.form-select:hover,
+.form-textarea:hover {
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+html.light .form-input:hover,
+html.light .form-select:hover,
+html.light .form-textarea:hover,
+html:not(.dark) .form-input:hover,
+html:not(.dark) .form-select:hover,
+html:not(.dark) .form-textarea:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+    background-color: rgba(24, 30, 48, 0.9);
+}
+
+html.light .form-input:focus,
+html.light .form-select:focus,
+html.light .form-textarea:focus,
+html:not(.dark) .form-input:focus,
+html:not(.dark) .form-select:focus,
+html:not(.dark) .form-textarea:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3.5px rgba(79, 70, 229, 0.16);
+    background-color: #ffffff;
+}
+
+/* Error state */
+.form-input.has-error,
+.form-select.has-error,
+.form-textarea.has-error {
+    border-color: #f43f5e !important;
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.2) !important;
+}
+
+/* Disabled & Read-only */
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled,
+.form-input[readonly] {
+    opacity: 0.65;
+    cursor: not-allowed;
+    background-color: rgba(15, 23, 42, 0.5) !important;
+}
+
+html.light .form-input:disabled,
+html.light .form-select:disabled,
+html.light .form-textarea:disabled,
+html.light .form-input[readonly] {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+}
+
+/* Unified Select Caret in RTL */
+.form-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 0.75rem center;
+    background-size: 1rem 1rem;
+    padding-left: 2.25rem;
+    padding-right: 0.875rem;
+    cursor: pointer;
+}
+
+.form-select option {
+    background-color: #0f172a;
+    color: #f8fafc;
+    padding: 8px;
+}
+
+html.light .form-select option,
+html:not(.dark) .form-select option {
+    background-color: #ffffff;
+    color: #0f172a;
+}
+
+.form-error-msg {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #f43f5e;
+}
+
+/* Unified Modal Structure */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background-color: rgba(7, 9, 14, 0.72);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.modal-dialog {
+    width: 100%;
+    max-width: 32rem;
+    border-radius: 1.5rem;
+    background-color: rgba(22, 28, 44, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px -5px rgba(99, 102, 241, 0.2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 2.5rem);
+    max-height: calc(100dvh - 2.5rem);
+}
+
+html.light .modal-dialog,
+html:not(.dark) .modal-dialog {
+    background-color: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.22), 0 0 25px -4px rgba(79, 70, 229, 0.12);
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.125rem 1.375rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html.light .modal-header,
+html:not(.dark) .modal-header {
+    border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.modal-title {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.modal-close-btn {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.625rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+html.light .modal-close-btn:hover,
+html:not(.dark) .modal-close-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+}
+
+.modal-body {
+    padding: 1.25rem 1.375rem;
+    overflow-y: auto;
+    flex: 1 1 auto;
+}
+
+.modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.625rem;
+    padding: 1rem 1.375rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background-color: rgba(15, 20, 32, 0.4);
+}
+
+html.light .modal-footer,
+html:not(.dark) .modal-footer {
+    border-top: 1px solid rgba(226, 232, 240, 0.9);
+    background-color: #f8fafc;
+}
+

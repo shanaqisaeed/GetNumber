@@ -26,8 +26,9 @@ class NumberRequestController extends Controller
     {
         $user = $request->user();
 
-        $query = NumberRequest::with(['allocatedNumber', 'reviewer'])
+        $query = NumberRequest::with(['allocatedNumber.prefix', 'reviewer'])
             ->where('user_id', $user->id);
+
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));

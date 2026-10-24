@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 interface UserPhoneNumber {
     id: number;
@@ -167,6 +167,16 @@ function closeNumbersModal() {
     isNumbersModalOpen.value = false;
     selectedUserForNumbers.value = null;
 }
+
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isEditModalOpen.value) closeEditModal();
+        if (isNumbersModalOpen.value) closeNumbersModal();
+    }
+};
+
+onMounted(() => window.addEventListener('keydown', handleEscape));
+onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
@@ -274,7 +284,7 @@ function closeNumbersModal() {
                         <select
                             v-model="role"
                             @change="applyFilters"
-                            class="w-full text-xs font-medium px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:border-indigo-500 outline-none"
+                            class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
                             <option value="">همه نقش‌ها</option>
                             <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
@@ -286,7 +296,7 @@ function closeNumbersModal() {
                         <select
                             v-model="status"
                             @change="applyFilters"
-                            class="w-full text-xs font-medium px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:border-indigo-500 outline-none"
+                            class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
                             <option value="">همه وضعیت‌ها</option>
                             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -298,7 +308,7 @@ function closeNumbersModal() {
                         <select
                             v-model="hasNumbers"
                             @change="applyFilters"
-                            class="w-full text-xs font-medium px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:border-indigo-500 outline-none"
+                            class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
                             <option value="">وضعیت خطوط</option>
                             <option value="yes">دارای خط سازمانی</option>
@@ -314,7 +324,7 @@ function closeNumbersModal() {
                         <select
                             v-model="sort"
                             @change="applyFilters"
-                            class="py-1.5 px-3 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-700 dark:text-slate-300 outline-none focus:border-indigo-500"
+                            class="form-select !py-1.5 !px-3 !text-xs !rounded-xl w-auto"
                         >
                             <option value="newest">جدیدترین کاربران</option>
                             <option value="oldest">قدیمی‌ترین کاربران</option>
@@ -496,9 +506,9 @@ function closeNumbersModal() {
         </div>
 
         <!-- Full User Edit Modal (Requirement 2: Full management, change username, role, status, password) -->
-        <div v-if="isEditModalOpen && editingUser" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div v-if="isEditModalOpen && editingUser" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span>مدیریت و ویرایش مشخصات حساب کاربری</span>
@@ -514,7 +524,7 @@ function closeNumbersModal() {
                     </button>
                 </div>
 
-                <form @submit.prevent="submitEdit" class="p-6 space-y-4">
+                <form @submit.prevent="submitEdit" class="p-6 space-y-4 overflow-y-auto flex-1">
                     <!-- General Error Alert -->
                     <div v-if="$page.props.flash?.error" class="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2">
                         <svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -525,14 +535,14 @@ function closeNumbersModal() {
 
                     <!-- Name -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label class="form-label mb-1.5">
                             نام کاربر / عنوان سازمانی <span class="text-rose-500">*</span>
                         </label>
                         <input
                             v-model="editForm.name"
                             type="text"
                             required
-                            class="w-full px-4 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            class="form-input w-full"
                         />
                         <span v-if="editForm.errors.name" class="text-xs text-rose-500 block mt-1">
                             {{ editForm.errors.name }}
@@ -542,7 +552,7 @@ function closeNumbersModal() {
                     <!-- Username (Editable by Admin) -->
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <label class="form-label">
                                 شناسه کاربری (نام کاربری) <span class="text-rose-500">*</span>
                             </label>
                             <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">قابل ویرایش توسط مدیریت</span>
@@ -552,7 +562,7 @@ function closeNumbersModal() {
                             type="text"
                             dir="ltr"
                             required
-                            class="w-full px-4 py-2.5 rounded-xl text-sm font-mono text-left border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                            class="form-input w-full font-mono text-left"
                         />
                         <span v-if="editForm.errors.username" class="text-xs text-rose-500 block mt-1">
                             {{ editForm.errors.username }}
@@ -562,12 +572,12 @@ function closeNumbersModal() {
                     <!-- Role & Status -->
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            <label class="form-label mb-1.5">
                                 نقش کاربری <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 v-model="editForm.role"
-                                class="w-full px-3.5 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                class="form-select w-full"
                             >
                                 <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
                             </select>
@@ -577,12 +587,12 @@ function closeNumbersModal() {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            <label class="form-label mb-1.5">
                                 وضعیت حساب <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 v-model="editForm.status"
-                                class="w-full px-3.5 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                class="form-select w-full"
                             >
                                 <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                             </select>
@@ -595,7 +605,7 @@ function closeNumbersModal() {
                     <!-- New Password (Optional) -->
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                            <label class="form-label">
                                 تغییر کلمه عبور
                             </label>
                             <span class="text-[11px] text-slate-400">اختیاری - در صورت عدم نیاز خالی بگذارید</span>
@@ -605,7 +615,7 @@ function closeNumbersModal() {
                             type="password"
                             dir="ltr"
                             placeholder="حداقل ۶ کاراکتر"
-                            class="w-full px-4 py-2.5 rounded-xl text-sm border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-left"
+                            class="form-input w-full font-mono text-left"
                         />
                         <span v-if="editForm.errors.password" class="text-xs text-rose-500 block mt-1">
                             {{ editForm.errors.password }}
@@ -623,9 +633,13 @@ function closeNumbersModal() {
                         <button
                             type="submit"
                             :disabled="editForm.processing"
-                            class="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 cursor-pointer"
+                            class="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50 cursor-pointer"
                         >
-                            {{ editForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات حساب' }}
+                            <svg v-if="editForm.processing" class="animate-spin -ml-1 mr-1 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ editForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات حساب' }}</span>
                         </button>
                     </div>
                 </form>
@@ -633,9 +647,9 @@ function closeNumbersModal() {
         </div>
 
         <!-- User Numbers Modal (Requirement 2: View numbers belonging to user) -->
-        <div v-if="isNumbersModalOpen && selectedUserForNumbers" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div v-if="isNumbersModalOpen && selectedUserForNumbers" @click.self="closeNumbersModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <span>فهرست خطوط سازمانی تخصیص‌یافته</span>
@@ -651,7 +665,7 @@ function closeNumbersModal() {
                     </button>
                 </div>
 
-                <div class="p-6">
+                <div class="p-6 overflow-y-auto flex-1">
                     <div v-if="selectedUserForNumbers.phone_numbers && selectedUserForNumbers.phone_numbers.length > 0" class="overflow-x-auto">
                         <table class="w-full text-right text-xs">
                             <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">

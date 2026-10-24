@@ -26,7 +26,8 @@ class PhoneNumberController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = PhoneNumber::with('user');
+        $query = PhoneNumber::with(['user', 'prefix']);
+
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));

@@ -204,7 +204,7 @@ function submit() {
 
                             <!-- Role -->
                             <div>
-                                <label for="role" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                <label for="role" class="form-label mb-1.5">
                                     نقش کاربری در سامانه
                                 </label>
                                 <div class="relative">
@@ -212,7 +212,7 @@ function submit() {
                                         id="role"
                                         v-model="form.role"
                                         required
-                                        class="block w-full px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 outline-none transition-all cursor-pointer"
+                                        class="form-select block w-full px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 outline-none transition-all cursor-pointer"
                                     >
                                         <option v-for="r in roles" :key="r.value" :value="r.value">
                                             {{ r.label }}
@@ -227,7 +227,7 @@ function submit() {
 
                             <!-- Status -->
                             <div>
-                                <label for="status" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                <label for="status" class="form-label mb-1.5">
                                     وضعیت اولیه حساب
                                 </label>
                                 <div class="relative">
@@ -235,7 +235,7 @@ function submit() {
                                         id="status"
                                         v-model="form.status"
                                         required
-                                        class="block w-full px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 outline-none transition-all cursor-pointer"
+                                        class="form-select block w-full px-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 outline-none transition-all cursor-pointer"
                                     >
                                         <option v-for="s in statuses" :key="s.value" :value="s.value">
                                             {{ s.label }}

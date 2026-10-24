@@ -22,10 +22,13 @@ class UserController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = User::withCount('phoneNumbers')->with(['phoneNumbers' => function ($q) {
-            $q->select('id', 'user_id', 'number', 'type', 'status', 'display_title', 'allocated_at')
-              ->latest('id');
-        }]);
+        $query = User::withCount('phoneNumbers')->with([
+            'phoneNumbers' => function ($q) {
+                $q->select('id', 'user_id', 'phone_prefix_id', 'number', 'type', 'status', 'display_title', 'allocated_at')
+                  ->latest('id');
+            },
+            'phoneNumbers.prefix',
+        ]);
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
@@ -278,8 +281,10 @@ class UserController extends Controller
     public function numbers(User $user): \Illuminate\Http\JsonResponse
     {
         $numbers = $user->phoneNumbers()
+            ->with('prefix')
             ->latest('id')
             ->get()
+
             ->map(fn ($p) => [
                 'id' => $p->id,
                 'number' => $p->number,

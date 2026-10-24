@@ -166,7 +166,7 @@ function clearFilters() {
                         @keydown.enter="applyFilters"
                         type="text"
                         placeholder="شماره تیکت، موضوع یا نام کاربر..."
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2"
+                        class="form-input w-full text-xs py-2"
                     />
                 </div>
 
@@ -176,7 +176,7 @@ function clearFilters() {
                     <select
                         v-model="department"
                         @change="applyFilters"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2"
+                        class="form-select w-full text-xs py-2"
                     >
                         <option value="">همه دپارتمان‌ها</option>
                         <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
@@ -189,7 +189,7 @@ function clearFilters() {
                     <select
                         v-model="status"
                         @change="applyFilters"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2"
+                        class="form-select w-full text-xs py-2"
                     >
                         <option value="">همه وضعیت‌ها</option>
                         <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
@@ -202,7 +202,7 @@ function clearFilters() {
                     <select
                         v-model="priority"
                         @change="applyFilters"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2"
+                        class="form-select w-full text-xs py-2"
                     >
                         <option value="">همه اولویت‌ها</option>
                         <option v-for="p in priorities" :key="p.value" :value="p.value">{{ p.label }}</option>
@@ -216,7 +216,7 @@ function clearFilters() {
                         <select
                             v-model="assignedTo"
                             @change="applyFilters"
-                            class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2"
+                            class="form-select w-full text-xs py-2"
                         >
                             <option value="">همه کارشناسان</option>
                             <option value="unassigned">بدون کارشناس</option>
@@ -228,7 +228,7 @@ function clearFilters() {
                             v-if="search || status || department || priority || assignedTo"
                             type="button"
                             @click="clearFilters"
-                            class="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-rose-500 text-xs font-bold shrink-0"
+                            class="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-rose-500 text-xs font-bold shrink-0 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition"
                             title="پاکسازی فیلترها"
                         >
                             ✕

@@ -197,15 +197,27 @@ const performSilentPoll = async () => {
     }
 };
 
+const handleEscape = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+        if (isSimSwitcherModalOpen.value) {
+            isSimSwitcherModalOpen.value = false;
+        } else if (isComposingNew.value) {
+            closeChatOrComposer();
+        }
+    }
+};
+
 onMounted(() => {
     if (currentActivePeer.value) {
         scrollToBottom();
     }
     pollingInterval = setInterval(performSilentPoll, 4000);
+    window.addEventListener('keydown', handleEscape);
 });
 
 onUnmounted(() => {
     if (pollingInterval) clearInterval(pollingInterval);
+    window.removeEventListener('keydown', handleEscape);
 });
 
 // Switching sending line
@@ -590,6 +602,16 @@ const smsPartCount = computed(() => {
                 </div>
             </div>
 
+            <!-- In-Platform Messaging Disclaimer (Requirement 7.5) -->
+            <div class="px-3.5 py-2.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-500/15 flex items-start gap-2.5 text-xs text-indigo-900 dark:text-indigo-200/90 leading-relaxed mb-1">
+                <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                    <b>ارتباطات درون‌پلتفرمی:</b> پیام‌ها صرفاً در محیط پلتفرم و میان خطوط سازمانی ثبت و تبادل می‌شوند و هیچ‌گونه پیامک مخابراتی تجاری ارسال نمی‌گردد.
+                </span>
+            </div>
+
             <!-- ========================================================== -->
             <!-- VIEW A: CONVERSATIONS LIST (When no chat is active)        -->
             <!-- EXACTLY LIKE MOBILE: Chat does NOT open until clicked!     -->
@@ -923,13 +945,17 @@ const smsPartCount = computed(() => {
                         </svg>
                         <span>ارسال پیامک</span>
                     </button>
+
+                    <p class="text-[10px] text-slate-500 dark:text-slate-400 text-center pt-1">
+                        پیام‌ها در محیط پلتفرم ثبت شده و پیامک مخابراتی ارسال نمی‌شود.
+                    </p>
                 </div>
             </div>
         </div>
 
         <!-- SIM Switcher Modal (For easily choosing between lines) -->
-        <div v-if="isSimSwitcherModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md">
-            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white">
+        <div v-if="isSimSwitcherModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="isSimSwitcherModalOpen = false">
+            <div class="glass-card !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200 max-h-[calc(100dvh-2.5rem)] overflow-y-auto">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <div class="flex items-center gap-2">
                         <div class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">

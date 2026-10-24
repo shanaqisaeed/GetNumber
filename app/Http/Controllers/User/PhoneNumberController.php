@@ -25,7 +25,7 @@ class PhoneNumberController extends Controller
     {
         $user = $request->user();
 
-        $query = PhoneNumber::where('user_id', $user->id);
+        $query = PhoneNumber::with('prefix')->where('user_id', $user->id);
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
