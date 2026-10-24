@@ -37,12 +37,7 @@ function formatStatus(status: string): string {
 
     <AdminLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-xl font-black text-slate-900 dark:text-white">پیشخوان مدیریت سامانه</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">پایش وضعیت کاربران، خطوط سازمانی و نشست‌های فعال</p>
-                </div>
-            </div>
+            <h1 class="text-base font-bold text-slate-900 dark:text-white">پیشخوان مدیریت سامانه</h1>
         </template>
 
         <!-- Metrics Overview Cards -->

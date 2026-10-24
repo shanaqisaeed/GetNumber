@@ -131,4 +131,91 @@ class AdminAccessTest extends TestCase
         $response->assertRedirect('/login');
         $this->assertGuest();
     }
+
+    public function test_admin_can_update_user_identity_details(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $targetUser = User::factory()->create([
+            'name' => 'نام قدیمی',
+            'username' => 'old_username',
+            'role' => UserRole::User,
+            'status' => UserStatus::Active,
+        ]);
+
+        $response = $this->actingAs($admin)->patch(route('admin.users.update', $targetUser), [
+            'name' => 'نام جدید ویرایش شده',
+            'username' => 'new_username_123',
+            'role' => 'admin',
+            'status' => 'suspended',
+            'password' => 'NewPassword@999',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $targetUser->refresh();
+        $this->assertSame('نام جدید ویرایش شده', $targetUser->name);
+        $this->assertSame('new_username_123', $targetUser->username);
+        $this->assertSame(UserRole::Admin, $targetUser->role);
+        $this->assertSame(UserStatus::Suspended, $targetUser->status);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('NewPassword@999', $targetUser->password));
+    }
+
+    public function test_admin_can_fetch_user_allocated_numbers_json(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $user = User::factory()->create();
+
+        \App\Models\PhoneNumber::factory()->create([
+            'user_id' => $user->id,
+            'number' => '98900111222',
+            'status' => \App\Enums\PhoneNumberStatus::Allocated,
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.numbers', $user));
+
+        $response->assertOk();
+        $response->assertJsonStructure([
+            'user' => ['id', 'name', 'username'],
+            'numbers' => [
+                '*' => ['id', 'number', 'formatted_number', 'status', 'type', 'display_title']
+            ]
+        ]);
+        $response->assertJsonFragment(['number' => '98900111222']);
+    }
+
+    public function test_admin_can_search_users_by_phone_number_and_username(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $userWithNumber = User::factory()->create([
+            'username' => 'special_target_user',
+        ]);
+
+        \App\Models\PhoneNumber::factory()->create([
+            'user_id' => $userWithNumber->id,
+            'number' => '98900999888',
+        ]);
+
+        $otherUser = User::factory()->create([
+            'username' => 'regular_person',
+        ]);
+
+        // Search by phone number
+        $response = $this->actingAs($admin)->get(route('admin.users.index', ['search' => '98900999888']));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Users/Index')
+            ->where('users.total', 1)
+            ->where('users.data.0.username', 'special_target_user')
+        );
+
+        // Search by username
+        $response = $this->actingAs($admin)->get(route('admin.users.index', ['search' => 'regular_person']));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Users/Index')
+            ->where('users.total', 1)
+            ->where('users.data.0.username', 'regular_person')
+        );
+    }
 }

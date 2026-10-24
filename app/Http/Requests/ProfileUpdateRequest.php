@@ -18,14 +18,6 @@ class ProfileUpdateRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'username' => [
-                'required',
-                'string',
-                'min:3',
-                'max:50',
-                'alpha_dash',
-                Rule::unique(User::class, 'username')->ignore($this->user()->id),
-            ],
         ];
     }
 
@@ -38,9 +30,7 @@ class ProfileUpdateRequest extends FormRequest
     {
         return [
             'name.required' => 'ورود عنوان سازمانی / نام الزامی است.',
-            'username.required' => 'ورود شناسه کاربری الزامی است.',
-            'username.unique' => 'این شناسه کاربری قبلاً در سامانه ثبت شده است.',
-            'username.alpha_dash' => 'شناسه کاربری فقط می‌تواند شامل حروف انگلیسی، اعداد، خط تیره و زیرخط باشد.',
+            'name.max' => 'طول عنوان سازمانی / نام نمی‌تواند بیش از ۲۵۵ کاراکتر باشد.',
         ];
     }
 }

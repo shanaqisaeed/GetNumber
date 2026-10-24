@@ -74,4 +74,36 @@ class User extends Authenticatable
     {
         return $this->status === UserStatus::Suspended;
     }
+
+    /**
+     * Phone numbers allocated or owned by the user.
+     */
+    public function phoneNumbers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PhoneNumber::class);
+    }
+
+    /**
+     * Active allocated phone numbers.
+     */
+    public function activePhoneNumbers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(PhoneNumber::class)->where('status', \App\Enums\PhoneNumberStatus::Allocated);
+    }
+
+    /**
+     * Service number requests submitted by the user.
+     */
+    public function numberRequests(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(NumberRequest::class);
+    }
+
+    /**
+     * API access tokens belonging to the user.
+     */
+    public function apiTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ApiToken::class);
+    }
 }

@@ -15,12 +15,7 @@ const stats = [
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-xl font-black text-slate-900 dark:text-white">پیشخوان کاربری</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">خلاصه وضعیت خطوط و پیام‌های سازمانی</p>
-                </div>
-            </div>
+            <h1 class="text-base font-bold text-slate-900 dark:text-white">پیشخوان کاربری</h1>
         </template>
 
         <!-- Stats Overview Cards -->

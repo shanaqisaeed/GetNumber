@@ -21,7 +21,7 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
-    public function test_profile_information_can_be_updated(): void
+    public function test_profile_information_can_be_updated_while_username_remains_unchanged(): void
     {
         $user = User::factory()->create([
             'username' => 'original_username',
@@ -41,27 +41,8 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame('نام جدید سازمانی', $user->name);
-        $this->assertSame('updated_username', $user->username);
-    }
-
-    public function test_username_must_be_unique_when_updating_profile(): void
-    {
-        User::factory()->create([
-            'username' => 'already_taken',
-        ]);
-
-        $user = User::factory()->create([
-            'username' => 'my_username',
-        ]);
-
-        $response = $this
-            ->actingAs($user)
-            ->patch('/profile', [
-                'name' => 'نام جدید',
-                'username' => 'already_taken',
-            ]);
-
-        $response->assertSessionHasErrors(['username']);
+        // Requirement 7: User cannot change their username under any circumstances
+        $this->assertSame('original_username', $user->username);
     }
 
     public function test_user_can_delete_their_account(): void
