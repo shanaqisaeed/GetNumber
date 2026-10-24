@@ -21,6 +21,7 @@ class NumberRequest extends Model
         'service_title',
         'description',
         'preferred_number',
+        'accepts_incoming_sms',
         'status',
         'rejection_reason',
         'allocated_number_id',
@@ -34,6 +35,7 @@ class NumberRequest extends Model
     protected $casts = [
         'status' => NumberRequestStatus::class,
         'requested_length' => 'integer',
+        'accepts_incoming_sms' => 'boolean',
         'reviewed_at' => 'datetime',
     ];
 

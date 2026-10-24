@@ -15,6 +15,12 @@ interface PhoneNumberItem {
     id: number;
     number: string;
     formatted_number: string;
+    phone_prefix_id?: number | null;
+    prefix?: {
+        id: number;
+        prefix: string;
+        name: string;
+    } | null;
     effective_title: string;
     display_title: string | null;
     type: string;
@@ -23,6 +29,7 @@ interface PhoneNumberItem {
     status: string;
     status_label: string;
     status_badge: string;
+    accepts_incoming_sms?: boolean;
     allocated_at: string | null;
     created_at: string;
     user: UserSummary | null;
@@ -53,6 +60,7 @@ const props = defineProps<{
         sort?: string;
     };
     users: Array<{ id: number; name: string; username: string }>;
+    prefixes?: Array<{ id: number; prefix: string; name: string; is_default: boolean }>;
     stats: {
         total: number;
         allocated: number;
@@ -124,6 +132,7 @@ const isSingleModalOpen = ref(false);
 const singleForm = useForm({
     mode: 'single',
     number: '',
+    phone_prefix_id: '',
     type: 'user_standard',
     display_title: '',
     user_id: '',
@@ -173,7 +182,7 @@ const searchUsers = async (query: string) => {
         if (response.ok) {
             userSearchResults.value = await response.json();
         }
-    } catch (e) {
+    } catch {
         userSearchResults.value = [];
     } finally {
         isSearchingUsers.value = false;
@@ -202,6 +211,7 @@ const clearSelectedUser = () => {
 const openAssignModal = (item: PhoneNumberItem) => {
     numberToAssign.value = item;
     assignForm.reset();
+    assignForm.display_title = item.display_title || '';
     selectedUser.value = null;
     userSearchQuery.value = '';
     userSearchResults.value = [];
@@ -221,6 +231,95 @@ const submitAssign = () => {
     assignForm.post(route('admin.numbers.assign', numberToAssign.value.id), {
         onSuccess: () => closeAssignModal(),
     });
+};
+
+// Edit Modal State
+const isEditModalOpen = ref(false);
+const numberToEdit = ref<PhoneNumberItem | null>(null);
+const editUserSearchQuery = ref('');
+const editUserSearchResults = ref<UserSummary[]>([]);
+const isSearchingEditUsers = ref(false);
+const selectedEditUser = ref<UserSummary | null>(null);
+
+const editForm = useForm({
+    display_title: '',
+    type: 'user_standard',
+    phone_prefix_id: '',
+    user_id: '',
+    accepts_incoming_sms: true,
+});
+
+let editSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const searchEditUsers = async (query: string) => {
+    if (!query.trim()) {
+        editUserSearchResults.value = [];
+        return;
+    }
+    isSearchingEditUsers.value = true;
+    try {
+        const response = await fetch(route('admin.users.search', { q: query }));
+        if (response.ok) {
+            editUserSearchResults.value = await response.json();
+        }
+    } catch {
+        editUserSearchResults.value = [];
+    } finally {
+        isSearchingEditUsers.value = false;
+    }
+};
+
+watch(editUserSearchQuery, (newVal) => {
+    if (editSearchDebounceTimer) clearTimeout(editSearchDebounceTimer);
+    editSearchDebounceTimer = setTimeout(() => {
+        searchEditUsers(newVal);
+    }, 250);
+});
+
+const chooseEditUser = (user: UserSummary) => {
+    selectedEditUser.value = user;
+    editForm.user_id = String(user.id);
+    editUserSearchResults.value = [];
+    editUserSearchQuery.value = '';
+};
+
+const clearSelectedEditUser = () => {
+    selectedEditUser.value = null;
+    editForm.user_id = '';
+};
+
+const openEditModal = (item: PhoneNumberItem) => {
+    numberToEdit.value = item;
+    editForm.clearErrors();
+    editForm.display_title = item.display_title || '';
+    editForm.type = item.type;
+    editForm.phone_prefix_id = item.phone_prefix_id ? String(item.phone_prefix_id) : '';
+    editForm.user_id = item.user ? String(item.user.id) : '';
+    selectedEditUser.value = item.user ? { id: item.user.id, name: item.user.name, username: item.user.username } : null;
+    editForm.accepts_incoming_sms = item.accepts_incoming_sms ?? true;
+    editUserSearchQuery.value = '';
+    editUserSearchResults.value = [];
+    isEditModalOpen.value = true;
+};
+
+const closeEditModal = () => {
+    isEditModalOpen.value = false;
+    numberToEdit.value = null;
+    selectedEditUser.value = null;
+    editForm.reset();
+};
+
+const submitEdit = () => {
+    if (!numberToEdit.value) return;
+    editForm.patch(route('admin.numbers.update', numberToEdit.value.id), {
+        onSuccess: () => closeEditModal(),
+    });
+};
+
+// Delete Action
+const handleDelete = (item: PhoneNumberItem) => {
+    if (confirm(`آیا از حذف دائم خط سازمانی ${item.formatted_number} اطمینان دارید؟ این اقدام غیرقابل بازگشت است.`)) {
+        router.delete(route('admin.numbers.destroy', item.id));
+    }
 };
 
 // Release Action
@@ -274,6 +373,7 @@ const handleKeydown = (e: KeyboardEvent) => {
         if (isBatchModalOpen.value) closeBatchModal();
         if (isSingleModalOpen.value) closeSingleModal();
         if (isAssignModalOpen.value) closeAssignModal();
+        if (isEditModalOpen.value) closeEditModal();
         if (isStatusModalOpen.value) closeStatusModal();
     }
 };
@@ -471,8 +571,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <thead class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-bold">
                         <tr>
                             <th class="py-3.5 px-5">شماره سازمانی</th>
+                            <th class="py-3.5 px-5">عنوان نمایشی خط</th>
                             <th class="py-3.5 px-5">نوع خط</th>
                             <th class="py-3.5 px-5">کاربر تخصیص‌یافته</th>
+                            <th class="py-3.5 px-5">دریافت پیامک</th>
                             <th class="py-3.5 px-5">وضعیت</th>
                             <th class="py-3.5 px-5">تاریخ تخصیص</th>
                             <th class="py-3.5 px-5 text-left">عملیات مدیریت</th>
@@ -505,6 +607,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 </div>
                             </td>
 
+                            <!-- Line Display Title -->
+                            <td class="py-3.5 px-5">
+                                <div v-if="item.display_title" class="font-bold text-slate-900 dark:text-white max-w-xs truncate" :title="item.display_title">
+                                    {{ item.display_title }}
+                                </div>
+                                <span v-else class="text-slate-400 dark:text-slate-500 italic text-[11px]">بدون عنوان</span>
+                            </td>
+
                             <td class="py-3.5 px-5">
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full border" :class="item.type_badge">
                                     {{ item.type_label }}
@@ -520,6 +630,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <span v-else class="text-slate-400 italic">بدون انتساب (آزاد)</span>
                             </td>
 
+                            <!-- Incoming SMS Reception Capability -->
+                            <td class="py-3.5 px-5">
+                                <span
+                                    class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border"
+                                    :class="item.accepts_incoming_sms
+                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
+                                        : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'"
+                                >
+                                    <span class="w-1.5 h-1.5 rounded-full" :class="item.accepts_incoming_sms ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+                                    {{ item.accepts_incoming_sms ? 'دریافت فعال (دوطرفه)' : 'فقط ارسال (یک‌طرفه)' }}
+                                </span>
+                            </td>
+
                             <td class="py-3.5 px-5">
                                 <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border" :class="item.status_badge">
                                     {{ item.status_label }}
@@ -532,13 +655,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                             <td class="py-3.5 px-5 text-left">
                                 <div class="inline-flex items-center gap-1">
+                                    <!-- Edit line button -->
+                                    <button
+                                        @click="openEditModal(item)"
+                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        title="ویرایش مشخصات خط"
+                                    >
+                                        ویرایش
+                                    </button>
+
                                     <!-- Assign button (if available) -->
                                     <button
                                         v-if="item.status === 'available'"
                                         @click="openAssignModal(item)"
-                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
+                                        class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
                                     >
-                                        تخصیص به کاربر
+                                        تخصیص
                                     </button>
 
                                     <!-- Release button (if allocated) -->
@@ -547,7 +679,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         @click="handleRelease(item)"
                                         class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
                                     >
-                                        آزادسازی خط
+                                        آزادسازی
                                     </button>
 
                                     <!-- Status button -->
@@ -555,14 +687,25 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         @click="openStatusModal(item)"
                                         class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                                     >
-                                        تغییر وضعیت
+                                        وضعیت
+                                    </button>
+
+                                    <!-- Delete button -->
+                                    <button
+                                        @click="handleDelete(item)"
+                                        class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
+                                        title="حذف کامل خط"
+                                    >
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
                                     </button>
                                 </div>
                             </td>
                         </tr>
 
                         <tr v-if="numbers.data.length === 0">
-                            <td colspan="6" class="py-10 text-center text-slate-400">
+                            <td colspan="8" class="py-10 text-center text-slate-400">
                                 هیچ شماره‌ای با معیارهای انتخابی یافت نگردید.
                             </td>
                         </tr>
@@ -693,6 +836,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         </select>
                     </div>
 
+                    <div v-if="prefixes && prefixes.length > 0">
+                        <label class="form-label mb-1.5">
+                            پیش‌شماره متصل
+                        </label>
+                        <select
+                            v-model="singleForm.phone_prefix_id"
+                            class="form-select w-full"
+                        >
+                            <option value="">پیش‌فرض سامانه</option>
+                            <option v-for="p in prefixes" :key="p.id" :value="String(p.id)">
+                                {{ p.prefix }} ({{ p.name }})
+                            </option>
+                        </select>
+                    </div>
+
                     <div>
                         <label class="form-label mb-1.5">
                             عنوان نمایشی سرویس (اختیاری)
@@ -754,6 +912,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 text-xs flex items-center justify-between">
                         <span>شماره خط انتخابی:</span>
                         <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberToAssign?.formatted_number }}</span>
+                    </div>
+
+                    <div>
+                        <label class="form-label mb-1.5">
+                            عنوان یا نام نمایشی خط (اختیاری)
+                        </label>
+                        <input
+                            type="text"
+                            v-model="assignForm.display_title"
+                            placeholder="مثال: واحد فروش، پشتیبانی، امور مالی..."
+                            class="form-input w-full"
+                        />
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            در صورت خالی گذاشتن، عنوان قبلی خط حفظ خواهد شد.
+                        </p>
                     </div>
 
                     <!-- Searchable User Selection -->
@@ -913,6 +1086,164 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                             <span>{{ statusForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات وضعیت' }}</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Edit Line Modal -->
+        <div v-if="isEditModalOpen" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col">
+                <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش مشخصات خط سازمانی</h3>
+                        <p dir="ltr" class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 text-right">{{ numberToEdit?.formatted_number }}</p>
+                    </div>
+                    <button @click="closeEditModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
+                </div>
+
+                <form @submit.prevent="submitEdit" class="space-y-4 overflow-y-auto flex-1">
+                    <!-- Display Title -->
+                    <div>
+                        <label class="form-label mb-1.5">
+                            عنوان یا نام نمایشی خط
+                        </label>
+                        <input
+                            type="text"
+                            v-model="editForm.display_title"
+                            placeholder="مثال: پشتیبانی فنی، درگاه مالی، واحد فروش"
+                            class="form-input w-full"
+                        />
+                        <p v-if="editForm.errors.display_title" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.display_title }}</p>
+                    </div>
+
+                    <!-- Line Type -->
+                    <div>
+                        <label class="form-label mb-1.5">
+                            نوع خط سازمانی
+                        </label>
+                        <select
+                            v-model="editForm.type"
+                            class="form-select w-full"
+                        >
+                            <option value="user_standard">شماره عادی کاربر (۹ رقمی)</option>
+                            <option value="user_service">سرشماره اختصاصی مشتری (۴ تا ۸ رقم)</option>
+                            <option value="platform_service">سرشماره اختصاصی سامانه</option>
+                        </select>
+                        <p v-if="editForm.errors.type" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.type }}</p>
+                    </div>
+
+                    <!-- Prefix Selection -->
+                    <div v-if="prefixes && prefixes.length > 0">
+                        <label class="form-label mb-1.5">
+                            پیش‌شماره متصل
+                        </label>
+                        <select
+                            v-model="editForm.phone_prefix_id"
+                            class="form-select w-full"
+                        >
+                            <option value="">پیش‌فرض سامانه</option>
+                            <option v-for="p in prefixes" :key="p.id" :value="String(p.id)">
+                                {{ p.prefix }} ({{ p.name }})
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- User Ownership Assignment -->
+                    <div>
+                        <label class="form-label mb-1.5">
+                            کاربر مالک خط (در صورت عدم انتساب، خط آزاد خواهد شد)
+                        </label>
+                        <div v-if="selectedEditUser" class="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2.5">
+                                <span class="px-2 py-0.5 rounded-md bg-indigo-600 text-white font-mono text-xs font-bold">
+                                    #{{ selectedEditUser.id }}
+                                </span>
+                                <div>
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">{{ selectedEditUser.name }}</span>
+                                    <span dir="ltr" class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 block text-right">@{{ selectedEditUser.username }}</span>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                @click="clearSelectedEditUser"
+                                class="text-xs text-rose-500 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                            >
+                                حذف مالک (آزادسازی)
+                            </button>
+                        </div>
+
+                        <div v-else class="relative">
+                            <input
+                                type="text"
+                                v-model="editUserSearchQuery"
+                                placeholder="جستجو کاربر با نام یا نام کاربری جهت انتساب..."
+                                class="form-input w-full pr-10 pl-4 py-2"
+                            />
+                            <div class="absolute right-3 top-2.5 text-slate-400">
+                                <svg v-if="!isSearchingEditUsers" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                <svg v-else class="w-4 h-4 animate-spin text-indigo-500" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </div>
+
+                            <div
+                                v-if="editUserSearchResults.length > 0"
+                                class="absolute z-20 top-full mt-1.5 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800"
+                            >
+                                <div
+                                    v-for="u in editUserSearchResults"
+                                    :key="u.id"
+                                    @click="chooseEditUser(u)"
+                                    class="p-2.5 hover:bg-indigo-50/60 dark:hover:bg-indigo-950/40 cursor-pointer transition-colors flex items-center justify-between"
+                                >
+                                    <div class="flex items-center gap-2">
+                                        <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono font-bold text-slate-600 dark:text-slate-300">
+                                            #{{ u.id }}
+                                        </span>
+                                        <span class="text-xs font-bold text-slate-900 dark:text-white">{{ u.name }}</span>
+                                    </div>
+                                    <span dir="ltr" class="text-[11px] font-mono text-slate-400">@{{ u.username }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Accepts incoming SMS Toggle -->
+                    <div class="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60">
+                        <input
+                            id="edit_accepts_incoming_sms"
+                            type="checkbox"
+                            v-model="editForm.accepts_incoming_sms"
+                            class="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <label for="edit_accepts_incoming_sms" class="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                            امکان دریافت پیامک ورودی فعال باشد (دو طرفه)
+                        </label>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                        <button
+                            type="button"
+                            @click="closeEditModal"
+                            class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                        >
+                            انصراف
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="editForm.processing"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                            <svg v-if="editForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>{{ editForm.processing ? 'در حال ذخیره...' : 'ذخیره تغییرات' }}</span>
                         </button>
                     </div>
                 </form>

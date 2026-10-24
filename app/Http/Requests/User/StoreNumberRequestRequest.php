@@ -27,6 +27,7 @@ class StoreNumberRequestRequest extends FormRequest
             'service_title' => ['required', 'string', 'min:2', 'max:100'],
             'description' => ['required', 'string', 'min:5', 'max:1000'],
             'preferred_number' => ['nullable', 'string', 'regex:/^[0-9]{4,8}$/'],
+            'accepts_incoming_sms' => ['nullable', 'boolean'],
         ];
     }
 

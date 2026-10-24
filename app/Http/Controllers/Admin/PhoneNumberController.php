@@ -76,6 +76,12 @@ class PhoneNumberController extends Controller
                 'id' => $phone->id,
                 'number' => $phone->number,
                 'formatted_number' => $phone->formatted_number,
+                'phone_prefix_id' => $phone->phone_prefix_id,
+                'prefix' => $phone->prefix ? [
+                    'id' => $phone->prefix->id,
+                    'prefix' => $phone->prefix->prefix,
+                    'name' => $phone->prefix->name,
+                ] : null,
                 'effective_title' => $phone->effective_title,
                 'display_title' => $phone->display_title,
                 'type' => $phone->type->value,
@@ -84,6 +90,7 @@ class PhoneNumberController extends Controller
                 'status' => $phone->status->value,
                 'status_label' => $phone->status->label(),
                 'status_badge' => $phone->status->badgeClasses(),
+                'accepts_incoming_sms' => (bool) $phone->accepts_incoming_sms,
                 'allocated_at' => $phone->allocated_at?->format('Y/m/d H:i'),
                 'created_at' => $phone->created_at->format('Y/m/d H:i'),
                 'user' => $phone->user ? [
@@ -97,6 +104,9 @@ class PhoneNumberController extends Controller
             ->orderBy('name')
             ->get();
 
+        $prefixes = \App\Models\PhonePrefix::active()
+            ->get(['id', 'prefix', 'name', 'is_default']);
+
         $stats = [
             'total' => PhoneNumber::count(),
             'allocated' => PhoneNumber::where('status', PhoneNumberStatus::Allocated)->count(),
@@ -108,6 +118,7 @@ class PhoneNumberController extends Controller
             'numbers' => $numbers,
             'filters' => $request->only(['search', 'type', 'status', 'user_id', 'length', 'sort']),
             'users' => $users,
+            'prefixes' => $prefixes,
             'stats' => $stats,
         ]);
     }
@@ -146,6 +157,7 @@ class PhoneNumberController extends Controller
         // Single number creation
         $validated = $request->validate([
             'number' => ['required', 'string', 'regex:/^[0-9]{4,11}$/', 'unique:phone_numbers,number'],
+            'phone_prefix_id' => ['nullable', 'exists:phone_prefixes,id'],
             'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
             'display_title' => ['nullable', 'string', 'max:100'],
             'user_id' => ['nullable', 'exists:users,id'],
@@ -170,11 +182,16 @@ class PhoneNumberController extends Controller
             $status = PhoneNumberStatus::Allocated;
         }
 
+        $prefixId = ! empty($validated['phone_prefix_id'])
+            ? (int) $validated['phone_prefix_id']
+            : \App\Models\PhonePrefix::getDefaultPrefix()->id;
+
         $phone = PhoneNumber::create([
+            'phone_prefix_id' => $prefixId,
             'number' => trim($validated['number']),
             'type' => $type,
             'status' => $status,
-            'display_title' => $validated['display_title'] ?? null,
+            'display_title' => $validated['display_title'] ? trim($validated['display_title']) : null,
             'user_id' => $user?->id,
             'allocated_at' => $status === PhoneNumberStatus::Allocated ? now() : null,
             'accepts_incoming_sms' => $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
@@ -190,6 +207,91 @@ class PhoneNumberController extends Controller
         ]);
 
         return back()->with('success', "خط سازمانی {$phone->formatted_number} با موفقیت در سامانه ثبت گردید.");
+    }
+
+    /**
+     * Update details of an existing phone number.
+     */
+    public function update(Request $request, PhoneNumber $number): RedirectResponse
+    {
+        $validated = $request->validate([
+            'display_title' => ['nullable', 'string', 'max:100'],
+            'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
+            'phone_prefix_id' => ['nullable', 'exists:phone_prefixes,id'],
+            'user_id' => ['nullable', 'exists:users,id'],
+            'accepts_incoming_sms' => ['nullable', 'boolean'],
+        ], [
+            'display_title.max' => 'عنوان نمایشی نباید بیش از ۱۰۰ کاراکتر باشد.',
+            'type.required' => 'تعیین نوع خط الزامی است.',
+            'type.in' => 'نوع خط انتخاب شده نامعتبر است.',
+        ]);
+
+        $type = PhoneNumberType::from($validated['type']);
+        $newUserId = ! empty($validated['user_id']) ? (int) $validated['user_id'] : null;
+        $user = $newUserId ? User::find($newUserId) : null;
+
+        if ($type === PhoneNumberType::PlatformService && $user && ! $user->isAdmin()) {
+            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+        }
+
+        $oldValues = [
+            'display_title' => $number->display_title,
+            'type' => $number->type->value,
+            'user_id' => $number->user_id,
+            'phone_prefix_id' => $number->phone_prefix_id,
+            'accepts_incoming_sms' => $number->accepts_incoming_sms,
+        ];
+
+        $updateData = [
+            'display_title' => $validated['display_title'] ? trim($validated['display_title']) : null,
+            'type' => $type,
+            'accepts_incoming_sms' => $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
+        ];
+
+        if (! empty($validated['phone_prefix_id'])) {
+            $updateData['phone_prefix_id'] = (int) $validated['phone_prefix_id'];
+        }
+
+        // Handle user assignment changes
+        if ($newUserId !== $number->user_id) {
+            $updateData['user_id'] = $newUserId;
+            if ($newUserId) {
+                $updateData['status'] = PhoneNumberStatus::Allocated;
+                $updateData['allocated_at'] = now();
+            } else {
+                $updateData['status'] = PhoneNumberStatus::Available;
+                $updateData['allocated_at'] = null;
+            }
+        }
+
+        $number->update($updateData);
+
+        AuditLog::record('number_updated', $number, $request->user(), [
+            'number' => $number->number,
+            'formatted_number' => $number->fresh()->formatted_number,
+            'old' => $oldValues,
+            'new' => $updateData,
+        ]);
+
+        return back()->with('success', "اطلاعات خط سازمانی {$number->fresh()->formatted_number} با موفقیت ویرایش و ذخیره شد.");
+    }
+
+    /**
+     * Delete a phone number permanently from system.
+     */
+    public function destroy(Request $request, PhoneNumber $number): RedirectResponse
+    {
+        $formatted = $number->formatted_number;
+
+        AuditLog::record('number_deleted', $number, $request->user(), [
+            'number' => $number->number,
+            'formatted_number' => $formatted,
+            'user_id' => $number->user_id,
+        ]);
+
+        $number->delete();
+
+        return back()->with('success', "خط سازمانی {$formatted} با موفقیت از سیستم حذف گردید.");
     }
 
     /**
@@ -230,19 +332,23 @@ class PhoneNumberController extends Controller
             return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
         }
 
+        $title = ! empty($validated['display_title'])
+            ? trim($validated['display_title'])
+            : ($number->display_title ?: null);
+
         try {
             if ($number->type === PhoneNumberType::UserStandard) {
                 $this->allocationService->allocateStandardNumberToUser(
                     user: $targetUser,
                     preferredNumber: $number->number,
-                    displayTitle: $validated['display_title'] ?? null,
+                    displayTitle: $title,
                     actor: $request->user()
                 );
             } else {
                 $this->allocationService->allocateServiceNumberToUser(
                     user: $targetUser,
                     serviceNumber: $number->number,
-                    displayTitle: $validated['display_title'] ?? 'سرشماره سازمانی',
+                    displayTitle: $title ?: 'سرشماره سازمانی',
                     actor: $request->user()
                 );
             }

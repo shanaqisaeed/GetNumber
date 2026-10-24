@@ -15,6 +15,7 @@ interface NumberRequestItem {
     service_title: string;
     description: string;
     preferred_number: string | null;
+    accepts_incoming_sms: boolean;
     status: 'pending' | 'approved' | 'rejected';
     status_label: string;
     status_badge: string;
@@ -82,12 +83,14 @@ const createForm = useForm({
     service_title: '',
     description: '',
     preferred_number: '',
+    accepts_incoming_sms: true,
 });
 
 const openCreateModal = () => {
     termsAccepted.value = false;
     createForm.reset();
     createForm.requested_length = 4;
+    createForm.accepts_incoming_sms = true;
     createForm.clearErrors();
     isCreateModalOpen.value = true;
 };
@@ -293,9 +296,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 >
                     <!-- Header: Service Title & Status Badge -->
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2 min-w-0">
+                        <div class="flex items-center flex-wrap gap-2 min-w-0">
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0">
                                 {{ req.requested_length }} رقمی
+                            </span>
+                            <span
+                                class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
+                                :class="req.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'"
+                            >
+                                {{ req.accepts_incoming_sms ? 'دوطرفه (دریافت فعال)' : 'یک‌طرفه (صرفاً ارسال)' }}
                             </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
                                 {{ req.service_title }}
@@ -511,6 +520,26 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 ></textarea>
                             </div>
 
+                            <!-- Incoming SMS Option -->
+                            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                <label class="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        v-model="createForm.accepts_incoming_sms"
+                                        :disabled="createForm.processing"
+                                        class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
+                                    />
+                                    <div class="space-y-0.5 select-none">
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                            قابلیت دریافت پیامک ورودی (خط دوطرفه)
+                                        </span>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                            در صورت فعال بودن، پیامک‌های ارسالی مخاطبان به این سرشماره دریافت شده و در صندوق پیامک‌های ورودی پنل قابل مشاهده خواهد بود.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+
                             <!-- Non-Affiliation Agreement & Terms Box -->
                             <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-500/20 text-xs space-y-2.5">
                                 <div class="flex items-start gap-2 text-amber-800 dark:text-amber-200/90">
@@ -613,6 +642,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
                                 <span class="text-slate-500 dark:text-slate-400">طول شماره:</span>
                                 <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ selectedRequest.requested_length }} رقمی</span>
+                            </div>
+                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">قابلیت دریافت پیامک:</span>
+                                <span
+                                    class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
+                                    :class="selectedRequest.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'"
+                                >
+                                    {{ selectedRequest.accepts_incoming_sms ? 'دوطرفه (ارسال و دریافت)' : 'یک‌طرفه (صرفاً ارسال)' }}
+                                </span>
                             </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
                                 <span class="text-slate-500 dark:text-slate-400">وضعیت:</span>

@@ -52,6 +52,7 @@ class NumberRequestController extends Controller
                 'service_title' => $req->service_title,
                 'description' => $req->description,
                 'preferred_number' => $req->preferred_number,
+                'accepts_incoming_sms' => (bool) $req->accepts_incoming_sms,
                 'status' => $req->status->value,
                 'status_label' => $req->status->label(),
                 'status_badge' => $req->status->badgeClasses(),
@@ -91,7 +92,8 @@ class NumberRequestController extends Controller
                 requestedLength: (int) $request->input('requested_length'),
                 serviceTitle: (string) $request->input('service_title'),
                 description: (string) $request->input('description'),
-                preferredNumber: $request->input('preferred_number')
+                preferredNumber: $request->input('preferred_number'),
+                acceptsIncomingSms: $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true
             );
 
             return back()->with('success', "درخواست سرشماره سازمانی «{$newRequest->service_title}» با موفقیت ثبت شد و در صف بررسی مدیریت قرار گرفت.");

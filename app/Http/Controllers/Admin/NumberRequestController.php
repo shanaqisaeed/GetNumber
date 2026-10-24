@@ -66,6 +66,7 @@ class NumberRequestController extends Controller
                 'service_title' => $req->service_title,
                 'description' => $req->description,
                 'preferred_number' => $req->preferred_number,
+                'accepts_incoming_sms' => (bool) $req->accepts_incoming_sms,
                 'status' => $req->status->value,
                 'status_label' => $req->status->label(),
                 'status_badge' => $req->status->badgeClasses(),

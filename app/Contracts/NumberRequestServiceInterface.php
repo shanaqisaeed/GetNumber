@@ -15,7 +15,8 @@ interface NumberRequestServiceInterface
         int $requestedLength,
         string $serviceTitle,
         string $description,
-        ?string $preferredNumber = null
+        ?string $preferredNumber = null,
+        bool $acceptsIncomingSms = true
     ): NumberRequest;
 
     /**

@@ -86,6 +86,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::get('/numbers', [AdminPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [AdminPhoneNumberController::class, 'store'])->name('numbers.store');
+    Route::patch('/numbers/{number}', [AdminPhoneNumberController::class, 'update'])->name('numbers.update');
+    Route::delete('/numbers/{number}', [AdminPhoneNumberController::class, 'destroy'])->name('numbers.destroy');
     Route::patch('/numbers/{number}/status', [AdminPhoneNumberController::class, 'updateStatus'])->name('numbers.status');
     Route::post('/numbers/{number}/assign', [AdminPhoneNumberController::class, 'assign'])->name('numbers.assign');
     Route::post('/numbers/{number}/release', [AdminPhoneNumberController::class, 'release'])->name('numbers.release');

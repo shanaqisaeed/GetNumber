@@ -35,7 +35,8 @@ class NumberRequestService implements NumberRequestServiceInterface
         int $requestedLength,
         string $serviceTitle,
         string $description,
-        ?string $preferredNumber = null
+        ?string $preferredNumber = null,
+        bool $acceptsIncomingSms = true
     ): NumberRequest {
         if ($requestedLength < 4 || $requestedLength > 8) {
             throw new InvalidNumberRequestException('طول سرشماره درخواستی باید بین ۴ تا ۸ رقم باشد.');
@@ -65,6 +66,7 @@ class NumberRequestService implements NumberRequestServiceInterface
             'service_title' => $cleanTitle,
             'description' => $cleanDescription,
             'preferred_number' => $cleanPreferred,
+            'accepts_incoming_sms' => $acceptsIncomingSms,
             'status' => NumberRequestStatus::Pending,
         ]);
     }
@@ -195,6 +197,7 @@ class NumberRequestService implements NumberRequestServiceInterface
             'user_id' => $applicant->id,
             'allocated_at' => now(),
             'display_title' => $req->service_title,
+            'accepts_incoming_sms' => $req->accepts_incoming_sms ?? true,
         ]);
 
         $this->createAudit($phone, $admin, 'custom', $req->id);
@@ -236,6 +239,7 @@ class NumberRequestService implements NumberRequestServiceInterface
             'status' => PhoneNumberStatus::Allocated,
             'allocated_at' => now(),
             'display_title' => $req->service_title,
+            'accepts_incoming_sms' => $req->accepts_incoming_sms ?? true,
         ]);
 
         $this->createAudit($phone, $admin, 'pool', $req->id);
@@ -269,6 +273,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                 'status' => PhoneNumberStatus::Allocated,
                 'allocated_at' => now(),
                 'display_title' => $req->service_title,
+                'accepts_incoming_sms' => $req->accepts_incoming_sms ?? true,
             ]);
 
             $this->createAudit($availablePhone, $admin, 'auto_pool', $req->id);
@@ -291,6 +296,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                     'user_id' => $applicant->id,
                     'allocated_at' => now(),
                     'display_title' => $req->service_title,
+                    'accepts_incoming_sms' => $req->accepts_incoming_sms ?? true,
                 ]);
 
                 $this->createAudit($newPhone, $admin, 'auto_generated', $req->id);
