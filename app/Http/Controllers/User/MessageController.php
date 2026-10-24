@@ -55,10 +55,8 @@ class MessageController extends Controller
             $search = $request->input('search');
             $conversations = $this->messageService->getConversations($currentNumber, $search);
 
-            // If no peer selected, default to the first conversation if available
-            if (! $activePeer && $conversations->isNotEmpty()) {
-                $activePeer = $conversations->first()['peer_number'];
-            }
+            // Do not auto-select first conversation: exactly like a mobile messaging app,
+            // conversation remains unselected until user clicks on a contact.
 
             if ($activePeer) {
                 $activeMessages = $this->messageService->getConversationMessages($currentNumber, $activePeer);

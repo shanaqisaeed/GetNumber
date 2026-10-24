@@ -65,7 +65,7 @@ const navItems = computed(() => [
         <!-- Natural Flow Container (Same centered mobile width, but NOT inside an artificial restricted box) -->
         <div class="w-full max-w-[460px] min-h-screen flex flex-col relative z-10 px-3.5 sm:px-4">
             <!-- Sticky Top Header Bar -->
-            <header class="sticky top-0 z-30 pt-3 pb-2.5 flex items-center justify-between border-b border-white/10 dark:border-white/5 backdrop-blur-xl bg-[var(--bg-canvas)]/85 transition-colors">
+            <header class="sticky top-0 z-30 pt-3 pb-2.5 flex items-center justify-between border-b border-slate-200/80 dark:border-white/10 backdrop-blur-xl bg-[var(--bg-canvas)]/85 transition-colors">
                 <!-- User Avatar & Status -->
                 <div class="flex items-center gap-2.5 min-w-0">
                     <div class="relative shrink-0">

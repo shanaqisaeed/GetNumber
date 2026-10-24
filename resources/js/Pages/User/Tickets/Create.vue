@@ -80,116 +80,118 @@ function submit() {
     <Head title="ثبت تیکت پشتیبانی جدید" />
 
     <UserLayout>
-        <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-base font-bold text-slate-900 dark:text-white">ثبت تیکت پشتیبانی جدید</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">درخواست راهنمایی، پیگیری و گزارش موارد به کارشناسان سامانه</p>
+        <div class="space-y-4">
+            <!-- Header Card with Back Button -->
+            <div class="glass-card !p-3.5 flex items-center justify-between gap-3 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <Link
+                        :href="route('tickets.index')"
+                        class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white flex items-center justify-center shrink-0 transition-colors"
+                        title="بازگشت به لیست تیکت‌ها"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </Link>
+                    <div class="min-w-0">
+                        <h1 class="text-xs font-black text-slate-900 dark:text-white">ثبت تیکت پشتیبانی جدید</h1>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">پاسخگویی سریع توسط تیم پشتیبانی فنی</p>
+                    </div>
                 </div>
-                <Link
-                    :href="route('tickets.index')"
-                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors"
-                >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    <span>بازگشت به لیست تیکت‌ها</span>
-                </Link>
             </div>
-        </template>
 
-        <div class="max-w-3xl mx-auto">
-            <form @submit.prevent="submit" class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-6">
+            <!-- Form Card -->
+            <form @submit.prevent="submit" class="glass-card !p-4 space-y-3.5 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
                 <!-- Subject -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                         موضوع تیکت <span class="text-rose-500">*</span>
                     </label>
                     <input
                         v-model="form.subject"
                         type="text"
-                        placeholder="عنوان خلاصه و گویای تیکت (مثال: اختلال در دریافت وب‌هوک خط ۹ رقمی)"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5 px-3.5"
+                        placeholder="عنوان خلاصه (مثال: بررسی اختلال وب‌هوک)"
+                        class="glass-input !py-2.5 !text-xs w-full bg-slate-100/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         required
                     />
-                    <p v-if="form.errors.subject" class="text-rose-500 text-[11px] font-bold mt-1">{{ form.errors.subject }}</p>
+                    <p v-if="form.errors.subject" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.subject }}</p>
                 </div>
 
                 <!-- Department & Priority -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="grid grid-cols-2 gap-2.5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            دپارتمان مربوطه <span class="text-rose-500">*</span>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            دپارتمان <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.department"
-                            class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                            class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
                         >
-                            <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
+                            <option v-for="d in departments" :key="d.value" :value="d.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ d.label }}</option>
                         </select>
-                        <p v-if="form.errors.department" class="text-rose-500 text-[11px] font-bold mt-1">{{ form.errors.department }}</p>
+                        <p v-if="form.errors.department" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.department }}</p>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            اولویت بررسی <span class="text-rose-500">*</span>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            اولویت <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.priority"
-                            class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                            class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
                         >
-                            <option v-for="p in priorities" :key="p.value" :value="p.value">{{ p.label }}</option>
+                            <option v-for="p in priorities" :key="p.value" :value="p.value" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">{{ p.label }}</option>
                         </select>
-                        <p v-if="form.errors.priority" class="text-rose-500 text-[11px] font-bold mt-1">{{ form.errors.priority }}</p>
+                        <p v-if="form.errors.priority" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.priority }}</p>
                     </div>
                 </div>
 
-                <!-- Optional Linked Phone Number -->
+                <!-- Optional Linked Number -->
                 <div v-if="userNumbers.length > 0">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        ارتباط با خط سازمانی (اختیاری)
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        خط سازمانی مرتبط (اختیاری):
                     </label>
                     <select
                         v-model="form.phone_number_id"
-                        class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 py-2.5"
+                        class="glass-input !py-2.5 !px-2.5 !text-xs w-full bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white cursor-pointer"
                     >
-                        <option :value="null">بدون اتصال به خط مشخص</option>
-                        <option v-for="num in userNumbers" :key="num.id" :value="num.id">
+                        <option :value="null" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">بدون اتصال به خط مشخص</option>
+                        <option v-for="num in userNumbers" :key="num.id" :value="num.id" class="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
                             {{ num.formatted_number }} - {{ num.display_title }}
                         </option>
                     </select>
                 </div>
 
-                <!-- Message Textarea -->
+                <!-- Message -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        متن پیام و شرح کامل مسئله <span class="text-rose-500">*</span>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        شرح درخواست یا پیام <span class="text-rose-500">*</span>
                     </label>
                     <textarea
                         v-model="form.message"
-                        rows="6"
-                        placeholder="توضیحات دقیق، کدهای خطا یا رفتار مشاهده‌شده را در این بخش تشریح نمایید..."
-                        class="w-full text-xs rounded-2xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 p-3.5 leading-relaxed"
+                        rows="5"
+                        placeholder="متن پیام و جزئیات دقیق مسئله را بنویسید..."
+                        class="glass-input !p-3 !text-xs w-full resize-none leading-relaxed bg-slate-100/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         required
                     ></textarea>
-                    <p v-if="form.errors.message" class="text-rose-500 text-[11px] font-bold mt-1">{{ form.errors.message }}</p>
+                    <p v-if="form.errors.message" class="text-rose-500 text-[10px] font-bold mt-1">{{ form.errors.message }}</p>
                 </div>
 
                 <!-- Attachments Dropzone -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                        فایل‌های پیوست (اختیاری)
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        پیوست تصویر یا سند (اختیاری):
                     </label>
 
                     <div
                         @click="fileInputRef?.click()"
-                        class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-800/30"
+                        class="border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-indigo-500 dark:hover:border-indigo-400 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-slate-50 dark:bg-white/5"
                     >
-                        <svg class="w-8 h-8 mx-auto text-slate-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="w-6 h-6 mx-auto text-indigo-600 dark:text-indigo-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-300">برای بارگذاری فایل کلیک کنید یا فایل را بکشید و رها کنید</p>
-                        <p class="text-[11px] text-slate-400 mt-1">فرمت‌های مجاز: JPG, PNG, PDF, ZIP, TXT (حداکثر ۵ فایل، هر کدام تا سقف ۵ مگابایت)</p>
+                        <p class="text-xs font-bold text-slate-800 dark:text-white">برای انتخاب فایل کلیک کنید</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">JPG, PNG, PDF, ZIP (حداکثر ۵ فایل تا ۵ مگابایت)</p>
                         <input
                             ref="fileInputRef"
                             type="file"
@@ -200,51 +202,38 @@ function submit() {
                         />
                     </div>
 
-                    <p v-if="fileError" class="text-rose-500 text-[11px] font-bold mt-1">{{ fileError }}</p>
-                    <p v-if="form.errors.attachments" class="text-rose-500 text-[11px] font-bold mt-1">{{ form.errors.attachments }}</p>
+                    <p v-if="fileError" class="text-rose-500 text-[10px] font-bold mt-1">{{ fileError }}</p>
 
-                    <!-- Selected Files List -->
-                    <div v-if="form.attachments.length > 0" class="mt-3 space-y-2">
+                    <!-- Selected Files -->
+                    <div v-if="form.attachments.length > 0" class="mt-2 space-y-1.5">
                         <div
                             v-for="(file, idx) in form.attachments"
                             :key="idx"
-                            class="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-between text-xs"
+                            class="p-2 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs"
                         >
-                            <div class="flex items-center gap-2 truncate">
-                                <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                                <span class="font-medium text-slate-800 dark:text-slate-200 truncate" dir="ltr">{{ file.name }}</span>
-                                <span class="text-slate-400 text-[10px] font-mono shrink-0">({{ formatFileSize(file.size) }})</span>
+                            <span class="text-slate-800 dark:text-white font-mono truncate max-w-[200px]" dir="ltr">{{ file.name }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-slate-500 dark:text-slate-400 font-mono">{{ formatFileSize(file.size) }}</span>
+                                <button type="button" @click="removeAttachment(idx)" class="text-rose-500 hover:text-rose-700">✕</button>
                             </div>
-                            <button
-                                type="button"
-                                @click="removeAttachment(idx)"
-                                class="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Form Action Buttons -->
-                <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
+                <!-- Submit Button -->
+                <div class="pt-2 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-end gap-2">
                     <Link
                         :href="route('tickets.index')"
-                        class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300"
                     >
                         انصراف
                     </Link>
                     <button
                         type="submit"
                         :disabled="form.processing"
-                        class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
+                        class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
                     >
-                        <span v-if="form.processing">در حال ارسال...</span>
-                        <span v-else>ارسال و ثبت تیکت</span>
+                        {{ form.processing ? 'در حال ثبت...' : 'ارسال و ثبت تیکت' }}
                     </button>
                 </div>
             </form>

@@ -450,6 +450,16 @@ class MessageService implements MessageServiceInterface
             $query->where('id', '>', $afterId);
         }
 
+        // When a user explicitly opens the conversation, mark inbound messages as processed (read)
+        Message::where('phone_number_id', $phoneNumber->id)
+            ->where(function ($q) use ($cleanPeer, $peerNumber) {
+                $q->where('peer_number', $cleanPeer)
+                    ->orWhere('peer_number', $peerNumber);
+            })
+            ->where('direction', \App\Enums\MessageDirection::Inbound)
+            ->where('processing_status', MessageProcessingStatus::Received)
+            ->update(['processing_status' => MessageProcessingStatus::Processed]);
+
         return $query->oldest('server_received_at')->oldest('id')->limit(150)->get();
     }
 
