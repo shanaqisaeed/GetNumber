@@ -360,4 +360,234 @@ class ApiTokenTest extends TestCase
         $this->assertNotContains('10003', $numbers);
         $this->assertNotContains('20001', $numbers);
     }
+
+    public function test_admin_can_create_api_token_with_maximum_permissions_for_themselves(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'status' => UserStatus::Active,
+        ]);
+
+        $response = $this->actingAs($admin)->post('/admin/api-tokens', [
+            'name' => 'کلید مدیریت مرکزی سرور',
+            'expires_days' => 180,
+            'abilities' => ['*'],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('plain_text_token');
+        $response->assertSessionHas('success');
+
+        $plainTextToken = session('plain_text_token');
+        $this->assertStringStartsWith('gn_live_', $plainTextToken);
+
+        $this->assertDatabaseHas('api_tokens', [
+            'user_id' => $admin->id,
+            'name' => 'کلید مدیریت مرکزی سرور',
+            'status' => ApiTokenStatus::Active->value,
+        ]);
+
+        $tokenRecord = ApiToken::where('user_id', $admin->id)->first();
+        $this->assertTrue($tokenRecord->can('*'));
+        $this->assertTrue($tokenRecord->can('numbers:manage'));
+        $this->assertTrue($tokenRecord->can('messages:write'));
+
+        // Test API ping with this token returns is_admin: true and has_full_access: true
+        $pingResp = $this->withHeaders([
+            'Authorization' => "Bearer {$plainTextToken}",
+            'Accept' => 'application/json',
+        ])->getJson('/api/v1/ping');
+
+        $pingResp->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'user' => [
+                        'id' => $admin->id,
+                        'is_admin' => true,
+                        'role' => 'admin',
+                    ],
+                    'token' => [
+                        'name' => 'کلید مدیریت مرکزی سرور',
+                        'has_full_access' => true,
+                    ],
+                ],
+            ]);
+    }
+
+    public function test_admin_can_create_api_token_for_another_user_with_specific_abilities(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $targetUser = User::factory()->create(['status' => UserStatus::Active]);
+
+        $response = $this->actingAs($admin)->post('/admin/api-tokens', [
+            'name' => 'سیستم انبارداری کلاینت',
+            'user_id' => $targetUser->id,
+            'expires_days' => 60,
+            'abilities' => ['numbers:read'],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('plain_text_token');
+
+        $this->assertDatabaseHas('api_tokens', [
+            'user_id' => $targetUser->id,
+            'name' => 'سیستم انبارداری کلاینت',
+        ]);
+
+        $tokenRecord = ApiToken::where('user_id', $targetUser->id)->first();
+        $this->assertTrue($tokenRecord->can('numbers:read'));
+        $this->assertFalse($tokenRecord->can('numbers:manage'));
+    }
+
+    public function test_admin_can_rotate_any_token_from_admin_panel(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $user = User::factory()->create(['status' => UserStatus::Active]);
+        $created = $this->tokenService->createToken($user, 'توکن کاربر عادی');
+        $oldToken = $created['plain_text_token'];
+        $tokenModel = $created['token'];
+
+        $response = $this->actingAs($admin)->post("/admin/api-tokens/{$tokenModel->id}/rotate");
+
+        $response->assertRedirect();
+        $response->assertSessionHas('plain_text_token');
+        $newToken = session('plain_text_token');
+
+        $this->assertNotEquals($oldToken, $newToken);
+
+        // Old token rejected
+        $this->withHeaders(['Authorization' => "Bearer {$oldToken}"])
+            ->getJson('/api/v1/ping')
+            ->assertStatus(401);
+
+        // New token accepted
+        $this->withHeaders(['Authorization' => "Bearer {$newToken}"])
+            ->getJson('/api/v1/ping')
+            ->assertStatus(200);
+    }
+
+    public function test_admin_token_with_full_access_can_view_all_system_numbers_and_filter_by_user(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'status' => UserStatus::Active,
+        ]);
+        $user1 = User::factory()->create(['status' => UserStatus::Active]);
+        $user2 = User::factory()->create(['status' => UserStatus::Active]);
+
+        PhoneNumber::create([
+            'number' => '50001',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $user1->id,
+            'allocated_at' => now(),
+        ]);
+        PhoneNumber::create([
+            'number' => '50002',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $user2->id,
+            'allocated_at' => now(),
+        ]);
+        PhoneNumber::create([
+            'number' => '50003',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Available,
+        ]);
+
+        $created = $this->tokenService->createToken($admin, 'کلید ارشد ادمین', ['*']);
+        $adminToken = $created['plain_text_token'];
+
+        // 1. Admin without filter sees all numbers across the platform
+        $allResp = $this->withHeaders([
+            'Authorization' => "Bearer {$adminToken}",
+            'Accept' => 'application/json',
+        ])->getJson('/api/v1/numbers');
+
+        $allResp->assertStatus(200);
+        $allNumbers = collect($allResp->json('data'))->pluck('number')->all();
+        $this->assertContains('50001', $allNumbers);
+        $this->assertContains('50002', $allNumbers);
+        $this->assertContains('50003', $allNumbers);
+
+        // 2. Admin filtered by user_id
+        $filteredResp = $this->withHeaders([
+            'Authorization' => "Bearer {$adminToken}",
+            'Accept' => 'application/json',
+        ])->getJson("/api/v1/numbers?user_id={$user1->id}");
+
+        $filteredResp->assertStatus(200);
+        $user1Numbers = collect($filteredResp->json('data'))->pluck('number')->all();
+        $this->assertContains('50001', $user1Numbers);
+        $this->assertNotContains('50002', $user1Numbers);
+    }
+
+    public function test_admin_token_can_assign_number_via_api(): void
+    {
+        $admin = User::factory()->create([
+            'role' => UserRole::Admin,
+            'status' => UserStatus::Active,
+        ]);
+        $targetUser = User::factory()->create(['status' => UserStatus::Active]);
+
+        $phone = PhoneNumber::create([
+            'number' => '000060001',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Available,
+        ]);
+
+        $created = $this->tokenService->createToken($admin, 'کلید ادمین تخصیص', ['*']);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$created['plain_text_token']}",
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/numbers/assign', [
+            'number' => '000060001',
+            'user_id' => $targetUser->id,
+            'display_title' => 'خط پشتیبانی اختصاصی',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'data' => [
+                    'number' => '000060001',
+                    'user_id' => $targetUser->id,
+                    'status' => PhoneNumberStatus::Allocated->value,
+                ],
+            ]);
+
+        $phone->refresh();
+        $this->assertEquals(PhoneNumberStatus::Allocated, $phone->status);
+        $this->assertEquals($targetUser->id, $phone->user_id);
+    }
+
+    public function test_regular_user_token_cannot_assign_number_via_api(): void
+    {
+        $user = User::factory()->create(['status' => UserStatus::Active]);
+        $targetUser = User::factory()->create(['status' => UserStatus::Active]);
+
+        PhoneNumber::create([
+            'number' => '000070001',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Available,
+        ]);
+
+        $created = $this->tokenService->createToken($user, 'کلید کاربر عادی', ['*']);
+
+        $response = $this->withHeaders([
+            'Authorization' => "Bearer {$created['plain_text_token']}",
+            'Accept' => 'application/json',
+        ])->postJson('/api/v1/numbers/assign', [
+            'number' => '000070001',
+            'user_id' => $targetUser->id,
+        ]);
+
+        $response->assertStatus(403)
+            ->assertJson([
+                'success' => false,
+                'code' => 'FORBIDDEN_ADMIN_ACTION',
+            ]);
+    }
 }

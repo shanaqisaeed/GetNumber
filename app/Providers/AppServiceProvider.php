@@ -26,6 +26,16 @@ class AppServiceProvider extends ServiceProvider
             \App\Contracts\ApiTokenServiceInterface::class,
             \App\Services\ApiTokenService::class
         );
+
+        $this->app->singleton(
+            \App\Contracts\MessageServiceInterface::class,
+            \App\Services\MessageService::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\TicketServiceInterface::class,
+            \App\Services\TicketService::class
+        );
     }
 
     /**

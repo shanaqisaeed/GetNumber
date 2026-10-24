@@ -12,6 +12,7 @@ use App\Exceptions\InvalidNumberRequestException;
 use App\Exceptions\NumberAlreadyAllocatedException;
 use App\Exceptions\NumberAllocationException;
 use App\Exceptions\NumberRequestAlreadyReviewedException;
+use App\Models\AuditLog;
 use App\Models\NumberRequest;
 use App\Models\PhoneNumber;
 use App\Models\PhoneNumberAudit;
@@ -131,6 +132,12 @@ class NumberRequestService implements NumberRequestServiceInterface
                 'reviewed_at' => now(),
             ]);
 
+            AuditLog::record('request_rejected', $req, $admin, [
+                'request_id' => $req->id,
+                'applicant_id' => $req->user_id,
+                'rejection_reason' => $cleanReason,
+            ]);
+
             return $req->fresh(['user', 'reviewer']);
         });
     }
@@ -210,6 +217,7 @@ class NumberRequestService implements NumberRequestServiceInterface
         /** @var PhoneNumber|null $phone */
         $phone = PhoneNumber::where('id', $poolNumberId)
             ->where('status', PhoneNumberStatus::Available->value)
+            ->where('type', '!=', PhoneNumberType::PlatformService->value)
             ->lockForUpdate()
             ->first();
 
@@ -247,6 +255,7 @@ class NumberRequestService implements NumberRequestServiceInterface
         // 1. Try finding an existing available service number matching digits
         /** @var PhoneNumber|null $availablePhone */
         $availablePhone = PhoneNumber::where('status', PhoneNumberStatus::Available->value)
+            ->where('type', '!=', PhoneNumberType::PlatformService->value)
             ->whereRaw('LENGTH(number) = ?', [$digits])
             ->lockForUpdate()
             ->orderBy('id', 'asc')
@@ -312,6 +321,14 @@ class NumberRequestService implements NumberRequestServiceInterface
                 'admin_username' => $admin->username,
             ],
             'ip_address' => request()?->ip(),
+        ]);
+
+        AuditLog::record('request_approved', $phone, $admin, [
+            'request_id' => $requestId,
+            'source' => $source,
+            'allocated_number' => $phone->number,
+            'formatted_number' => $phone->formatted_number,
+            'applicant_id' => $phone->user_id,
         ]);
     }
 }

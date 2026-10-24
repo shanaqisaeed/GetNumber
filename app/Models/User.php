@@ -60,6 +60,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if the user is a support agent.
+     */
+    public function isAgent(): bool
+    {
+        return $this->role === UserRole::Agent;
+    }
+
+    /**
+     * Check if the user has staff privileges (Admin or Agent).
+     */
+    public function isStaff(): bool
+    {
+        return $this->role->isStaff();
+    }
+
+    /**
      * Check if the user account is active.
      */
     public function isActive(): bool
@@ -105,5 +121,37 @@ class User extends Authenticatable
     public function apiTokens(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(ApiToken::class);
+    }
+
+    /**
+     * Inbound messages received on phone numbers allocated to the user.
+     */
+    public function messages(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(Message::class, PhoneNumber::class);
+    }
+
+    /**
+     * Audit logs recorded for or by this user.
+     */
+    public function auditLogs(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    /**
+     * Support tickets created by this user.
+     */
+    public function tickets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    /**
+     * Tickets assigned to this user (for agents/admins).
+     */
+    public function assignedTickets(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Ticket::class, 'assigned_to');
     }
 }

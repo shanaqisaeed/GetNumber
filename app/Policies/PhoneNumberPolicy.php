@@ -44,6 +44,10 @@ class PhoneNumberPolicy
             return true;
         }
 
+        if ($phoneNumber->type === \App\Enums\PhoneNumberType::PlatformService) {
+            return false;
+        }
+
         return $user->isActive() && $phoneNumber->user_id === $user->id;
     }
 
@@ -54,6 +58,10 @@ class PhoneNumberPolicy
     {
         if ($user->isAdmin()) {
             return true;
+        }
+
+        if ($phoneNumber->type === \App\Enums\PhoneNumberType::PlatformService) {
+            return false;
         }
 
         return $user->isActive() && $phoneNumber->user_id === $user->id;

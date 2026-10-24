@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => EnsureUserIsAdmin::class,
+            'staff' => \App\Http\Middleware\EnsureUserIsStaff::class,
             'active' => EnsureAccountIsActive::class,
             'auth.api_token' => \App\Http\Middleware\AuthenticateApiToken::class,
         ]);

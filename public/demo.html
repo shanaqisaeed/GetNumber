@@ -1,0 +1,2843 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>GetNumber | سامانه هوشمند خطوط و پیام‌ها</title>
+    <!-- Google Fonts: Vazirmatn for Persian typography & Plus Jakarta Sans for Latin/Numbers -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-main: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-latin: 'Plus Jakarta Sans', sans-serif;
+
+            /* Liquid Glass Dark Palette */
+            --bg-canvas: #07090e;
+            --app-bg: rgba(14, 18, 28, 0.78);
+            --glass-card-bg: rgba(26, 33, 50, 0.55);
+            --glass-card-hover: rgba(35, 45, 68, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.12);
+            --glass-border-specular: rgba(255, 255, 255, 0.25);
+            --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 255, 255, 0.08) 100%);
+            --glass-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.6), 0 0 24px -4px rgba(99, 102, 241, 0.18);
+            
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.4);
+            --accent-cyan: #06b6d4;
+            --accent-pink: #ec4899;
+            --accent-purple: #8b5cf6;
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.35);
+            --warning: #f59e0b;
+            --danger: #f43f5e;
+        }
+
+        /* High-End Refined Light Liquid Glass Palette (طراحی فوق‌العاده شیشه‌ای با کنتراست عمیق و انکسار نور کریستالی) */
+        html.light {
+            --bg-canvas: #eff3f9;
+            --app-bg: rgba(255, 255, 255, 0.86);
+            --glass-card-bg: rgba(255, 255, 255, 0.82);
+            --glass-card-hover: rgba(255, 255, 255, 0.96);
+            --glass-border: rgba(226, 232, 240, 0.9);
+            --glass-border-specular: rgba(255, 255, 255, 1);
+            --glass-shine: linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.85) 100%);
+            --glass-shadow: 0 18px 40px -10px rgba(99, 102, 241, 0.14), 0 4px 14px rgba(15, 23, 42, 0.04);
+            
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #7b8ea5;
+
+            --primary: #4f46e5;
+            --primary-glow: rgba(79, 70, 229, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-canvas);
+            color: var(--text-primary);
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+            user-select: none;
+            transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.3s ease;
+        }
+
+        /* 3D Liquid Canvas Ambient Glows */
+        .ambient-mesh {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .liquid-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(85px);
+            opacity: 0.55;
+            animation: orbFloat 18s infinite ease-in-out alternate;
+            transition: all 0.5s ease;
+        }
+
+        .orb-1 {
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.45) 0%, rgba(139, 92, 246, 0.25) 50%, transparent 75%);
+            top: -5%;
+            left: 20%;
+            animation-duration: 16s;
+        }
+
+        .orb-2 {
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.35) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 75%);
+            bottom: 5%;
+            right: 15%;
+            animation-duration: 22s;
+            animation-delay: -4s;
+        }
+
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.25) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 75%);
+            top: 45%;
+            left: -5%;
+            animation-duration: 20s;
+            animation-delay: -8s;
+        }
+
+        /* High-contrast pastel diffusion for Light Mode ambient lighting */
+        html.light .orb-1 {
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.28) 0%, rgba(139, 92, 246, 0.15) 50%, transparent 75%);
+            opacity: 0.8;
+        }
+        html.light .orb-2 {
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(59, 130, 246, 0.14) 50%, transparent 75%);
+            opacity: 0.8;
+        }
+        html.light .orb-3 {
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.24) 0%, rgba(168, 85, 247, 0.12) 50%, transparent 75%);
+            opacity: 0.8;
+        }
+
+        @keyframes orbFloat {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(45px, 35px) scale(1.06); }
+            100% { transform: translate(-35px, 60px) scale(0.96); }
+        }
+
+        /* ========================================================
+           RESPONSIVE APP CONTAINER (NATURAL MOBILE ON DESKTOP & REAL MOBILE)
+           ======================================================== */
+        .app-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            max-width: 440px;
+            height: 100vh;
+            height: 100dvh;
+            background: var(--app-bg);
+            backdrop-filter: blur(35px) saturate(190%);
+            -webkit-backdrop-filter: blur(35px) saturate(190%);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-border-specular);
+            border-radius: 36px;
+            box-shadow: 
+                0 25px 70px -15px rgba(0, 0, 0, 0.65), 
+                0 0 35px -5px rgba(99, 102, 241, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            margin: 16px auto;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* دور لایت شیشه‌ای فوق‌العاده چشم‌نواز در دسکتاپ */
+        html.light .app-container {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1.5px solid rgba(255, 255, 255, 0.95);
+            border-top: 2px solid #ffffff;
+            box-shadow: 
+                0 30px 80px -15px rgba(79, 70, 229, 0.22),
+                0 10px 30px -5px rgba(99, 102, 241, 0.12),
+                0 0 0 1px rgba(99, 102, 241, 0.08),
+                inset 0 1px 2px rgba(255, 255, 255, 1);
+        }
+
+        /* On real smartphones and screens under 640px, expand to full viewport smoothly without borders */
+        @media (max-width: 640px) {
+            body {
+                align-items: flex-start;
+                justify-content: flex-start;
+                background: #07090e;
+            }
+            html.light body {
+                background: #eff3f9;
+            }
+
+            .app-container {
+                max-width: 100vw;
+                height: 100vh;
+                height: 100dvh;
+                margin: 0;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
+            }
+            html.light .app-container {
+                box-shadow: none;
+                border: none;
+            }
+        }
+
+        /* ========================================================
+           IN-APP SLIDE-DOWN SMS NOTIFICATION BANNER
+           (هوشمند، شناور از بالای صفحه بدون نیاز به ناچ یا دوربین فیزیکی)
+           ======================================================== */
+        .app-notification-banner {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 90;
+            background: rgba(18, 24, 38, 0.95);
+            border: 1px solid rgba(99, 102, 241, 0.45);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(28px) saturate(180%);
+            -webkit-backdrop-filter: blur(28px) saturate(180%);
+            border-radius: 22px;
+            padding: 12px 14px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 25px rgba(99, 102, 241, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            transform: translateY(-140%);
+            opacity: 0;
+            pointer-events: none;
+            transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+        }
+
+        .app-notification-banner.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        html.light .app-notification-banner {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1.5px solid rgba(99, 102, 241, 0.35);
+            border-top: 2px solid #ffffff;
+            box-shadow: 
+                0 20px 45px -8px rgba(79, 70, 229, 0.25),
+                0 0 25px rgba(99, 102, 241, 0.12),
+                inset 0 1px 2px #ffffff;
+        }
+
+        .banner-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0088cc 0%, #00bfff 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(0, 136, 204, 0.4);
+        }
+
+        .banner-content {
+            flex: 1;
+            overflow: hidden;
+            text-align: right;
+            padding: 0 4px;
+        }
+
+        .banner-title {
+            font-size: 0.76rem;
+            font-weight: 800;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        html.light .banner-title {
+            color: #0f172a;
+        }
+
+        .banner-otp-pill {
+            background: rgba(16, 185, 129, 0.25);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            color: #34d399;
+            font-size: 0.72rem;
+            font-weight: 800;
+            padding: 1px 6px;
+            border-radius: 6px;
+            font-family: var(--font-latin);
+            letter-spacing: 1px;
+        }
+
+        html.light .banner-otp-pill {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.35);
+            color: #059669;
+        }
+
+        .banner-desc {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            margin-top: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        html.light .banner-desc {
+            color: #64748b;
+        }
+
+        .banner-actions {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .banner-copy-btn {
+            background: rgba(255, 255, 255, 0.14);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        html.light .banner-copy-btn {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            border: none;
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35);
+        }
+
+        .banner-copy-btn:hover {
+            background: var(--primary);
+        }
+
+        .banner-close-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+
+        .banner-close-btn:hover {
+            color: var(--text-primary);
+        }
+
+        /* ========================================================
+           SCREEN SCROLL CONTAINER & PAGES
+           ======================================================== */
+        .screen-scroll-container {
+            position: relative;
+            z-index: 10;
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 20px 16px 95px 16px;
+            scroll-behavior: smooth;
+        }
+
+        .screen-scroll-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .app-view {
+            display: none;
+            opacity: 0;
+            transform: translateY(8px) scale(0.99);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .app-view.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* ========================================================
+           LIQUID GLASS COMPONENTS & DESIGN TOKENS
+           ======================================================== */
+        .glass-card {
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-border-specular);
+            border-radius: 24px;
+            padding: 18px;
+            backdrop-filter: blur(28px) saturate(180%);
+            -webkit-backdrop-filter: blur(28px) saturate(180%);
+            box-shadow: var(--glass-shadow);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html.light .glass-card {
+            border: 1px solid rgba(226, 232, 240, 0.85);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 14px 35px -8px rgba(99, 102, 241, 0.1),
+                0 4px 12px rgba(0, 0, 0, 0.03),
+                inset 0 1px 1px rgba(255, 255, 255, 1);
+        }
+
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: var(--glass-shine);
+            pointer-events: none;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+            box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6), 0 0 30px -4px rgba(99, 102, 241, 0.25);
+        }
+
+        html.light .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.35);
+            box-shadow: 
+                0 20px 45px -10px rgba(79, 70, 229, 0.18),
+                0 4px 16px rgba(0, 0, 0, 0.04),
+                inset 0 1px 2px rgba(255, 255, 255, 1);
+        }
+
+        .glass-pill {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        html.light .glass-pill {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            color: #334155;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .glass-input-wrapper {
+            position: relative;
+            margin-bottom: 14px;
+        }
+
+        .glass-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: var(--text-secondary);
+        }
+
+        .glass-input-box {
+            position: relative;
+            display: flex;
+            align-items: center;
+            border-radius: 16px;
+            background: rgba(18, 23, 37, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.25s ease;
+        }
+
+        html.light .glass-input-box {
+            background: rgba(248, 250, 252, 0.9);
+            border: 1.5px solid rgba(203, 213, 225, 0.85);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.02);
+        }
+
+        .glass-input-box:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+            background: rgba(24, 30, 48, 0.85);
+        }
+
+        html.light .glass-input-box:focus-within {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3.5px rgba(79, 70, 229, 0.18);
+            background: #ffffff;
+        }
+
+        .glass-input-icon {
+            width: 42px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        .glass-input-box:focus-within .glass-input-icon {
+            color: var(--primary);
+        }
+
+        .glass-input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            padding: 13px 4px 13px 14px;
+            font-family: var(--font-main);
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .glass-input::placeholder {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .glass-btn-primary {
+            width: 100%;
+            padding: 13px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            font-size: 0.88rem;
+            font-weight: 700;
+            font-family: var(--font-main);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 10px 25px -4px rgba(99, 102, 241, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        html.light .glass-btn-primary {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 12px 28px -4px rgba(79, 70, 229, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        .glass-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 30px -4px rgba(99, 102, 241, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+        }
+
+        .glass-btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        /* IN-APP THEME TOGGLE BUTTON (DIRECTLY IN APP) */
+        .app-theme-toggle-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 13px;
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(16px);
+        }
+
+        html.light .app-theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1.5px solid rgba(99, 102, 241, 0.2);
+            border-top: 1.5px solid #ffffff;
+            color: #4f46e5;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+        }
+
+        .app-theme-toggle-btn:hover {
+            border-color: var(--primary);
+            background: var(--glass-card-hover);
+            transform: rotate(15deg) scale(1.05);
+        }
+
+        .theme-icon-sun {
+            display: none;
+        }
+        .theme-icon-moon {
+            display: block;
+        }
+        html.light .theme-icon-sun {
+            display: block;
+        }
+        html.light .theme-icon-moon {
+            display: none;
+        }
+
+        /* BOTTOM LIQUID GLASS DOCK BAR */
+        .phone-dock-bar {
+            position: absolute;
+            bottom: 14px;
+            left: 14px;
+            right: 14px;
+            z-index: 50;
+            background: rgba(18, 24, 38, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-top: 1px solid rgba(255, 255, 255, 0.25);
+            backdrop-filter: blur(28px) saturate(200%);
+            -webkit-backdrop-filter: blur(28px) saturate(200%);
+            border-radius: 28px;
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-around;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+
+        html.light .phone-dock-bar {
+            background: rgba(255, 255, 255, 0.92);
+            border: 1.5px solid rgba(255, 255, 255, 0.95);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 16px 36px -6px rgba(79, 70, 229, 0.18),
+                0 4px 14px rgba(0, 0, 0, 0.05),
+                inset 0 1px 1px #ffffff;
+        }
+
+        .dock-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border-radius: 18px;
+            color: var(--text-muted);
+            text-decoration: none;
+            font-size: 0.68rem;
+            font-weight: 600;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .dock-item svg {
+            width: 20px;
+            height: 20px;
+            stroke-width: 2;
+            transition: transform 0.2s;
+        }
+
+        .dock-item.active {
+            color: #fff;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+        }
+
+        html.light .dock-item.active {
+            color: #4f46e5;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(139, 92, 246, 0.1) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
+        }
+
+        .dock-item.active svg {
+            color: #818cf8;
+            transform: scale(1.1);
+        }
+
+        html.light .dock-item.active svg {
+            color: #4f46e5;
+        }
+
+        .dock-badge {
+            position: absolute;
+            top: 2px;
+            left: 10px;
+            background: #ef4444;
+            color: #fff;
+            font-size: 0.58rem;
+            font-weight: 800;
+            padding: 1px 5px;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(239, 68, 68, 0.5);
+        }
+
+        /* ========================================================
+           SCREEN 1: LOGIN (ورود به سامانه)
+           ======================================================== */
+        .auth-top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+
+        .auth-header {
+            text-align: center;
+            padding: 14px 8px 18px 8px;
+        }
+
+        .auth-logo-badge {
+            width: 58px;
+            height: 58px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+            color: #fff;
+            box-shadow: 0 12px 25px -4px rgba(99, 102, 241, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            position: relative;
+        }
+
+        html.light .auth-logo-badge {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            box-shadow: 0 12px 25px -4px rgba(79, 70, 229, 0.4), inset 0 1px 1px #ffffff;
+        }
+
+        .auth-logo-badge::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            pointer-events: none;
+        }
+
+        .auth-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .auth-subtitle {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .auth-demo-autofill {
+            background: rgba(99, 102, 241, 0.12);
+            border: 1px dashed rgba(99, 102, 241, 0.35);
+            border-radius: 14px;
+            padding: 8px 12px;
+            font-size: 0.72rem;
+            color: #a5b4fc;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        html.light .auth-demo-autofill {
+            background: rgba(79, 70, 229, 0.08);
+            border: 1px dashed rgba(79, 70, 229, 0.3);
+            color: #4338ca;
+        }
+
+        .auth-demo-autofill:hover {
+            background: rgba(99, 102, 241, 0.22);
+        }
+
+        /* Password strength bar in register */
+        .strength-bar-wrapper {
+            margin-top: -6px;
+            margin-bottom: 12px;
+        }
+
+        .strength-track {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            gap: 4px;
+        }
+
+        html.light .strength-track {
+            background: rgba(0, 0, 0, 0.08);
+        }
+
+        .strength-segment {
+            flex: 1;
+            height: 100%;
+            background: transparent;
+            transition: background 0.3s;
+        }
+
+        .strength-segment.active-weak { background: #f43f5e; }
+        .strength-segment.active-med { background: #f59e0b; }
+        .strength-segment.active-good { background: #6366f1; }
+        .strength-segment.active-strong { background: #10b981; }
+
+        .strength-label {
+            font-size: 0.68rem;
+            margin-top: 4px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+        }
+
+        /* ========================================================
+           SCREEN 2: DASHBOARD (پیشخوان کاربری)
+           ======================================================== */
+        .dash-user-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding: 4px 2px;
+        }
+
+        .dash-avatar-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .dash-avatar {
+            width: 44px;
+            height: 44px;
+            border-radius: 16px;
+            background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        html.light .dash-avatar {
+            border: 2px solid #ffffff;
+            box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25);
+        }
+
+        .dash-avatar-badge {
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            width: 12px;
+            height: 12px;
+            background: #10b981;
+            border-radius: 50%;
+            border: 2px solid #090c15;
+        }
+
+        html.light .dash-avatar-badge {
+            border: 2px solid #ffffff;
+        }
+
+        .dash-user-greeting {
+            font-size: 0.95rem;
+            font-weight: 800;
+        }
+
+        .dash-user-role {
+            font-size: 0.7rem;
+            color: #a5b4fc;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        html.light .dash-user-role {
+            color: #4f46e5;
+            font-weight: 700;
+        }
+
+        .dash-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .dash-action-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 13px;
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-primary);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        html.light .dash-action-btn {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1.5px solid rgba(99, 102, 241, 0.2);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.12);
+        }
+
+        .dash-action-btn:hover {
+            border-color: var(--primary);
+            background: var(--glass-card-hover);
+        }
+
+        .dash-action-badge {
+            position: absolute;
+            top: 7px;
+            right: 7px;
+            width: 8px;
+            height: 8px;
+            background: #ef4444;
+            border-radius: 50%;
+            border: 1.5px solid #090c15;
+        }
+
+        html.light .dash-action-badge {
+            border: 1.5px solid #ffffff;
+        }
+
+        /* Wallet Hero Glass Card (دور لایت و متریال کریستالی ارتقایافته) */
+        .dash-wallet-card {
+            background: linear-gradient(135deg, rgba(37, 47, 74, 0.75) 0%, rgba(20, 26, 44, 0.8) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-top: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 26px;
+            padding: 20px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.6), 0 0 25px rgba(99, 102, 241, 0.2);
+        }
+
+        html.light .dash-wallet-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 244, 255, 0.92) 50%, rgba(224, 231, 255, 0.85) 100%);
+            border: 1.5px solid rgba(99, 102, 241, 0.25);
+            border-top: 2px solid #ffffff;
+            box-shadow: 
+                0 20px 45px -8px rgba(79, 70, 229, 0.2),
+                0 4px 15px rgba(0, 0, 0, 0.04),
+                inset 0 1px 2px #ffffff;
+        }
+
+        .dash-wallet-card::after {
+            content: '';
+            position: absolute;
+            top: -50px;
+            left: -50px;
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .wallet-top-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .wallet-title {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+
+        html.light .wallet-title {
+            color: #475569;
+            font-weight: 700;
+        }
+
+        .wallet-chip {
+            background: rgba(16, 185, 129, 0.18);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #34d399;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 20px;
+        }
+
+        html.light .wallet-chip {
+            background: rgba(16, 185, 129, 0.12);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #059669;
+        }
+
+        .wallet-amount {
+            font-size: 1.7rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            margin-top: 8px;
+            font-family: var(--font-latin), var(--font-main);
+            color: #fff;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        html.light .wallet-amount {
+            color: #1e1b4b;
+        }
+
+        .wallet-currency {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: #cbd5e1;
+            font-family: var(--font-main);
+        }
+
+        html.light .wallet-currency {
+            color: #4338ca;
+            font-weight: 700;
+        }
+
+        .wallet-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .wallet-btn-topup {
+            flex: 1;
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #fff;
+            padding: 9px;
+            border-radius: 14px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.4);
+            transition: all 0.2s;
+        }
+
+        html.light .wallet-btn-topup {
+            box-shadow: 0 6px 18px rgba(79, 70, 229, 0.35);
+        }
+
+        .wallet-btn-topup:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(79, 70, 229, 0.55);
+        }
+
+        .wallet-btn-history {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #fff;
+            padding: 9px 14px;
+            border-radius: 14px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        html.light .wallet-btn-history {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1.5px solid rgba(99, 102, 241, 0.2);
+            color: #334155;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        /* 4 Quick Stat Cards */
+        .dash-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .stat-card {
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 14px;
+            backdrop-filter: blur(16px);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        html.light .stat-card {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 6px 18px -4px rgba(99, 102, 241, 0.08),
+                inset 0 1px 1px #ffffff;
+        }
+
+        .stat-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .stat-icon-wrapper {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .stat-val {
+            font-size: 1.25rem;
+            font-weight: 900;
+            font-family: var(--font-latin), var(--font-main);
+        }
+
+        .stat-label {
+            font-size: 0.68rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Quick Service Launch Row */
+        .service-bubbles-row {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            margin-bottom: 18px;
+        }
+
+        .service-bubbles-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .service-bubble-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+            width: 62px;
+        }
+
+        .service-bubble-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 18px;
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-top: 1px solid var(--glass-border-specular);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html.light .service-bubble-icon {
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+            border: 1.5px solid #ffffff;
+        }
+
+        .service-bubble-item:hover .service-bubble-icon {
+            transform: translateY(-3px) scale(1.05);
+            border-color: var(--primary);
+            box-shadow: 0 8px 20px rgba(99, 102, 241, 0.35);
+        }
+
+        .service-bubble-name {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* Recent Active Numbers List */
+        .section-header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--text-primary);
+        }
+
+        .section-link {
+            font-size: 0.72rem;
+            color: #818cf8;
+            text-decoration: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        html.light .section-link {
+            color: #4f46e5;
+        }
+
+        .active-number-card {
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            backdrop-filter: blur(16px);
+            transition: all 0.2s;
+        }
+
+        html.light .active-number-card {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(226, 232, 240, 0.85);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 6px 16px -4px rgba(99, 102, 241, 0.08),
+                inset 0 1px 1px #ffffff;
+        }
+
+        .active-number-card:hover {
+            border-color: rgba(99, 102, 241, 0.35);
+        }
+
+        .number-service-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+            font-size: 1.2rem;
+        }
+
+        .number-info-box {
+            flex: 1;
+        }
+
+        .number-digit {
+            font-size: 0.92rem;
+            font-weight: 800;
+            font-family: var(--font-latin);
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .number-meta {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot-pulse {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulseDot 2s infinite;
+        }
+
+        @keyframes pulseDot {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            50% { transform: scale(1.35); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.8; }
+        }
+
+        .btn-copy-code {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: var(--text-primary);
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        html.light .btn-copy-code {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1.5px solid rgba(99, 102, 241, 0.22);
+            color: #4338ca;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+        }
+
+        .btn-copy-code:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        /* ========================================================
+           SCREEN 3: BUY / NUMBERS STORE
+           ======================================================== */
+        .store-filter-bar {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin-bottom: 14px;
+            padding-bottom: 4px;
+        }
+
+        .store-filter-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-chip {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text-secondary);
+            padding: 6px 14px;
+            border-radius: 14px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        html.light .filter-chip {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            color: #475569;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .filter-chip.active {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: rgba(99, 102, 241, 0.5);
+            color: #a5b4fc;
+        }
+
+        html.light .filter-chip.active {
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%);
+            border-color: rgba(79, 70, 229, 0.4);
+            color: #4338ca;
+            font-weight: 700;
+        }
+
+        .store-item-card {
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 14px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            transition: all 0.2s;
+        }
+
+        html.light .store-item-card {
+            background: rgba(255, 255, 255, 0.88);
+            border: 1px solid rgba(226, 232, 240, 0.85);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 6px 16px -4px rgba(99, 102, 241, 0.08),
+                inset 0 1px 1px #ffffff;
+        }
+
+        .store-item-card:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .store-item-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .store-item-title {
+            font-size: 0.84rem;
+            font-weight: 800;
+        }
+
+        .store-item-subtitle {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .store-price-box {
+            text-align: left;
+        }
+
+        .store-price-num {
+            font-size: 0.95rem;
+            font-weight: 900;
+            color: #10b981;
+            font-family: var(--font-latin);
+        }
+
+        html.light .store-price-num {
+            color: #059669;
+        }
+
+        .btn-buy-instant {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 10px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 4px;
+            display: block;
+            transition: all 0.2s;
+        }
+
+        .btn-buy-instant:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+        }
+
+        /* ========================================================
+           SCREEN 4: MESSAGES & SMS INBOX
+           ======================================================== */
+        .live-polling-header {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            border-radius: 16px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        html.light .live-polling-header {
+            background: rgba(16, 185, 129, 0.08);
+            border-color: rgba(16, 185, 129, 0.25);
+        }
+
+        .polling-status-text {
+            font-size: 0.74rem;
+            font-weight: 700;
+            color: #34d399;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        html.light .polling-status-text {
+            color: #059669;
+        }
+
+        .message-inbox-card {
+            background: var(--glass-card-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 22px;
+            padding: 16px;
+            margin-bottom: 12px;
+            position: relative;
+            backdrop-filter: blur(18px);
+            transition: all 0.25s;
+        }
+
+        html.light .message-inbox-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-top: 1.5px solid #ffffff;
+            box-shadow: 
+                0 8px 20px -4px rgba(99, 102, 241, 0.08),
+                inset 0 1px 1px #ffffff;
+        }
+
+        .message-inbox-card.new-arrival {
+            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(35, 45, 75, 0.75);
+            animation: glowMessage 2s infinite alternate;
+        }
+
+        html.light .message-inbox-card.new-arrival {
+            border-color: rgba(79, 70, 229, 0.5);
+            background: rgba(245, 248, 255, 0.96);
+            box-shadow: 0 0 25px rgba(79, 70, 229, 0.2);
+        }
+
+        @keyframes glowMessage {
+            0% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.2); }
+            100% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.5); }
+        }
+
+        .msg-top-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .msg-sender-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .msg-sender-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .msg-sender-name {
+            font-size: 0.82rem;
+            font-weight: 800;
+        }
+
+        .msg-sender-phone {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            font-family: var(--font-latin);
+        }
+
+        .msg-time {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+        }
+
+        .msg-text-box {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 14px;
+            padding: 12px;
+            font-size: 0.78rem;
+            line-height: 1.6;
+            color: #e2e8f0;
+            margin-bottom: 10px;
+            direction: ltr;
+            text-align: left;
+        }
+
+        html.light .msg-text-box {
+            background: rgba(241, 245, 249, 0.85);
+            color: #334155;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .msg-otp-callout {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(99, 102, 241, 0.15);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: 12px;
+            padding: 8px 12px;
+        }
+
+        html.light .msg-otp-callout {
+            background: rgba(79, 70, 229, 0.08);
+            border: 1.5px solid rgba(79, 70, 229, 0.25);
+        }
+
+        .otp-code-display {
+            font-size: 1.15rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #818cf8;
+            font-family: var(--font-latin);
+        }
+
+        html.light .otp-code-display {
+            color: #4338ca;
+        }
+
+        /* ========================================================
+           SCREEN 5: PROFILE & WALLET TOPUP
+           ======================================================== */
+        .profile-avatar-large {
+            width: 72px;
+            height: 72px;
+            border-radius: 24px;
+            background: linear-gradient(135deg, #6366f1 0%, #ec4899 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            margin: 0 auto 12px auto;
+            box-shadow: 0 12px 25px rgba(99, 102, 241, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+        }
+
+        html.light .profile-avatar-large {
+            border: 2px solid #ffffff;
+            box-shadow: 0 12px 25px rgba(79, 70, 229, 0.25);
+        }
+
+        .topup-amounts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 12px 0 16px 0;
+        }
+
+        .topup-pill {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        html.light .topup-pill {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1.5px solid rgba(226, 232, 240, 0.9);
+            color: #334155;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+        }
+
+        .topup-pill:hover,
+        .topup-pill.active {
+            background: rgba(99, 102, 241, 0.25);
+            border-color: var(--primary);
+            color: #fff;
+        }
+
+        html.light .topup-pill.active {
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: #ffffff;
+            border-color: #4f46e5;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+
+        /* TOAST NOTIFICATION */
+        .toast-bubble {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 100;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        html.light .toast-bubble {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1.5px solid rgba(99, 102, 241, 0.3);
+            color: #0f172a;
+            box-shadow: 0 14px 35px rgba(79, 70, 229, 0.25);
+        }
+
+        .toast-bubble.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Glowing Liquid Mesh -->
+    <div class="ambient-mesh">
+        <div class="liquid-orb orb-1"></div>
+        <div class="liquid-orb orb-2"></div>
+        <div class="liquid-orb orb-3"></div>
+    </div>
+
+    <!-- Main Responsive Mobile-First App Container -->
+    <div class="app-container" id="appContainer">
+
+        <!-- In-App Slide-Down Notification Banner for Incoming SMS -->
+        <div class="app-notification-banner" id="smsNotificationBanner">
+            <div class="banner-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+            </div>
+            <div class="banner-content">
+                <div class="banner-title">
+                    <span id="bannerAppName">تلگرام (Telegram)</span>
+                    <span class="banner-otp-pill" id="bannerOtpText">839-204</span>
+                </div>
+                <div class="banner-desc" id="bannerMsgPreview">کد تایید ورود شما ارسال شد</div>
+            </div>
+            <div class="banner-actions">
+                <button class="banner-copy-btn" id="bannerCopyBtn">کپی کد</button>
+                <button class="banner-close-btn" id="bannerCloseBtn" title="بستن">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable View Container inside the App -->
+        <div class="screen-scroll-container">
+
+            <!-- ==============================================
+                 SCREEN 1: LOGIN (ورود به سامانه)
+                 ============================================== -->
+            <div class="app-view" id="viewLogin">
+                <div class="auth-top-bar">
+                    <span class="glass-pill" style="color: var(--primary); font-weight: 700;">سامانه خطوط سازمانی</span>
+                    <!-- Directly Embedded Theme Switcher -->
+                    <button class="app-theme-toggle-btn toggleThemeDirect" title="تغییر تم تاریک / روشن">
+                        <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="auth-header">
+                    <div class="auth-logo-badge">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                        </svg>
+                    </div>
+                    <h2 class="auth-title">ورود به درگاه</h2>
+                    <p class="auth-subtitle">سامانه هوشمند دریافت شماره‌های مجازی و پیامک</p>
+                </div>
+
+                <div class="glass-card">
+                    <!-- Quick demo autofill -->
+                    <div class="auth-demo-autofill" id="btnAutofillLogin">
+                        <span>✨ پر کردن سریع اطلاعات دمو جهت تست</span>
+                        <span style="font-weight: 800;">کلیک کنید</span>
+                    </div>
+
+                    <form id="formLogin" onsubmit="event.preventDefault(); switchScreen('viewDashboard'); showToast('ورود با موفقیت انجام شد!');">
+                        <div class="glass-input-wrapper">
+                            <label class="glass-label">شناسه کاربری یا شماره همراه</label>
+                            <div class="glass-input-box">
+                                <div class="glass-input-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                    </svg>
+                                </div>
+                                <input type="text" id="loginUsername" class="glass-input" placeholder="saeed_demo" required dir="ltr">
+                            </div>
+                        </div>
+
+                        <div class="glass-input-wrapper">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <label class="glass-label" style="margin-bottom: 0;">کلمه عبور</label>
+                                <a href="#" style="font-size: 0.7rem; color: var(--primary); text-decoration: none;">فراموشی رمز؟</a>
+                            </div>
+                            <div class="glass-input-box">
+                                <div class="glass-input-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                </div>
+                                <input type="password" id="loginPassword" class="glass-input" placeholder="••••••••••••" required dir="ltr">
+                                <div style="padding-left: 10px; cursor: pointer; color: var(--text-muted);" id="toggleLoginPassword">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin: 14px 2px 20px 2px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.74rem; color: var(--text-secondary); cursor: pointer;">
+                                <input type="checkbox" checked style="accent-color: #4f46e5; width: 15px; height: 15px;">
+                                <span>مرا به خاطر بسپار</span>
+                            </label>
+                            <span class="glass-pill" style="font-size: 0.65rem; color: #10b981;">
+                                <span class="status-dot-pulse"></span>
+                                امنیت ۲۵۶ بیتی
+                            </span>
+                        </div>
+
+                        <button type="submit" class="glass-btn-primary">
+                            <span>ورود به پیشخوان</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                                <polyline points="12 5 19 12 12 19"></polyline>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div style="text-align: center; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--glass-border); font-size: 0.78rem; color: var(--text-secondary);">
+                        <span>حساب کاربری ندارید؟</span>
+                        <a href="javascript:void(0)" onclick="switchScreen('viewRegister')" style="color: var(--primary); font-weight: 700; text-decoration: none; margin-right: 4px;">ثبت نام سریع</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==============================================
+                 SCREEN 2: REGISTER (ثبت نام متقاضی جدید)
+                 ============================================== -->
+            <div class="app-view" id="viewRegister">
+                <div class="auth-top-bar">
+                    <span class="glass-pill" style="color: #a855f7; font-weight: 700;">ثبت نام سریع</span>
+                    <!-- Directly Embedded Theme Switcher -->
+                    <button class="app-theme-toggle-btn toggleThemeDirect" title="تغییر تم تاریک / روشن">
+                        <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                            <line x1="1" y1="12" x2="3" y2="12"></line>
+                            <line x1="21" y1="12" x2="23" y2="12"></line>
+                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                        </svg>
+                        <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="auth-header">
+                    <div class="auth-logo-badge" style="background: linear-gradient(135deg, #a855f7 0%, #ec4899 100%);">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="8.5" cy="7" r="4"></circle>
+                            <line x1="20" y1="8" x2="20" y2="14"></line>
+                            <line x1="23" y1="11" x2="17" y2="11"></line>
+                        </svg>
+                    </div>
+                    <h2 class="auth-title">ایجاد حساب کاربری</h2>
+                    <p class="auth-subtitle">ثبت نام متقاضی خطوط سازمانی و مجازی</p>
+                </div>
+
+                <div class="glass-card">
+                    <form id="formRegister" onsubmit="event.preventDefault(); switchScreen('viewDashboard'); showToast('ثبت نام با موفقیت انجام شد! خوش آمدید.');">
+                        <div class="glass-input-wrapper">
+                            <label class="glass-label">عنوان سازمان / نام و نام خانوادگی</label>
+                            <div class="glass-input-box">
+                                <div class="glass-input-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="12" cy="7" r="4"></circle>
+                                    </svg>
+                                </div>
+                                <input type="text" class="glass-input" placeholder="سعید شناقی" required>
+                            </div>
+                        </div>
+
+                        <div class="glass-input-wrapper">
+                            <label class="glass-label">شناسه کاربری (انگلیسی)</label>
+                            <div class="glass-input-box">
+                                <div class="glass-input-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <circle cx="12" cy="12" r="4"></circle>
+                                        <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
+                                    </svg>
+                                </div>
+                                <input type="text" class="glass-input" placeholder="saeed_pro" required dir="ltr">
+                            </div>
+                        </div>
+
+                        <div class="glass-input-wrapper">
+                            <label class="glass-label">کلمه عبور امن</label>
+                            <div class="glass-input-box">
+                                <div class="glass-input-icon">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                        <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                    </svg>
+                                </div>
+                                <input type="password" id="regPassword" class="glass-input" placeholder="حداقل ۸ کاراکتر..." required dir="ltr">
+                            </div>
+                        </div>
+
+                        <!-- Live Password Strength Meter -->
+                        <div class="strength-bar-wrapper">
+                            <div class="strength-track">
+                                <div class="strength-segment active-strong"></div>
+                                <div class="strength-segment active-strong"></div>
+                                <div class="strength-segment active-strong"></div>
+                                <div class="strength-segment"></div>
+                            </div>
+                            <div class="strength-label">
+                                <span>امنیت رمز: <b style="color: #10b981;">بسیار خوب</b></span>
+                                <span>شامل حروف، ارقام و علائم</span>
+                            </div>
+                        </div>
+
+                        <div style="margin-bottom: 18px;">
+                            <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.72rem; color: var(--text-secondary); cursor: pointer; line-height: 1.4;">
+                                <input type="checkbox" checked style="accent-color: #4f46e5; width: 15px; height: 15px; margin-top: 2px;">
+                                <span>قوانین، ضوابط واگذاری خطوط و حریم خصوصی را می‌پذیرم.</span>
+                            </label>
+                        </div>
+
+                        <button type="submit" class="glass-btn-primary" style="background: linear-gradient(135deg, #a855f7 0%, #6366f1 100%);">
+                            <span>تکمیل ثبت نام و ورود</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </button>
+                    </form>
+
+                    <div style="text-align: center; margin-top: 16px; font-size: 0.78rem; color: var(--text-secondary);">
+                        <span>قبلاً ثبت نام کرده‌اید؟</span>
+                        <a href="javascript:void(0)" onclick="switchScreen('viewLogin')" style="color: var(--primary); font-weight: 700; text-decoration: none; margin-right: 4px;">ورود به حساب</a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==============================================
+                 SCREEN 3: DASHBOARD (پیشخوان اصلی کاربری)
+                 ============================================== -->
+            <div class="app-view active" id="viewDashboard">
+                <!-- Top User Header Bar with Direct Theme Switcher & SMS Simulator -->
+                <div class="dash-user-bar">
+                    <div class="dash-avatar-wrapper">
+                        <div class="dash-avatar">
+                            <span>س</span>
+                            <div class="dash-avatar-badge"></div>
+                        </div>
+                        <div>
+                            <h3 class="dash-user-greeting">سلام، سعید عزیز 👋</h3>
+                            <div class="dash-user-role">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                                </svg>
+                                <span>کاربر سطح ویژه</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dash-header-actions">
+                        <!-- Direct In-App Dark / Light Mode Switcher -->
+                        <button class="app-theme-toggle-btn toggleThemeDirect" title="تغییر تم تاریک / روشن">
+                            <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                            <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                        </button>
+
+                        <!-- In-App SMS Alert Tester -->
+                        <div class="dash-action-btn" onclick="triggerSimulatedSMS()" title="شبیه‌سازی دریافت پیامک جدید">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                            </svg>
+                            <div class="dash-action-badge"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liquid Glass Wallet Card -->
+                <div class="dash-wallet-card">
+                    <div class="wallet-top-row">
+                        <span class="wallet-title">موجودی کیف پول شما</span>
+                        <span class="wallet-chip">آنلاین و فعال</span>
+                    </div>
+                    <div class="wallet-amount">
+                        <span>۲,۴۵۰,۰۰۰</span>
+                        <span class="wallet-currency">تومان</span>
+                    </div>
+                    <div class="wallet-actions">
+                        <button class="wallet-btn-topup" onclick="switchScreen('viewProfile')">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            <span>افزایش موجودی</span>
+                        </button>
+                        <button class="wallet-btn-history" onclick="switchScreen('viewStore')">
+                            <span>خرید خط جدید</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 4 Quick Stats -->
+                <div class="dash-stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper" style="background: rgba(99, 102, 241, 0.2); color: #818cf8;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="5" y="2" width="14" height="20" rx="2"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                            </svg>
+                        </div>
+                        <div class="stat-val" style="color: #6366f1;">۳ خط</div>
+                        <div class="stat-label">شماره‌های فعال</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper" style="background: rgba(16, 185, 129, 0.2); color: #34d399;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-val" style="color: #10b981;" id="statMsgCount">۲۸</div>
+                        <div class="stat-label">پیامک‌های دریافتی</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper" style="background: rgba(236, 72, 153, 0.2); color: #f472b6;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                            </svg>
+                        </div>
+                        <div class="stat-val" style="color: #ec4899;">+85 سازمانی</div>
+                        <div class="stat-label">سرشماره اختصاصی</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon-wrapper" style="background: rgba(6, 182, 212, 0.2); color: #22d3ee;">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="stat-val" style="color: #06b6d4;">۹۹.۹٪</div>
+                        <div class="stat-label">پایداری وب‌سرویس</div>
+                    </div>
+                </div>
+
+                <!-- Quick Service Launcher Bubbles -->
+                <div class="section-header-row">
+                    <span class="section-title">سرویس‌های محبوب</span>
+                    <span class="section-link" onclick="switchScreen('viewStore')">مشاهده همه</span>
+                </div>
+
+                <div class="service-bubbles-row">
+                    <div class="service-bubble-item" onclick="switchScreen('viewStore')">
+                        <div class="service-bubble-icon" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.75-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z"/>
+                            </svg>
+                        </div>
+                        <span class="service-bubble-name">تلگرام</span>
+                    </div>
+
+                    <div class="service-bubble-item" onclick="switchScreen('viewStore')">
+                        <div class="service-bubble-icon" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0012.04 2z"/>
+                            </svg>
+                        </div>
+                        <span class="service-bubble-name">واتساپ</span>
+                    </div>
+
+                    <div class="service-bubble-item" onclick="switchScreen('viewStore')">
+                        <div class="service-bubble-icon" style="background: linear-gradient(135deg, #10a37f 0%, #0d8365 100%);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M22.28 9.87a6.04 6.04 0 00-.52-4.99 6.13 6.13 0 00-6.57-2.93 6.07 6.07 0 00-4.66-2.17 6.13 6.13 0 00-5.83 4.23 6.06 6.06 0 00-4.08 2.96 6.14 6.14 0 00.74 7.22 6.07 6.07 0 00.52 4.99 6.13 6.13 0 006.57 2.93 6.07 6.07 0 004.66 2.17 6.13 6.13 0 005.83-4.23 6.06 6.06 0 004.08-2.96 6.14 6.14 0 00-.74-7.22z"/>
+                            </svg>
+                        </div>
+                        <span class="service-bubble-name">ChatGPT</span>
+                    </div>
+
+                    <div class="service-bubble-item" onclick="switchScreen('viewStore')">
+                        <div class="service-bubble-icon" style="background: linear-gradient(135deg, #4285F4 0%, #EA4335 100%);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4.5c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 13c-2.67 0-8-1.34-8-4v-1.5c0-.83.67-1.5 1.5-1.5h13c.83 0 1.5.67 1.5 1.5V15.5c0 2.66-5.33 4-8 4z"/>
+                            </svg>
+                        </div>
+                        <span class="service-bubble-name">گوگل</span>
+                    </div>
+
+                    <div class="service-bubble-item" onclick="switchScreen('viewStore')">
+                        <div class="service-bubble-icon" style="background: linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%);">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 7a5 5 0 100 10 5 5 0 000-10zm0 8.2a3.2 3.2 0 110-6.4 3.2 3.2 0 010 6.4zm5.2-8.4a1.2 1.2 0 100 2.4 1.2 1.2 0 000-2.4z"/>
+                            </svg>
+                        </div>
+                        <span class="service-bubble-name">اینستاگرام</span>
+                    </div>
+                </div>
+
+                <!-- Active Lines List -->
+                <div class="section-header-row">
+                    <span class="section-title">خطوط فعال شما</span>
+                    <span class="section-link" onclick="switchScreen('viewMessages')">مشاهده پیام‌ها</span>
+                </div>
+
+                <div class="active-number-card">
+                    <div class="number-service-logo" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                        ✈️
+                    </div>
+                    <div class="number-info-box">
+                        <div class="number-digit">
+                            <span>+1 (213) 492-8819</span>
+                            <span>🇺🇸</span>
+                        </div>
+                        <div class="number-meta">
+                            <span class="status-dot-pulse"></span>
+                            <span>تلگرام • انقضا: ۱۸ دقیقه دیگر</span>
+                        </div>
+                    </div>
+                    <button class="btn-copy-code" onclick="copyToClipboard('+12134928819', 'شماره در کلیپ‌بورد کپی شد')">
+                        کپی
+                    </button>
+                </div>
+
+                <div class="active-number-card">
+                    <div class="number-service-logo" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);">
+                        💬
+                    </div>
+                    <div class="number-info-box">
+                        <div class="number-digit">
+                            <span>+44 7911 123456</span>
+                            <span>🇬🇧</span>
+                        </div>
+                        <div class="number-meta">
+                            <span class="status-dot-pulse"></span>
+                            <span>واتساپ • انقضا: ۱۲ دقیقه دیگر</span>
+                        </div>
+                    </div>
+                    <button class="btn-copy-code" onclick="copyToClipboard('+447911123456', 'شماره در کلیپ‌بورد کپی شد')">
+                        کپی
+                    </button>
+                </div>
+
+                <div class="active-number-card">
+                    <div class="number-service-logo" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                        🏢
+                    </div>
+                    <div class="number-info-box">
+                        <div class="number-digit">
+                            <span>+85 901 884 100</span>
+                            <span>⭐</span>
+                        </div>
+                        <div class="number-meta">
+                            <span class="status-dot-pulse"></span>
+                            <span>سرشماره سازمانی ۹ رقمی • دائمی</span>
+                        </div>
+                    </div>
+                    <button class="btn-copy-code" onclick="copyToClipboard('+85901884100', 'سرشماره سازمانی کپی شد')">
+                        کپی
+                    </button>
+                </div>
+            </div>
+
+            <!-- ==============================================
+                 SCREEN 4: BUY / STORE (خرید شماره مجازی)
+                 ============================================== -->
+            <div class="app-view" id="viewStore">
+                <div style="margin-bottom: 14px;">
+                    <h2 style="font-size: 1.15rem; font-weight: 800;">خرید شماره مجازی جدید</h2>
+                    <p style="font-size: 0.74rem; color: var(--text-secondary); margin-top: 2px;">تخصیص آنی با قابلیت دریافت بلادرنگ کد تایید</p>
+                </div>
+
+                <!-- Service Filter Chips -->
+                <div class="store-filter-bar">
+                    <div class="filter-chip active" onclick="filterCatalog(this, 'all')">همه سرویس‌ها</div>
+                    <div class="filter-chip" onclick="filterCatalog(this, 'telegram')">تلگرام</div>
+                    <div class="filter-chip" onclick="filterCatalog(this, 'whatsapp')">واتساپ</div>
+                    <div class="filter-chip" onclick="filterCatalog(this, 'google')">گوگل / جیمیل</div>
+                    <div class="filter-chip" onclick="filterCatalog(this, 'chatgpt')">ChatGPT</div>
+                    <div class="filter-chip" onclick="filterCatalog(this, 'corp')">سازمانی ۸۵+</div>
+                </div>
+
+                <!-- Available Numbers List -->
+                <div class="store-item-card">
+                    <div class="store-item-left">
+                        <div class="number-service-logo" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                            ✈️
+                        </div>
+                        <div>
+                            <div class="store-item-title">تلگرام آمریکا (USA)</div>
+                            <div class="store-item-subtitle">🇺🇸 پیش‌شماره ۱+ • موجودی: ۴۲ خط</div>
+                        </div>
+                    </div>
+                    <div class="store-price-box">
+                        <div class="store-price-num">۳۸,۰۰۰ ت</div>
+                        <button class="btn-buy-instant" onclick="buySimulatedNumber('تلگرام آمریکا', '+1 (323) 890-4412')">دریافت آنی</button>
+                    </div>
+                </div>
+
+                <div class="store-item-card">
+                    <div class="store-item-left">
+                        <div class="number-service-logo" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                            ✈️
+                        </div>
+                        <div>
+                            <div class="store-item-title">تلگرام انگلستان (UK)</div>
+                            <div class="store-item-subtitle">🇬🇧 پیش‌شماره ۴۴+ • موجودی: ۱۵ خط</div>
+                        </div>
+                    </div>
+                    <div class="store-price-box">
+                        <div class="store-price-num">۴۵,۰۰۰ ت</div>
+                        <button class="btn-buy-instant" onclick="buySimulatedNumber('تلگرام انگلستان', '+44 7700 900123')">دریافت آنی</button>
+                    </div>
+                </div>
+
+                <div class="store-item-card">
+                    <div class="store-item-left">
+                        <div class="number-service-logo" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);">
+                            💬
+                        </div>
+                        <div>
+                            <div class="store-item-title">واتساپ آلمان (Germany)</div>
+                            <div class="store-item-subtitle">🇩🇪 پیش‌شماره ۴۹+ • موجودی: ۲۱ خط</div>
+                        </div>
+                    </div>
+                    <div class="store-price-box">
+                        <div class="store-price-num">۵۲,۰۰۰ ت</div>
+                        <button class="btn-buy-instant" onclick="buySimulatedNumber('واتساپ آلمان', '+49 151 23456789')">دریافت آنی</button>
+                    </div>
+                </div>
+
+                <div class="store-item-card">
+                    <div class="store-item-left">
+                        <div class="number-service-logo" style="background: linear-gradient(135deg, #10a37f 0%, #0d8365 100%);">
+                            🤖
+                        </div>
+                        <div>
+                            <div class="store-item-title">اوپن‌ای‌آی ChatGPT آمریکا</div>
+                            <div class="store-item-subtitle">🇺🇸 پیش‌شماره ۱+ • سازگار با مدل GPT-4o</div>
+                        </div>
+                    </div>
+                    <div class="store-price-box">
+                        <div class="store-price-num">۴۹,۰۰۰ ت</div>
+                        <button class="btn-buy-instant" onclick="buySimulatedNumber('ChatGPT آمریکا', '+1 (415) 555-0199')">دریافت آنی</button>
+                    </div>
+                </div>
+
+                <div class="store-item-card">
+                    <div class="store-item-left">
+                        <div class="number-service-logo" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+                            🏢
+                        </div>
+                        <div>
+                            <div class="store-item-title">خط اختصاصی سازمانی ۹ رقمی</div>
+                            <div class="store-item-subtitle">⭐ پیشوند ۸۵+ • قابلیت اتصال به Webhook API</div>
+                        </div>
+                    </div>
+                    <div class="store-price-box">
+                        <div class="store-price-num">۲۵۰,۰۰۰ ت</div>
+                        <button class="btn-buy-instant" style="background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);" onclick="buySimulatedNumber('خط سازمانی', '+85 902 334 991')">ثبت درخواست</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==============================================
+                 SCREEN 5: MESSAGES / SMS INBOX
+                 ============================================== -->
+            <div class="app-view" id="viewMessages">
+                <div class="live-polling-header">
+                    <div class="polling-status-text">
+                        <span class="status-dot-pulse"></span>
+                        <span>پایش زنده پیام‌ها (Live Polling Active)</span>
+                    </div>
+                    <button class="glass-pill" style="cursor: pointer; background: rgba(99, 102, 241, 0.2); border-color: rgba(99, 102, 241, 0.4); color: var(--primary);" onclick="triggerSimulatedSMS()">
+                        تست پیامک جدید
+                    </button>
+                </div>
+
+                <!-- Message Feed -->
+                <div id="messagesListContainer">
+                    <!-- Message 1 -->
+                    <div class="message-inbox-card new-arrival">
+                        <div class="msg-top-row">
+                            <div class="msg-sender-info">
+                                <div class="msg-sender-icon" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                                    ✈️
+                                </div>
+                                <div>
+                                    <div class="msg-sender-name">Telegram Verification</div>
+                                    <div class="msg-sender-phone">+1 (213) 492-8819</div>
+                                </div>
+                            </div>
+                            <span class="msg-time" style="color: #10b981; font-weight: 800;">همین الان</span>
+                        </div>
+
+                        <div class="msg-text-box">
+                            Telegram code: <b>839-204</b>. Do not give this code to anyone, even if they say they're from Telegram!
+                        </div>
+
+                        <div class="msg-otp-callout">
+                            <div>
+                                <span style="font-size: 0.68rem; color: var(--text-secondary); display: block;">کد تایید یکبار مصرف (OTP):</span>
+                                <span class="otp-code-display">839-204</span>
+                            </div>
+                            <button class="btn-copy-code" onclick="copyToClipboard('839204', 'کد تایید تلگرام کپی شد!')">
+                                کپی کد تایید
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Message 2 -->
+                    <div class="message-inbox-card">
+                        <div class="msg-top-row">
+                            <div class="msg-sender-info">
+                                <div class="msg-sender-icon" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);">
+                                    💬
+                                </div>
+                                <div>
+                                    <div class="msg-sender-name">WhatsApp Security</div>
+                                    <div class="msg-sender-phone">+44 7911 123456</div>
+                                </div>
+                            </div>
+                            <span class="msg-time">۱۲ دقیقه پیش</span>
+                        </div>
+
+                        <div class="msg-text-box">
+                            Your WhatsApp code is <b>412-901</b>. You can also tap on this link to verify your phone: v.whatsapp.com/412901
+                        </div>
+
+                        <div class="msg-otp-callout">
+                            <div>
+                                <span style="font-size: 0.68rem; color: var(--text-secondary); display: block;">کد تایید واتساپ:</span>
+                                <span class="otp-code-display">412-901</span>
+                            </div>
+                            <button class="btn-copy-code" onclick="copyToClipboard('412901', 'کد تایید واتساپ کپی شد!')">
+                                کپی کد
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Message 3 -->
+                    <div class="message-inbox-card">
+                        <div class="msg-top-row">
+                            <div class="msg-sender-info">
+                                <div class="msg-sender-icon" style="background: linear-gradient(135deg, #10a37f 0%, #0d8365 100%);">
+                                    🤖
+                                </div>
+                                <div>
+                                    <div class="msg-sender-name">OpenAI Auth</div>
+                                    <div class="msg-sender-phone">+1 (213) 492-8819</div>
+                                </div>
+                            </div>
+                            <span class="msg-time">۱ ساعت پیش</span>
+                        </div>
+
+                        <div class="msg-text-box">
+                            Your OpenAI verification code is: <b>670192</b>. Valid for 5 minutes.
+                        </div>
+
+                        <div class="msg-otp-callout">
+                            <div>
+                                <span style="font-size: 0.68rem; color: var(--text-secondary); display: block;">کد تایید OpenAI:</span>
+                                <span class="otp-code-display">670-192</span>
+                            </div>
+                            <button class="btn-copy-code" onclick="copyToClipboard('670192', 'کد تایید OpenAI کپی شد!')">
+                                کپی کد
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==============================================
+                 SCREEN 6: PROFILE & WALLET (پروفایل و کیف پول)
+                 ============================================== -->
+            <div class="app-view" id="viewProfile">
+                <div style="text-align: center; margin-bottom: 18px;">
+                    <div class="profile-avatar-large">
+                        س
+                    </div>
+                    <h2 style="font-size: 1.2rem; font-weight: 800;">سعید شناقی</h2>
+                    <p style="font-size: 0.74rem; color: var(--primary); font-family: var(--font-latin); font-weight: 700;">@saeed_demo • کاربر تایید شده سازمانی</p>
+                </div>
+
+                <!-- Wallet Topup Section -->
+                <div class="glass-card" style="margin-bottom: 14px;">
+                    <div class="section-title" style="margin-bottom: 6px;">افزایش سریع اعتبار کیف پول</div>
+                    <p style="font-size: 0.72rem; color: var(--text-secondary);">مبلغ مورد نظر را انتخاب و به درگاه متصل شوید</p>
+
+                    <div class="topup-amounts-grid">
+                        <div class="topup-pill" onclick="selectTopup(this, 100000)">۱۰۰,۰۰۰ ت</div>
+                        <div class="topup-pill active" onclick="selectTopup(this, 250000)">۲۵۰,۰۰۰ ت</div>
+                        <div class="topup-pill" onclick="selectTopup(this, 500000)">۵۰۰,۰۰۰ ت</div>
+                    </div>
+
+                    <button class="glass-btn-primary" onclick="simulatePayment()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                            <line x1="10" y1="1" x2="10" y2="23"></line>
+                        </svg>
+                        <span>اتصال به درگاه و پرداخت</span>
+                    </button>
+                </div>
+
+                <!-- API Token Management Card -->
+                <div class="glass-card" style="margin-bottom: 14px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span class="section-title">کلید وب‌سرویس (API Key)</span>
+                        <span class="glass-pill" style="color: #10b981;">فعال</span>
+                    </div>
+                    <p style="font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 10px;">جهت دریافت پیامک‌ها از طریق ربات، اسکریپت یا وب‌هوک</p>
+                    
+                    <div class="glass-input-box" style="margin-bottom: 10px;">
+                        <input type="text" class="glass-input" value="gn_live_94819a3b8c7104e..." readonly dir="ltr" style="font-family: var(--font-latin); font-size: 0.75rem;">
+                        <button class="btn-copy-code" style="margin-left: 6px;" onclick="copyToClipboard('gn_live_94819a3b8c7104e7629b01fa', 'کلید API در کلیپ‌بورد کپی شد')">کپی کلید</button>
+                    </div>
+                </div>
+
+                <!-- Settings Card with In-App Theme Switch -->
+                <div class="glass-card" style="margin-bottom: 14px;">
+                    <div class="section-title" style="margin-bottom: 12px;">تنظیمات و ظاهر سامانه</div>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; font-size: 0.78rem;">
+                        <div>
+                            <span style="font-weight: 700; display: block;">پوسته کاربری (تم تاریک / روشن)</span>
+                            <span style="font-size: 0.68rem; color: var(--text-secondary);">طراحی شیشه‌ای کریستالی Liquid Glass</span>
+                        </div>
+                        <button class="app-theme-toggle-btn toggleThemeDirect" title="تغییر تم">
+                            <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="5"></circle>
+                                <line x1="12" y1="1" x2="12" y2="3"></line>
+                                <line x1="12" y1="21" x2="12" y2="23"></line>
+                                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                                <line x1="1" y1="12" x2="3" y2="12"></line>
+                                <line x1="21" y1="12" x2="23" y2="12"></line>
+                                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                            </svg>
+                            <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 0.78rem;">
+                        <span>صدای اعلان پیامک زنده (iOS Chime)</span>
+                        <input type="checkbox" checked id="chkSound" style="accent-color: #4f46e5; width: 18px; height: 18px;">
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.78rem;">
+                        <span>ارسال خودکار پیامک به وب‌هوک</span>
+                        <input type="checkbox" checked style="accent-color: #4f46e5; width: 18px; height: 18px;">
+                    </div>
+                </div>
+
+                <!-- Logout Button -->
+                <button class="glass-pill" style="width: 100%; justify-content: center; padding: 12px; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3); background: rgba(244, 63, 94, 0.08); cursor: pointer; font-weight: 700;" onclick="switchScreen('viewLogin'); showToast('از حساب کاربری خارج شدید');">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                    <span>خروج از حساب کاربری</span>
+                </button>
+            </div>
+
+        </div>
+
+        <!-- ==============================================
+             FLOATING LIQUID GLASS DOCK BAR (BOTTOM NAV)
+             ============================================== -->
+        <nav class="phone-dock-bar">
+            <div class="dock-item active" data-screen="viewDashboard" onclick="switchScreen('viewDashboard')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <polyline points="9 22 9 12 15 12 15 22"></polyline>
+                </svg>
+                <span>پیشخوان</span>
+            </div>
+
+            <div class="dock-item" data-screen="viewStore" onclick="switchScreen('viewStore')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="21" r="1"></circle>
+                    <circle cx="20" cy="21" r="1"></circle>
+                    <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                </svg>
+                <span>خرید خط</span>
+            </div>
+
+            <div class="dock-item" data-screen="viewMessages" onclick="switchScreen('viewMessages')">
+                <div class="dock-badge" id="dockUnreadBadge">۱</div>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>پیامک‌ها</span>
+            </div>
+
+            <div class="dock-item" data-screen="viewProfile" onclick="switchScreen('viewProfile')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+                <span>پروفایل</span>
+            </div>
+        </nav>
+
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast-bubble" id="toastBubble">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        <span id="toastMessage">پیام انجام شد</span>
+    </div>
+
+    <script>
+        // Audio synthesizer for authentic iOS chime
+        function playChime() {
+            const chk = document.getElementById('chkSound');
+            if (chk && !chk.checked) return;
+
+            try {
+                const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                const now = ctx.currentTime;
+                
+                // First bell tone
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(659.25, now); // E5
+                gain1.gain.setValueAtTime(0.3, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc1.connect(gain1);
+                gain1.connect(ctx.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.4);
+
+                // Second higher chord tone (authentic iOS tone progression)
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(880, now + 0.12); // A5
+                gain2.gain.setValueAtTime(0.35, now + 0.12);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                osc2.connect(gain2);
+                gain2.connect(ctx.destination);
+                osc2.start(now + 0.12);
+                osc2.stop(now + 0.6);
+            } catch (e) {
+                // AudioContext might be restricted until user interaction
+            }
+        }
+
+        // Screen Switching Logic
+        function switchScreen(screenId) {
+            // Hide all views
+            document.querySelectorAll('.app-view').forEach(view => {
+                view.classList.remove('active');
+            });
+
+            // Show selected view
+            const targetView = document.getElementById(screenId);
+            if (targetView) {
+                targetView.classList.add('active');
+                // Scroll to top
+                const container = document.querySelector('.screen-scroll-container');
+                if (container) container.scrollTop = 0;
+            }
+
+            // Update Phone Bottom Dock Active Tab
+            document.querySelectorAll('.dock-item').forEach(item => {
+                if (item.getAttribute('data-screen') === screenId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+
+            // If switching to login or register, dock can be hidden or de-emphasized
+            const dock = document.querySelector('.phone-dock-bar');
+            if (dock) {
+                if (screenId === 'viewLogin' || screenId === 'viewRegister') {
+                    dock.style.display = 'none';
+                } else {
+                    dock.style.display = 'flex';
+                }
+            }
+        }
+
+        // Toast Feedback Bubble
+        let toastTimeout;
+        function showToast(message) {
+            const toast = document.getElementById('toastBubble');
+            const msgEl = document.getElementById('toastMessage');
+            if (!toast || !msgEl) return;
+
+            msgEl.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2600);
+        }
+
+        // Copy to clipboard helper
+        function copyToClipboard(text, successMsg) {
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showToast(successMsg || 'در کلیپ‌بورد کپی شد');
+                });
+            } else {
+                showToast(successMsg || 'در کلیپ‌بورد کپی شد');
+            }
+        }
+
+        // Slide-Down SMS Notification Banner Simulation
+        let bannerTimeout;
+        function triggerSimulatedSMS() {
+            playChime();
+
+            const banner = document.getElementById('smsNotificationBanner');
+            const randomCode = Math.floor(100000 + Math.random() * 900000);
+            const formattedCode = `${String(randomCode).slice(0,3)}-${String(randomCode).slice(3)}`;
+
+            const bannerOtpText = document.getElementById('bannerOtpText');
+            const bannerAppName = document.getElementById('bannerAppName');
+            const bannerMsgPreview = document.getElementById('bannerMsgPreview');
+
+            if (bannerOtpText) bannerOtpText.textContent = formattedCode;
+            if (bannerAppName) bannerAppName.textContent = 'تلگرام (Telegram)';
+            if (bannerMsgPreview) bannerMsgPreview.textContent = `کد تایید ورود شما: ${formattedCode}`;
+
+            // Attach copy action to banner button
+            const bannerCopyBtn = document.getElementById('bannerCopyBtn');
+            if (bannerCopyBtn) {
+                bannerCopyBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    copyToClipboard(randomCode, `کد تایید ${formattedCode} کپی شد!`);
+                    if (banner) banner.classList.remove('show');
+                };
+            }
+
+            // Close button action
+            const bannerCloseBtn = document.getElementById('bannerCloseBtn');
+            if (bannerCloseBtn) {
+                bannerCloseBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    if (banner) banner.classList.remove('show');
+                };
+            }
+
+            // Slide Down Notification Banner
+            if (banner) {
+                banner.classList.add('show');
+                clearTimeout(bannerTimeout);
+                bannerTimeout = setTimeout(() => {
+                    banner.classList.remove('show');
+                }, 6500);
+            }
+
+            // Add to messages inbox feed
+            addMessageToFeed('تلگرام (Telegram)', '+1 (213) 492-8819', formattedCode, randomCode);
+
+            // Update unread badge
+            const badge = document.getElementById('dockUnreadBadge');
+            if (badge) {
+                const curr = parseInt(badge.textContent) || 0;
+                badge.textContent = curr + 1;
+            }
+
+            // Update stats
+            const statMsg = document.getElementById('statMsgCount');
+            if (statMsg) {
+                statMsg.textContent = (parseInt(statMsg.textContent) || 28) + 1;
+            }
+        }
+
+        function addMessageToFeed(service, phone, formattedCode, rawCode) {
+            const container = document.getElementById('messagesListContainer');
+            if (!container) return;
+
+            const card = document.createElement('div');
+            card.className = 'message-inbox-card new-arrival';
+            card.innerHTML = `
+                <div class="msg-top-row">
+                    <div class="msg-sender-info">
+                        <div class="msg-sender-icon" style="background: linear-gradient(135deg, #0088cc 0%, #29b6f6 100%);">
+                            ✈️
+                        </div>
+                        <div>
+                            <div class="msg-sender-name">${service}</div>
+                            <div class="msg-sender-phone">${phone}</div>
+                        </div>
+                    </div>
+                    <span class="msg-time" style="color: #10b981; font-weight: 800;">هم‌اکنون</span>
+                </div>
+                <div class="msg-text-box">
+                    کد تایید ورود جدید شما: <b>${formattedCode}</b>. به هیچ عنوان این کد را در اختیار دیگران قرار ندهید.
+                </div>
+                <div class="msg-otp-callout">
+                    <div>
+                        <span style="font-size: 0.68rem; color: var(--text-secondary); display: block;">کد تایید دریافتی:</span>
+                        <span class="otp-code-display">${formattedCode}</span>
+                    </div>
+                    <button class="btn-copy-code" onclick="copyToClipboard('${rawCode}', 'کد تایید ${formattedCode} کپی شد!')">
+                        کپی کد
+                    </button>
+                </div>
+            `;
+            container.insertBefore(card, container.firstChild);
+        }
+
+        // Autofill login helper
+        const btnAutofill = document.getElementById('btnAutofillLogin');
+        if (btnAutofill) {
+            btnAutofill.addEventListener('click', () => {
+                const u = document.getElementById('loginUsername');
+                const p = document.getElementById('loginPassword');
+                if (u) u.value = 'saeed_admin';
+                if (p) p.value = 'Saeed@Secure2026';
+                showToast('اطلاعات نمونه درج شد');
+            });
+        }
+
+        // Toggle Login Password Visibility
+        const togglePass = document.getElementById('toggleLoginPassword');
+        if (togglePass) {
+            togglePass.addEventListener('click', function() {
+                const input = document.getElementById('loginPassword');
+                if (!input) return;
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    this.style.color = 'var(--primary)';
+                } else {
+                    input.type = 'password';
+                    this.style.color = 'var(--text-muted)';
+                }
+            });
+        }
+
+        // Store instant buy simulation
+        function buySimulatedNumber(name, number) {
+            showToast(`خط ${name} با موفقیت خریداری و فعال شد!`);
+            setTimeout(() => {
+                switchScreen('viewDashboard');
+            }, 800);
+        }
+
+        // Topup simulation
+        function selectTopup(element, amount) {
+            document.querySelectorAll('.topup-pill').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        function simulatePayment() {
+            showToast('در حال انتقال به درگاه شاپرک...');
+            setTimeout(() => {
+                showToast('پرداخت موفق! موجودی ۲۵۰,۰۰۰ تومان افزایش یافت.');
+            }, 1500);
+        }
+
+        // Catalog Filter
+        function filterCatalog(chip, category) {
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            showToast(`فیلتر اعمال شد: ${chip.textContent}`);
+        }
+
+        // In-App Dark / Light Mode Direct Toggle Logic
+        function toggleThemeDirectly() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                html.classList.add('light');
+                showToast('پوسته کریستالی روشن فعال شد ☀️');
+            } else {
+                html.classList.remove('light');
+                html.classList.add('dark');
+                showToast('پوسته نئون تیره Liquid Glass فعال شد 🌙');
+            }
+        }
+
+        // Attach to all in-app theme toggle buttons
+        document.querySelectorAll('.toggleThemeDirect').forEach(btn => {
+            btn.addEventListener('click', toggleThemeDirectly);
+        });
+    </script>
+</body>
+</html>

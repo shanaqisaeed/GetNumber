@@ -33,6 +33,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'store'])->name('requests.store');
     Route::delete('/requests/{numberRequest}', [\App\Http\Controllers\User\NumberRequestController::class, 'destroy'])->name('requests.destroy');
 
+    // User SMS Messaging & Chat (Mobile style)
+    Route::get('/messages', [\App\Http\Controllers\User\MessageController::class, 'index'])->name('messages.index');
+    Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');
+    Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
+    Route::get('/messages/poll', [\App\Http\Controllers\User\MessageController::class, 'poll'])->name('messages.poll');
+    Route::get('/messages/{message}', [\App\Http\Controllers\User\MessageController::class, 'show'])->name('messages.show');
+
     // User API Token Management
     Route::get('/api-tokens', [\App\Http\Controllers\User\ApiTokenController::class, 'index'])->name('api-tokens.index');
     Route::post('/api-tokens', [\App\Http\Controllers\User\ApiTokenController::class, 'store'])->name('api-tokens.store');
@@ -40,9 +47,28 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api-tokens/{token}/revoke', [\App\Http\Controllers\User\ApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
     Route::delete('/api-tokens/{token}', [\App\Http\Controllers\User\ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
 
+    // User Support Tickets
+    Route::get('/tickets', [\App\Http\Controllers\User\TicketController::class, 'index'])->name('tickets.index');
+    Route::get('/tickets/create', [\App\Http\Controllers\User\TicketController::class, 'create'])->name('tickets.create');
+    Route::post('/tickets', [\App\Http\Controllers\User\TicketController::class, 'store'])->name('tickets.store');
+    Route::get('/tickets/{ticket}', [\App\Http\Controllers\User\TicketController::class, 'show'])->name('tickets.show');
+    Route::post('/tickets/{ticket}/reply', [\App\Http\Controllers\User\TicketController::class, 'reply'])->name('tickets.reply');
+    Route::post('/tickets/{ticket}/close', [\App\Http\Controllers\User\TicketController::class, 'close'])->name('tickets.close');
+    Route::get('/tickets/{ticket}/attachments/{attachment}', [\App\Http\Controllers\User\TicketController::class, 'downloadAttachment'])->name('tickets.attachments.download');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+// Staff & Support Agent Routes (Accessible by Admin and Agent)
+Route::middleware(['auth', 'staff'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/tickets', [\App\Http\Controllers\Admin\TicketController::class, 'index'])->name('tickets.index');
+    Route::get('/tickets/{ticket}', [\App\Http\Controllers\Admin\TicketController::class, 'show'])->name('tickets.show');
+    Route::post('/tickets/{ticket}/reply', [\App\Http\Controllers\Admin\TicketController::class, 'reply'])->name('tickets.reply');
+    Route::patch('/tickets/{ticket}/status', [\App\Http\Controllers\Admin\TicketController::class, 'updateStatus'])->name('tickets.status');
+    Route::patch('/tickets/{ticket}/assign', [\App\Http\Controllers\Admin\TicketController::class, 'assign'])->name('tickets.assign');
+    Route::get('/tickets/{ticket}/attachments/{attachment}', [\App\Http\Controllers\Admin\TicketController::class, 'downloadAttachment'])->name('tickets.attachments.download');
 });
 
 // Administration Routes (Strictly Server-Side Protected by Admin Middleware)
@@ -68,8 +94,20 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Admin API Token Management & Oversight
     Route::get('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'index'])->name('api-tokens.index');
+    Route::post('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'store'])->name('api-tokens.store');
+    Route::post('/api-tokens/{token}/rotate', [\App\Http\Controllers\Admin\ApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
     Route::post('/api-tokens/{token}/revoke', [\App\Http\Controllers\Admin\ApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
     Route::delete('/api-tokens/{token}', [\App\Http\Controllers\Admin\ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
+    // Admin Messages Oversight & Live Monitoring
+    Route::get('/messages', [\App\Http\Controllers\Admin\MessageController::class, 'index'])->name('messages.index');
+    Route::get('/messages/conversation', [\App\Http\Controllers\Admin\MessageController::class, 'conversation'])->name('messages.conversation');
+    Route::post('/messages/send', [\App\Http\Controllers\Admin\MessageController::class, 'send'])->name('messages.send');
+    Route::get('/messages/poll', [\App\Http\Controllers\Admin\MessageController::class, 'poll'])->name('messages.poll');
+    Route::delete('/messages/{message}', [\App\Http\Controllers\Admin\MessageController::class, 'destroy'])->name('messages.destroy');
+
+    // Admin Audit Logs & Security Trails
+    Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('/audit-logs/{auditLog}', [\App\Http\Controllers\Admin\AuditLogController::class, 'show'])->name('audit-logs.show');
 });
 
 require __DIR__.'/auth.php';

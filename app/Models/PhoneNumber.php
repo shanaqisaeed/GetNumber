@@ -26,6 +26,7 @@ class PhoneNumber extends Model
         'display_title',
         'user_id',
         'allocated_at',
+        'accepts_incoming_sms',
     ];
 
     /**
@@ -39,6 +40,7 @@ class PhoneNumber extends Model
             'type' => PhoneNumberType::class,
             'status' => PhoneNumberStatus::class,
             'allocated_at' => 'datetime',
+            'accepts_incoming_sms' => 'boolean',
         ];
     }
 
@@ -59,15 +61,27 @@ class PhoneNumber extends Model
     }
 
     /**
+     * Relationship with inbound messages received on this number.
+     */
+    public function messages(): HasMany
+    {
+        return $this->hasMany(Message::class)->orderByDesc('server_received_at');
+    }
+
+    /**
+     * Relationship with support tickets linked to this number.
+     */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
+
+    /**
      * Formatted presentation number (with +85 for standard numbers).
      */
     public function getFormattedNumberAttribute(): string
     {
-        if ($this->type === PhoneNumberType::UserStandard) {
-            return '+85' . $this->number;
-        }
-
-        return $this->number;
+        return '+85' . $this->number;
     }
 
     /**
@@ -136,5 +150,43 @@ class PhoneNumber extends Model
     public function numberRequest(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
         return $this->hasOne(NumberRequest::class, 'allocated_number_id');
+    }
+
+    /**
+     * Determine if this phone number can receive inbound messages from a given sender.
+     * Implements validation for 9-digit standard lines vs 4-8 digit service lines.
+     */
+    public function canReceiveMessagesFrom(PhoneNumber $senderLine, ?User $senderUser = null): array
+    {
+        // 1. Must be allocated
+        if ($this->status !== PhoneNumberStatus::Allocated) {
+            return [
+                'allowed' => false,
+                'reason' => "خط مقصد در وضعیت «{$this->status->label()}» بوده و آماده دریافت پیامک نمی‌باشد.",
+            ];
+        }
+
+        // 2. Explicit incoming SMS flag check (applies to all, especially non-9-digit service lines)
+        if (! $this->accepts_incoming_sms) {
+            return [
+                'allowed' => false,
+                'reason' => 'این سرشماره برای عدم دریافت پیامک ورودی (صرفاً یک‌طرفه/اطلاع‌رسانی) پیکربندی شده است.',
+            ];
+        }
+
+        // 3. Platform Service non-9-digit line checks
+        if ($this->type === PhoneNumberType::PlatformService) {
+            if (! $senderUser?->isAdmin()) {
+                return [
+                    'allowed' => false,
+                    'reason' => 'ارسال پیامک به این سرشماره اختصاصی سامانه توسط کاربران عادی مجاز نمی‌باشد.',
+                ];
+            }
+        }
+
+        return [
+            'allowed' => true,
+            'reason' => null,
+        ];
     }
 }

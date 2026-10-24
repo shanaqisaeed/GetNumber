@@ -127,6 +127,7 @@ const singleForm = useForm({
     type: 'user_standard',
     display_title: '',
     user_id: '',
+    accepts_incoming_sms: true,
 });
 
 const openSingleModal = () => {
@@ -674,6 +675,31 @@ const copyNumber = (item: PhoneNumberItem) => {
                             <option value="user_service">سرشماره اختصاصی مشتری (۴ تا ۸ رقم)</option>
                             <option value="platform_service">سرشماره اختصاصی سامانه</option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            عنوان نمایشی سرویس (اختیاری)
+                        </label>
+                        <input
+                            type="text"
+                            v-model="singleForm.display_title"
+                            placeholder="مثال: پشتیبانی سامانه، مرکز اعلانات، بانکداری"
+                            class="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10"
+                        />
+                        <p v-if="singleForm.errors.display_title" class="text-rose-500 text-[11px] mt-1">{{ singleForm.errors.display_title }}</p>
+                    </div>
+
+                    <div class="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60">
+                        <input
+                            id="accepts_incoming_sms"
+                            type="checkbox"
+                            v-model="singleForm.accepts_incoming_sms"
+                            class="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
+                        />
+                        <label for="accepts_incoming_sms" class="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+                            امکان دریافت پیامک ورودی فعال باشد (در صورت غیرفعال بودن، خط صرفاً یک‌طرفه/اطلاع‌رسانی است)
+                        </label>
                     </div>
 
                     <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">

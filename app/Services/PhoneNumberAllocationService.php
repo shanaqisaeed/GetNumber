@@ -9,6 +9,7 @@ use App\Exceptions\InvalidNumberFormatException;
 use App\Exceptions\NumberAllocationException;
 use App\Exceptions\NumberAlreadyAllocatedException;
 use App\Exceptions\UserQuotaExceededException;
+use App\Models\AuditLog;
 use App\Models\PhoneNumber;
 use App\Models\PhoneNumberAudit;
 use App\Models\User;
@@ -238,6 +239,10 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         $phone = PhoneNumber::where('number', $number)->lockForUpdate()->first();
 
         if ($phone !== null) {
+            if ($phone->type === PhoneNumberType::PlatformService && ! $user->isAdmin()) {
+                throw new NumberAllocationException('سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+            }
+
             if ($phone->status !== PhoneNumberStatus::Available) {
                 throw new NumberAlreadyAllocatedException($number);
             }
@@ -377,5 +382,24 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             'metadata' => $metadata,
             'ip_address' => request()?->ip(),
         ]);
+
+        $auditAction = match ($action) {
+            'allocated' => 'number_assigned',
+            'released' => 'number_released',
+            'status_changed' => 'number_status_changed',
+            default => 'number_' . $action,
+        };
+
+        AuditLog::record(
+            action: $auditAction,
+            entity: $phoneNumber,
+            actor: $actor,
+            payload: array_merge($metadata ?? [], [
+                'number' => $phoneNumber->number,
+                'formatted_number' => $phoneNumber->formatted_number,
+                'from_status' => $fromStatus,
+                'to_status' => $toStatus,
+            ])
+        );
     }
 }

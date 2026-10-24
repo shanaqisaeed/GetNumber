@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -104,6 +105,7 @@ class UserController extends Controller
             'stats' => $stats,
             'roles' => [
                 ['value' => UserRole::User->value, 'label' => UserRole::User->label()],
+                ['value' => UserRole::Agent->value, 'label' => UserRole::Agent->label()],
                 ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
             ],
             'statuses' => [
@@ -122,6 +124,7 @@ class UserController extends Controller
         return Inertia::render('Admin/Users/Create', [
             'roles' => [
                 ['value' => UserRole::User->value, 'label' => UserRole::User->label()],
+                ['value' => UserRole::Agent->value, 'label' => UserRole::Agent->label()],
                 ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
             ],
             'statuses' => [
@@ -152,12 +155,19 @@ class UserController extends Controller
             'status.required' => 'تعیین وضعیت حساب کاربری الزامی است.',
         ]);
 
-        User::create([
+        $newUser = User::create([
             'name' => $validated['name'],
             'username' => strtolower($validated['username']),
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'status' => $validated['status'],
+        ]);
+
+        AuditLog::record('user_created', $newUser, $request->user(), [
+            'username' => $newUser->username,
+            'name' => $newUser->name,
+            'role' => $newUser->role->value,
+            'status' => $newUser->status->value,
         ]);
 
         return redirect()->route('admin.users.index')->with('success', 'حساب کاربری جدید با موفقیت ایجاد گردید.');
@@ -176,8 +186,16 @@ class UserController extends Controller
             'status' => ['required', Rule::enum(UserStatus::class)],
         ]);
 
+        $fromStatus = $user->status->value;
+
         $user->update([
             'status' => $validated['status'],
+        ]);
+
+        AuditLog::record('user_status_changed', $user, $request->user(), [
+            'username' => $user->username,
+            'from_status' => $fromStatus,
+            'to_status' => $validated['status'],
         ]);
 
         return back()->with('success', 'وضعیت حساب کاربری با موفقیت به‌روزرسانی شد.');
@@ -231,7 +249,25 @@ class UserController extends Controller
             $updateData['password'] = Hash::make($validated['password']);
         }
 
+        $oldData = [
+            'name' => $user->name,
+            'username' => $user->username,
+            'role' => $user->role->value,
+            'status' => $user->status->value,
+        ];
+
         $user->update($updateData);
+
+        AuditLog::record('user_updated', $user, $request->user(), [
+            'username' => $user->username,
+            'previous' => $oldData,
+            'updated' => [
+                'name' => $user->name,
+                'role' => $user->role->value,
+                'status' => $user->status->value,
+                'password_changed' => !empty($validated['password']),
+            ],
+        ]);
 
         return back()->with('success', "مشخصات حساب کاربری «{$user->username}» با موفقیت به‌روزرسانی شد.");
     }

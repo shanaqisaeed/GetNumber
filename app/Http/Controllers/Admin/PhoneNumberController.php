@@ -7,6 +7,7 @@ use App\Enums\PhoneNumberStatus;
 use App\Enums\PhoneNumberType;
 use App\Exceptions\NumberAllocationException;
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\PhoneNumber;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -147,6 +148,7 @@ class PhoneNumberController extends Controller
             'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
             'display_title' => ['nullable', 'string', 'max:100'],
             'user_id' => ['nullable', 'exists:users,id'],
+            'accepts_incoming_sms' => ['nullable', 'boolean'],
         ], [
             'number.required' => 'وارد نمودن مقدار عددی شماره الزامی است.',
             'number.regex' => 'قالب شماره باید بین ۴ تا ۱۱ رقم عددی باشد.',
@@ -155,7 +157,17 @@ class PhoneNumberController extends Controller
 
         $type = PhoneNumberType::from($validated['type']);
         $user = ! empty($validated['user_id']) ? User::find($validated['user_id']) : null;
+
+        // Platform service numbers cannot belong to regular users
+        if ($type === PhoneNumberType::PlatformService && $user && ! $user->isAdmin()) {
+            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+        }
+
         $status = $user ? PhoneNumberStatus::Allocated : PhoneNumberStatus::Available;
+        if ($type === PhoneNumberType::PlatformService && ! $user) {
+            // Platform lines managed directly by system are active
+            $status = PhoneNumberStatus::Allocated;
+        }
 
         $phone = PhoneNumber::create([
             'number' => trim($validated['number']),
@@ -163,7 +175,17 @@ class PhoneNumberController extends Controller
             'status' => $status,
             'display_title' => $validated['display_title'] ?? null,
             'user_id' => $user?->id,
-            'allocated_at' => $user ? now() : null,
+            'allocated_at' => $status === PhoneNumberStatus::Allocated ? now() : null,
+            'accepts_incoming_sms' => $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
+        ]);
+
+        AuditLog::record('number_created', $phone, $request->user(), [
+            'number' => $phone->number,
+            'formatted_number' => $phone->formatted_number,
+            'type' => $phone->type->value,
+            'status' => $phone->status->value,
+            'display_title' => $phone->display_title,
+            'user_id' => $phone->user_id,
         ]);
 
         return back()->with('success', "خط سازمانی {$phone->formatted_number} با موفقیت در سامانه ثبت گردید.");
@@ -202,6 +224,10 @@ class PhoneNumberController extends Controller
         ]);
 
         $targetUser = User::findOrFail($validated['user_id']);
+
+        if ($number->type === PhoneNumberType::PlatformService && ! $targetUser->isAdmin()) {
+            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+        }
 
         try {
             if ($number->type === PhoneNumberType::UserStandard) {
