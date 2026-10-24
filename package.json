@@ -1,6 +1,10 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
+    "name": "@shanaqisaeed/getnumber",
+    "version": "1.0.0",
     "private": true,
+    "license": "GPL-3.0-or-later",
+    "author": "Saeed Shanaqi (https://github.com/shanaqisaeed/GetNumber)",
     "type": "module",
     "scripts": {
         "build": "vue-tsc && vite build",
