@@ -211,7 +211,7 @@ class PlatformServiceNumberTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
             ->postJson('/api/v1/messages', [
-                'destination_number' => '2000',
+                'destination_number' => '+852000',
                 'sender' => 'OUTSIDE_SENDER',
                 'body' => 'تلاش برای ثبت پیام در خط پلتفرم',
             ]);
@@ -225,7 +225,7 @@ class PlatformServiceNumberTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
             ->postJson('/api/v1/messages', [
-                'destination_number' => '2000',
+                'destination_number' => '+852000',
                 'sender' => 'TELECOM_GATEWAY',
                 'body' => 'پیام ورودی معتبر به خط پلتفرم',
             ]);

@@ -49,8 +49,8 @@ const props = defineProps<{
 const toastMessage = ref<string | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-const showToast = (msg: string) => {
-    toastMessage.value = msg;
+const showToast = (msg?: string) => {
+    toastMessage.value = msg || 'عملیات با موفقیت انجام شد';
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         toastMessage.value = null;
@@ -345,7 +345,6 @@ const isAllocateModalOpen = ref(false);
             :remaining-quota="props.quota.remaining"
             :max-quota="props.quota.max"
             @close="isAllocateModalOpen = false"
-            @success="showToast"
-        />
+            @success="showToast"/>
     </UserLayout>
 </template>

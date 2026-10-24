@@ -14,35 +14,33 @@ const form = useForm({
 </script>
 
 <template>
-    <section class="w-full">
-        <header class="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800">
-            <div class="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-200/50 dark:border-indigo-800/50">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
+    <section class="w-full space-y-4">
+        <header class="flex items-center gap-2.5 pb-3 border-b border-slate-200/80 dark:border-white/10">
+            <div class="w-9 h-9 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
+                👤
             </div>
             <div>
-                <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                <h3 class="font-black text-sm text-slate-900 dark:text-white">
                     مشخصات هویتی و سازمانی
-                </h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    به‌روزرسانی نام سازمانی و مشخصات هویتی حساب کاربری
+                </h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    به‌روزرسانی نام سازمانی و عنوان نمایشی حساب کاربری
                 </p>
             </div>
         </header>
 
         <form
             @submit.prevent="form.patch(route('profile.update'))"
-            class="mt-6 space-y-5 w-full"
+            class="space-y-4 w-full"
         >
             <!-- Organization / Display Name -->
-            <div>
-                <label for="name" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <div class="space-y-1.5">
+                <label for="name" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
                     عنوان سازمانی / نام و نام خانوادگی
                 </label>
-                <div class="relative rounded-2xl">
-                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative">
+                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
                     </div>
@@ -54,16 +52,16 @@ const form = useForm({
                         autofocus
                         autocomplete="name"
                         placeholder="نام و نام خانوادگی یا نام شرکت"
-                        class="block w-full pr-11 pl-4 py-3 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 transition-all outline-none"
+                        class="w-full pr-10 pl-3.5 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                     />
                 </div>
-                <InputError class="mt-2 text-xs" :message="form.errors.name" />
+                <InputError class="mt-1 text-xs" :message="form.errors.name" />
             </div>
 
             <!-- Username Field (Permanently Read-only / Locked) -->
-            <div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
@@ -71,9 +69,9 @@ const form = useForm({
                     </label>
                     <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">غیرقابل تغییر</span>
                 </div>
-                <div class="relative rounded-2xl">
-                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative">
+                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     </div>
@@ -83,29 +81,29 @@ const form = useForm({
                         disabled
                         readonly
                         dir="ltr"
-                        class="block w-full pr-11 pl-4 py-3 text-sm text-right font-mono font-bold rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-900/70 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none outline-none"
+                        class="w-full pr-10 pl-3.5 py-2.5 text-xs text-right font-mono font-bold rounded-2xl border border-slate-200/80 dark:border-white/5 bg-slate-100/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none outline-none"
                     />
                 </div>
-                <p class="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                    شناسه کاربری یکتا بوده و به دلایل امنیتی و سازمانی غیرقابل تغییر است. در صورت نیاز به تغییر شناسه، با مدیریت سامانه هماهنگ فرمایید.
+                <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    شناسه کاربری یکتا بوده و جهت حفظ پایداری ارتباطات سازمانی غیرقابل تغییر است.
                 </p>
             </div>
 
             <!-- Action Button & Feedback -->
-            <div class="pt-3 flex flex-wrap items-center gap-4">
+            <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-white/10">
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="relative py-3 px-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/25 hover:shadow-indigo-600/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 shadow-md shadow-indigo-500/20 disabled:opacity-40"
                 >
-                    <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <svg v-if="form.processing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>ذخیره تغییرات مشخصات</span>
+                    <span>ذخیره تغییرات</span>
                 </button>
 
                 <Transition
@@ -121,7 +119,7 @@ const form = useForm({
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span>اطلاعات با موفقیت به‌روزرسانی شد.</span>
+                        <span>اطلاعات با موفقیت ذخیره شد.</span>
                     </div>
                 </Transition>
             </div>

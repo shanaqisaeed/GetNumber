@@ -89,7 +89,7 @@ class MessageTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
             ->postJson('/api/v1/messages/inbound', [
-                'destination_number' => '000010001',
+                'destination_number' => '+85000010001',
                 'sender' => '989121111111',
                 'body' => 'کد تایید ورود شما: ۱۲۳۴۵',
                 'source_system_id' => 'GATEWAY-A',
@@ -138,12 +138,83 @@ class MessageTest extends TestCase
             ]);
     }
 
+    public function test_inbound_message_fails_if_destination_number_missing_full_prefix(): void
+    {
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
+
+        // Sent without +85 prefix
+        $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
+            ->postJson('/api/v1/messages', [
+                'destination_number' => '000010001',
+                'sender' => '989121111111',
+                'body' => 'پیام بدون پیش‌شماره کامل',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['destination_number'])
+            ->assertJson([
+                'success' => false,
+                'code' => 'VALIDATION_ERROR',
+            ]);
+    }
+
+    public function test_inbound_message_fails_if_destination_number_has_inactive_or_invalid_prefix(): void
+    {
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
+
+        // Sent with unregistered prefix (+99)
+        $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
+            ->postJson('/api/v1/messages', [
+                'destination_number' => '+99000010001',
+                'sender' => '989121111111',
+                'body' => 'پیش‌شماره نامعتبر',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['destination_number']);
+    }
+
+    public function test_inbound_message_fails_if_destination_number_length_invalid(): void
+    {
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
+
+        // Too short (only 2 digits after prefix: +8512)
+        $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
+            ->postJson('/api/v1/messages', [
+                'destination_number' => '+8512',
+                'sender' => '989121111111',
+                'body' => 'طول خیلی کوتاه',
+            ]);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['destination_number']);
+    }
+
+    public function test_inbound_message_fails_if_token_lacks_write_ability(): void
+    {
+        // Token has only messages:read ability
+        [, $plainToken] = $this->createApiToken($this->user, ['messages:read']);
+
+        $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
+            ->postJson('/api/v1/messages', [
+                'destination_number' => '+85000010001',
+                'sender' => '989121111111',
+                'body' => 'تست عدم دسترسی کلید',
+            ]);
+
+        $response->assertStatus(403)
+            ->assertJson([
+                'success' => false,
+                'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
+            ]);
+    }
+
     public function test_inbound_message_api_enforces_idempotency_with_client_message_id(): void
     {
         [, $plainToken] = $this->createApiToken($this->user, ['messages:write']);
 
         $payload = [
-            'destination_number' => '000010001',
+            'destination_number' => '+85000010001',
             'sender' => 'PAYMENT_GATEWAY',
             'body' => 'تراکنش با موفقیت انجام شد.',
             'source_system_id' => 'BANK_MELLAT',
@@ -188,7 +259,7 @@ class MessageTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
             ->postJson('/api/v1/messages/inbound', [
-                'destination_number' => '000099999',
+                'destination_number' => '+85000099999',
                 'sender' => '989121111111',
                 'body' => 'تست ارسال به خط آزاد',
             ]);
@@ -204,7 +275,7 @@ class MessageTest extends TestCase
         // Target is otherUser's number
         $response = $this->withHeader('Authorization', "Bearer {$plainToken}")
             ->postJson('/api/v1/messages/inbound', [
-                'destination_number' => $this->otherUserNumber->number,
+                'destination_number' => '+85' . $this->otherUserNumber->number,
                 'sender' => 'ATTACKER',
                 'body' => 'تلاش برای ثبت پیام برای خط کاربر دیگر',
             ]);
@@ -218,12 +289,30 @@ class MessageTest extends TestCase
 
         $response = $this->withHeader('Authorization', "Bearer {$plainAdminToken}")
             ->postJson('/api/v1/messages/inbound', [
-                'destination_number' => $this->userNumber->number,
+                'destination_number' => '+85' . $this->userNumber->number,
                 'sender' => 'ADMIN_SYSTEM',
                 'body' => 'پیام سیستمی ارسال‌شده توسط ادمین',
             ]);
 
         $response->assertStatus(201);
+    }
+
+    public function test_public_api_docs_is_accessible_without_authentication(): void
+    {
+        $response = $this->get('/docs/api');
+
+        $response->assertStatus(200);
+    }
+
+    public function test_token_secrecy_plain_token_is_never_leaked_in_token_list(): void
+    {
+        [$token, $plainToken] = $this->createApiToken($this->user);
+
+        $response = $this->actingAs($this->user)->get('/api-tokens');
+
+        $response->assertStatus(200);
+        // The plain secret should NOT be present in page response
+        $this->assertStringNotContainsString($plainToken, $response->getContent());
     }
 
     public function test_user_can_view_their_messages_page_and_data_is_isolated(): void

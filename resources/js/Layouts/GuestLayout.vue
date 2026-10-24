@@ -59,6 +59,19 @@ const { toggleTheme } = useTheme();
                         </svg>
                     </button>
 
+                    <Link
+                        :href="route('api.docs')"
+                        class="glass-pill !py-2 !px-3.5 !text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors hidden sm:inline-flex items-center gap-1.5"
+                    >
+                        <svg class="w-3.5 h-3.5 text-indigo-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                        </svg>
+                        <span>مستندات API</span>
+                    </Link>
+
                     <template v-if="user">
                         <Link
                             :href="route('dashboard')"
@@ -105,8 +118,12 @@ const { toggleTheme } = useTheme();
                     <span class="status-dot-pulse"></span>
                     <span>سامانه مدیریت خطوط و پیام‌ها • وضعیت سرویس‌ها: فعال و پایدار</span>
                 </div>
-                <div>
-                    © {{ new Date().getFullYear() }} سامانه مدیریت خطوط و پیام‌های سازمانی. کلیه حقوق محفوظ است.
+                <div class="flex items-center gap-4">
+                    <Link :href="route('api.docs')" class="hover:text-indigo-600 dark:hover:text-indigo-400 font-bold transition-colors">
+                        مستندات وب‌سرویس API
+                    </Link>
+                    <span>•</span>
+                    <span>© {{ new Date().getFullYear() }} سامانه مدیریت خطوط و پیام‌های سازمانی. کلیه حقوق محفوظ است.</span>
                 </div>
             </div>
         </footer>

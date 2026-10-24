@@ -27,26 +27,17 @@ class MessageService implements MessageServiceInterface
      */
     public function recordInboundMessage(array $data, ?User $actor = null, ?ApiToken $token = null): array
     {
-        // 1. Idempotency verification if keys provided
-        $sourceSystemId = ! empty($data['source_system_id']) ? trim($data['source_system_id']) : null;
-        $clientMessageId = ! empty($data['client_message_id']) ? trim($data['client_message_id']) : null;
+        // 1. Strict validation of destination number with full active prefix and valid length
+        $rawDestination = (string) ($data['destination_number'] ?? '');
+        $numberValidation = PhoneNumberNormalizer::validateFullDestinationNumber($rawDestination);
 
-        if ($sourceSystemId !== null && $clientMessageId !== null) {
-            $existing = Message::with('phoneNumber')
-                ->where('source_system_id', $sourceSystemId)
-                ->where('client_message_id', $clientMessageId)
-                ->first();
-
-            if ($existing) {
-                return [
-                    'message' => $existing,
-                    'is_duplicate' => true,
-                ];
-            }
+        if (! $numberValidation['valid']) {
+            throw ValidationException::withMessages([
+                'destination_number' => $numberValidation['error'],
+            ]);
         }
 
-        // 2. Normalize and resolve destination phone number
-        $cleanNumber = PhoneNumberNormalizer::resolveToStoredNumber((string) $data['destination_number']);
+        $cleanNumber = $numberValidation['clean_number'];
 
         /** @var PhoneNumber|null $phoneNumber */
         $phoneNumber = PhoneNumber::where('number', $cleanNumber)->first();
@@ -69,7 +60,7 @@ class MessageService implements MessageServiceInterface
             ]);
         }
 
-        // 3. Authorization check
+        // 2. Authorization check
         $effectiveActor = $actor ?? $token?->user;
 
         if ($phoneNumber->type === PhoneNumberType::PlatformService) {
@@ -82,7 +73,30 @@ class MessageService implements MessageServiceInterface
             }
         }
 
-        // 4. Atomic message persistence
+        // 3. Idempotency verification if keys provided
+        $sourceSystemId = ! empty($data['source_system_id']) ? trim((string) $data['source_system_id']) : null;
+        $clientMessageId = ! empty($data['client_message_id']) ? trim((string) $data['client_message_id']) : null;
+
+        // If client_message_id is provided without source_system_id, bind to token or actor to enforce database unique constraint
+        if ($clientMessageId !== null && $sourceSystemId === null) {
+            $sourceSystemId = $token ? ('token:' . $token->id) : ('actor:' . ($effectiveActor?->id ?? 'system'));
+        }
+
+        if ($sourceSystemId !== null && $clientMessageId !== null) {
+            $existing = Message::with('phoneNumber')
+                ->where('source_system_id', $sourceSystemId)
+                ->where('client_message_id', $clientMessageId)
+                ->first();
+
+            if ($existing) {
+                return [
+                    'message' => $existing,
+                    'is_duplicate' => true,
+                ];
+            }
+        }
+
+        // 4. Atomic message persistence with concurrent duplicate safety
         return DB::transaction(function () use ($data, $phoneNumber, $sourceSystemId, $clientMessageId) {
             // Re-check idempotency under lock if keys are present
             if ($sourceSystemId !== null && $clientMessageId !== null) {
@@ -93,7 +107,7 @@ class MessageService implements MessageServiceInterface
 
                 if ($existing) {
                     return [
-                        'message' => $existing,
+                        'message' => $existing->load('phoneNumber'),
                         'is_duplicate' => true,
                     ];
                 }
@@ -108,22 +122,40 @@ class MessageService implements MessageServiceInterface
                 }
             }
 
-            $message = Message::create([
-                'phone_number_id' => $phoneNumber->id,
-                'destination_number' => $phoneNumber->number,
-                'sender' => trim($data['sender']),
-                'body' => trim($data['body']),
-                'source_time' => $sourceTime,
-                'server_received_at' => now(),
-                'source_system_id' => $sourceSystemId,
-                'client_message_id' => $clientMessageId,
-                'processing_status' => MessageProcessingStatus::Received,
-            ]);
+            try {
+                $message = Message::create([
+                    'phone_number_id' => $phoneNumber->id,
+                    'destination_number' => $phoneNumber->number,
+                    'sender' => trim((string) $data['sender']),
+                    'body' => trim((string) $data['body']),
+                    'source_time' => $sourceTime,
+                    'server_received_at' => now(),
+                    'source_system_id' => $sourceSystemId,
+                    'client_message_id' => $clientMessageId,
+                    'processing_status' => MessageProcessingStatus::Received,
+                ]);
 
-            return [
-                'message' => $message->load('phoneNumber'),
-                'is_duplicate' => false,
-            ];
+                return [
+                    'message' => $message->load('phoneNumber'),
+                    'is_duplicate' => false,
+                ];
+            } catch (\Illuminate\Database\UniqueConstraintViolationException|\Illuminate\Database\QueryException $e) {
+                // In case of concurrent race condition on unique (source_system_id, client_message_id)
+                if ($sourceSystemId !== null && $clientMessageId !== null) {
+                    $existing = Message::where('source_system_id', $sourceSystemId)
+                        ->where('client_message_id', $clientMessageId)
+                        ->first();
+
+                    if ($existing) {
+                        return [
+                            'message' => $existing->load('phoneNumber'),
+                            'is_duplicate' => true,
+                        ];
+                    }
+                }
+
+                throw $e;
+            }
         });
     }
 

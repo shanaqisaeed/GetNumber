@@ -66,32 +66,30 @@ const updatePassword = () => {
 </script>
 
 <template>
-    <section class="w-full">
-        <header class="flex items-center gap-3 pb-5 border-b border-slate-100 dark:border-slate-800">
-            <div class="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0 border border-purple-200/50 dark:border-purple-800/50">
-                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
+    <section class="w-full space-y-4">
+        <header class="flex items-center gap-2.5 pb-3 border-b border-slate-200/80 dark:border-white/10">
+            <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
+                🔐
             </div>
             <div>
-                <h2 class="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                <h3 class="font-black text-sm text-slate-900 dark:text-white">
                     امنیت و کلمه عبور
-                </h2>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                </h3>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     بروزرسانی گذرواژه جهت محافظت از دسترسی‌های سازمانی
                 </p>
             </div>
         </header>
 
-        <form @submit.prevent="updatePassword" class="mt-6 space-y-4 w-full">
+        <form @submit.prevent="updatePassword" class="space-y-4 w-full">
             <!-- Current Password -->
-            <div>
-                <label for="current_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <div class="space-y-1.5">
+                <label for="current_password" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
                     کلمه عبور فعلی
                 </label>
-                <div class="relative rounded-2xl">
-                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative">
+                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                     </div>
@@ -103,12 +101,12 @@ const updatePassword = () => {
                         autocomplete="current-password"
                         placeholder="کلمه عبور فعال فعلی"
                         dir="ltr"
-                        class="block w-full pr-11 pl-11 py-3 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 dark:focus:ring-purple-500/20 transition-all outline-none"
+                        class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                     <button
                         type="button"
                         @click="showCurrentPassword = !showCurrentPassword"
-                        class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         title="نمایش/پنهان گذرواژه"
                     >
                         <svg v-if="!showCurrentPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -120,17 +118,17 @@ const updatePassword = () => {
                         </svg>
                     </button>
                 </div>
-                <InputError :message="form.errors.current_password" class="mt-2 text-xs" />
+                <InputError :message="form.errors.current_password" class="mt-1 text-xs" />
             </div>
 
             <!-- New Password -->
-            <div>
-                <label for="password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <div class="space-y-1.5">
+                <label for="password" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
                     کلمه عبور جدید
                 </label>
-                <div class="relative rounded-2xl">
-                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative">
+                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                     </div>
@@ -142,12 +140,12 @@ const updatePassword = () => {
                         autocomplete="new-password"
                         placeholder="حداقل ۸ نویسه امن"
                         dir="ltr"
-                        class="block w-full pr-11 pl-11 py-3 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 dark:focus:ring-purple-500/20 transition-all outline-none"
+                        class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                     <button
                         type="button"
                         @click="showNewPassword = !showNewPassword"
-                        class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         title="نمایش/پنهان گذرواژه"
                     >
                         <svg v-if="!showNewPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -161,8 +159,8 @@ const updatePassword = () => {
                 </div>
 
                 <!-- Password Strength Visual Indicator -->
-                <div v-if="form.password" class="mt-2.5 space-y-1.5">
-                    <div class="flex items-center justify-between text-[11px]">
+                <div v-if="form.password" class="mt-2 space-y-1">
+                    <div class="flex items-center justify-between text-[10px]">
                         <span class="text-slate-500">کیفیت امنیتی گذرواژه:</span>
                         <span class="font-bold text-slate-700 dark:text-slate-300">{{ passwordStrengthText }}</span>
                     </div>
@@ -175,17 +173,17 @@ const updatePassword = () => {
                     </div>
                 </div>
 
-                <InputError :message="form.errors.password" class="mt-2 text-xs" />
+                <InputError :message="form.errors.password" class="mt-1 text-xs" />
             </div>
 
             <!-- Password Confirmation -->
-            <div>
-                <label for="password_confirmation" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+            <div class="space-y-1.5">
+                <label for="password_confirmation" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
                     تکرار کلمه عبور جدید
                 </label>
-                <div class="relative rounded-2xl">
-                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="relative">
+                    <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
                     </div>
@@ -196,12 +194,12 @@ const updatePassword = () => {
                         autocomplete="new-password"
                         placeholder="تکرار کلمه عبور جدید"
                         dir="ltr"
-                        class="block w-full pr-11 pl-11 py-3 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/60 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10 dark:focus:ring-purple-500/20 transition-all outline-none"
+                        class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
                     <button
                         type="button"
                         @click="showConfirmPassword = !showConfirmPassword"
-                        class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                        class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
                         title="نمایش/پنهان گذرواژه"
                     >
                         <svg v-if="!showConfirmPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,24 +211,24 @@ const updatePassword = () => {
                         </svg>
                     </button>
                 </div>
-                <InputError :message="form.errors.password_confirmation" class="mt-2 text-xs" />
+                <InputError :message="form.errors.password_confirmation" class="mt-1 text-xs" />
             </div>
 
             <!-- Action Button & Feedback -->
-            <div class="pt-3 flex flex-wrap items-center gap-4">
+            <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-white/10">
                 <button
                     type="submit"
                     :disabled="form.processing"
-                    class="relative py-3 px-6 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-bold shadow-md shadow-purple-600/25 hover:shadow-purple-600/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 shadow-md shadow-purple-600/25 disabled:opacity-40"
                 >
-                    <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <svg v-if="form.processing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span>بروزرسانی کلمه عبور</span>
+                    <span>بروزرسانی گذرواژه</span>
                 </button>
 
                 <Transition
@@ -246,7 +244,7 @@ const updatePassword = () => {
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span>کلمه عبور با موفقیت تغییر یافت.</span>
+                        <span>گذرواژه با موفقیت تغییر یافت.</span>
                     </div>
                 </Transition>
             </div>

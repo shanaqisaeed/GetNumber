@@ -18,6 +18,10 @@ Route::get('/', function () {
     ]);
 });
 
+// Public API Documentation
+Route::get('/docs/api', [\App\Http\Controllers\ApiDocsController::class, 'index'])->name('api.docs');
+Route::redirect('/docs', '/docs/api');
+
 // Standard User Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\User\DashboardController::class, 'index'])->name('dashboard');

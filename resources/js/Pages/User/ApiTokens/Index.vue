@@ -244,11 +244,21 @@ const activeTab = ref<'bearer' | 'apikey'>('bearer');
                     </div>
                 </div>
 
-                <div class="mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 flex justify-end">
+                <div class="mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 flex flex-col sm:flex-row gap-2 justify-end">
+                    <a
+                        :href="route('api.docs')"
+                        target="_blank"
+                        class="glass-pill !py-2.5 !px-3 !text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                        <span>مشاهده مستندات وب‌سرویس API</span>
+                    </a>
                     <button
                         type="button"
                         @click="openCreateModal"
-                        class="glass-btn-primary !w-full !py-2.5 !text-xs !rounded-xl flex items-center justify-center gap-1.5"
+                        class="glass-btn-primary !w-full sm:!w-auto !py-2.5 !px-4 !text-xs !rounded-xl flex items-center justify-center gap-1.5"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
