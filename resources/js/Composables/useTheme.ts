@@ -28,9 +28,11 @@ function applyThemeToDOM(dark: boolean) {
     const root = document.documentElement;
     if (dark) {
         root.classList.add('dark');
+        root.classList.remove('light');
         root.style.colorScheme = 'dark';
     } else {
         root.classList.remove('dark');
+        root.classList.add('light');
         root.style.colorScheme = 'light';
     }
 }

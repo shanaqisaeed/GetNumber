@@ -188,6 +188,7 @@ class NumberRequestService implements NumberRequestServiceInterface
         }
 
         $phone = PhoneNumber::create([
+            'phone_prefix_id' => \App\Models\PhonePrefix::getDefaultPrefix()->id,
             'number' => $cleanNumber,
             'type' => PhoneNumberType::UserService,
             'status' => PhoneNumberStatus::Allocated,
@@ -283,6 +284,7 @@ class NumberRequestService implements NumberRequestServiceInterface
             $exists = PhoneNumber::where('number', $generated)->exists();
             if (! $exists) {
                 $newPhone = PhoneNumber::create([
+                    'phone_prefix_id' => \App\Models\PhonePrefix::getDefaultPrefix()->id,
                     'number' => $generated,
                     'type' => PhoneNumberType::UserService,
                     'status' => PhoneNumberStatus::Allocated,

@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(PhonePrefixSeeder::class);
+
         // Default System Administrator
         $admin = User::updateOrCreate(
             ['username' => 'admin'],

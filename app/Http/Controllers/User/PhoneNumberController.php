@@ -69,6 +69,8 @@ class PhoneNumberController extends Controller
                 'active' => $activeCount,
                 'max' => \App\Services\PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER,
             ],
+            'default_prefix' => \App\Models\PhonePrefix::getDefaultPrefixString(),
+            'active_prefixes' => \App\Models\PhonePrefix::active()->get(['id', 'prefix', 'name', 'is_default']),
         ]);
     }
 

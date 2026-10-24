@@ -10,6 +10,7 @@ use App\Enums\PhoneNumberType;
 use App\Models\ApiToken;
 use App\Models\Message;
 use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -377,9 +378,9 @@ class MessageService implements MessageServiceInterface
                 continue;
             }
 
-            // Find peer phone record if inside system
+            $defaultPrefix = PhonePrefix::getDefaultPrefixString();
             $peerRecord = PhoneNumber::with('user')->where('number', $peer)->first();
-            $peerTitle = $peerRecord?->effective_title ?? ("+85 {$peer}");
+            $peerTitle = $peerRecord?->effective_title ?? ("{$defaultPrefix} {$peer}");
 
             // If search is active, check peer, title, or message bodies
             if (! empty($search)) {
@@ -410,7 +411,7 @@ class MessageService implements MessageServiceInterface
 
             $conversations->push([
                 'peer_number' => $peer,
-                'peer_formatted' => $peerRecord ? $peerRecord->formatted_number : "+85 {$peer}",
+                'peer_formatted' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$peer}",
                 'peer_title' => $peerTitle,
                 'peer_type' => $peerRecord?->type->value,
                 'peer_type_label' => $peerRecord?->type->label(),
@@ -538,7 +539,7 @@ class MessageService implements MessageServiceInterface
 
             $lineBName = $lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'شماره خارجی';
             $lineBUsername = $lineB?->user ? $lineB->user->username : null;
-            $lineBTitle = $lineB ? $lineB->effective_title : ("+85 {$peerStr}");
+            $lineBTitle = $lineB ? $lineB->effective_title : (PhonePrefix::getDefaultPrefixString() . " {$peerStr}");
 
             $senderIsLineA = ($latestMessage->sender === $lineA->number);
             $senderLabel = $senderIsLineA ? $lineAName : $lineBName;
@@ -600,9 +601,9 @@ class MessageService implements MessageServiceInterface
                 'line_b' => [
                     'id' => $lineB?->id,
                     'number' => $peerStr,
-                    'formatted' => $lineB ? $lineB->formatted_number : "+85 {$peerStr}",
+                    'formatted' => $lineB ? $lineB->formatted_number : (PhonePrefix::getDefaultPrefixString() . " {$peerStr}"),
                     'display_title' => $lineB?->display_title,
-                    'effective_title' => $lineB ? $lineB->effective_title : "+85 {$peerStr}",
+                    'effective_title' => $lineB ? $lineB->effective_title : (PhonePrefix::getDefaultPrefixString() . " {$peerStr}"),
                     'is_internal' => (bool) $lineB,
                     'type' => $lineB?->type->value,
                     'type_label' => $lineB?->type->label(),
@@ -667,8 +668,9 @@ class MessageService implements MessageServiceInterface
         return $messages->map(function (Message $m) use ($lineA, $lineB, $cleanPeer) {
             $isOutbound = ($m->direction === MessageDirection::Outbound || $m->direction->value === 'outbound');
 
+            $defaultPrefix = PhonePrefix::getDefaultPrefixString();
             $senderNumber = $isOutbound ? $lineA->number : $cleanPeer;
-            $senderFormatted = $isOutbound ? $lineA->formatted_number : ($lineB ? $lineB->formatted_number : "+85 {$cleanPeer}");
+            $senderFormatted = $isOutbound ? $lineA->formatted_number : ($lineB ? $lineB->formatted_number : "{$defaultPrefix} {$cleanPeer}");
             $senderName = $isOutbound
                 ? ($lineA->user ? $lineA->user->name : 'سیستم')
                 : ($lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'فرستنده خارجی');
@@ -677,7 +679,7 @@ class MessageService implements MessageServiceInterface
                 : ($lineB?->user ? $lineB->user->username : null);
 
             $receiverNumber = $isOutbound ? $cleanPeer : $lineA->number;
-            $receiverFormatted = $isOutbound ? ($lineB ? $lineB->formatted_number : "+85 {$cleanPeer}") : $lineA->formatted_number;
+            $receiverFormatted = $isOutbound ? ($lineB ? $lineB->formatted_number : "{$defaultPrefix} {$cleanPeer}") : $lineA->formatted_number;
             $receiverName = $isOutbound
                 ? ($lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'شماره خارجی')
                 : ($lineA->user ? $lineA->user->name : 'سیستم');

@@ -20,12 +20,15 @@ class PhoneNumber extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'phone_prefix_id',
         'number',
         'type',
         'status',
         'display_title',
         'user_id',
         'allocated_at',
+        'reserved_until',
+        'expires_at',
         'accepts_incoming_sms',
     ];
 
@@ -40,8 +43,23 @@ class PhoneNumber extends Model
             'type' => PhoneNumberType::class,
             'status' => PhoneNumberStatus::class,
             'allocated_at' => 'datetime',
+            'reserved_until' => 'datetime',
+            'expires_at' => 'datetime',
             'accepts_incoming_sms' => 'boolean',
         ];
+    }
+
+    /**
+     * Relationship with the dynamic prefix definition.
+     */
+    public function prefix(): BelongsTo
+    {
+        return $this->belongsTo(PhonePrefix::class, 'phone_prefix_id');
+    }
+
+    public function phonePrefix(): BelongsTo
+    {
+        return $this->prefix();
     }
 
     /**
@@ -77,11 +95,13 @@ class PhoneNumber extends Model
     }
 
     /**
-     * Formatted presentation number (with +85 for standard numbers).
+     * Formatted presentation number using dynamic prefix.
      */
     public function getFormattedNumberAttribute(): string
     {
-        return '+85' . $this->number;
+        $prefixStr = $this->prefix?->prefix ?? PhonePrefix::getDefaultPrefixString();
+
+        return $prefixStr . $this->number;
     }
 
     /**
@@ -110,6 +130,18 @@ class PhoneNumber extends Model
     public function isSuspended(): bool
     {
         return $this->status === PhoneNumberStatus::Suspended;
+    }
+
+    public function isReserved(): bool
+    {
+        return $this->status === PhoneNumberStatus::Reserved
+            && (! $this->reserved_until || $this->reserved_until->isFuture());
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->status === PhoneNumberStatus::Expired
+            || ($this->expires_at && $this->expires_at->isPast());
     }
 
     /**

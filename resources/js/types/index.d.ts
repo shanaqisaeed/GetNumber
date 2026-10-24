@@ -19,6 +19,7 @@ export type PageProps<
 > = T & {
     auth: {
         user: User;
+        unread_messages_count?: number;
     };
     flash?: FlashMessages;
 };

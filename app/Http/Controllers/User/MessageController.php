@@ -63,11 +63,12 @@ class MessageController extends Controller
             if ($activePeer) {
                 $activeMessages = $this->messageService->getConversationMessages($currentNumber, $activePeer);
 
+                $defaultPrefix = \App\Models\PhonePrefix::getDefaultPrefixString();
                 $peerRecord = PhoneNumber::with('user')->where('number', $activePeer)->first();
                 $activePeerDetails = [
                     'number' => $activePeer,
-                    'formatted_number' => $peerRecord ? $peerRecord->formatted_number : "+85 {$activePeer}",
-                    'title' => $peerRecord?->effective_title ?? ("+85 {$activePeer}"),
+                    'formatted_number' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$activePeer}",
+                    'title' => $peerRecord?->effective_title ?? ("{$defaultPrefix} {$activePeer}"),
                     'type' => $peerRecord?->type->value,
                     'type_label' => $peerRecord?->type->label(),
                     'badge_class' => $peerRecord?->type->badgeClasses(),

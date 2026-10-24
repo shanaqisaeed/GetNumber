@@ -20,9 +20,7 @@ Route::get('/', function () {
 
 // Standard User Routes
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', [\App\Http\Controllers\User\DashboardController::class, 'index'])->name('dashboard');
 
     Route::get('/numbers', [UserPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [UserPhoneNumberController::class, 'store'])->name('numbers.store');

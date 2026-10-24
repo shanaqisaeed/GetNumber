@@ -42,6 +42,10 @@ class HandleInertiaRequests extends Middleware
                     'status' => $user->status->value,
                     'is_admin' => $user->isAdmin(),
                 ] : null,
+                'unread_messages_count' => fn () => $user ? \App\Models\Message::whereIn('phone_number_id', $user->phoneNumbers()->pluck('id'))
+                    ->where('direction', \App\Enums\MessageDirection::Inbound)
+                    ->where('processing_status', \App\Enums\MessageProcessingStatus::Received)
+                    ->count() : 0,
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

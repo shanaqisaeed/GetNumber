@@ -5,7 +5,9 @@ namespace App\Contracts;
 use App\Enums\PhoneNumberStatus;
 use App\Enums\PhoneNumberType;
 use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 use App\Models\User;
+use Carbon\Carbon;
 
 interface PhoneNumberAllocationServiceInterface
 {
@@ -17,7 +19,8 @@ interface PhoneNumberAllocationServiceInterface
         User $user,
         ?string $preferredNumber = null,
         ?string $displayTitle = null,
-        ?User $actor = null
+        ?User $actor = null,
+        ?PhonePrefix $prefix = null
     ): PhoneNumber;
 
     /**
@@ -27,11 +30,33 @@ interface PhoneNumberAllocationServiceInterface
         User $user,
         string $serviceNumber,
         string $displayTitle,
-        ?User $actor = null
+        ?User $actor = null,
+        ?PhonePrefix $prefix = null
+    ): PhoneNumber;
+
+    /**
+     * Reserves a phone number for a user for a specific duration.
+     */
+    public function reserveNumber(
+        PhoneNumber $phoneNumber,
+        User $user,
+        ?Carbon $until = null,
+        ?User $actor = null,
+        ?string $reason = null
+    ): PhoneNumber;
+
+    /**
+     * Marks a phone number as expired and revokes active usage.
+     */
+    public function expireNumber(
+        PhoneNumber $phoneNumber,
+        ?User $actor = null,
+        ?string $reason = null
     ): PhoneNumber;
 
     /**
      * Releases an allocated number back to the available pool.
+     * CRITICAL PRIVACY RULE: Purges all messages of the released line so the next assignee cannot view history.
      */
     public function releaseNumber(
         PhoneNumber $phoneNumber,
@@ -62,4 +87,9 @@ interface PhoneNumberAllocationServiceInterface
         PhoneNumberType $type = PhoneNumberType::UserStandard,
         int $digits = 9
     ): int;
+
+    /**
+     * Process and release/expire numbers whose reservation or validity has elapsed.
+     */
+    public function processExpiredNumbers(): int;
 }

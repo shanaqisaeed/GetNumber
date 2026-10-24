@@ -62,7 +62,7 @@ class MessageController extends Controller
             'data' => [
                 'id' => $message->id,
                 'destination_number' => $message->destination_number,
-                'destination_title' => $message->phoneNumber?->effective_title ?? ('+85' . $message->destination_number),
+                'destination_title' => $message->phoneNumber?->effective_title ?? (\App\Models\PhonePrefix::getDefaultPrefixString() . $message->destination_number),
                 'sender' => $message->sender,
                 'body' => $message->body,
                 'source_time' => $message->source_time?->toIso8601String(),

@@ -9,6 +9,7 @@ enum PhoneNumberStatus: string
     case Reserved = 'reserved';
     case Suspended = 'suspended';
     case Inactive = 'inactive';
+    case Expired = 'expired';
 
     public function label(): string
     {
@@ -18,6 +19,7 @@ enum PhoneNumberStatus: string
             self::Reserved => 'رزروشده',
             self::Suspended => 'تعلیق‌شده',
             self::Inactive => 'غیرفعال',
+            self::Expired => 'منقضی‌شده',
         };
     }
 
@@ -29,6 +31,7 @@ enum PhoneNumberStatus: string
             self::Reserved => 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
             self::Suspended => 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
             self::Inactive => 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+            self::Expired => 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700',
         };
     }
 

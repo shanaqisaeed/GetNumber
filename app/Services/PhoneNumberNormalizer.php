@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 
 class PhoneNumberNormalizer
 {
@@ -24,12 +25,14 @@ class PhoneNumberNormalizer
 
     /**
      * Resolve input string to the exact number string stored in phone_numbers table.
+     * Fully dynamic across any registered active PhonePrefix (e.g. +85, +98, etc.).
+     *
      * Accurately handles:
-     * - 4-8 digit service numbers (e.g. 1000, 1001, 90001) with or without +85
-     * - 9-digit standard numbers (e.g. 000010001) with or without +85
+     * - 4-8 digit service numbers (e.g. 1000, 1001, 90001) with or without prefix
+     * - 9-digit standard numbers (e.g. 000010001) with or without prefix
      * - Persian/Arabic keyboard digits
      */
-    public static function resolveToStoredNumber(string $rawInput): string
+    public static function resolveToStoredNumber(string $rawInput, ?string $explicitPrefix = null): string
     {
         $digits = self::clean($rawInput);
 
@@ -37,22 +40,29 @@ class PhoneNumberNormalizer
             return '';
         }
 
-        // 1. Direct match in database
+        // 1. Direct match in database (stored as 4-9 digit number string)
         if (PhoneNumber::where('number', $digits)->exists()) {
             return $digits;
         }
 
-        // 2. If entered with country code 85 (e.g. 851001 or 85000010001)
-        if (str_starts_with($digits, '85') && strlen($digits) > 2) {
-            $without85 = substr($digits, 2);
-            if (PhoneNumber::where('number', $without85)->exists()) {
-                return $without85;
+        // 2. Dynamic check across all active clean prefixes (e.g. 85, 98)
+        $activeCleanPrefixes = PhonePrefix::getActiveCleanPrefixes();
+        usort($activeCleanPrefixes, fn ($a, $b) => strlen($b) <=> strlen($a));
+
+        foreach ($activeCleanPrefixes as $prefix) {
+            if (str_starts_with($digits, $prefix) && strlen($digits) > strlen($prefix)) {
+                $withoutPrefix = substr($digits, strlen($prefix));
+                if (PhoneNumber::where('number', $withoutPrefix)->exists()) {
+                    return $withoutPrefix;
+                }
             }
         }
 
-        // Fallback: if it starts with 85, strip 85
-        if (str_starts_with($digits, '85') && strlen($digits) > 2) {
-            return substr($digits, 2);
+        // 3. Fallback: if starts with any active prefix, strip it
+        foreach ($activeCleanPrefixes as $prefix) {
+            if (str_starts_with($digits, $prefix) && strlen($digits) > strlen($prefix)) {
+                return substr($digits, strlen($prefix));
+            }
         }
 
         return $digits;

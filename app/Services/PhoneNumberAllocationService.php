@@ -12,7 +12,9 @@ use App\Exceptions\UserQuotaExceededException;
 use App\Models\AuditLog;
 use App\Models\PhoneNumber;
 use App\Models\PhoneNumberAudit;
+use App\Models\PhonePrefix;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterface
@@ -31,10 +33,12 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         User $user,
         ?string $preferredNumber = null,
         ?string $displayTitle = null,
-        ?User $actor = null
+        ?User $actor = null,
+        ?PhonePrefix $prefix = null
     ): PhoneNumber {
-        return DB::transaction(function () use ($user, $preferredNumber, $displayTitle, $actor) {
+        return DB::transaction(function () use ($user, $preferredNumber, $displayTitle, $actor, $prefix) {
             $this->ensureUserWithinQuota($user);
+            $effectivePrefix = $prefix ?? PhonePrefix::getDefaultPrefix();
 
             if ($preferredNumber !== null && trim($preferredNumber) !== '') {
                 $cleanNumber = $this->sanitizeStandardNumber($preferredNumber);
@@ -43,14 +47,16 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                     PhoneNumberType::UserStandard,
                     $user,
                     $displayTitle,
-                    $actor
+                    $actor,
+                    $effectivePrefix
                 );
             } else {
                 $phone = $this->allocateFromPoolOrGenerate(
                     PhoneNumberType::UserStandard,
                     $user,
                     $displayTitle,
-                    $actor
+                    $actor,
+                    $effectivePrefix
                 );
             }
 
@@ -62,7 +68,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         User $user,
         string $serviceNumber,
         string $displayTitle,
-        ?User $actor = null
+        ?User $actor = null,
+        ?PhonePrefix $prefix = null
     ): PhoneNumber {
         $cleanNumber = trim($serviceNumber);
 
@@ -74,19 +81,94 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             throw new InvalidNumberFormatException('تعیین عنوان نمایشی برای سرشماره اختصاصی الزامی است.');
         }
 
-        return DB::transaction(function () use ($user, $cleanNumber, $displayTitle, $actor) {
+        return DB::transaction(function () use ($user, $cleanNumber, $displayTitle, $actor, $prefix) {
             $this->ensureUserWithinQuota($user);
+            $effectivePrefix = $prefix ?? PhonePrefix::getDefaultPrefix();
 
             return $this->allocateSpecificNumber(
                 $cleanNumber,
                 PhoneNumberType::UserService,
                 $user,
                 $displayTitle,
-                $actor
+                $actor,
+                $effectivePrefix
             );
         });
     }
 
+    public function reserveNumber(
+        PhoneNumber $phoneNumber,
+        User $user,
+        ?Carbon $until = null,
+        ?User $actor = null,
+        ?string $reason = null
+    ): PhoneNumber {
+        return DB::transaction(function () use ($phoneNumber, $user, $until, $actor, $reason) {
+            /** @var PhoneNumber $phone */
+            $phone = PhoneNumber::where('id', $phoneNumber->id)->lockForUpdate()->firstOrFail();
+
+            if ($phone->status !== PhoneNumberStatus::Available && $phone->status !== PhoneNumberStatus::Reserved) {
+                throw new NumberAllocationException("خط مورد نظر در وضعیت «{$phone->status->label()}» بوده و قابل رزرو نمی‌باشد.");
+            }
+
+            $fromStatus = $phone->status;
+            $reservedUntil = $until ?? now()->addDays(7);
+
+            $phone->update([
+                'user_id' => $user->id,
+                'status' => PhoneNumberStatus::Reserved,
+                'reserved_until' => $reservedUntil,
+            ]);
+
+            $this->createAudit(
+                phoneNumber: $phone,
+                action: 'reserved',
+                fromStatus: $fromStatus->value,
+                toStatus: PhoneNumberStatus::Reserved->value,
+                actor: $actor ?? $user,
+                metadata: [
+                    'user_id' => $user->id,
+                    'reserved_until' => $reservedUntil->toIso8601String(),
+                    'reason' => $reason,
+                ]
+            );
+
+            return $phone->fresh();
+        });
+    }
+
+    public function expireNumber(
+        PhoneNumber $phoneNumber,
+        ?User $actor = null,
+        ?string $reason = null
+    ): PhoneNumber {
+        return DB::transaction(function () use ($phoneNumber, $actor, $reason) {
+            /** @var PhoneNumber $phone */
+            $phone = PhoneNumber::where('id', $phoneNumber->id)->lockForUpdate()->firstOrFail();
+
+            $fromStatus = $phone->status;
+            $phone->update([
+                'status' => PhoneNumberStatus::Expired,
+                'expires_at' => now(),
+            ]);
+
+            $this->createAudit(
+                phoneNumber: $phone,
+                action: 'expired',
+                fromStatus: $fromStatus->value,
+                toStatus: PhoneNumberStatus::Expired->value,
+                actor: $actor,
+                metadata: ['reason' => $reason]
+            );
+
+            return $phone->fresh();
+        });
+    }
+
+    /**
+     * Releases an allocated number back to the available pool.
+     * CRITICAL PRIVACY FIX: Purges all messages of the released line so the next assignee cannot view history.
+     */
     public function releaseNumber(
         PhoneNumber $phoneNumber,
         ?User $actor = null,
@@ -99,11 +181,18 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             $fromStatus = $phone->status;
             $previousUserId = $phone->user_id;
 
+            // CRITICAL DOMAIN PRIVACY RULE:
+            // When a line is released, permanently delete its prior messages so that if the line
+            // is re-allocated to a new user, the new user cannot see previous conversations/messages.
+            $phone->messages()->delete();
+
             $phone->update([
                 'user_id' => null,
                 'status' => PhoneNumberStatus::Available,
                 'allocated_at' => null,
                 'display_title' => null,
+                'reserved_until' => null,
+                'expires_at' => null,
             ]);
 
             $this->createAudit(
@@ -170,6 +259,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
     ): int {
         $createdCount = 0;
         $max = (int) str_repeat('9', $digits);
+        $defaultPrefixId = PhonePrefix::getDefaultPrefix()->id;
 
         for ($i = 0; $i < $count; $i++) {
             for ($attempt = 0; $attempt < self::MAX_GENERATION_ATTEMPTS; $attempt++) {
@@ -177,6 +267,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
 
                 if (! PhoneNumber::where('number', $randomNumber)->exists()) {
                     PhoneNumber::create([
+                        'phone_prefix_id' => $defaultPrefixId,
                         'number' => $randomNumber,
                         'type' => $type,
                         'status' => PhoneNumberStatus::Available,
@@ -188,6 +279,40 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         }
 
         return $createdCount;
+    }
+
+    /**
+     * Automatic sweep for expired reservations and allocations.
+     */
+    public function processExpiredNumbers(): int
+    {
+        return DB::transaction(function () {
+            $count = 0;
+
+            // 1. Expired reservations: revert to available pool
+            $expiredReservations = PhoneNumber::where('status', PhoneNumberStatus::Reserved)
+                ->whereNotNull('reserved_until')
+                ->where('reserved_until', '<=', now())
+                ->get();
+
+            foreach ($expiredReservations as $res) {
+                $this->releaseNumber($res, null, 'انقضای خودکار مهلت رزرو خط');
+                $count++;
+            }
+
+            // 2. Expired active numbers: mark expired
+            $expiredAllocations = PhoneNumber::where('status', PhoneNumberStatus::Allocated)
+                ->whereNotNull('expires_at')
+                ->where('expires_at', '<=', now())
+                ->get();
+
+            foreach ($expiredAllocations as $alloc) {
+                $this->expireNumber($alloc, null, 'سررسید و انقضای خودکار خط تخصیص‌یافته');
+                $count++;
+            }
+
+            return $count;
+        });
     }
 
     /**
@@ -210,19 +335,19 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
     }
 
     /**
-     * Sanitizes and validates standard 9-digit number format.
+     * Sanitizes and validates standard 9-digit number format dynamically.
      */
     protected function sanitizeStandardNumber(string $rawNumber): string
     {
-        // Strip optional '+85' or whitespace
-        $cleaned = preg_replace('/^\+?85/', '', trim($rawNumber));
-        $cleaned = preg_replace('/\D/', '', (string) $cleaned);
+        // Strip dynamic active prefixes dynamically
+        $stripped = PhonePrefix::stripPrefix($rawNumber);
+        $cleaned = preg_replace('/\D/', '', $stripped);
 
-        if (strlen($cleaned) !== 9) {
+        if (strlen((string) $cleaned) !== 9) {
             throw new InvalidNumberFormatException('شماره استاندارد عادی باید دقیقاً ۹ رقم عددی باشد.');
         }
 
-        return $cleaned;
+        return (string) $cleaned;
     }
 
     /**
@@ -233,7 +358,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         PhoneNumberType $type,
         User $user,
         ?string $displayTitle,
-        ?User $actor
+        ?User $actor,
+        PhonePrefix $prefix
     ): PhoneNumber {
         /** @var PhoneNumber|null $phone */
         $phone = PhoneNumber::where('number', $number)->lockForUpdate()->first();
@@ -243,21 +369,24 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                 throw new NumberAllocationException('سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
             }
 
-            if ($phone->status !== PhoneNumberStatus::Available) {
+            if ($phone->status !== PhoneNumberStatus::Available && $phone->status !== PhoneNumberStatus::Reserved) {
                 throw new NumberAlreadyAllocatedException($number);
             }
 
             $fromStatus = $phone->status;
             $phone->update([
+                'phone_prefix_id' => $prefix->id,
                 'user_id' => $user->id,
                 'type' => $type,
                 'status' => PhoneNumberStatus::Allocated,
                 'allocated_at' => now(),
                 'display_title' => $displayTitle,
+                'reserved_until' => null,
             ]);
         } else {
             $fromStatus = PhoneNumberStatus::Available;
             $phone = PhoneNumber::create([
+                'phone_prefix_id' => $prefix->id,
                 'number' => $number,
                 'type' => $type,
                 'status' => PhoneNumberStatus::Allocated,
@@ -276,6 +405,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             metadata: [
                 'user_id' => $user->id,
                 'username' => $user->username,
+                'prefix' => $prefix->prefix,
                 'display_title' => $displayTitle,
             ]
         );
@@ -290,7 +420,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         PhoneNumberType $type,
         User $user,
         ?string $displayTitle,
-        ?User $actor
+        ?User $actor,
+        PhonePrefix $prefix
     ): PhoneNumber {
         /** @var PhoneNumber|null $availablePhone */
         $availablePhone = PhoneNumber::where('type', $type->value)
@@ -302,10 +433,12 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         if ($availablePhone !== null) {
             $fromStatus = $availablePhone->status;
             $availablePhone->update([
+                'phone_prefix_id' => $availablePhone->phone_prefix_id ?? $prefix->id,
                 'user_id' => $user->id,
                 'status' => PhoneNumberStatus::Allocated,
                 'allocated_at' => now(),
                 'display_title' => $displayTitle,
+                'reserved_until' => null,
             ]);
 
             $this->createAudit(
@@ -318,6 +451,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                     'source' => 'available_pool',
                     'user_id' => $user->id,
                     'username' => $user->username,
+                    'prefix' => $availablePhone->prefix?->prefix ?? $prefix->prefix,
                 ]
             );
 
@@ -332,6 +466,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             $exists = PhoneNumber::where('number', $generated)->exists();
             if (! $exists) {
                 $newPhone = PhoneNumber::create([
+                    'phone_prefix_id' => $prefix->id,
                     'number' => $generated,
                     'type' => $type,
                     'status' => PhoneNumberStatus::Allocated,
@@ -350,6 +485,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                         'source' => 'auto_generated',
                         'user_id' => $user->id,
                         'username' => $user->username,
+                        'prefix' => $prefix->prefix,
                     ]
                 );
 
@@ -386,6 +522,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         $auditAction = match ($action) {
             'allocated' => 'number_assigned',
             'released' => 'number_released',
+            'reserved' => 'number_reserved',
+            'expired' => 'number_expired',
             'status_changed' => 'number_status_changed',
             default => 'number_' . $action,
         };
