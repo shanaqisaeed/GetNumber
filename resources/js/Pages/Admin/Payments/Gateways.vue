@@ -38,6 +38,7 @@ const form = useForm({
     is_default: false,
     config: {
         api_key: '',
+        secret_key: '',
         base_url: '',
         wallet_id: '',
         deposit_address: '',
@@ -58,6 +59,7 @@ const openEditModal = (g: GatewayModel) => {
 
     form.config = {
         api_key: g.config?.api_key || '',
+        secret_key: g.config?.secret_key || '',
         base_url: baseUrl,
         wallet_id: g.config?.wallet_id || '',
         deposit_address: g.config?.deposit_address || '',
@@ -155,9 +157,19 @@ const submitGatewayUpdate = () => {
                             </div>
                         </div>
 
-                        <div v-if="g.driver === 'nobitex'" class="text-[11px] text-slate-400 pt-1">
-                            آدرس پایه: <span class="font-mono">{{ g.config?.base_url || 'https://apiv2.nobitex.ir' }}</span> |
-                            وضعیت کلید API: <span :class="g.config?.api_key ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'">{{ g.config?.api_key ? 'تنظیم‌شده' : 'تنظیم‌نشده' }}</span>
+                        <div v-if="g.driver === 'nobitex'" class="text-[11px] text-slate-400 pt-1 flex flex-wrap items-center gap-2">
+                            <span>آدرس پایه: <span class="font-mono">{{ g.config?.base_url || 'https://apiv2.nobitex.ir' }}</span></span>
+                            <span>•</span>
+                            <span>
+                                وضعیت اتصال:
+                                <span v-if="g.config?.secret_key && g.config?.api_key" class="text-emerald-500 font-bold">API Key (Ed25519)</span>
+                                <span v-else-if="g.config?.api_key" class="text-sky-500 font-bold">توکن سنتی (Token)</span>
+                                <span v-else class="text-amber-500 font-bold">تنظیم‌نشده</span>
+                            </span>
+                            <span v-if="g.config?.deposit_address">•</span>
+                            <span v-if="g.config?.deposit_address" class="text-slate-500 dark:text-slate-400">
+                                آدرس TRX: <span class="font-mono text-slate-700 dark:text-slate-300">{{ g.config.deposit_address }}</span>
+                            </span>
                         </div>
                     </div>
 
@@ -216,15 +228,25 @@ const submitGatewayUpdate = () => {
                         <!-- Nobitex specific fields -->
                         <template v-if="editingGateway?.driver === 'nobitex'">
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید وب‌سرویس نوبیتکس (API Key / Token)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید عمومی وب‌سرویس نوبیتکس</label>
                                 <input
                                     v-model="form.config.api_key"
                                     type="text"
-                                    placeholder="توکن دریافت شده از پنل کاربری نوبیتکس..."
+                                    placeholder="کلید عمومی مانند NXH77kqbGD6lm6XzZDvuJC0DhA= یا توکن..."
+                                    class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
+                                />
+                            </div>
+
+                            <div>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید محرمانه وب‌سرویس نوبیتکس</label>
+                                <input
+                                    v-model="form.config.secret_key"
+                                    type="text"
+                                    placeholder="کلید محرمانه Ed25519 مانند HW53SbFXYkI9g4=..."
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                                 <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                                    💡 <strong>راهنما:</strong> وب‌سرویس نوبیتکس برای استعلام پروفایل و واریزی‌ها از «توکن دسترسی» (رشته ۴۰ کاراکتری هگزادسیمال که از منوی کاربری > تنظیمات > توکن دریافت می‌شود) استفاده می‌کند. در صورتی که کلید API (رشته ۴۴ کاراکتری Base64) دارید، می‌توانید آدرس والت TRX خود را مستقیماً در کادر «آدرس واریز ثابت» وارد نمایید.
+                                    💡 <strong>راهنما:</strong> در روش جدید احراز هویت نوبیتکس (Ed25519)، درخواست‌ها با استفاده از جفت‌کلید عمومی و خصوصی به‌صورت دیجیتالی امضا می‌شوند. در صورت استفاده از کلید API، وارد کردن هر دو فیلد الزامی است. (برای توکن‌های قدیمی ۴۰ کاراکتری، فیلد سکرت را خالی بگذارید). همچنین دقت کنید که IP سرور باید در پنل نوبیتکس جزو لیست مجاز (Whitelist) ثبت شده باشد.
                                 </p>
                             </div>
 

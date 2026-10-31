@@ -112,3 +112,4 @@ class NobitexGatewayTest extends TestCase
         $this->assertEquals('TTestEd25519TrxAddressValid99', $config['deposit_address']);
     }
 }
+
