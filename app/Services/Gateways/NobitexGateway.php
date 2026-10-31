@@ -15,6 +15,7 @@ class NobitexGateway implements PaymentGatewayInterface
     protected string $baseUrl;
     protected ?string $apiKey;
     protected ?int $walletId;
+    protected ?string $depositAddress;
     protected ?string $addressOverride;
 
     public function __construct(?PaymentGateway $model = null)
@@ -24,6 +25,7 @@ class NobitexGateway implements PaymentGatewayInterface
         $this->baseUrl = rtrim((string) ($config['base_url'] ?? env('NOBITEX_BASE_URL', 'https://api.nobitex.ir')), '/');
         $this->apiKey = $config['api_key'] ?? env('NOBITEX_API_KEY');
         $this->walletId = isset($config['wallet_id']) && $config['wallet_id'] !== '' ? (int) $config['wallet_id'] : null;
+        $this->depositAddress = $config['deposit_address'] ?? null;
         $this->addressOverride = $config['deposit_address_override'] ?? env('NOBITEX_DEPOSIT_ADDRESS_OVERRIDE');
     }
 
@@ -35,6 +37,153 @@ class NobitexGateway implements PaymentGatewayInterface
     public function getName(): string
     {
         return 'صرافی نوبیتکس (Nobitex)';
+    }
+
+    /**
+     * Validate the Nobitex API Key by sending an authenticated probe to /users/profile.
+     */
+    public function validateCredentials(array $config): array
+    {
+        $apiKey = trim((string) ($config['api_key'] ?? $this->apiKey ?? ''));
+        $baseUrl = rtrim((string) ($config['base_url'] ?? $this->baseUrl), '/');
+
+        if (empty($apiKey)) {
+            return [
+                'valid' => false,
+                'message' => 'کلید API صرافی نوبیتکس وارد نشده است.',
+            ];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Token ' . $apiKey,
+            ])->timeout(8)->get("{$baseUrl}/users/profile");
+
+            if ($response->successful()) {
+                $status = $response->json('status');
+                if ($status === 'failed') {
+                    $err = $response->json('message') ?? 'توکن نامعتبر است';
+                    return [
+                        'valid' => false,
+                        'message' => "اعتبارسنجی در نوبیتکس رد شد: {$err}",
+                    ];
+                }
+
+                return [
+                    'valid' => true,
+                    'message' => 'ارتباط با نوبیتکس برقرار و کلید API معتبر است.',
+                    'details' => $response->json('profile') ?? [],
+                ];
+            }
+
+            $errMsg = $response->json('message') ?? $response->body() ?: 'خطای احراز هویت در نوبیتکس (کد HTTP ' . $response->status() . ')';
+            return [
+                'valid' => false,
+                'message' => "کلید API نامعتبر است: {$errMsg}",
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'valid' => false,
+                'message' => 'خطا در اتصال به سرور نوبیتکس: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Query Nobitex wallets, locate the TRX wallet, fetch or generate its deposit address, and update config.
+     */
+    public function syncWallets(array &$config): array
+    {
+        $apiKey = trim((string) ($config['api_key'] ?? $this->apiKey ?? ''));
+        $baseUrl = rtrim((string) ($config['base_url'] ?? $this->baseUrl), '/');
+
+        if (empty($apiKey)) {
+            return [
+                'success' => false,
+                'currency' => 'TRX',
+                'changed' => false,
+                'message' => 'کلید API جهت همگام‌سازی کیف پول تنظیم نشده است.',
+            ];
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'Token ' . $apiKey,
+            ])->timeout(10)->get("{$baseUrl}/users/wallets/list");
+
+            if (! $response->successful()) {
+                return [
+                    'success' => false,
+                    'currency' => 'TRX',
+                    'changed' => false,
+                    'message' => 'خطا در دریافت فهرست کیف‌پول‌های نوبیتکس: ' . ($response->json('message') ?? $response->body()),
+                ];
+            }
+
+            $wallets = (array) ($response->json('wallets') ?? []);
+            $trxWallet = null;
+
+            foreach ($wallets as $w) {
+                if (strtolower((string) ($w['currency'] ?? '')) === 'trx') {
+                    $trxWallet = $w;
+                    break;
+                }
+            }
+
+            if (! $trxWallet) {
+                return [
+                    'success' => false,
+                    'currency' => 'TRX',
+                    'changed' => false,
+                    'message' => 'کیف پول ترون (TRX) در حساب نوبیتکس یافت نشد. لطفاً در پنل نوبیتکس کیف پول TRX ایجاد نمایید.',
+                ];
+            }
+
+            $walletId = (int) $trxWallet['id'];
+            $depositAddress = $trxWallet['depositAddress'] ?? $trxWallet['address'] ?? null;
+
+            // If depositAddress is not assigned, request generation
+            if (empty($depositAddress)) {
+                $genResponse = Http::withHeaders([
+                    'Authorization' => 'Token ' . $apiKey,
+                ])->timeout(10)->post("{$baseUrl}/users/wallets/generate-address", [
+                    'wallet' => $walletId,
+                    'currency' => 'trx',
+                ]);
+
+                if ($genResponse->successful()) {
+                    $depositAddress = $genResponse->json('address') ?? null;
+                }
+            }
+
+            $oldAddress = $config['deposit_address'] ?? null;
+            $changed = ! empty($oldAddress) && ! empty($depositAddress) && strcasecmp($oldAddress, $depositAddress) !== 0;
+
+            // Update configuration
+            $config['wallet_id'] = $walletId;
+            if (! empty($depositAddress)) {
+                $config['deposit_address'] = $depositAddress;
+            }
+            $config['min_deposit'] = $config['min_deposit'] ?? '1.0000';
+
+            return [
+                'success' => ! empty($depositAddress),
+                'wallet_id' => $walletId,
+                'address' => $depositAddress,
+                'currency' => 'TRX',
+                'changed' => $changed,
+                'message' => $changed
+                    ? 'آدرس کیف پول TRX تغییر کرده بود و در پایگاه‌داده به‌روزرسانی شد.'
+                    : 'کیف پول TRX با موفقیت تأیید و همگام‌سازی شد.',
+            ];
+        } catch (\Throwable $e) {
+            return [
+                'success' => false,
+                'currency' => 'TRX',
+                'changed' => false,
+                'message' => 'خطا در فرآیند همگام‌سازی کیف پول نوبیتکس: ' . $e->getMessage(),
+            ];
+        }
     }
 
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
@@ -49,6 +198,19 @@ class NobitexGateway implements PaymentGatewayInterface
                 qrCodeUrl: null,
                 expiresAt: now()->addHours(2),
                 extra: ['source' => 'override']
+            );
+        }
+
+        // 2. If synced deposit address from Nobitex exists in database config, use it directly
+        if (! empty($this->depositAddress)) {
+            return new PaymentAddressResult(
+                address: $this->depositAddress,
+                currency: 'TRX',
+                network: 'TRON',
+                tag: null,
+                qrCodeUrl: null,
+                expiresAt: now()->addHours(2),
+                extra: ['source' => 'synced_nobitex_wallet', 'wallet_id' => $this->walletId]
             );
         }
 

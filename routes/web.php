@@ -84,6 +84,7 @@ Route::middleware(['auth'])->group(function () {
 
     // User Wallet & Ledger
     Route::get('/wallet', [\App\Http\Controllers\User\WalletController::class, 'index'])->name('wallet.index');
+    Route::get('/wallet/transactions', [\App\Http\Controllers\User\WalletController::class, 'transactions'])->name('wallet.transactions');
     Route::get('/wallet/deposit', [\App\Http\Controllers\User\PaymentDepositController::class, 'create'])->name('wallet.deposit.create');
     Route::post('/wallet/deposit', [\App\Http\Controllers\User\PaymentDepositController::class, 'store'])->name('wallet.deposit.store');
     Route::get('/wallet/deposit/{trackingCode}', [\App\Http\Controllers\User\PaymentDepositController::class, 'show'])->name('wallet.deposit.show');
@@ -156,6 +157,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/payments', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.index');
     Route::get('/payments/gateways', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'gateways'])->name('payments.gateways');
     Route::patch('/payments/gateways/{gateway}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'updateGateway'])->name('payments.gateways.update');
+    Route::post('/payments/gateways/{gateway}/sync', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'syncGateway'])->name('payments.gateways.sync');
     Route::get('/payments/{deposit}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'show'])->name('payments.show');
     Route::post('/payments/{deposit}/verify', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'verify'])->name('payments.verify');
     Route::post('/payments/{deposit}/complete-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'completeManually'])->name('payments.complete-manually');

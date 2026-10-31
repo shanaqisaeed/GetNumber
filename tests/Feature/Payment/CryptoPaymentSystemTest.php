@@ -15,6 +15,7 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class CryptoPaymentSystemTest extends TestCase
@@ -62,25 +63,24 @@ class CryptoPaymentSystemTest extends TestCase
         ]);
     }
 
-    public function test_user_deposit_create_route_redirects_to_profile_wallet(): void
+    public function test_user_deposit_create_route_redirects_to_profile(): void
     {
         $response = $this->actingAs($this->user)->get(route('wallet.deposit.create'));
 
-        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet']));
+        $response->assertRedirect(route('profile.edit'));
     }
 
     public function test_user_can_create_deposit_request_and_receives_address(): void
     {
         $response = $this->actingAs($this->user)->post(route('wallet.deposit.store'), [
-            'amount' => '15.0000',
+            'amount' => 15,
             'network' => 'TRON',
-            'gateway' => 'mock',
         ]);
 
         $deposit = CryptoDeposit::where('user_id', $this->user->id)->first();
         $this->assertNotNull($deposit);
 
-        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet']));
+        $response->assertRedirect(route('wallet.deposit.show', $deposit->tracking_code));
 
         $this->assertEquals('15.0000', (string) $deposit->requested_amount);
         $this->assertEquals('15.0000', (string) $deposit->coin_amount);
@@ -106,7 +106,7 @@ class CryptoPaymentSystemTest extends TestCase
             ->component('User/Wallet/DepositShow')
             ->has('deposit')
             ->where('deposit.tracking_code', $deposit->tracking_code)
-            ->where('deposit.requested_amount', '20.0000')
+            ->where('deposit.requested_amount', 20)
             ->where('deposit.status', PaymentStatus::PendingTransfer->value)
         );
     }
@@ -336,6 +336,19 @@ class CryptoPaymentSystemTest extends TestCase
 
     public function test_admin_can_update_payment_gateway_settings(): void
     {
+        Http::fake([
+            'https://api.nobitex.ir/users/profile' => Http::response([
+                'status' => 'ok',
+                'profile' => ['id' => 12345, 'username' => 'tester'],
+            ], 200),
+            'https://api.nobitex.ir/users/wallets/list' => Http::response([
+                'status' => 'ok',
+                'wallets' => [
+                    ['id' => 777, 'currency' => 'trx', 'depositAddress' => 'TTestNobitexTrxAddress999'],
+                ],
+            ], 200),
+        ]);
+
         $gateway = PaymentGateway::where('driver', 'nobitex')->first();
 
         $response = $this->actingAs($this->admin)->patch(route('admin.payments.gateways.update', $gateway->id), [
@@ -355,6 +368,7 @@ class CryptoPaymentSystemTest extends TestCase
         $this->assertTrue($freshGateway->is_active);
         $this->assertTrue($freshGateway->is_default);
         $this->assertEquals('secret_nobitex_token_test_123', $freshGateway->getConfig('api_key'));
+        $this->assertEquals('TTestNobitexTrxAddress999', $freshGateway->getConfig('deposit_address'));
         $this->assertEquals('2.5000', $freshGateway->getConfig('min_deposit'));
 
         $this->assertDatabaseHas('audit_logs', [
@@ -363,6 +377,70 @@ class CryptoPaymentSystemTest extends TestCase
             'entity_type' => PaymentGateway::class,
             'entity_id' => $gateway->id,
         ]);
+    }
+
+    public function test_admin_setting_invalid_nobitex_token_is_rejected(): void
+    {
+        Http::fake([
+            'https://api.nobitex.ir/users/profile' => Http::response([
+                'status' => 'failed',
+                'message' => 'Token is invalid or expired',
+            ], 401),
+        ]);
+
+        $gateway = PaymentGateway::where('driver', 'nobitex')->first();
+
+        $response = $this->actingAs($this->admin)->patch(route('admin.payments.gateways.update', $gateway->id), [
+            'is_active' => true,
+            'is_default' => false,
+            'config' => [
+                'api_key' => 'invalid_token_123',
+                'base_url' => 'https://api.nobitex.ir',
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+    }
+
+    public function test_nobitex_sync_wallet_artisan_command_updates_deposit_address(): void
+    {
+        Http::fake([
+            'https://api.nobitex.ir/users/profile' => Http::response(['status' => 'ok', 'profile' => []], 200),
+            'https://api.nobitex.ir/users/wallets/list' => Http::response([
+                'status' => 'ok',
+                'wallets' => [
+                    ['id' => 888, 'currency' => 'trx', 'depositAddress' => 'TChangedNobitexAddress888'],
+                ],
+            ], 200),
+        ]);
+
+        $gateway = PaymentGateway::where('driver', 'nobitex')->first();
+        $gateway->update(['config' => ['api_key' => 'valid_token_xyz', 'deposit_address' => 'TOldNobitexAddress111']]);
+
+        $exitCode = Artisan::call('payments:nobitex:sync-wallet');
+        $this->assertEquals(0, $exitCode);
+
+        $fresh = $gateway->fresh();
+        $this->assertEquals('TChangedNobitexAddress888', $fresh->getConfig('deposit_address'));
+    }
+
+    public function test_verify_deposit_job_escalates_to_manual_review_after_three_attempts(): void
+    {
+        $deposit = $this->paymentService->createDepositRequest($this->user, '10.0000', 'TRON', 'mock');
+        $deposit->update([
+            'tx_hash' => 'pending_hash_attempt_3',
+            'attempts' => 2,
+            'status' => PaymentStatus::Verifying,
+        ]);
+
+        $job = new \App\Jobs\VerifyCryptoDepositJob($deposit->id);
+        $job->handle($this->paymentService);
+
+        $deposit->refresh();
+        $this->assertEquals(3, $deposit->attempts);
+        $this->assertEquals(PaymentStatus::ManualReview, $deposit->status);
+        $this->assertStringContainsString('بررسی دستی', $deposit->failure_reason);
     }
 
     public function test_idempotency_guard_prevents_double_crediting_on_reverification(): void

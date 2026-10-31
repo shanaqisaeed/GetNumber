@@ -5,8 +5,8 @@ namespace App\Http\Controllers\User;
 use App\Contracts\PaymentServiceInterface;
 use App\Enums\PaymentStatus;
 use App\Http\Controllers\Controller;
+use App\Jobs\VerifyCryptoDepositJob;
 use App\Models\CryptoDeposit;
-use App\Models\PaymentGateway;
 use App\Models\SystemSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -21,44 +21,44 @@ class PaymentDepositController extends Controller
     ) {}
 
     /**
-     * Display the crypto deposit creation screen (redirect to Profile wallet section).
+     * Display the crypto deposit creation screen (redirect to Profile recharge section).
      */
     public function create(Request $request): RedirectResponse
     {
-        return redirect()->route('profile.edit', ['tab' => 'wallet']);
+        return redirect()->route('profile.edit');
     }
 
     /**
-     * Create a new deposit request and generate deposit address.
+     * Create a new deposit request with auto-selected gateway and 1:1 integer units.
      */
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'gt:0'],
+            'amount' => ['required', 'numeric', 'gte:1'],
             'network' => ['nullable', 'string', 'in:TRON,TRC20'],
-            'gateway' => ['nullable', 'string'],
         ], [
-            'amount.required' => 'وارد کردن مبلغ ترون الزامی است.',
-            'amount.gt' => 'مبلغ ترون باید بزرگتر از صفر باشد.',
+            'amount.required' => 'وارد کردن مبلغ افزایش اعتبار الزامی است.',
+            'amount.numeric' => 'مبلغ باید به صورت عدد باشد.',
+            'amount.gte' => 'حداقل مبلغ افزایش اعتبار ۱ واحد (TRX) است.',
         ]);
 
         try {
             $deposit = $this->paymentService->createDepositRequest(
                 user: $request->user(),
-                trxAmount: (string) $validated['amount'],
+                trxAmount: (string) ((int) $validated['amount']),
                 network: $validated['network'] ?? 'TRON',
-                gatewayDriver: $validated['gateway'] ?? null
+                gatewayDriver: null // intelligent load balance across active gateways
             );
 
-            return redirect()->route('profile.edit', ['tab' => 'wallet'])
-                ->with('success', 'درخواست افزایش اعتبار با موفقیت ایجاد شد. لطفاً مبلغ را به آدرس واریز انتقال دهید.');
+            return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
+                ->with('success', 'فاکتور افزایش اعتبار با موفقیت ایجاد شد.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage() ?: 'خطا در ایجاد درخواست پرداخت.');
         }
     }
 
     /**
-     * Show deposit details, address, QR code, and TX Hash submission form.
+     * Show deposit invoice with offline QR code, address, amount and TX Hash submission form.
      */
     public function show(Request $request, string $trackingCode): Response
     {
@@ -73,13 +73,12 @@ class PaymentDepositController extends Controller
                 'currency' => $deposit->currency,
                 'network' => $deposit->network,
                 'gateway_driver' => $deposit->gateway_driver,
-                'requested_amount' => (string) $deposit->requested_amount,
-                'coin_amount' => (string) $deposit->coin_amount,
-                'trx_to_coin_rate' => (string) $deposit->trx_to_coin_rate,
+                'requested_amount' => (int) round((float) $deposit->requested_amount),
+                'coin_amount' => (int) round((float) $deposit->coin_amount),
                 'deposit_address' => $deposit->deposit_address,
                 'deposit_tag' => $deposit->deposit_tag,
                 'tx_hash' => $deposit->tx_hash,
-                'actual_amount' => (string) ($deposit->actual_amount ?? $deposit->requested_amount),
+                'actual_amount' => (int) round((float) ($deposit->actual_amount ?? $deposit->requested_amount)),
                 'status' => $deposit->status->value,
                 'status_label' => $deposit->status->label(),
                 'status_badge' => $deposit->status->badgeClasses(),
@@ -90,16 +89,15 @@ class PaymentDepositController extends Controller
                 'is_expired' => $deposit->isExpired(),
                 'expires_at' => $deposit->expires_at?->toIso8601String(),
                 'created_at' => $deposit->created_at->format('Y/m/d H:i'),
-                'qr_code_url' => null,
             ],
             'rates' => [
-                'trx_to_coin_rate' => SystemSetting::getTrxToCoinRate(),
+                'trx_to_coin_rate' => 1,
             ],
         ]);
     }
 
     /**
-     * Submit TX Hash for a deposit.
+     * Submit TX Hash for a deposit and trigger 3-stage verification job.
      */
     public function submitTx(Request $request, string $trackingCode): RedirectResponse
     {
@@ -121,13 +119,19 @@ class PaymentDepositController extends Controller
                 actor: $request->user()
             );
 
-            if ($updated->isCompleted()) {
-                return redirect()->route('profile.edit', ['tab' => 'wallet'])
-                    ->with('success', "تراکنش با موفقیت تأیید شد و حساب شما به میزان {$updated->coin_amount} واحد اعتبار شارژ گردید.");
+            // If not immediately completed, queue the 30-min interval check job
+            if (! $updated->isCompleted() && $updated->status !== PaymentStatus::Failed) {
+                VerifyCryptoDepositJob::dispatch($updated->id)->delay(now()->addMinutes(30));
             }
 
-            return redirect()->route('profile.edit', ['tab' => 'wallet'])
-                ->with('success', 'کد رهگیری تراکنش با موفقیت ثبت گردید و در حال استعلام و اعتبارسنجی خودکار از شبکه است.');
+            if ($updated->isCompleted()) {
+                $coinInt = (int) round((float) $updated->coin_amount);
+                return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
+                    ->with('success', "تراکنش با موفقیت تأیید شد و حساب شما به میزان {$coinInt} واحد اعتبار شارژ گردید.");
+            }
+
+            return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
+                ->with('success', 'کد رهگیری تراکنش با موفقیت ثبت شد و در فرآیند استعلام و اعتبارسنجی شبکه قرار گرفت.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage() ?: 'خطا در ثبت شناسه تراکنش.');
         }
@@ -147,8 +151,7 @@ class PaymentDepositController extends Controller
             'status_label' => $deposit->status->label(),
             'is_completed' => $deposit->isCompleted(),
             'is_expired' => $deposit->isExpired(),
-            'coin_amount' => (string) $deposit->coin_amount,
+            'coin_amount' => (int) round((float) $deposit->coin_amount),
         ]);
     }
 }
-

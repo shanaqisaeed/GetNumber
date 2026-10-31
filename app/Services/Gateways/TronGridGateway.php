@@ -35,6 +35,37 @@ class TronGridGateway implements PaymentGatewayInterface
         return 'شبکه مستقیم ترون گرید (TronGrid Direct)';
     }
 
+    public function validateCredentials(array $config): array
+    {
+        $address = $config['deposit_address'] ?? null;
+        if (empty($address)) {
+            return [
+                'valid' => false,
+                'message' => 'آدرس والت دریافت ترون وارد نشده است.',
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'message' => 'پیکربندی شبکه ترون گرید معتبر است.',
+            'details' => ['address' => $address],
+        ];
+    }
+
+    public function syncWallets(array &$config): array
+    {
+        $config['min_deposit'] = $config['min_deposit'] ?? '1.0000';
+
+        return [
+            'success' => !empty($config['deposit_address']),
+            'wallet_id' => null,
+            'address' => $config['deposit_address'] ?? null,
+            'currency' => 'TRX',
+            'changed' => false,
+            'message' => 'آدرس والت ترون گرید بررسی شد.',
+        ];
+    }
+
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
         $address = ! empty($this->depositAddress)

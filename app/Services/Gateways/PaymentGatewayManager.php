@@ -14,6 +14,8 @@ class PaymentGatewayManager
      */
     protected array $drivers = [
         'nobitex' => NobitexGateway::class,
+        'wallex' => WallexGateway::class,
+        'tron_scan' => TronScanGateway::class,
         'tron_grid' => TronGridGateway::class,
         'mock' => MockPaymentGateway::class,
     ];
@@ -73,6 +75,29 @@ class PaymentGatewayManager
     public function getActiveGateways(): Collection
     {
         return PaymentGateway::active()->get();
+    }
+
+    /**
+     * Automatically select an active gateway for a new deposit request (auto-detection & load balancing).
+     */
+    public function resolveActiveGatewayForDeposit(): ?PaymentGateway
+    {
+        $activeGateways = PaymentGateway::active()->get();
+
+        if ($activeGateways->isEmpty()) {
+            return null;
+        }
+
+        // Load balance across active gateways by choosing the one with the fewest active pending deposits
+        return $activeGateways->sortBy(function ($gw) {
+            return \App\Models\CryptoDeposit::where('payment_gateway_id', $gw->id)
+                ->whereIn('status', [
+                    \App\Enums\PaymentStatus::PendingTransfer,
+                    \App\Enums\PaymentStatus::TxSubmitted,
+                    \App\Enums\PaymentStatus::Verifying,
+                ])
+                ->count();
+        })->first() ?? $activeGateways->first();
     }
 
     /**

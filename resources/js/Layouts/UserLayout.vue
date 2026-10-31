@@ -90,7 +90,7 @@ const navItems = computed(() => [
         name: 'پروفایل',
         route: 'profile.*',
         href: route('profile.edit'),
-        active: route().current('profile.*') || route().current('api-tokens.*') || route().current('tickets.*'),
+        active: route().current('profile.*') || route().current('api-tokens.*') || route().current('tickets.*') || route().current('wallet.*'),
         icon: 'user',
     },
 ]);

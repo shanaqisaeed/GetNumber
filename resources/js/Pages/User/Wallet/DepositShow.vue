@@ -10,13 +10,12 @@ interface DepositData {
     currency: string;
     network: string;
     gateway_driver: string;
-    requested_amount: string;
-    coin_amount: string;
-    trx_to_coin_rate: string;
+    requested_amount: number;
+    coin_amount: number;
     deposit_address: string;
     deposit_tag: string | null;
     tx_hash: string | null;
-    actual_amount: string;
+    actual_amount: number;
     status: string;
     status_label: string;
     status_badge: string;
@@ -27,17 +26,16 @@ interface DepositData {
     is_expired: boolean;
     expires_at: string | null;
     created_at: string;
-    qr_code_url?: string | null;
 }
 
 const props = defineProps<{
     deposit: DepositData;
-    rates: {
-        trx_to_coin_rate: string;
+    rates?: {
+        trx_to_coin_rate: number;
     };
 }>();
 
-// Copy notification
+// Copy notification state
 const copied = ref(false);
 const copyAddress = async () => {
     try {
@@ -99,55 +97,48 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head :title="'پرداخت ' + deposit.tracking_code" />
+    <Head :title="'فاکتور پرداخت ' + deposit.tracking_code" />
 
     <UserLayout>
-        <template #header>
-            <div class="flex items-center justify-between gap-2">
-                <div>
-                    <h1 class="text-sm sm:text-base font-black text-[var(--text-primary)] flex items-center gap-2">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                        شارژ حساب کاربری:
-                        <span class="font-mono text-indigo-500 dark:text-indigo-400">{{ deposit.tracking_code }}</span>
-                    </h1>
-                    <p class="text-[11px] text-[var(--text-muted)] mt-0.5">
-                        آدرس اختصاصی واریز و ثبت شناسه پیگیری جهت شارژ خودکار
-                    </p>
-                </div>
+        <div class="space-y-4 max-w-xl mx-auto pb-10">
+            <!-- Top Bar with Back Button -->
+            <div class="flex items-center justify-between gap-3">
                 <Link
-                    :href="route('profile.edit', { tab: 'wallet' })"
-                    class="px-3 py-1.5 rounded-xl bg-slate-200/60 dark:bg-slate-800 text-[var(--text-primary)] text-xs font-bold transition-all flex items-center gap-1.5"
+                    :href="route('profile.edit')"
+                    class="px-3.5 py-2 rounded-xl bg-slate-200/80 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    <span>حساب و اعتبار</span>
+                    <span>بازگشت به پروفایل</span>
                 </Link>
-            </div>
-        </template>
 
-        <div class="space-y-4 max-w-2xl mx-auto">
-            <!-- 1. COMPLETED SUCCESS HERO BANNER -->
+                <div class="text-left" dir="ltr">
+                    <span class="text-[11px] font-mono text-slate-400">#{{ deposit.tracking_code }}</span>
+                </div>
+            </div>
+
+            <!-- COMPLETED HERO BANNER -->
             <div
                 v-if="deposit.is_completed"
                 class="p-6 rounded-3xl bg-emerald-500/15 border-2 border-emerald-500/40 text-center space-y-3 shadow-xl backdrop-blur-xl animate-fade-in"
             >
-                <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-2xl border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
+                <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/20 text-emerald-500 dark:text-emerald-400 flex items-center justify-center font-black text-2xl border border-emerald-500/30 shadow-lg shadow-emerald-500/20">
                     ✓
                 </div>
                 <div>
-                    <h2 class="text-base font-black text-[var(--text-primary)]">واریز با موفقیت تأیید و منظور شد!</h2>
-                    <p class="text-xs text-[var(--text-secondary)] mt-1">
-                        مبلغ <strong class="text-emerald-500 font-mono">{{ deposit.actual_amount }} {{ deposit.currency }}</strong> در شبکه تأیید شد و
-                        <strong class="text-indigo-600 dark:text-indigo-400 font-mono">{{ deposit.coin_amount }} واحد اعتبار</strong> به حساب شما افزوده گردید.
+                    <h2 class="text-base font-black text-slate-900 dark:text-white">واریز با موفقیت تأیید شد!</h2>
+                    <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">
+                        مبلغ <strong class="text-emerald-600 dark:text-emerald-400 font-bold">{{ deposit.actual_amount }} TRX</strong> در شبکه تأیید شد و
+                        <strong class="text-indigo-600 dark:text-indigo-400 font-bold">{{ deposit.coin_amount }} واحد اعتبار</strong> به کیف پول شما واریز گردید.
                     </p>
                 </div>
                 <div class="pt-2">
                     <Link
-                        :href="route('profile.edit', { tab: 'wallet' })"
-                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all"
+                        :href="route('profile.edit')"
+                        class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                     >
-                        <span>مشاهده موجودی در پروفایل</span>
+                        <span>مشاهده موجودی در حساب کاربری</span>
                         <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
@@ -155,114 +146,135 @@ onUnmounted(() => {
                 </div>
             </div>
 
-            <!-- 2. STATUS & INSTRUCTIONS CARD -->
-            <div class="p-5 sm:p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 shadow-sm space-y-4">
-                <!-- Status Top Row -->
-                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">وضعیت تراکنش:</span>
-                        <span class="px-2.5 py-1 rounded-xl text-xs font-bold border" :class="deposit.status_badge">
+            <!-- INVOICE MAIN CONTAINER -->
+            <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
+                <!-- 1. Invoice Header & Tracking & Status -->
+                <div class="space-y-2 pb-4 border-b border-slate-100 dark:border-slate-800 text-center">
+                    <h1 class="text-base font-black text-slate-900 dark:text-white">
+                        فاکتور شارژ حساب کاربری
+                    </h1>
+                    <div class="flex items-center justify-center gap-2 flex-wrap text-xs">
+                        <span class="text-slate-500 dark:text-slate-400">کد رهگیری:</span>
+                        <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/40">
+                            {{ deposit.tracking_code }}
+                        </span>
+                        <span>•</span>
+                        <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold border" :class="deposit.status_badge">
                             {{ deposit.status_label }}
                         </span>
                     </div>
+                </div>
 
-                    <div class="text-xs">
-                        <span class="text-slate-500 dark:text-slate-400">مبلغ واریز:</span>
-                        <span class="font-mono font-black text-emerald-600 dark:text-emerald-400 mr-1 text-sm">{{ deposit.requested_amount }} {{ deposit.currency }}</span>
-                        <span class="text-[10px] text-slate-400">({{ deposit.coin_amount }} واحد)</span>
+                <!-- 2. QR Code at the TOP (Centered, Large, Clean) -->
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="p-3 bg-white rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm inline-block">
+                        <QrCode :value="deposit.deposit_address" :size="170" />
+                    </div>
+                    <span class="text-[11px] text-slate-400 dark:text-slate-500">اسکن جهت انتقال سریع از کیف پول یا صرافی</span>
+                </div>
+
+                <!-- 3. Deposit Address & Copy Button (Directly Below QR) -->
+                <div class="space-y-2">
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 text-center">
+                        آدرس اختصاصی کیف پول واریز (شبکه {{ deposit.network }})
+                    </label>
+
+                    <div
+                        class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 font-mono text-xs text-slate-900 dark:text-slate-100 font-bold select-all break-all text-center tracking-wide"
+                        dir="ltr"
+                    >
+                        {{ deposit.deposit_address }}
+                    </div>
+
+                    <button
+                        type="button"
+                        @click="copyAddress"
+                        class="w-full py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                        :class="copied
+                            ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                            : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20'"
+                    >
+                        <svg v-if="copied" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span>{{ copied ? 'آدرس کیف پول کپی شد!' : 'کپی آدرس واریز' }}</span>
+                    </button>
+                </div>
+
+                <!-- 4. Payment Amount (Directly Below Address) -->
+                <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/25 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block">مبلغ قابل واریز:</span>
+                        <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                            {{ deposit.requested_amount }} TRX
+                        </span>
+                    </div>
+
+                    <div class="text-left" dir="rtl">
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block">افزایش اعتبار:</span>
+                        <span class="text-sm font-bold text-slate-800 dark:text-slate-200">
+                            {{ deposit.coin_amount }} واحد اعتبار
+                        </span>
                     </div>
                 </div>
 
-                <!-- Offline Local QR Code & Address Display -->
-                <div class="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800">
-                    <div class="p-2 bg-white rounded-2xl shadow-xs shrink-0">
-                        <QrCode :value="deposit.deposit_address" :size="140" />
-                    </div>
-
-                    <div class="space-y-3 flex-1 min-w-0 text-right w-full">
-                        <div>
-                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block mb-1">
-                                آدرس اختصاصی واریز (شبکه {{ deposit.network }}):
-                            </span>
-                            <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-xs text-slate-900 dark:text-white font-bold select-all break-all text-left" dir="ltr">
-                                {{ deposit.deposit_address }}
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between gap-2">
-                            <button
-                                type="button"
-                                @click="copyAddress"
-                                class="px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
-                                :class="copied ? 'bg-emerald-600 text-white' : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-600/20'"
-                            >
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                </svg>
-                                <span>{{ copied ? 'آدرس کپی شد!' : 'کپی آدرس واریز' }}</span>
-                            </button>
-
-                            <span class="text-[10px] text-slate-400">
-                                شبکه: {{ deposit.network }}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Important Notice Alerts -->
-                <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 space-y-1">
+                <!-- Status Alerts -->
+                <div v-if="deposit.status === 'verifying'" class="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-600 dark:text-blue-400 space-y-1">
                     <p class="font-bold flex items-center gap-1.5">
-                        <span>ℹ️</span>
-                        <span>دستورالعمل مهم پرداخت:</span>
+                        <span class="animate-spin inline-block">🔄</span>
+                        <span>در حال استعلام خودکار از شبکه ترون...</span>
                     </p>
-                    <ul class="list-disc list-inside space-y-0.5 text-[11px] pr-2 text-slate-600 dark:text-slate-300">
-                        <li>حداقل مبلغ انتقال ۱ ترون می‌باشد.</li>
-                        <li>پس از ارسال ترون از کیف پول یا صرافی مبدأ، شناسه تراکنش (TX Hash) را در فرم زیر وارد نمایید.</li>
-                        <li>سیستم به‌صورت خودکار و دوره‌ای بلاکچین را استعلام کرده و پس از تأیید شبکه، حساب شما شارژ خواهد شد.</li>
-                    </ul>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300">
+                        سیستم به طور خودکار تراکنش شما را طی ۳ مرحله با فواصل زمانی ۳۰ دقیقه‌ای بررسی می‌کند. نیازی به باز نگه داشتن صفحه نیست.
+                    </p>
                 </div>
 
-                <!-- Failure Reason Alert if Failed -->
-                <div v-if="deposit.failure_reason && !deposit.is_completed" class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-500 space-y-1">
-                    <span class="font-bold block">علت رد شدن یا خطای تراکنش:</span>
+                <div v-else-if="deposit.status === 'manual_review'" class="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/25 text-xs text-orange-600 dark:text-orange-400 space-y-1">
+                    <p class="font-bold flex items-center gap-1.5">
+                        <span>⚠️</span>
+                        <span>تراکنش در صف بررسی دستی راهبر:</span>
+                    </p>
+                    <p class="text-[11px] text-slate-600 dark:text-slate-300">
+                        تراکنش پس از ۳ مرحله استعلام اولیه در انتظار تایید کارشناس مالی سامانه قرار گرفته است و به زودی پس از تطبیق دستی تأیید خواهد شد.
+                    </p>
+                </div>
+
+                <div v-else-if="deposit.failure_reason && !deposit.is_completed" class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-500 space-y-1">
+                    <span class="font-bold block">پیام سامانه:</span>
                     <p class="text-[11px]">{{ deposit.failure_reason }}</p>
                 </div>
 
-                <!-- 3. TX HASH SUBMISSION FORM (Active when not completed) -->
-                <div v-if="!deposit.is_completed && !deposit.is_expired" class="pt-2 border-t border-[var(--card-border)]">
+                <!-- 5. TX Hash Submission Form (Active if not completed) -->
+                <div v-if="!deposit.is_completed && !deposit.is_expired" class="pt-2 border-t border-slate-100 dark:border-slate-800">
                     <form @submit.prevent="submitTx" class="space-y-3">
                         <div>
-                            <label class="block text-xs font-bold text-[var(--text-primary)] mb-1.5">
-                                شناسه تراکنش (TX Hash / Transaction ID) <span class="text-rose-500">*</span>
+                            <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
+                                کد رهگیری تراکنش (TX Hash / Hash) <span class="text-rose-500">*</span>
                             </label>
                             <input
                                 v-model="txForm.tx_hash"
                                 type="text"
                                 required
-                                placeholder="مثال: 9f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a"
-                                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-[var(--text-primary)]"
+                                placeholder="کد رهگیری یا هش تراکنش را از کیف پول خود کپی کرده و اینجا وارد کنید..."
+                                class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
                             />
                             <p v-if="txForm.errors.tx_hash" class="text-rose-500 text-[11px] mt-1">{{ txForm.errors.tx_hash }}</p>
                         </div>
 
-                        <div class="flex items-center justify-between gap-3 pt-1">
-                            <span v-if="deposit.attempts > 0" class="text-[11px] text-[var(--text-muted)] font-mono">
-                                دفعات استعلام: {{ deposit.attempts }}
-                            </span>
-                            <span v-else></span>
-
-                            <button
-                                type="submit"
-                                :disabled="txForm.processing"
-                                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center gap-1.5"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span v-if="txForm.processing">در حال ارسال...</span>
-                                <span v-else>{{ deposit.tx_hash ? 'به‌روزرسانی و استعلام مجدد' : 'ثبت و بررسی تراکنش' }}</span>
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            :disabled="txForm.processing"
+                            class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-xs shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span v-if="txForm.processing">در حال ثبت و استعلام...</span>
+                            <span v-else>{{ deposit.tx_hash ? 'به‌روزرسانی کد رهگیری و بررسی مجدد' : 'ثبت کد رهگیری و بررسی تراکنش' }}</span>
+                        </button>
                     </form>
                 </div>
             </div>

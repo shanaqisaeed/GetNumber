@@ -19,6 +19,22 @@ interface PaymentGatewayInterface
     public function getName(): string;
 
     /**
+     * Validate the API credentials/token with the remote exchange/service.
+     *
+     * @param array $config
+     * @return array{valid: bool, message: string, details?: array|null}
+     */
+    public function validateCredentials(array $config): array;
+
+    /**
+     * Query remote exchange for wallets, resolve TRX wallet & deposit address, and sync into config.
+     *
+     * @param array $config
+     * @return array{success: bool, wallet_id?: int|string|null, address?: string|null, currency: string, changed: bool, message: string}
+     */
+    public function syncWallets(array &$config): array;
+
+    /**
      * Generate or retrieve a dedicated deposit address for the user's payment request.
      */
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult;

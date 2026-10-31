@@ -241,8 +241,11 @@ class PaymentManagementController extends Controller
     /**
      * Update gateway configuration.
      */
-    public function updateGateway(Request $request, PaymentGateway $gateway): RedirectResponse
-    {
+    public function updateGateway(
+        Request $request,
+        PaymentGateway $gateway,
+        \App\Services\Gateways\PaymentGatewayManager $gatewayManager
+    ): RedirectResponse {
         $validated = $request->validate([
             'is_active' => ['required', 'boolean'],
             'is_default' => ['required', 'boolean'],
@@ -250,6 +253,34 @@ class PaymentManagementController extends Controller
         ]);
 
         $admin = $request->user();
+        $mergedConfig = array_merge($gateway->config ?? [], $validated['config'] ?? []);
+
+        // Default min_deposit to 1.0000 if not specified
+        if (! isset($mergedConfig['min_deposit']) || (float) $mergedConfig['min_deposit'] <= 0) {
+            $mergedConfig['min_deposit'] = '1.0000';
+        }
+
+        // Validate API credentials & sync wallet if token provided or gateway activated
+        $apiKey = trim((string) ($mergedConfig['api_key'] ?? ''));
+        if (! empty($apiKey) && in_array($gateway->driver, ['nobitex', 'wallex'])) {
+            try {
+                $adapter = $gatewayManager->forModel($gateway);
+                $valResult = $adapter->validateCredentials($mergedConfig);
+
+                if (! ($valResult['valid'] ?? false)) {
+                    $errMsg = $valResult['message'] ?? 'توکن وارد شده معتبر نمی‌باشد.';
+                    return back()->with('error', "اعتبارسنجی توکن صرافی رد شد: {$errMsg}");
+                }
+
+                // If valid, sync TRX wallet address into config
+                $syncResult = $adapter->syncWallets($mergedConfig);
+                if (! empty($syncResult['address'])) {
+                    $mergedConfig['deposit_address'] = $syncResult['address'];
+                }
+            } catch (\Throwable $e) {
+                return back()->with('error', 'خطا در اتصال به وب‌سرویس صرافی: ' . $e->getMessage());
+            }
+        }
 
         if ($validated['is_default']) {
             PaymentGateway::where('id', '!=', $gateway->id)->update(['is_default' => false]);
@@ -258,7 +289,7 @@ class PaymentManagementController extends Controller
         $gateway->update([
             'is_active' => $validated['is_active'],
             'is_default' => $validated['is_default'],
-            'config' => array_merge($gateway->config ?? [], $validated['config'] ?? []),
+            'config' => $mergedConfig,
         ]);
 
         AuditLog::create([
@@ -274,7 +305,38 @@ class PaymentManagementController extends Controller
             'ip_address' => $request->ip() ?? '127.0.0.1',
         ]);
 
-        return back()->with('success', "تنظیمات درگاه «{$gateway->name}» با موفقیت به‌روزرسانی شد.");
+        return back()->with('success', "تنظیمات درگاه «{$gateway->name}» با موفقیت ذخیره و همگام‌سازی شد.");
+    }
+
+    /**
+     * Manually trigger wallet sync for a payment gateway.
+     */
+    public function syncGateway(
+        Request $request,
+        PaymentGateway $gateway,
+        \App\Services\Gateways\PaymentGatewayManager $gatewayManager
+    ): RedirectResponse {
+        try {
+            $adapter = $gatewayManager->forModel($gateway);
+            $config = $gateway->config ?? [];
+
+            $valResult = $adapter->validateCredentials($config);
+            if (! ($valResult['valid'] ?? false)) {
+                $errMsg = $valResult['message'] ?? 'توکن درگاه نامعتبر است.';
+                return back()->with('error', "اعتبارسنجی توکن درگاه ناموفق بود: {$errMsg}");
+            }
+
+            $syncResult = $adapter->syncWallets($config);
+            $gateway->update(['config' => $config]);
+
+            if ($syncResult['success'] ?? false) {
+                return back()->with('success', $syncResult['message'] ?? 'کیف‌پول TRX با موفقیت استعلام و همگام گردید.');
+            }
+
+            return back()->with('error', $syncResult['message'] ?? 'خطا در دریافت آدرس کیف‌پول TRX.');
+        } catch (\Throwable $e) {
+            return back()->with('error', 'خطا در فرآیند همگام‌سازی درگاه: ' . $e->getMessage());
+        }
     }
 }
 

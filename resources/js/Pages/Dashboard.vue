@@ -117,20 +117,20 @@ const isAllocateModalOpen = ref(false);
 
             <!-- Big Amount Display -->
             <div class="wallet-amount">
-                <span>{{ props.wallet?.balance ?? '0.0000' }}</span>
+                <span>{{ Math.floor(Number(props.wallet?.balance || 0)) }}</span>
                 <span class="wallet-currency text-sm font-bold">واحد اعتبار</span>
             </div>
 
             <!-- Detail Row -->
             <div class="mt-2.5 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                <span>تعرفه ثبت هر خط سازمانی: {{ props.wallet?.number_price_coin ?? '1' }} واحد</span>
+                <span>تعرفه ثبت هر خط سازمانی: {{ Math.floor(Number(props.wallet?.number_price_coin || 1)) }} واحد</span>
                 <span class="text-indigo-600 dark:text-indigo-400 font-bold">تخصیص آنی خط</span>
             </div>
 
             <!-- Action Buttons (Matched to the project's design system) -->
             <div class="wallet-actions">
                 <Link
-                    :href="route('profile.edit', { tab: 'wallet' })"
+                    :href="route('profile.edit')"
                     class="wallet-btn-topup"
                 >
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -141,7 +141,7 @@ const isAllocateModalOpen = ref(false);
                 </Link>
 
                 <Link
-                    :href="route('profile.edit', { tab: 'wallet', view: 'transactions' })"
+                    :href="route('wallet.transactions')"
                     class="wallet-btn-history"
                 >
                     <svg class="w-4 h-4 text-indigo-400 ml-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

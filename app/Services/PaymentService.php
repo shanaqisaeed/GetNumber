@@ -35,24 +35,37 @@ class PaymentService implements PaymentServiceInterface
     ): CryptoDeposit {
         $cleanAmount = $this->sanitizeAmount($trxAmount);
 
-        if (bccomp($cleanAmount, '0.0000', self::DECIMAL_SCALE) <= 0) {
-            throw new InvalidArgumentException('مبلغ درخواستی باید بزرگتر از صفر باشد.');
+        if (bccomp($cleanAmount, '1.0000', self::DECIMAL_SCALE) < 0) {
+            throw new InvalidArgumentException('حداقل مبلغ شارژ حساب کاربری ۱ TRX می‌باشد.');
         }
 
         $trxToCoinRate = SystemSetting::getTrxToCoinRate();
         $coinAmount = bcmul($cleanAmount, $trxToCoinRate, self::DECIMAL_SCALE);
 
-        // Determine gateway
-        $driver = $gatewayDriver ?: $this->gatewayManager->getDefaultDriver();
-        $gatewayModel = PaymentGateway::where('driver', $driver)->first();
-        $gateway = $this->gatewayManager->driver($driver);
+        // Auto-detect active gateway with intelligent load balancing
+        $selectedModel = null;
+        if (! empty($gatewayDriver)) {
+            $selectedModel = PaymentGateway::where('driver', $gatewayDriver)->first();
+        }
+
+        if (! $selectedModel) {
+            $selectedModel = $this->gatewayManager->resolveActiveGatewayForDeposit();
+        }
+
+        if (! $selectedModel) {
+            $driver = $gatewayDriver ?: $this->gatewayManager->getDefaultDriver();
+            $selectedModel = PaymentGateway::where('driver', $driver)->first();
+        }
+
+        $driver = $selectedModel ? $selectedModel->driver : 'mock';
+        $gateway = $selectedModel ? $this->gatewayManager->forModel($selectedModel) : $this->gatewayManager->driver($driver);
 
         $trackingCode = 'DEP-' . date('Ymd') . '-' . strtoupper(Str::random(8));
 
         // Create initial deposit record
         $deposit = CryptoDeposit::create([
             'user_id' => $user->id,
-            'payment_gateway_id' => $gatewayModel?->id,
+            'payment_gateway_id' => $selectedModel?->id,
             'gateway_driver' => $driver,
             'tracking_code' => $trackingCode,
             'currency' => 'TRX',

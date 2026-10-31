@@ -21,6 +21,17 @@ const props = defineProps<{
 // Editing gateway modal
 const isEditModalOpen = ref(false);
 const editingGateway = ref<GatewayModel | null>(null);
+const syncingId = ref<number | null>(null);
+
+const syncGatewayWallet = (g: GatewayModel) => {
+    syncingId.value = g.id;
+    useForm({}).post(route('admin.payments.gateways.sync', g.id), {
+        preserveScroll: true,
+        onFinish: () => {
+            syncingId.value = null;
+        },
+    });
+};
 
 const form = useForm({
     is_active: true,
@@ -144,13 +155,26 @@ const submitGatewayUpdate = () => {
                         </div>
                     </div>
 
-                    <button
-                        type="button"
-                        @click="openEditModal(g)"
-                        class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 shrink-0"
-                    >
-                        ویرایش تنظیمات درگاه
-                    </button>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button
+                            v-if="g.driver === 'nobitex' || g.driver === 'wallex'"
+                            type="button"
+                            @click="syncGatewayWallet(g)"
+                            :disabled="syncingId === g.id || !g.config?.api_key"
+                            class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                        >
+                            <span v-if="syncingId === g.id">در حال همگام‌سازی...</span>
+                            <span v-else>همگام‌سازی کیف‌پول TRX</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="openEditModal(g)"
+                            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 shrink-0 cursor-pointer"
+                        >
+                            ویرایش تنظیمات درگاه
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

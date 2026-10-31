@@ -27,6 +27,30 @@ class MockPaymentGateway implements PaymentGatewayInterface
         return 'درگاه شبیه‌ساز تست (Sandbox / Mock)';
     }
 
+    public function validateCredentials(array $config): array
+    {
+        return [
+            'valid' => true,
+            'message' => 'اعتبارسنجی درگاه شبیه‌ساز با موفقیت انجام شد.',
+            'details' => ['sandbox' => true],
+        ];
+    }
+
+    public function syncWallets(array &$config): array
+    {
+        $config['deposit_address'] = $config['deposit_address'] ?? 'TTestSandboxTronAddress9999988888XX';
+        $config['min_deposit'] = $config['min_deposit'] ?? '1.0000';
+
+        return [
+            'success' => true,
+            'wallet_id' => 999,
+            'address' => $config['deposit_address'],
+            'currency' => 'TRX',
+            'changed' => false,
+            'message' => 'کیف پول شبیه‌ساز با موفقیت ست شد.',
+        ];
+    }
+
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
         $address = (string) ($this->config['deposit_address'] ?? 'TTestSandboxTronAddress9999988888XX');

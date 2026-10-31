@@ -19,3 +19,9 @@ Schedule::command('payments:verify-pending')
     ->withoutOverlapping()
     ->runInBackground();
 
+Schedule::command('payments:nobitex:sync-wallet')
+    ->daily()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+

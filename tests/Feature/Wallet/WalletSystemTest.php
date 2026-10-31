@@ -269,13 +269,29 @@ class WalletSystemTest extends TestCase
         $this->assertEquals('79.0000', $reconciledBalance);
     }
 
-    public function test_user_wallet_index_page_redirects_to_profile_wallet(): void
+    public function test_user_wallet_index_page_redirects_to_transactions_page(): void
     {
         $this->walletService->deposit($this->user, '15.0000', 'dep-user-view');
 
         $response = $this->actingAs($this->user)->get(route('wallet.index'));
 
-        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet', 'view' => 'transactions']));
+        $response->assertRedirect(route('wallet.transactions'));
+    }
+
+    public function test_user_can_view_standalone_transactions_page(): void
+    {
+        $this->walletService->deposit($this->user, '50.0000', 'dep-standalone-test');
+
+        $response = $this->actingAs($this->user)->get(route('wallet.transactions'));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->component('User/Wallet/Transactions')
+            ->has('wallet')
+            ->where('wallet.balance', 50)
+            ->has('transactions.data')
+            ->has('types')
+        );
     }
 
     public function test_profile_edit_page_loads_wallet_and_ledger_data(): void
