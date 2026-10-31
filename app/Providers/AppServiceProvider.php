@@ -36,6 +36,20 @@ class AppServiceProvider extends ServiceProvider
             \App\Contracts\TicketServiceInterface::class,
             \App\Services\TicketService::class
         );
+
+        $this->app->singleton(
+            \App\Contracts\WalletServiceInterface::class,
+            \App\Services\WalletService::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Gateways\PaymentGatewayManager::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\PaymentServiceInterface::class,
+            \App\Services\PaymentService::class
+        );
     }
 
     /**

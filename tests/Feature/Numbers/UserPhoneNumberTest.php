@@ -30,6 +30,7 @@ class UserPhoneNumberTest extends TestCase
     public function test_user_can_allocate_a_standard_number_via_http(): void
     {
         $user = User::factory()->create();
+        $user->getOrCreateWallet()->update(['balance' => '10.0000']);
 
         PhoneNumber::create([
             'number' => '000111222',
@@ -50,6 +51,7 @@ class UserPhoneNumberTest extends TestCase
     public function test_user_allocates_generated_number_when_standard_pool_is_empty(): void
     {
         $user = User::factory()->create();
+        $user->getOrCreateWallet()->update(['balance' => '10.0000']);
 
         // Ensure no available standard numbers
         PhoneNumber::where('type', PhoneNumberType::UserStandard)->delete();

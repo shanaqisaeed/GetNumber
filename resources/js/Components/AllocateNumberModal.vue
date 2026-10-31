@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onUnmounted, ref, watch } from 'vue';
-import { useForm } from '@inertiajs/vue3';
+import { onUnmounted, ref, watch, computed } from 'vue';
+import { useForm, usePage, Link } from '@inertiajs/vue3';
 
 const props = withDefaults(
     defineProps<{
@@ -20,6 +20,11 @@ const emit = defineEmits<{
     (e: 'close'): void;
     (e: 'success', message?: string): void;
 }>();
+
+const page = usePage();
+const userBalance = computed(() => Number((page.props.auth as any)?.wallet_balance || 0));
+const numberPrice = 1.0;
+const hasInsufficientBalance = computed(() => userBalance.value < numberPrice);
 
 const termsAccepted = ref(false);
 
@@ -141,6 +146,33 @@ const submitAllocation = () => {
                             <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed pt-0.5">
                                 یک شماره ۹ رقمی استاندارد یکتا به‌صورت آنی از استخر شماره‌ها به حساب شما تخصیص می‌یابد.
                             </p>
+                        </div>
+
+                        <!-- Financial Pricing & Coin Balance Box -->
+                        <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-xs space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                                    هزینه فعال‌سازی خط:
+                                </span>
+                                <span class="font-mono font-black text-amber-600 dark:text-amber-400">
+                                    {{ numberPrice.toFixed(4) }} COIN
+                                </span>
+                            </div>
+
+                            <div class="flex items-center justify-between pt-1 border-t border-amber-500/15">
+                                <span class="text-slate-600 dark:text-slate-400 font-semibold">موجودی کیف پول شما:</span>
+                                <span class="font-mono font-black" :class="hasInsufficientBalance ? 'text-rose-500' : 'text-emerald-500'">
+                                    {{ userBalance.toFixed(4) }} COIN
+                                </span>
+                            </div>
+
+                            <div v-if="hasInsufficientBalance" class="pt-1.5 flex items-center justify-between bg-rose-500/10 p-2 rounded-xl text-rose-600 dark:text-rose-400 text-[11px] font-bold">
+                                <span>موجودی شما برای خرید شماره کافی نیست.</span>
+                                <Link :href="route('wallet.index')" class="text-indigo-600 dark:text-indigo-400 underline hover:text-indigo-500">
+                                    شارژ کیف پول →
+                                </Link>
+                            </div>
                         </div>
 
                         <!-- Optional Display Title -->

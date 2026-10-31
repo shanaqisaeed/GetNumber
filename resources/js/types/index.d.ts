@@ -20,6 +20,7 @@ export type PageProps<
     auth: {
         user: User;
         unread_messages_count?: number;
+        wallet_balance?: string;
     };
     flash?: FlashMessages;
 };

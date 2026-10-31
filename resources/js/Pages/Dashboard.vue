@@ -37,12 +37,21 @@ interface UnreadSenderSummary {
     received_at: string;
 }
 
+interface WalletInfo {
+    balance: string;
+    currency: string;
+    trx_equivalent: string;
+    trx_to_coin_rate: string;
+    number_price_coin: string;
+}
+
 const props = defineProps<{
     quota: Quota;
     stats: Stats;
     recent_numbers: RecentNumber[];
     unread_messages: UnreadSenderSummary[];
     default_prefix: string;
+    wallet?: WalletInfo;
 }>();
 
 // Toast notification state
@@ -99,6 +108,59 @@ const isAllocateModalOpen = ref(false);
                 </div>
             </transition>
         </teleport>
+
+        <!-- 0. Coin Wallet & Financial Overview Card -->
+        <div class="relative overflow-hidden rounded-3xl p-4 sm:p-5 mb-4 bg-gradient-to-br from-amber-500/15 via-slate-900/40 to-indigo-900/30 dark:from-amber-500/10 dark:via-slate-900/60 dark:to-indigo-950/40 border border-amber-500/30 shadow-xl backdrop-blur-xl">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-sm border border-amber-500/30">
+                        🪙
+                    </div>
+                    <div>
+                        <span class="text-xs font-extrabold text-[var(--text-primary)] block">کیف پول و اعتبار داخلی</span>
+                        <span class="text-[10px] text-[var(--text-muted)]">واحد حساب: {{ props.wallet?.currency || 'COIN' }}</span>
+                    </div>
+                </div>
+                <Link
+                    :href="route('wallet.index')"
+                    class="px-2.5 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-[11px] font-extrabold flex items-center gap-1 transition-all"
+                >
+                    <span>گردش حساب</span>
+                    <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </Link>
+            </div>
+
+            <div class="mt-3.5 flex flex-wrap items-baseline justify-between gap-3">
+                <div>
+                    <div class="text-2xl sm:text-3xl font-black font-mono tracking-tight text-[var(--text-primary)]">
+                        {{ props.wallet?.balance ?? '0.0000' }}
+                        <span class="text-sm font-extrabold text-amber-400 mr-1">COIN</span>
+                    </div>
+                    <div class="text-[11px] font-semibold text-[var(--text-muted)] mt-0.5 flex items-center gap-1">
+                        <span>معادل تقریبی:</span>
+                        <span class="font-mono font-bold text-[var(--text-primary)]">{{ props.wallet?.trx_equivalent ?? '0.0000' }} TRX</span>
+                        <span class="text-[10px] opacity-75">(۱ TRX = {{ props.wallet?.trx_to_coin_rate ?? '1' }} COIN)</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-[var(--text-muted)] hidden sm:inline">
+                        هزینه هر خط: <strong class="text-amber-400 font-mono">{{ props.wallet?.number_price_coin ?? '1.0000' }} COIN</strong>
+                    </span>
+                    <Link
+                        :href="route('wallet.index')"
+                        class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 text-xs font-black shadow-lg shadow-amber-500/20 flex items-center gap-1.5 transition-all"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>شارژ کیف پول</span>
+                    </Link>
+                </div>
+            </div>
+        </div>
 
         <!-- 1. Quota & Line Capacity Card (Liquid Glass Gauge) -->
         <div class="dash-wallet-card">

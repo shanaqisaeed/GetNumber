@@ -14,3 +14,8 @@ Schedule::command('numbers:sweep-expired')
     ->onOneServer()
     ->runInBackground();
 
+Schedule::command('payments:verify-pending')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
+

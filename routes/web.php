@@ -82,6 +82,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/tickets/{ticket}/close', [\App\Http\Controllers\User\TicketController::class, 'close'])->name('tickets.close');
     Route::get('/tickets/{ticket}/attachments/{attachment}', [\App\Http\Controllers\User\TicketController::class, 'downloadAttachment'])->name('tickets.attachments.download');
 
+    // User Wallet & Ledger
+    Route::get('/wallet', [\App\Http\Controllers\User\WalletController::class, 'index'])->name('wallet.index');
+    Route::get('/wallet/deposit', [\App\Http\Controllers\User\PaymentDepositController::class, 'create'])->name('wallet.deposit.create');
+    Route::post('/wallet/deposit', [\App\Http\Controllers\User\PaymentDepositController::class, 'store'])->name('wallet.deposit.store');
+    Route::get('/wallet/deposit/{trackingCode}', [\App\Http\Controllers\User\PaymentDepositController::class, 'show'])->name('wallet.deposit.show');
+    Route::post('/wallet/deposit/{trackingCode}/submit-tx', [\App\Http\Controllers\User\PaymentDepositController::class, 'submitTx'])->name('wallet.deposit.submit-tx');
+    Route::get('/wallet/deposit/{trackingCode}/status', [\App\Http\Controllers\User\PaymentDepositController::class, 'status'])->name('wallet.deposit.status');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -142,6 +150,22 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin Audit Logs & Security Trails
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/audit-logs/{auditLog}', [\App\Http\Controllers\Admin\AuditLogController::class, 'show'])->name('audit-logs.show');
+
+    // Admin Wallet & Financial Oversight
+    Route::get('/wallets', [\App\Http\Controllers\Admin\WalletController::class, 'index'])->name('wallets.index');
+    Route::get('/wallets/transactions', [\App\Http\Controllers\Admin\WalletController::class, 'transactions'])->name('wallets.transactions');
+    Route::post('/wallets/{user}/credit', [\App\Http\Controllers\Admin\WalletController::class, 'credit'])->name('wallets.credit');
+    Route::post('/wallets/{user}/debit', [\App\Http\Controllers\Admin\WalletController::class, 'debit'])->name('wallets.debit');
+    Route::post('/wallets/transactions/{transaction}/reverse', [\App\Http\Controllers\Admin\WalletController::class, 'reverse'])->name('wallets.reverse');
+    Route::post('/wallets/settings', [\App\Http\Controllers\Admin\WalletController::class, 'updateSettings'])->name('wallets.settings');
+
+    // Admin Payment & Gateway Management
+    Route::get('/payments', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.index');
+    Route::get('/payments/gateways', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'gateways'])->name('payments.gateways');
+    Route::patch('/payments/gateways/{gateway}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'updateGateway'])->name('payments.gateways.update');
+    Route::get('/payments/{deposit}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'show'])->name('payments.show');
+    Route::post('/payments/{deposit}/verify', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'verify'])->name('payments.verify');
+    Route::post('/payments/{deposit}/complete-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'completeManually'])->name('payments.complete-manually');
 });
 
 require __DIR__.'/auth.php';

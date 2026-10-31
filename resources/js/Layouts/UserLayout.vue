@@ -170,6 +170,17 @@ const navItems = computed(() => [
 
                 <!-- Header Actions (Direct Theme Toggle & More Services Drawer) -->
                 <div class="flex items-center gap-1.5 shrink-0">
+                    <!-- Wallet Balance Pill -->
+                    <Link
+                        :href="route('wallet.index')"
+                        class="px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center gap-1.5 hover:bg-amber-500/25 transition-all text-xs font-bold shadow-xs"
+                        title="کیف پول و موجودی اعتباری"
+                    >
+                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50"></span>
+                        <span class="font-mono font-black text-[11px]">{{ $page.props.auth?.wallet_balance || '0' }}</span>
+                        <span class="text-[9px] font-extrabold text-amber-500">COIN</span>
+                    </Link>
+
                     <!-- Admin Shortcut Button if Admin -->
                     <Link
                         v-if="user?.is_admin"
@@ -318,6 +329,23 @@ const navItems = computed(() => [
                     </div>
 
                     <div class="grid grid-cols-2 gap-2.5">
+                        <Link
+                            :href="route('wallet.index')"
+                            @click="isMoreMenuOpen = false"
+                            class="p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/25 flex items-center gap-2.5 text-xs font-bold text-[var(--text-primary)] transition-all col-span-2"
+                        >
+                            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <rect x="2" y="5" width="20" height="14" rx="2" stroke-width="2" />
+                                    <line x1="2" y1="10" x2="22" y2="10" stroke-width="2" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 flex items-center justify-between">
+                                <span>کیف پول و گردش حساب</span>
+                                <span class="font-mono text-xs text-amber-500 font-black">{{ $page.props.auth?.wallet_balance || '0' }} COIN</span>
+                            </div>
+                        </Link>
+
                         <Link
                             :href="route('tickets.index')"
                             @click="isMoreMenuOpen = false"

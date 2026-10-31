@@ -46,6 +46,7 @@ class HandleInertiaRequests extends Middleware
                     ->where('direction', \App\Enums\MessageDirection::Inbound)
                     ->where('processing_status', \App\Enums\MessageProcessingStatus::Received)
                     ->count() : 0,
+                'wallet_balance' => fn () => $user ? (string) $user->getOrCreateWallet()->balance : '0.0000',
             ],
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

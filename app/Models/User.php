@@ -148,6 +148,25 @@ class User extends Authenticatable
     }
 
     /**
+     * User cryptocurrency/internal wallet.
+     */
+    public function wallet(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Wallet::class);
+    }
+
+    /**
+     * Get user's wallet or automatically create one with 0 COIN balance.
+     */
+    public function getOrCreateWallet(): Wallet
+    {
+        return $this->wallet()->firstOrCreate(
+            ['user_id' => $this->id],
+            ['balance' => '0.0000', 'currency' => 'COIN']
+        );
+    }
+
+    /**
      * Tickets assigned to this user (for agents/admins).
      */
     public function assignedTickets(): \Illuminate\Database\Eloquent\Relations\HasMany

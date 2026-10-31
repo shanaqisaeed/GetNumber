@@ -1,7 +1,7 @@
 # نقشه راه جامع توسعه پلتفرم GetNumber (Development Roadmap)
 ### Enterprise Multi-Node Virtual Number & Messaging Infrastructure
 
-> **وضعیت کلی:** فازهای ۰، ۱، ۲ و ۳ با موفقیت تکمیل شدند (تحلیل معماری، اصلاحات پایه، یکپارچه‌سازی وب‌سرویس و پیام‌رسانی بلادرنگ) | فازهای ۴ تا ۱۱ آماده اجرا  
+> **وضعیت کلی:** فازهای ۰، ۱، ۲، ۳، ۴ و ۵ با موفقیت تکمیل شدند (تحلیل معماری، اصلاحات پایه، یکپارچه‌سازی وب‌سرویس، پیام‌رسانی بلادرنگ، معماری کیف پول و سیستم درگاه پرداخت کریپتو و نوبیتکس) | فازهای ۶ تا ۱۱ آماده اجرا  
 > **آخرین به‌روزرسانی:** اکتبر ۲۰۲۶  
 > **مخزن مرجع نود عادی (Normal Node):** [https://github.com/shanaqisaeed/GetNumber](https://github.com/shanaqisaeed/GetNumber)
 
@@ -88,27 +88,32 @@ flowchart TD
 ---
 
 ### فاز ۴: معماری کیف پول و اعتبار Coin (Wallet & Ledger Architecture)
-- **اهداف:**
-  - ایجاد واحد مالی `COIN` با محاسبات اعشاری دقیق (`DECIMAL(18, 4)`) و نرخ پایه اولیه `1 TRX = 1 COIN`.
-  - ایجاد دفترکل مالی تراکنش‌ها (`wallets` و `wallet_transactions`) با انواع `DEPOSIT`, `NUMBER_PURCHASE`, `ADMIN_CREDIT`, `ADMIN_DEBIT`, `REFUND`, `REVERSAL`.
-  - منطق خرید اتمیک شماره مجازی به قیمت اولیه `1 COIN` با مکانیزم بازگشت وجه خودکار (`Refund`) در صورت بروز خطا در فرآیند تخصیص.
-  - رابط کاربری داشبورد کیف پول، تاریخچه گردش حساب و پنل ممیزی مالی برای مدیران ارشد با ثبت Audit Log کامل.
+- [x] ایجاد واحد مالی `COIN` با محاسبات اعشاری دقیق (`DECIMAL(18, 4)` و توابع `bcmath`) و نرخ پایه اولیه `1 TRX = 1 COIN`.
+- [x] ایجاد جدول و ساختار دفترکل مالی تراکنش‌ها (`wallets` و `wallet_transactions`) با انواع `DEPOSIT`, `NUMBER_PURCHASE`, `ADMIN_CREDIT`, `ADMIN_DEBIT`, `REFUND`, `REVERSAL`.
+- [x] پیاده‌سازی سرویس ایزوله `WalletService` همراه با قفل بدبینانه سطری (`lockForUpdate`)، تضمین Idempotency روی کدهای ارجاع و توابع انطباق تراز (`reconcileBalanceFromLedger`).
+- [x] منطق خرید اتمیک شماره مجازی به قیمت اولیه `1 COIN` با مکانیزم بازگشت وجه خودکار (`Refund`) در صورت بروز هرگونه خطا حین فرآیند تخصیص.
+- [x] رابط کاربری کاربری داشبورد و صفحه کیف پول (`User/Wallet/Index.vue`)، نمایش موجودی و معادل ترون، فیلتر تراکنش‌ها و ابزارک کیف پول در پیشخوان و سربرگ.
+- [x] کنسول راهبری مالی مدیران (`Admin/Wallet/Index.vue` و `Transactions.vue`) جهت شارژ/کسر دستی همراه با ثبت اجباری دلیل و لاگ امنیتی (`AuditLog`)، ثبت اسناد اصلاحی (`Reversal`) و تنظیم داینامیک نرخ‌ها.
+- [x] تدوین ۱۶ آزمون جامع فیچر در `WalletSystemTest` و اجرای موفق ۲۲۳ آزمون کامل سیستم با ضریب قبولی ۱۰۰٪.
 - **وابستگی‌ها:** فاز ۰
-- **ریسک‌ها:** بروز Race Condition در خریدهای همزمان؛ لزوم استفاده از `lockForUpdate` و قیدهای یکتایی پایگاه داده.
-- **وضعیت:** `PENDING`
+- **ریسک‌ها:** بروز Race Condition در خریدهای همزمان؛ با قفل سطری بدبینانه (`lockForUpdate`) و تراکنش‌های ایزوله دیتابیس کاملاً خنثی شد.
+- **وضعیت:** `COMPLETED`
 
 ---
 
 ### فاز ۵: سیستم پرداخت و اتصال صرافی‌ها (Payment Gateway & Nobitex TRX)
-- **اهداف:**
-  - طراحی قرارداد مستقل `PaymentGatewayInterface` و ساختار ماژولار درگاه‌ها.
-  - توسعه آداپتور رسمی صرافی نوبیتکس (`NobitexGateway`) جهت دریافت آدرس واریز TRX و استعلام TX Hash.
-  - ثبت تراکنش‌های پرداخت، تأیید خودکار از طریق Cron Job دوره‌ای (هر ۱ دقیقه) و تأیید دستی با استعلام بلاک‌چین توسط ادمین.
-  - جلوگیری اکید از استفاده مجدد از شناسه هش (`tx_hash` یکتا) و حملات ثبت مضاعف.
-  - ساختار چند شبکه‌ای جهت آمادگی اتصال شبکه‌های آینده (مانند TON، BSC و غیره).
+- [x] طراحی قرارداد مستقل `PaymentGatewayInterface` و معماری ماژولار و توسعه‌پذیر درگاه‌ها (`PaymentGatewayManager`).
+- [x] توسعه آداپتور صرافی نوبیتکس (`NobitexGateway`) جهت دریافت آدرس واریز TRX، اعتبارسنجی ارز و شبکه، و استعلام TX Hash از لیست واریزی‌ها.
+- [x] توسعه آداپتور مستقیم ترون گرید (`TronGridGateway`) و درگاه شبیه‌ساز تست ایزوله (`MockPaymentGateway`).
+- [x] جدول پایگاه داده `payment_gateways` و `crypto_deposits` با کست‌های اعشاری، وضعیت‌های شفاف و ثبت لاگ خطاها.
+- [x] ثبت تراکنش‌های پرداخت، تأیید خودکار از طریق Scheduled Command دوره‌ای (`payments:verify-pending` هر ۱ دقیقه با Backoff) و امکان استعلام یا تأیید دستی با لاگ امنیتی (`AuditLog`) توسط مدیر.
+- [x] جلوگیری قطعی از استفاده مجدد از کد رهگیری (`tx_hash` یکتا) و حملات ثبت مضاعف یا پرداخت با مبلغ کمتر (`Underpayment`).
+- [x] رابط‌های کاربری کاربری (`User/Wallet/Deposit.vue` و `DepositShow.vue`) با QR Code، کپی آدرس، پولینگ خودکار وضعیت و هشدار شبکه ترون.
+- [x] کنسول مدیریتی راهبران در [`Admin/Payments/Index.vue`](file:///c:/Users/saeed/OneDrive/Desktop/GetNumber/resources/js/Pages/Admin/Payments/Index.vue)، [`Show.vue`](file:///c:/Users/saeed/OneDrive/Desktop/GetNumber/resources/js/Pages/Admin/Payments/Show.vue) و [`Gateways.vue`](file:///c:/Users/saeed/OneDrive/Desktop/GetNumber/resources/js/Pages/Admin/Payments/Gateways.vue).
+- [x] تدوین ۱۶ آزمون جامع فیچر در `CryptoPaymentSystemTest` و اجرای موفق کل ۲۳۹ آزمون سیستم با ضریب قبولی ۱۰۰٪.
 - **وابستگی‌ها:** فاز ۴
-- **ریسک‌ها:** نوسانات شبکه صرافی و تأخیر در ثبت تأییدیه‌های بلاکچین؛ پیاده‌سازی استراتژی Retry با Exponential Backoff الزامی است.
-- **وضعیت:** `PENDING`
+- **ریسک‌ها:** نوسانات شبکه صرافی و تأخیر در ثبت تأییدیه‌های بلاکچین؛ با استراتژی Retry با Exponential Backoff و مکانیزم استعلام دستی برطرف شد.
+- **وضعیت:** `COMPLETED`
 
 ---
 

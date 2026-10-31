@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Message;
 use App\Models\NumberRequest;
 use App\Models\PhonePrefix;
+use App\Models\SystemSetting;
 use App\Services\PhoneNumberAllocationService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -100,6 +101,13 @@ class DashboardController extends Controller
             'recent_numbers' => $recentNumbers,
             'unread_messages' => $unreadMessages,
             'default_prefix' => PhonePrefix::getDefaultPrefixString(),
+            'wallet' => [
+                'balance' => (string) $user->getOrCreateWallet()->balance,
+                'currency' => 'COIN',
+                'trx_equivalent' => bcmul((string) $user->getOrCreateWallet()->balance, SystemSetting::getTrxToCoinRate(), 4),
+                'trx_to_coin_rate' => SystemSetting::getTrxToCoinRate(),
+                'number_price_coin' => SystemSetting::getNumberPriceCoin(),
+            ],
         ]);
     }
 }
