@@ -223,6 +223,9 @@ const submitGatewayUpdate = () => {
                                     placeholder="توکن دریافت شده از پنل کاربری نوبیتکس..."
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
+                                <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                                    💡 <strong>راهنما:</strong> وب‌سرویس نوبیتکس برای استعلام پروفایل و واریزی‌ها از «توکن دسترسی» (رشته ۴۰ کاراکتری هگزادسیمال که از منوی کاربری > تنظیمات > توکن دریافت می‌شود) استفاده می‌کند. در صورتی که کلید API (رشته ۴۴ کاراکتری Base64) دارید، می‌توانید آدرس والت TRX خود را مستقیماً در کادر «آدرس واریز ثابت» وارد نمایید.
+                                </p>
                             </div>
 
                             <div>

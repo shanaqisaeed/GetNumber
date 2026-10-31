@@ -285,8 +285,9 @@ class PaymentManagementController extends Controller
 
                 if (! ($valResult['valid'] ?? false)) {
                     $validationError = $valResult['message'] ?? 'توکن وارد شده معتبر نمی‌باشد.';
-                    // If credentials failed, deactivate the gateway for safety
-                    $validated['is_active'] = false;
+                    if (empty($mergedConfig['deposit_address_override'])) {
+                        $validated['is_active'] = false;
+                    }
                 } else {
                     // If valid, sync TRX wallet address into config
                     $syncResult = $adapter->syncWallets($mergedConfig);
@@ -296,7 +297,9 @@ class PaymentManagementController extends Controller
                 }
             } catch (\Throwable $e) {
                 $validationError = 'خطا در اتصال به وب‌سرویس صرافی: ' . $e->getMessage();
-                $validated['is_active'] = false;
+                if (empty($mergedConfig['deposit_address_override'])) {
+                    $validated['is_active'] = false;
+                }
             }
         }
 

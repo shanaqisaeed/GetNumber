@@ -115,7 +115,24 @@ class NobitexGateway implements PaymentGatewayInterface
                 ];
             }
 
-            $errMsg = $response->json('message') ?? $response->body() ?: 'خطای احراز هویت در نوبیتکس (کد HTTP ' . $response->status() . ')';
+            $rawBody = $response->body();
+            $isBase64Key = (strlen($apiKey) >= 40 && str_ends_with($apiKey, '='));
+
+            if ($response->status() === 401 && (str_contains($rawBody, 'توکن غیر مجاز') || str_contains($rawBody, 'Invalid token'))) {
+                if ($isBase64Key) {
+                    return [
+                        'valid' => false,
+                        'message' => 'رشته وارد شده کلید عمومی API Key (Ed25519) است، اما نوبیتکس برای این متد به «توکن احراز هویت» (Token ۴۰ کاراکتری) نیاز دارد. لطفاً از پنل نوبیتکس > تنظیمات > توکن دسترسی را کپی نمایید، یا آدرس کیف‌پول TRX خود را مستقیماً در کادر آدرس واریز ثابت وارد کنید.',
+                    ];
+                }
+
+                return [
+                    'valid' => false,
+                    'message' => 'توکن وارد شده در نوبیتکس مجاز شناخته نشد (پیام نوبیتکس: توکن غیر مجاز). لطفاً توکن جدیدی از پنل کاربری نوبیتکس دریافت نمایید.',
+                ];
+            }
+
+            $errMsg = $response->json('message') ?? $response->json('detail') ?? $rawBody ?: 'خطای احراز هویت در نوبیتکس (کد HTTP ' . $response->status() . ')';
             return [
                 'valid' => false,
                 'message' => "کلید API نامعتبر است: {$errMsg}",
