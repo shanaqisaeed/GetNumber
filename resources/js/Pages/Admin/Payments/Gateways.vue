@@ -50,9 +50,15 @@ const openEditModal = (g: GatewayModel) => {
     editingGateway.value = g;
     form.is_active = g.is_active;
     form.is_default = g.is_default;
+
+    let baseUrl = g.config?.base_url || '';
+    if (g.driver === 'nobitex' && (!baseUrl || baseUrl.includes('api.nobitex.ir'))) {
+        baseUrl = 'https://apiv2.nobitex.ir';
+    }
+
     form.config = {
         api_key: g.config?.api_key || '',
-        base_url: g.config?.base_url || '',
+        base_url: baseUrl,
         wallet_id: g.config?.wallet_id || '',
         deposit_address: g.config?.deposit_address || '',
         deposit_address_override: g.config?.deposit_address_override || '',
@@ -150,7 +156,7 @@ const submitGatewayUpdate = () => {
                         </div>
 
                         <div v-if="g.driver === 'nobitex'" class="text-[11px] text-slate-400 pt-1">
-                            آدرس پایه: <span class="font-mono">{{ g.config?.base_url || 'https://api.nobitex.ir' }}</span> |
+                            آدرس پایه: <span class="font-mono">{{ g.config?.base_url || 'https://apiv2.nobitex.ir' }}</span> |
                             وضعیت کلید API: <span :class="g.config?.api_key ? 'text-emerald-500 font-bold' : 'text-amber-500 font-bold'">{{ g.config?.api_key ? 'تنظیم‌شده' : 'تنظیم‌نشده' }}</span>
                         </div>
                     </div>
@@ -213,7 +219,7 @@ const submitGatewayUpdate = () => {
                                 <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید وب‌سرویس نوبیتکس (API Key / Token)</label>
                                 <input
                                     v-model="form.config.api_key"
-                                    type="password"
+                                    type="text"
                                     placeholder="توکن دریافت شده از پنل کاربری نوبیتکس..."
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
@@ -224,7 +230,7 @@ const submitGatewayUpdate = () => {
                                 <input
                                     v-model="form.config.base_url"
                                     type="text"
-                                    placeholder="https://api.nobitex.ir"
+                                    placeholder="https://apiv2.nobitex.ir"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                             </div>

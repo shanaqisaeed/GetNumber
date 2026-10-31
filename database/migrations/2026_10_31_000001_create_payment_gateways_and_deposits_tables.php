@@ -64,7 +64,7 @@ return new class extends Migration
                 'supported_currencies' => json_encode(['TRX']),
                 'supported_networks' => json_encode(['TRON', 'TRC20']),
                 'config' => json_encode([
-                    'base_url' => 'https://api.nobitex.ir',
+                    'base_url' => 'https://apiv2.nobitex.ir',
                     'api_key' => env('NOBITEX_API_KEY', ''),
                     'wallet_id' => env('NOBITEX_WALLET_ID', null),
                     'min_deposit' => '1.0000',

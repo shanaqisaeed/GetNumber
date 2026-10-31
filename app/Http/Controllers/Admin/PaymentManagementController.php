@@ -260,25 +260,13 @@ class PaymentManagementController extends Controller
             $mergedConfig['min_deposit'] = '1.0000';
         }
 
-        // Validate API credentials & sync wallet if token provided or gateway activated
-        $apiKey = trim((string) ($mergedConfig['api_key'] ?? ''));
-        if (! empty($apiKey) && in_array($gateway->driver, ['nobitex', 'wallex'])) {
-            try {
-                $adapter = $gatewayManager->forModel($gateway);
-                $valResult = $adapter->validateCredentials($mergedConfig);
-
-                if (! ($valResult['valid'] ?? false)) {
-                    $errMsg = $valResult['message'] ?? 'توکن وارد شده معتبر نمی‌باشد.';
-                    return back()->with('error', "اعتبارسنجی توکن صرافی رد شد: {$errMsg}");
-                }
-
-                // If valid, sync TRX wallet address into config
-                $syncResult = $adapter->syncWallets($mergedConfig);
-                if (! empty($syncResult['address'])) {
-                    $mergedConfig['deposit_address'] = $syncResult['address'];
-                }
-            } catch (\Throwable $e) {
-                return back()->with('error', 'خطا در اتصال به وب‌سرویس صرافی: ' . $e->getMessage());
+        // Auto-fix Nobitex base_url if empty or old api.nobitex.ir
+        if ($gateway->driver === 'nobitex') {
+            $url = trim((string) ($mergedConfig['base_url'] ?? ''));
+            if (empty($url) || str_contains($url, 'api.nobitex.ir')) {
+                $mergedConfig['base_url'] = 'https://apiv2.nobitex.ir';
+            } else {
+                $mergedConfig['base_url'] = rtrim($url, '/');
             }
         }
 
@@ -286,6 +274,33 @@ class PaymentManagementController extends Controller
             PaymentGateway::where('id', '!=', $gateway->id)->update(['is_default' => false]);
         }
 
+        // Validate API credentials & sync wallet if token provided or gateway activated
+        $apiKey = trim((string) ($mergedConfig['api_key'] ?? ''));
+        $validationError = null;
+
+        if (! empty($apiKey) && in_array($gateway->driver, ['nobitex', 'wallex'])) {
+            try {
+                $adapter = $gatewayManager->forModel($gateway);
+                $valResult = $adapter->validateCredentials($mergedConfig);
+
+                if (! ($valResult['valid'] ?? false)) {
+                    $validationError = $valResult['message'] ?? 'توکن وارد شده معتبر نمی‌باشد.';
+                    // If credentials failed, deactivate the gateway for safety
+                    $validated['is_active'] = false;
+                } else {
+                    // If valid, sync TRX wallet address into config
+                    $syncResult = $adapter->syncWallets($mergedConfig);
+                    if (! empty($syncResult['address'])) {
+                        $mergedConfig['deposit_address'] = $syncResult['address'];
+                    }
+                }
+            } catch (\Throwable $e) {
+                $validationError = 'خطا در اتصال به وب‌سرویس صرافی: ' . $e->getMessage();
+                $validated['is_active'] = false;
+            }
+        }
+
+        // ALWAYS update gateway in DB so user configuration & base_url are saved
         $gateway->update([
             'is_active' => $validated['is_active'],
             'is_default' => $validated['is_default'],
@@ -304,6 +319,10 @@ class PaymentManagementController extends Controller
             ],
             'ip_address' => $request->ip() ?? '127.0.0.1',
         ]);
+
+        if ($validationError) {
+            return back()->with('error', "تنظیمات درگاه ذخیره شد، اما اعتبارسنجی توکن صرافی رد گردید: {$validationError}");
+        }
 
         return back()->with('success', "تنظیمات درگاه «{$gateway->name}» با موفقیت ذخیره و همگام‌سازی شد.");
     }

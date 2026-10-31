@@ -22,11 +22,36 @@ class NobitexGateway implements PaymentGatewayInterface
     {
         $config = $model?->config ?? [];
 
-        $this->baseUrl = rtrim((string) ($config['base_url'] ?? env('NOBITEX_BASE_URL', 'https://api.nobitex.ir')), '/');
-        $this->apiKey = $config['api_key'] ?? env('NOBITEX_API_KEY');
+        $rawUrl = $config['base_url'] ?? env('NOBITEX_BASE_URL', 'https://apiv2.nobitex.ir');
+        $this->baseUrl = $this->normalizeBaseUrl($rawUrl);
+        $this->apiKey = $this->normalizeApiKey($config['api_key'] ?? env('NOBITEX_API_KEY'));
         $this->walletId = isset($config['wallet_id']) && $config['wallet_id'] !== '' ? (int) $config['wallet_id'] : null;
         $this->depositAddress = $config['deposit_address'] ?? null;
         $this->addressOverride = $config['deposit_address_override'] ?? env('NOBITEX_DEPOSIT_ADDRESS_OVERRIDE');
+    }
+
+    /**
+     * Clean and normalize API base URL (ensure apiv2.nobitex.ir is used).
+     */
+    protected function normalizeBaseUrl(?string $url): string
+    {
+        $clean = trim((string) ($url ?? ''));
+        if (empty($clean) || str_contains($clean, 'api.nobitex.ir')) {
+            return 'https://apiv2.nobitex.ir';
+        }
+        return rtrim($clean, '/');
+    }
+
+    /**
+     * Clean API Key (strip leading Token or Bearer prefix if user copied it with header).
+     */
+    protected function normalizeApiKey(?string $key): string
+    {
+        $clean = trim((string) ($key ?? ''));
+        if (preg_match('/^(token|bearer)\s+(.*)$/i', $clean, $matches)) {
+            return trim($matches[2]);
+        }
+        return $clean;
     }
 
     public function getIdentifier(): string
@@ -44,8 +69,8 @@ class NobitexGateway implements PaymentGatewayInterface
      */
     public function validateCredentials(array $config): array
     {
-        $apiKey = trim((string) ($config['api_key'] ?? $this->apiKey ?? ''));
-        $baseUrl = rtrim((string) ($config['base_url'] ?? $this->baseUrl), '/');
+        $apiKey = $this->normalizeApiKey($config['api_key'] ?? $this->apiKey);
+        $baseUrl = $this->normalizeBaseUrl($config['base_url'] ?? $this->baseUrl);
 
         if (empty($apiKey)) {
             return [
@@ -55,9 +80,23 @@ class NobitexGateway implements PaymentGatewayInterface
         }
 
         try {
+            // First attempt with standard Token header
             $response = Http::withHeaders([
                 'Authorization' => 'Token ' . $apiKey,
-            ])->timeout(8)->get("{$baseUrl}/users/profile");
+                'Accept' => 'application/json',
+            ])->timeout(10)->get("{$baseUrl}/users/profile");
+
+            // Fallback retry with Bearer header if 401/403
+            if (in_array($response->status(), [401, 403])) {
+                $bearerResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Accept' => 'application/json',
+                ])->timeout(10)->get("{$baseUrl}/users/profile");
+
+                if ($bearerResponse->successful()) {
+                    $response = $bearerResponse;
+                }
+            }
 
             if ($response->successful()) {
                 $status = $response->json('status');
@@ -94,8 +133,8 @@ class NobitexGateway implements PaymentGatewayInterface
      */
     public function syncWallets(array &$config): array
     {
-        $apiKey = trim((string) ($config['api_key'] ?? $this->apiKey ?? ''));
-        $baseUrl = rtrim((string) ($config['base_url'] ?? $this->baseUrl), '/');
+        $apiKey = $this->normalizeApiKey($config['api_key'] ?? $this->apiKey);
+        $baseUrl = $this->normalizeBaseUrl($config['base_url'] ?? $this->baseUrl);
 
         if (empty($apiKey)) {
             return [
@@ -109,7 +148,19 @@ class NobitexGateway implements PaymentGatewayInterface
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Token ' . $apiKey,
+                'Accept' => 'application/json',
             ])->timeout(10)->get("{$baseUrl}/users/wallets/list");
+
+            if (in_array($response->status(), [401, 403])) {
+                $bearerResponse = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $apiKey,
+                    'Accept' => 'application/json',
+                ])->timeout(10)->get("{$baseUrl}/users/wallets/list");
+
+                if ($bearerResponse->successful()) {
+                    $response = $bearerResponse;
+                }
+            }
 
             if (! $response->successful()) {
                 return [

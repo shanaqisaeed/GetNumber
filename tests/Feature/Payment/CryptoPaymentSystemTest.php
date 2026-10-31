@@ -337,11 +337,11 @@ class CryptoPaymentSystemTest extends TestCase
     public function test_admin_can_update_payment_gateway_settings(): void
     {
         Http::fake([
-            'https://api.nobitex.ir/users/profile' => Http::response([
+            'https://apiv2.nobitex.ir/users/profile' => Http::response([
                 'status' => 'ok',
                 'profile' => ['id' => 12345, 'username' => 'tester'],
             ], 200),
-            'https://api.nobitex.ir/users/wallets/list' => Http::response([
+            'https://apiv2.nobitex.ir/users/wallets/list' => Http::response([
                 'status' => 'ok',
                 'wallets' => [
                     ['id' => 777, 'currency' => 'trx', 'depositAddress' => 'TTestNobitexTrxAddress999'],
@@ -356,7 +356,7 @@ class CryptoPaymentSystemTest extends TestCase
             'is_default' => true,
             'config' => [
                 'api_key' => 'secret_nobitex_token_test_123',
-                'base_url' => 'https://api.nobitex.ir',
+                'base_url' => 'https://apiv2.nobitex.ir',
                 'min_deposit' => '2.5000',
             ],
         ]);
@@ -368,6 +368,7 @@ class CryptoPaymentSystemTest extends TestCase
         $this->assertTrue($freshGateway->is_active);
         $this->assertTrue($freshGateway->is_default);
         $this->assertEquals('secret_nobitex_token_test_123', $freshGateway->getConfig('api_key'));
+        $this->assertEquals('https://apiv2.nobitex.ir', $freshGateway->getConfig('base_url'));
         $this->assertEquals('TTestNobitexTrxAddress999', $freshGateway->getConfig('deposit_address'));
         $this->assertEquals('2.5000', $freshGateway->getConfig('min_deposit'));
 
@@ -379,10 +380,10 @@ class CryptoPaymentSystemTest extends TestCase
         ]);
     }
 
-    public function test_admin_setting_invalid_nobitex_token_is_rejected(): void
+    public function test_admin_setting_invalid_nobitex_token_is_rejected_and_url_is_saved(): void
     {
         Http::fake([
-            'https://api.nobitex.ir/users/profile' => Http::response([
+            'https://apiv2.nobitex.ir/users/profile' => Http::response([
                 'status' => 'failed',
                 'message' => 'Token is invalid or expired',
             ], 401),
@@ -395,19 +396,26 @@ class CryptoPaymentSystemTest extends TestCase
             'is_default' => false,
             'config' => [
                 'api_key' => 'invalid_token_123',
-                'base_url' => 'https://api.nobitex.ir',
+                'base_url' => 'https://apiv2.nobitex.ir',
             ],
         ]);
 
         $response->assertRedirect();
         $response->assertSessionHas('error');
+
+        $freshGateway = $gateway->fresh();
+        // Configuration & URL are saved even on validation error
+        $this->assertEquals('https://apiv2.nobitex.ir', $freshGateway->getConfig('base_url'));
+        $this->assertEquals('invalid_token_123', $freshGateway->getConfig('api_key'));
+        // But gateway remains disabled for safety
+        $this->assertFalse($freshGateway->is_active);
     }
 
     public function test_nobitex_sync_wallet_artisan_command_updates_deposit_address(): void
     {
         Http::fake([
-            'https://api.nobitex.ir/users/profile' => Http::response(['status' => 'ok', 'profile' => []], 200),
-            'https://api.nobitex.ir/users/wallets/list' => Http::response([
+            'https://apiv2.nobitex.ir/users/profile' => Http::response(['status' => 'ok', 'profile' => []], 200),
+            'https://apiv2.nobitex.ir/users/wallets/list' => Http::response([
                 'status' => 'ok',
                 'wallets' => [
                     ['id' => 888, 'currency' => 'trx', 'depositAddress' => 'TChangedNobitexAddress888'],
@@ -416,7 +424,7 @@ class CryptoPaymentSystemTest extends TestCase
         ]);
 
         $gateway = PaymentGateway::where('driver', 'nobitex')->first();
-        $gateway->update(['config' => ['api_key' => 'valid_token_xyz', 'deposit_address' => 'TOldNobitexAddress111']]);
+        $gateway->update(['config' => ['api_key' => 'valid_token_xyz', 'deposit_address' => 'TOldNobitexAddress111', 'base_url' => 'https://apiv2.nobitex.ir']]);
 
         $exitCode = Artisan::call('payments:nobitex:sync-wallet');
         $this->assertEquals(0, $exitCode);
