@@ -198,7 +198,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
 <template>
     <AdminLayout>
-        <Head title="بررسی درخواست‌های سرشماره سازمانی" />
+        <Head title="بررسی و تأیید درخواست‌های سرشماره" />
 
         <div class="space-y-6">
             <!-- Flash Alerts -->

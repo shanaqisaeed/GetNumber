@@ -621,7 +621,7 @@ const smsPartCount = computed(() => {
 </script>
 
 <template>
-    <Head title="پیام‌ها و گفتگوها" />
+    <Head title="هاب پیام‌رسانی و گفتگو" />
 
     <UserLayout>
         <!-- Floating Toast Notification -->

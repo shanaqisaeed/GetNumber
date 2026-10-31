@@ -85,7 +85,7 @@ function clearFilters() {
 </script>
 
 <template>
-    <Head title="پشتیبانی و تیکت‌ها" />
+    <Head title="تیکت‌های پشتیبانی من" />
 
     <UserLayout>
         <div class="space-y-4">

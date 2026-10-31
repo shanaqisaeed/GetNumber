@@ -171,7 +171,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
-    <Head title="مدیریت خطوط سازمانی" />
+    <Head title="خطوط اختصاص‌یافته من" />
 
     <UserLayout>
         <!-- Floating Toast Notification -->

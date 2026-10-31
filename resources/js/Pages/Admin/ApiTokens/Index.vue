@@ -347,7 +347,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
 <template>
     <AdminLayout>
-        <Head title="مدیریت کلیدهای ارتباطی و وب‌سرویس (API)" />
+        <Head title="نظارت و مدیریت کلیدهای وب‌سرویس سامانه" />
 
         <div class="space-y-6">
             <!-- Header Section -->

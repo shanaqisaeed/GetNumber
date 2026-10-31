@@ -22,6 +22,29 @@ Route::get('/', function () {
 Route::get('/docs/api', [\App\Http\Controllers\ApiDocsController::class, 'index'])->name('api.docs');
 Route::redirect('/docs', '/docs/api');
 
+// XML Sitemap for Public Search Engines
+Route::get('/sitemap.xml', function () {
+    $baseUrl = url('/');
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+    $xml .= '  <url>' . "\n";
+    $xml .= '    <loc>' . htmlspecialchars($baseUrl) . '</loc>' . "\n";
+    $xml .= '    <changefreq>weekly</changefreq>' . "\n";
+    $xml .= '    <priority>1.0</priority>' . "\n";
+    $xml .= '  </url>' . "\n";
+    $xml .= '  <url>' . "\n";
+    $xml .= '    <loc>' . htmlspecialchars($baseUrl . '/docs/api') . '</loc>' . "\n";
+    $xml .= '    <changefreq>monthly</changefreq>' . "\n";
+    $xml .= '    <priority>0.8</priority>' . "\n";
+    $xml .= '  </url>' . "\n";
+    $xml .= '</urlset>';
+
+    return response($xml, 200, [
+        'Content-Type' => 'application/xml; charset=utf-8',
+        'X-Robots-Tag' => 'noindex',
+    ]);
+})->name('sitemap');
+
 // Standard User Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\User\DashboardController::class, 'index'])->name('dashboard');

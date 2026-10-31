@@ -80,7 +80,7 @@ const isAllocateModalOpen = ref(false);
 </script>
 
 <template>
-    <Head title="پیشخوان کاربری | سامانه مدیریت خطوط" />
+    <Head title="میز کار و داشبورد کاربری" />
 
     <UserLayout>
         <!-- Floating Toast Notification (Positioned at top with z-[100] so it is NEVER hidden under headers) -->

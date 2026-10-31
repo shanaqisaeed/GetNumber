@@ -207,7 +207,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <UserLayout>
-        <Head title="مدیریت کلیدهای API و وب‌سرویس" />
+        <Head title="کلیدهای وب‌سرویس من (API)" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">

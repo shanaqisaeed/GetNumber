@@ -383,7 +383,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
-    <Head title="مدیریت خطوط سازمانی" />
+    <Head title="مدیریت کلان خطوط و سرشماره‌ها" />
 
     <AdminLayout>
         <template #header>

@@ -186,7 +186,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <UserLayout>
-        <Head title="درخواست‌های سرشماره سازمانی" />
+        <Head title="درخواست‌های سرشماره من" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">

@@ -1,2 +1,30 @@
 User-agent: *
-Disallow:
+Disallow: /admin/
+Disallow: /admin
+Disallow: /dashboard/
+Disallow: /dashboard
+Disallow: /numbers/
+Disallow: /numbers
+Disallow: /requests/
+Disallow: /requests
+Disallow: /messages/
+Disallow: /messages
+Disallow: /api-tokens/
+Disallow: /api-tokens
+Disallow: /tickets/
+Disallow: /tickets
+Disallow: /profile/
+Disallow: /profile
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Allow: /$
+Allow: /docs
+Allow: /docs/
+Allow: /docs/api
+Allow: /build/
+
+Sitemap: /sitemap.xml

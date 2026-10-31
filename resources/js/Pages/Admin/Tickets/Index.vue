@@ -110,7 +110,7 @@ function clearFilters() {
 </script>
 
 <template>
-    <Head title="میز خدمت و تیکت‌های پشتیبانی" />
+    <Head title="میز کار و کارتابل تیکت‌های پشتیبانی" />
 
     <AdminLayout>
         <template #header>
