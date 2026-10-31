@@ -3,6 +3,26 @@
 <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 
+<!-- Instant Theme Preload (Prevents Flash of Wrong Theme) -->
+<script>
+    (function() {
+        try {
+            var saved = localStorage.getItem('getnumber_theme');
+            var isDark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            var root = document.documentElement;
+            if (isDark) {
+                root.classList.add('dark');
+                root.classList.remove('light');
+                root.style.colorScheme = 'dark';
+            } else {
+                root.classList.remove('dark');
+                root.classList.add('light');
+                root.style.colorScheme = 'light';
+            }
+        } catch (e) {}
+    })();
+</script>
+
 <!-- Base SEO & Metadata -->
 <meta name="description" content="سامانه جامع مدیریت شماره‌های مجازی، سرشماره‌های اختصاصی سازمانی، هاب پیام‌رسانی امن و وب‌سرویس ارتباطی GetNumber">
 <link rel="canonical" href="{{ url()->current() }}">

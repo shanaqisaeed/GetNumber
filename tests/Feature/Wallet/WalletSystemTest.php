@@ -269,64 +269,73 @@ class WalletSystemTest extends TestCase
         $this->assertEquals('79.0000', $reconciledBalance);
     }
 
-    public function test_user_wallet_index_page_returns_ledger_history_and_rates(): void
+    public function test_user_wallet_index_page_redirects_to_profile_wallet(): void
     {
         $this->walletService->deposit($this->user, '15.0000', 'dep-user-view');
 
         $response = $this->actingAs($this->user)->get(route('wallet.index'));
 
+        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet', 'view' => 'transactions']));
+    }
+
+    public function test_profile_edit_page_loads_wallet_and_ledger_data(): void
+    {
+        $this->walletService->deposit($this->user, '25.0000', 'dep-profile-test');
+
+        $response = $this->actingAs($this->user)->get(route('profile.edit', ['tab' => 'wallet']));
+
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('User/Wallet/Index')
+            ->component('Profile/Edit')
             ->has('wallet')
-            ->has('rates')
             ->has('transactions')
-            ->where('wallet.balance', '15.0000')
-            ->where('rates.number_price_coin', '1.0000')
+            ->where('wallet.balance', '25.0000')
         );
     }
 
-    public function test_admin_can_update_financial_settings(): void
+    public function test_admin_can_adjust_user_wallet_balance_directly_from_users_table(): void
     {
-        $response = $this->actingAs($this->admin)->post(route('admin.wallets.settings'), [
-            'trx_to_coin_rate' => '2.5000',
-            'number_price_coin' => '1.5000',
+        // 1. Regular user is forbidden
+        $userAttempt = $this->actingAs($this->user)->post(route('admin.users.wallet.adjust', $this->user), [
+            'action' => 'credit',
+            'amount' => '100.0000',
+            'reason' => 'Unauthorized attempt',
         ]);
+        $userAttempt->assertStatus(403);
 
-        $response->assertRedirect();
-        $response->assertSessionHas('success');
+        // 2. Admin credits user balance
+        $creditResponse = $this->actingAs($this->admin)->post(route('admin.users.wallet.adjust', $this->user), [
+            'action' => 'credit',
+            'amount' => '50.0000',
+            'reason' => 'شارژ تشویقی حساب توسط مدیریت',
+        ]);
+        $creditResponse->assertRedirect();
+        $creditResponse->assertSessionHas('success');
+        $this->assertEquals('50.0000', $this->user->fresh()->wallet->balance);
 
-        $this->assertEquals('2.5000', SystemSetting::getTrxToCoinRate());
-        $this->assertEquals('1.5000', SystemSetting::getNumberPriceCoin());
+        // 3. Admin debits user balance
+        $debitResponse = $this->actingAs($this->admin)->post(route('admin.users.wallet.adjust', $this->user), [
+            'action' => 'debit',
+            'amount' => '20.0000',
+            'reason' => 'کسر اعتبار اشتباه',
+        ]);
+        $debitResponse->assertRedirect();
+        $this->assertEquals('30.0000', $this->user->fresh()->wallet->balance);
 
+        // 4. Admin directly sets user balance
+        $setResponse = $this->actingAs($this->admin)->post(route('admin.users.wallet.adjust', $this->user), [
+            'action' => 'set',
+            'amount' => '10.0000',
+            'reason' => 'تنظیم مستقیم سقف اعتبار',
+        ]);
+        $setResponse->assertRedirect();
+        $this->assertEquals('10.0000', $this->user->fresh()->wallet->balance);
+
+        // Audit log verified
         $this->assertDatabaseHas('audit_logs', [
             'user_id' => $this->admin->id,
-            'action' => 'admin.settings.financial_updated',
+            'action' => 'admin.wallet.balance_adjusted',
         ]);
-    }
-
-    public function test_admin_wallet_index_and_transactions_pages_accessible_to_admin_only(): void
-    {
-        // Regular user should be forbidden (403)
-        $userResponse = $this->actingAs($this->user)->get(route('admin.wallets.index'));
-        $userResponse->assertStatus(403);
-
-        $adminIndexResponse = $this->actingAs($this->admin)->get(route('admin.wallets.index'));
-        $adminIndexResponse->assertStatus(200);
-        $adminIndexResponse->assertInertia(fn ($page) => $page
-            ->component('Admin/Wallet/Index')
-            ->has('users')
-            ->has('stats')
-            ->has('rates')
-        );
-
-        $adminTxResponse = $this->actingAs($this->admin)->get(route('admin.wallets.transactions'));
-        $adminTxResponse->assertStatus(200);
-        $adminTxResponse->assertInertia(fn ($page) => $page
-            ->component('Admin/Wallet/Transactions')
-            ->has('transactions')
-            ->has('transaction_types')
-        );
     }
 
     public function test_phone_number_allocation_requires_wallet_balance_and_deducts_coin(): void

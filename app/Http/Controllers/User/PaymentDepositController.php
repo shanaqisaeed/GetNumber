@@ -21,39 +21,11 @@ class PaymentDepositController extends Controller
     ) {}
 
     /**
-     * Display the crypto deposit creation screen.
+     * Display the crypto deposit creation screen (redirect to Profile wallet section).
      */
-    public function create(Request $request): Response
+    public function create(Request $request): RedirectResponse
     {
-        $user = $request->user();
-
-        $activeGateways = PaymentGateway::active()
-            ->get(['id', 'name', 'driver', 'is_default', 'supported_currencies', 'supported_networks']);
-
-        $recentDeposits = CryptoDeposit::where('user_id', $user->id)
-            ->latest('id')
-            ->limit(5)
-            ->get()
-            ->map(fn ($d) => [
-                'id' => $d->id,
-                'tracking_code' => $d->tracking_code,
-                'requested_amount' => (string) $d->requested_amount,
-                'coin_amount' => (string) $d->coin_amount,
-                'status' => $d->status->value,
-                'status_label' => $d->status->label(),
-                'status_badge' => $d->status->badgeClasses(),
-                'created_at' => $d->created_at->format('Y/m/d H:i'),
-            ]);
-
-        return Inertia::render('User/Wallet/Deposit', [
-            'rates' => [
-                'trx_to_coin_rate' => SystemSetting::getTrxToCoinRate(),
-                'number_price_coin' => SystemSetting::getNumberPriceCoin(),
-            ],
-            'wallet_balance' => (string) $user->getOrCreateWallet()->balance,
-            'gateways' => $activeGateways,
-            'recent_deposits' => $recentDeposits,
-        ]);
+        return redirect()->route('profile.edit', ['tab' => 'wallet']);
     }
 
     /**
@@ -78,8 +50,8 @@ class PaymentDepositController extends Controller
                 gatewayDriver: $validated['gateway'] ?? null
             );
 
-            return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
-                ->with('success', 'درخواست افزایش اعتبار با موفقیت ایجاد شد. لطفاً مبلغ ترون را به آدرس نمایش داده شده واریز نمایید.');
+            return redirect()->route('profile.edit', ['tab' => 'wallet'])
+                ->with('success', 'درخواست افزایش اعتبار با موفقیت ایجاد شد. لطفاً مبلغ را به آدرس واریز انتقال دهید.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage() ?: 'خطا در ایجاد درخواست پرداخت.');
         }
@@ -150,10 +122,12 @@ class PaymentDepositController extends Controller
             );
 
             if ($updated->isCompleted()) {
-                return back()->with('success', "تراکنش با موفقیت تأیید شد و حساب شما به میزان {$updated->coin_amount} COIN شارژ گردید!");
+                return redirect()->route('profile.edit', ['tab' => 'wallet'])
+                    ->with('success', "تراکنش با موفقیت تأیید شد و حساب شما به میزان {$updated->coin_amount} واحد اعتبار شارژ گردید.");
             }
 
-            return back()->with('success', 'شناسه تراکنش ثبت گردید و در حال استعلام و اعتبارسنجی خودکار از شبکه است.');
+            return redirect()->route('profile.edit', ['tab' => 'wallet'])
+                ->with('success', 'کد رهگیری تراکنش با موفقیت ثبت گردید و در حال استعلام و اعتبارسنجی خودکار از شبکه است.');
         } catch (\Throwable $e) {
             return back()->with('error', $e->getMessage() ?: 'خطا در ثبت شناسه تراکنش.');
         }

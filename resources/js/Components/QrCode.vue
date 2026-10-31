@@ -51,3 +51,4 @@ watch(() => props.size, () => {
         <canvas ref="canvasRef" :width="size" :height="size" class="rounded-xl"></canvas>
     </div>
 </template>
+

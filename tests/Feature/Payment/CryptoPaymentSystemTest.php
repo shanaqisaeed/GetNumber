@@ -62,18 +62,11 @@ class CryptoPaymentSystemTest extends TestCase
         ]);
     }
 
-    public function test_user_can_view_deposit_create_page(): void
+    public function test_user_deposit_create_route_redirects_to_profile_wallet(): void
     {
         $response = $this->actingAs($this->user)->get(route('wallet.deposit.create'));
 
-        $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('User/Wallet/Deposit')
-            ->has('rates')
-            ->has('wallet_balance')
-            ->has('gateways')
-            ->has('recent_deposits')
-        );
+        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet']));
     }
 
     public function test_user_can_create_deposit_request_and_receives_address(): void
@@ -87,7 +80,7 @@ class CryptoPaymentSystemTest extends TestCase
         $deposit = CryptoDeposit::where('user_id', $this->user->id)->first();
         $this->assertNotNull($deposit);
 
-        $response->assertRedirect(route('wallet.deposit.show', $deposit->tracking_code));
+        $response->assertRedirect(route('profile.edit', ['tab' => 'wallet']));
 
         $this->assertEquals('15.0000', (string) $deposit->requested_amount);
         $this->assertEquals('15.0000', (string) $deposit->coin_amount);

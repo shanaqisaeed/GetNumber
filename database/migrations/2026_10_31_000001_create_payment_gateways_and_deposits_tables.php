@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('driver')->unique(); // nobitex, tron_grid, mock
-            $table->boolean('is_active')->default(true)->index();
+            $table->boolean('is_active')->default(false)->index();
             $table->boolean('is_default')->default(false)->index();
             $table->json('supported_currencies')->nullable(); // e.g. ["TRX", "USDT"]
             $table->json('supported_networks')->nullable(); // e.g. ["TRON", "TRC20"]
@@ -54,13 +54,13 @@ return new class extends Migration
             $table->index(['status', 'next_check_at']);
         });
 
-        // Seed default gateways
+        // Seed default gateways (all disabled by default until admin activates them)
         DB::table('payment_gateways')->insert([
             [
                 'name' => 'صرافی نوبیتکس (Nobitex)',
                 'driver' => 'nobitex',
-                'is_active' => true,
-                'is_default' => true,
+                'is_active' => false,
+                'is_default' => false,
                 'supported_currencies' => json_encode(['TRX']),
                 'supported_networks' => json_encode(['TRON', 'TRC20']),
                 'config' => json_encode([
@@ -76,7 +76,7 @@ return new class extends Migration
             [
                 'name' => 'شبکه مستقیم ترون گرید (TronGrid Direct)',
                 'driver' => 'tron_grid',
-                'is_active' => true,
+                'is_active' => false,
                 'is_default' => false,
                 'supported_currencies' => json_encode(['TRX']),
                 'supported_networks' => json_encode(['TRON', 'TRC20']),
@@ -92,7 +92,7 @@ return new class extends Migration
             [
                 'name' => 'درگاه شبیه‌ساز تست (Sandbox / Mock)',
                 'driver' => 'mock',
-                'is_active' => true,
+                'is_active' => false,
                 'is_default' => false,
                 'supported_currencies' => json_encode(['TRX', 'USDT']),
                 'supported_networks' => json_encode(['TRON', 'TRC20']),

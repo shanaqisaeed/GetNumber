@@ -170,17 +170,6 @@ const navItems = computed(() => [
 
                 <!-- Header Actions (Direct Theme Toggle & More Services Drawer) -->
                 <div class="flex items-center gap-1.5 shrink-0">
-                    <!-- Wallet Balance Pill -->
-                    <Link
-                        :href="route('wallet.index')"
-                        class="px-2 py-1 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center gap-1.5 hover:bg-amber-500/25 transition-all text-xs font-bold shadow-xs"
-                        title="کیف پول و موجودی اعتباری"
-                    >
-                        <span class="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-sm shadow-amber-500/50"></span>
-                        <span class="font-mono font-black text-[11px]">{{ $page.props.auth?.wallet_balance || '0' }}</span>
-                        <span class="text-[9px] font-extrabold text-amber-500">COIN</span>
-                    </Link>
-
                     <!-- Admin Shortcut Button if Admin -->
                     <Link
                         v-if="user?.is_admin"

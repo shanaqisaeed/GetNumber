@@ -115,6 +115,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
     Route::patch('/users/{user}/status', [AdminUserController::class, 'updateStatus'])->name('users.status');
     Route::get('/users/{user}/numbers', [AdminUserController::class, 'numbers'])->name('users.numbers');
+    Route::post('/users/{user}/wallet/adjust', [AdminUserController::class, 'adjustWallet'])->name('users.wallet.adjust');
 
     Route::get('/numbers', [AdminPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [AdminPhoneNumberController::class, 'store'])->name('numbers.store');
@@ -150,14 +151,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin Audit Logs & Security Trails
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/audit-logs/{auditLog}', [\App\Http\Controllers\Admin\AuditLogController::class, 'show'])->name('audit-logs.show');
-
-    // Admin Wallet & Financial Oversight
-    Route::get('/wallets', [\App\Http\Controllers\Admin\WalletController::class, 'index'])->name('wallets.index');
-    Route::get('/wallets/transactions', [\App\Http\Controllers\Admin\WalletController::class, 'transactions'])->name('wallets.transactions');
-    Route::post('/wallets/{user}/credit', [\App\Http\Controllers\Admin\WalletController::class, 'credit'])->name('wallets.credit');
-    Route::post('/wallets/{user}/debit', [\App\Http\Controllers\Admin\WalletController::class, 'debit'])->name('wallets.debit');
-    Route::post('/wallets/transactions/{transaction}/reverse', [\App\Http\Controllers\Admin\WalletController::class, 'reverse'])->name('wallets.reverse');
-    Route::post('/wallets/settings', [\App\Http\Controllers\Admin\WalletController::class, 'updateSettings'])->name('wallets.settings');
 
     // Admin Payment & Gateway Management
     Route::get('/payments', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.index');

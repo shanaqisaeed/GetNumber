@@ -13,12 +13,80 @@ use Inertia\Response;
 class ProfileController extends Controller
 {
     /**
-     * Display the user's profile form.
+     * Display the user's profile form with wallet & transaction integration.
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user();
+        $wallet = $user->getOrCreateWallet();
+
+        $transactions = $wallet->transactions()
+            ->latest('id')
+            ->limit(30)
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'type' => $t->type->value,
+                'type_label' => $t->type->label(),
+                'is_credit' => $t->type->isCredit(),
+                'amount' => (string) $t->amount,
+                'balance_after' => (string) $t->balance_after,
+                'reference' => $t->reference,
+                'created_at' => $t->created_at->format('Y/m/d H:i'),
+                'created_ago' => $t->created_at->diffForHumans(),
+            ]);
+
+        $activeGateways = \App\Models\PaymentGateway::query()
+            ->where('is_active', true)
+            ->get()
+            ->map(fn ($g) => [
+                'id' => $g->id,
+                'name' => $g->name,
+                'driver' => $g->driver,
+                'supported_currencies' => $g->supported_currencies ?? ['TRX'],
+                'supported_networks' => $g->supported_networks ?? ['TRON'],
+            ]);
+
+        $pendingDeposit = \App\Models\CryptoDeposit::where('user_id', $user->id)
+            ->whereIn('status', [
+                \App\Enums\PaymentStatus::PendingTransfer,
+                \App\Enums\PaymentStatus::TxSubmitted,
+                \App\Enums\PaymentStatus::Verifying,
+            ])
+            ->latest('id')
+            ->first();
+
+        $pendingDepositData = null;
+        if ($pendingDeposit) {
+            $pendingDepositData = [
+                'tracking_code' => $pendingDeposit->tracking_code,
+                'currency' => $pendingDeposit->currency,
+                'network' => $pendingDeposit->network,
+                'requested_amount' => (string) $pendingDeposit->requested_amount,
+                'coin_amount' => (string) $pendingDeposit->coin_amount,
+                'deposit_address' => $pendingDeposit->deposit_address,
+                'deposit_tag' => $pendingDeposit->deposit_tag,
+                'status' => $pendingDeposit->status->value,
+                'status_label' => $pendingDeposit->status->label(),
+                'status_badge' => $pendingDeposit->status->badgeClasses(),
+                'tx_hash' => $pendingDeposit->tx_hash,
+                'can_submit_tx' => $pendingDeposit->canSubmitTx(),
+                'is_completed' => $pendingDeposit->isCompleted(),
+                'is_expired' => $pendingDeposit->isExpired(),
+                'created_at' => $pendingDeposit->created_at->format('Y/m/d H:i'),
+            ];
+        }
+
         return Inertia::render('Profile/Edit', [
             'status' => session('status'),
+            'initialTab' => $request->query('tab', 'info'),
+            'initialView' => $request->query('view', 'charge'),
+            'wallet' => [
+                'balance' => (string) $wallet->balance,
+            ],
+            'transactions' => $transactions,
+            'activeGateways' => $activeGateways,
+            'pendingDeposit' => $pendingDepositData,
         ]);
     }
 

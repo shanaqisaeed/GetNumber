@@ -103,9 +103,6 @@ class DashboardController extends Controller
             'default_prefix' => PhonePrefix::getDefaultPrefixString(),
             'wallet' => [
                 'balance' => (string) $user->getOrCreateWallet()->balance,
-                'currency' => 'COIN',
-                'trx_equivalent' => bcmul((string) $user->getOrCreateWallet()->balance, SystemSetting::getTrxToCoinRate(), 4),
-                'trx_to_coin_rate' => SystemSetting::getTrxToCoinRate(),
                 'number_price_coin' => SystemSetting::getNumberPriceCoin(),
             ],
         ]);

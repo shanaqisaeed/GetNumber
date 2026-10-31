@@ -3,17 +3,38 @@ import UserLayout from '@/Layouts/UserLayout.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
+import WalletSection from './Partials/WalletSection.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
-defineProps<{
+interface Props {
     status?: string;
-}>();
+    initialTab?: 'info' | 'wallet' | 'security' | 'danger';
+    initialView?: 'charge' | 'transactions';
+    wallet?: { balance: string };
+    transactions?: any[];
+    activeGateways?: any[];
+    pendingDeposit?: any;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+    initialTab: 'info',
+    initialView: 'charge',
+    transactions: () => [],
+    activeGateways: () => [],
+});
 
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
-const activeTab = ref<'info' | 'security' | 'danger'>('info');
+const activeTab = ref<'info' | 'wallet' | 'security' | 'danger'>(props.initialTab || 'info');
+
+watch(
+    () => props.initialTab,
+    (val) => {
+        if (val) activeTab.value = val;
+    }
+);
 </script>
 
 <template>
@@ -109,21 +130,31 @@ const activeTab = ref<'info' | 'security' | 'danger'>('info');
             </div>
 
             <!-- 3. Profile Navigation Tabs -->
-            <div class="grid grid-cols-3 p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold">
+            <div class="grid grid-cols-4 p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold">
                 <button
                     type="button"
                     @click="activeTab = 'info'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
                     :class="activeTab === 'info'
                         ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
-                    <span>اطلاعات فردی</span>
+                    <span>اطلاعات</span>
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'wallet'"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    :class="activeTab === 'wallet'
+                        ? 'bg-white dark:bg-slate-800 text-amber-600 dark:text-amber-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                >
+                    <span>اعتبار و شارژ</span>
                 </button>
                 <button
                     type="button"
                     @click="activeTab = 'security'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
                     :class="activeTab === 'security'
                         ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
@@ -133,7 +164,7 @@ const activeTab = ref<'info' | 'security' | 'danger'>('info');
                 <button
                     type="button"
                     @click="activeTab = 'danger'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1.5"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
                     :class="activeTab === 'danger'
                         ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
@@ -147,6 +178,17 @@ const activeTab = ref<'info' | 'security' | 'danger'>('info');
                 <!-- Info Tab -->
                 <div v-show="activeTab === 'info'">
                     <UpdateProfileInformationForm :status="status" />
+                </div>
+
+                <!-- Wallet & Top-up Tab (Requirement: Manage balance & top-up inside profile) -->
+                <div v-show="activeTab === 'wallet'">
+                    <WalletSection
+                        :wallet="props.wallet || { balance: '0.0000' }"
+                        :transactions="props.transactions || []"
+                        :activeGateways="props.activeGateways || []"
+                        :pendingDeposit="props.pendingDeposit"
+                        :initialView="props.initialView"
+                    />
                 </div>
 
                 <!-- Security / Password Tab -->

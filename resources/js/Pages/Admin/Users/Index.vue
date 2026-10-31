@@ -24,6 +24,7 @@ interface UserItem {
     role: string;
     status: string;
     created_at: string;
+    wallet_balance: string;
     phone_numbers_count: number;
     phone_numbers: UserPhoneNumber[];
 }
@@ -168,10 +169,50 @@ function closeNumbersModal() {
     selectedUserForNumbers.value = null;
 }
 
+// User Wallet Modal State (Requirement: Manage balance directly from /admin/users)
+const isWalletModalOpen = ref(false);
+const walletTargetUser = ref<UserItem | null>(null);
+
+const walletForm = useForm({
+    action: 'credit', // 'credit' | 'debit' | 'set'
+    amount: '',
+    reason: 'تنظیم موجودی توسط راهبر ارشد سامانه',
+});
+
+function openWalletModal(user: UserItem) {
+    walletTargetUser.value = user;
+    walletForm.reset();
+    walletForm.action = 'credit';
+    walletForm.amount = '';
+    walletForm.reason = 'شارژ اعتبار توسط راهبر سامانه';
+    walletForm.clearErrors();
+    isWalletModalOpen.value = true;
+}
+
+function closeWalletModal() {
+    isWalletModalOpen.value = false;
+    walletTargetUser.value = null;
+    walletForm.reset();
+}
+
+function submitWallet() {
+    if (!walletTargetUser.value) return;
+
+    walletForm.post(route('admin.users.wallet.adjust', walletTargetUser.value.id), {
+        preserveScroll: true,
+        onSuccess: (page) => {
+            if (!page.props.flash?.error && Object.keys(walletForm.errors).length === 0) {
+                closeWalletModal();
+            }
+        },
+    });
+}
+
 const handleEscape = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         if (isEditModalOpen.value) closeEditModal();
         if (isNumbersModalOpen.value) closeNumbersModal();
+        if (isWalletModalOpen.value) closeWalletModal();
     }
 };
 
@@ -367,6 +408,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <th class="py-3.5 px-5 font-bold">نقش</th>
                                 <th class="py-3.5 px-5 font-bold">وضعیت حساب</th>
                                 <th class="py-3.5 px-5 font-bold text-center">خطوط سازمانی</th>
+                                <th class="py-3.5 px-5 font-bold text-center">موجودی اعتبار</th>
                                 <th class="py-3.5 px-5 font-bold">تاریخ ایجاد</th>
                                 <th class="py-3.5 px-5 font-bold text-left">عملیات مدیریت</th>
                             </tr>
@@ -422,11 +464,35 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         <span>{{ user.phone_numbers_count }} خط</span>
                                     </button>
                                 </td>
+                                <td class="py-4 px-5 text-center">
+                                    <button
+                                        type="button"
+                                        @click="openWalletModal(user)"
+                                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+                                        title="شارژ یا تنظیم موجودی اعتبار این کاربر"
+                                    >
+                                        <span class="font-mono text-xs font-black">{{ user.wallet_balance }}</span>
+                                        <span class="text-[10px]">واحد</span>
+                                    </button>
+                                </td>
                                 <td class="py-4 px-5 text-slate-400 font-mono text-[11px]" dir="ltr">
                                     {{ user.created_at }}
                                 </td>
                                 <td class="py-4 px-5 text-left">
                                     <div class="inline-flex items-center gap-1.5">
+                                        <!-- Adjust Wallet Button -->
+                                        <button
+                                            type="button"
+                                            @click="openWalletModal(user)"
+                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+                                            title="شارژ یا تنظیم موجودی کاربر"
+                                        >
+                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
+                                            </svg>
+                                            <span>اعتبار</span>
+                                        </button>
+
                                         <!-- Edit User Button (Requirement 2) -->
                                         <button
                                             type="button"
@@ -475,7 +541,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </tr>
 
                             <tr v-if="users.data.length === 0">
-                                <td colspan="8" class="py-12 text-center text-slate-400">
+                                <td colspan="9" class="py-12 text-center text-slate-400">
                                     هیچ حساب کاربری مطابق با فیلترهای جستجو یافت نشد.
                                 </td>
                             </tr>
@@ -737,6 +803,136 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </button>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- User Wallet Balance Adjustment Modal (Direct balance control from /admin/users) -->
+        <div v-if="isWalletModalOpen && walletTargetUser" @click.self="closeWalletModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col my-auto">
+                <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+                    <div>
+                        <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>مدیریت و تنظیم موجودی اعتبار کاربر</span>
+                        </h3>
+                        <span class="text-xs text-slate-400 block mt-0.5">
+                            {{ walletTargetUser.name }} (@{{ walletTargetUser.username }})
+                        </span>
+                    </div>
+                    <button @click="closeWalletModal" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitWallet" class="p-6 space-y-4">
+                    <!-- Current Balance Indicator -->
+                    <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
+                        <div>
+                            <span class="text-xs text-amber-800 dark:text-amber-300 font-bold block">موجودی فعلی حساب کاربر:</span>
+                            <span class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-0.5 block">
+                                {{ walletTargetUser.wallet_balance }}
+                                <span class="text-xs font-bold mr-1">واحد اعتبار</span>
+                            </span>
+                        </div>
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center text-lg">
+                            🪙
+                        </div>
+                    </div>
+
+                    <!-- Action Type Selector -->
+                    <div>
+                        <label class="form-label mb-1.5 font-bold">نوع عملیات:</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button
+                                type="button"
+                                @click="walletForm.action = 'credit'"
+                                class="py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer"
+                                :class="walletForm.action === 'credit'
+                                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                            >
+                                + شارژ (افزایش)
+                            </button>
+                            <button
+                                type="button"
+                                @click="walletForm.action = 'debit'"
+                                class="py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer"
+                                :class="walletForm.action === 'debit'
+                                    ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                            >
+                                - کسر اعتبار
+                            </button>
+                            <button
+                                type="button"
+                                @click="walletForm.action = 'set'"
+                                class="py-2 px-2.5 rounded-xl text-xs font-bold border transition-all text-center cursor-pointer"
+                                :class="walletForm.action === 'set'
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
+                            >
+                                = تنظیم مستقیم
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Amount -->
+                    <div>
+                        <label class="form-label mb-1.5 font-bold">
+                            {{ walletForm.action === 'set' ? 'موجودی دقیق جدید (واحد)' : 'مقدار اعتبار (واحد)' }}
+                            <span class="text-rose-500">*</span>
+                        </label>
+                        <input
+                            v-model="walletForm.amount"
+                            type="number"
+                            step="0.0001"
+                            min="0"
+                            required
+                            placeholder="مثال: 50.0000"
+                            class="form-input w-full font-mono text-left"
+                            dir="ltr"
+                        />
+                        <span v-if="walletForm.errors.amount" class="text-xs text-rose-500 block mt-1">
+                            {{ walletForm.errors.amount }}
+                        </span>
+                    </div>
+
+                    <!-- Reason / Note -->
+                    <div>
+                        <label class="form-label mb-1.5 font-bold">
+                            دلیل / توضیحات تراکنش <span class="text-rose-500">*</span>
+                        </label>
+                        <input
+                            v-model="walletForm.reason"
+                            type="text"
+                            required
+                            placeholder="علت تغییر یا شارژ موجودی کاربر..."
+                            class="form-input w-full text-xs"
+                        />
+                        <span v-if="walletForm.errors.reason" class="text-xs text-rose-500 block mt-1">
+                            {{ walletForm.errors.reason }}
+                        </span>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                        <button
+                            type="button"
+                            @click="closeWalletModal"
+                            class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                        >
+                            انصراف
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="walletForm.processing"
+                            class="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-all shadow-md shadow-amber-600/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                        >
+                            <span v-if="walletForm.processing">در حال اعمال...</span>
+                            <span v-else>ثبت و اعمال تغییرات</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </AdminLayout>

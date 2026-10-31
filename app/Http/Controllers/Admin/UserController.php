@@ -23,6 +23,7 @@ class UserController extends Controller
     public function index(Request $request): Response
     {
         $query = User::withCount('phoneNumbers')->with([
+            'wallet',
             'phoneNumbers' => function ($q) {
                 $q->select('id', 'user_id', 'phone_prefix_id', 'number', 'type', 'status', 'display_title', 'allocated_at')
                   ->latest('id');
@@ -79,6 +80,7 @@ class UserController extends Controller
                 'role' => $u->role->value,
                 'status' => $u->status->value,
                 'created_at' => $u->created_at->format('Y/m/d H:i'),
+                'wallet_balance' => (string) ($u->wallet?->balance ?? '0.0000'),
                 'phone_numbers_count' => $u->phone_numbers_count,
                 'phone_numbers' => $u->phoneNumbers->map(fn ($p) => [
                     'id' => $p->id,
@@ -333,6 +335,93 @@ class UserController extends Controller
             ->get();
 
         return response()->json($users);
+    }
+
+    /**
+     * Adjust or set user wallet balance directly from admin users table.
+     */
+    public function adjustWallet(Request $request, User $user, \App\Contracts\WalletServiceInterface $walletService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:credit,debit,set'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $admin = $request->user();
+        $action = $validated['action'];
+        $amount = number_format((float) $validated['amount'], 4, '.', '');
+        $reason = trim($validated['reason']);
+
+        if ($action === 'credit') {
+            if (bccomp($amount, '0.0001', 4) < 0) {
+                return back()->with('error', 'مبلغ افزایش اعتبار باید حداقل ۰.۰۰۰۱ واحد باشد.');
+            }
+            $walletService->adminCredit(
+                $user,
+                $amount,
+                $admin,
+                $reason
+            );
+            $msg = "مبلغ {$amount} واحد اعتبار با موفقیت به حساب کاربری «{$user->name}» افزوده شد.";
+        } elseif ($action === 'debit') {
+            if (bccomp($amount, '0.0001', 4) < 0) {
+                return back()->with('error', 'مبلغ کسر اعتبار باید حداقل ۰.۰۰۰۱ واحد باشد.');
+            }
+            try {
+                $walletService->adminDebit(
+                    $user,
+                    $amount,
+                    $admin,
+                    $reason
+                );
+                $msg = "مبلغ {$amount} واحد اعتبار با موفقیت از حساب کاربری «{$user->name}» کسر شد.";
+            } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
+                return back()->with('error', 'موجودی کاربر برای کسر این میزان اعتبار کافی نمی‌باشد.');
+            }
+        } else { // 'set'
+            $wallet = $user->getOrCreateWallet();
+            $current = (string) $wallet->balance;
+            $diff = bcsub($amount, $current, 4);
+
+            if (bccomp($diff, '0', 4) > 0) {
+                $walletService->adminCredit(
+                    $user,
+                    $diff,
+                    $admin,
+                    "تنظیم موجودی به {$amount}: " . $reason
+                );
+            } elseif (bccomp($diff, '0', 4) < 0) {
+                $debitAmount = bcmul($diff, '-1', 4);
+                try {
+                    $walletService->adminDebit(
+                        $user,
+                        $debitAmount,
+                        $admin,
+                        "تنظیم موجودی به {$amount}: " . $reason
+                    );
+                } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
+                    return back()->with('error', 'امکان تنظیم موجودی به مقدار منفی وجود ندارد.');
+                }
+            }
+            $msg = "موجودی حساب کاربری «{$user->name}» با موفقیت روی {$amount} واحد اعتبار تنظیم شد.";
+        }
+
+        AuditLog::create([
+            'user_id' => $admin->id,
+            'action' => 'admin.wallet.balance_adjusted',
+            'entity_type' => User::class,
+            'entity_id' => $user->id,
+            'payload' => [
+                'target_user_id' => $user->id,
+                'action' => $action,
+                'amount' => $amount,
+                'reason' => $reason,
+            ],
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+        ]);
+
+        return back()->with('success', $msg);
     }
 }
 
