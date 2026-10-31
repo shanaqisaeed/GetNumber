@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 
 interface MessageUser {
     id: number;
@@ -298,67 +299,113 @@ const sendAdminMessage = async () => {
     }
 };
 
-const pollAdminMessages = async () => {
-    if (!isPollingActive.value || isPollingInProgress.value) return;
-    if (document.hidden) return;
-
-    isPollingInProgress.value = true;
-    try {
-        const params = new URLSearchParams();
-        params.append('after_id', String(highestMessageId.value));
+const { connectionLabel, connectionStatusDotClass, isWebSocketActive, performPoll: pollAdminMessages } = useRealtimeMessages({
+    isAdmin: true,
+    pollUrl: route('admin.messages.poll'),
+    pollParams: () => {
+        const params: Record<string, any> = {
+            after_id: highestMessageId.value,
+        };
         if (selectedConv.value) {
-            params.append('active_phone_id', String(selectedConv.value.phone_number_id));
-            params.append('active_peer', selectedConv.value.peer_number);
+            params.active_phone_id = selectedConv.value.phone_number_id;
+            params.active_peer = selectedConv.value.peer_number;
             const highestChatId = chatMessages.value.length > 0
                 ? Math.max(...chatMessages.value.map(m => m.id))
                 : 0;
-            params.append('active_after_id', String(highestChatId));
+            params.active_after_id = highestChatId;
         }
-
-        const res = await fetch(`${route('admin.messages.poll')}?${params.toString()}`, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
-
-        if (res.ok) {
-            const result = await res.json();
-            if (result.success) {
-                if (Array.isArray(result.data) && result.data.length > 0) {
-                    const incoming = result.data.map((item: any) => ({ ...item, isNew: true }));
-                    for (const item of incoming) {
-                        if (item.id > highestMessageId.value) {
-                            highestMessageId.value = item.id;
-                        }
-                    }
-                    liveMessages.value = [...incoming, ...liveMessages.value];
-                    totalCount.value += incoming.length;
-                    todayCount.value += incoming.length;
-
-                    setTimeout(() => {
-                        for (const item of incoming) {
-                            item.isNew = false;
-                        }
-                    }, 4000);
-                }
-
-                if (Array.isArray(result.active_messages) && result.active_messages.length > 0) {
-                    const existingIds = new Set(chatMessages.value.map(m => m.id));
-                    const newChatMsgs = result.active_messages.filter((m: ChatMessage) => !existingIds.has(m.id));
-                    if (newChatMsgs.length > 0) {
-                        chatMessages.value = [...chatMessages.value, ...newChatMsgs];
-                        scrollToBottom();
-                    }
+        return params;
+    },
+    onPollResponse: (result) => {
+        if (Array.isArray(result.data) && result.data.length > 0) {
+            const incoming = result.data.map((item: any) => ({ ...item, isNew: true }));
+            for (const item of incoming) {
+                if (item.id > highestMessageId.value) {
+                    highestMessageId.value = item.id;
                 }
             }
+            liveMessages.value = [...incoming, ...liveMessages.value];
+            totalCount.value += incoming.length;
+            todayCount.value += incoming.length;
+
+            setTimeout(() => {
+                for (const item of incoming) {
+                    item.isNew = false;
+                }
+            }, 4000);
         }
-    } catch {
-        // tolerate
-    } finally {
-        isPollingInProgress.value = false;
-    }
-};
+
+        if (Array.isArray(result.active_messages) && result.active_messages.length > 0) {
+            const existingIds = new Set(chatMessages.value.map(m => m.id));
+            const newChatMsgs = result.active_messages.filter((m: ChatMessage) => !existingIds.has(m.id));
+            if (newChatMsgs.length > 0) {
+                chatMessages.value = [...chatMessages.value, ...newChatMsgs];
+                scrollToBottom();
+            }
+        }
+    },
+    onMessage: (msg: RealtimeMessagePayload) => {
+        if (msg.id > highestMessageId.value) {
+            highestMessageId.value = msg.id;
+        }
+
+        const adminItem: AdminMessageItem = {
+            id: msg.id,
+            phone_number_id: msg.phone_number_id,
+            destination_number: msg.destination_number,
+            sender: msg.sender,
+            body: msg.body,
+            source_time: null,
+            server_received_at: msg.server_received_at,
+            server_received_at_formatted: msg.server_received_at_formatted,
+            processing_status: msg.processing_status as any,
+            client_message_id: msg.client_message_id ?? null,
+            source_system_id: null,
+            isNew: true,
+        };
+
+        if (!liveMessages.value.some(m => m.id === msg.id)) {
+            liveMessages.value = [adminItem, ...liveMessages.value];
+            totalCount.value += 1;
+            todayCount.value += 1;
+            setTimeout(() => {
+                adminItem.isNew = false;
+            }, 4000);
+        }
+
+        // If inside matching conversation
+        if (selectedConv.value && selectedConv.value.phone_number_id === msg.phone_number_id &&
+            (selectedConv.value.peer_number === msg.peer_number || selectedConv.value.peer_number === msg.sender)) {
+            if (!chatMessages.value.some(m => m.id === msg.id)) {
+                chatMessages.value.push({
+                    id: msg.id,
+                    phone_number_id: msg.phone_number_id,
+                    body: msg.body,
+                    direction: msg.direction,
+                    direction_label: msg.direction === 'inbound' ? 'دریافتی' : 'ارسالی',
+                    is_line_a: msg.direction === 'outbound',
+                    sender: {
+                        number: msg.sender,
+                        formatted: msg.sender,
+                        name: msg.sender,
+                    },
+                    receiver: {
+                        number: msg.destination_number,
+                        formatted: msg.destination_number,
+                        name: msg.destination_number,
+                    },
+                    processing_status: msg.processing_status,
+                    status_label: msg.processing_status === 'received' ? 'تحویل‌شده' : 'پردازش‌شده',
+                    status_badge: 'bg-emerald-500/10 text-emerald-600',
+                    server_received_at: msg.server_received_at,
+                    server_received_at_formatted: msg.server_received_at_formatted,
+                    server_received_time: msg.server_received_at_formatted,
+                });
+                scrollToBottom();
+            }
+        }
+    },
+});
 
 const applyGlobalFilters = () => {
     router.get(
@@ -463,13 +510,11 @@ const handleKeydown = (e: KeyboardEvent) => {
 };
 
 onMounted(() => {
-    pollingTimer = setInterval(pollAdminMessages, 4000);
     window.addEventListener('keydown', handleKeydown);
     scrollToBottom();
 });
 
 onUnmounted(() => {
-    if (pollingTimer) clearInterval(pollingTimer);
     window.removeEventListener('keydown', handleKeydown);
 });
 
@@ -552,13 +597,16 @@ watch(() => props.messages, (newMessages) => {
                         </button>
                     </div>
 
-                    <!-- Silent Live Polling Indicator -->
-                    <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60">
-                        <span class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span>بروزرسانی زنده (۴ ثانیه)</span>
+                    <!-- Real-Time / Fallback Polling Status Indicator -->
+                    <div
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-all cursor-help"
+                        :class="isWebSocketActive
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/60'
+                            : 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400 dark:border-sky-800/60'"
+                        :title="connectionLabel"
+                    >
+                        <span class="w-2 h-2 rounded-full" :class="connectionStatusDotClass"></span>
+                        <span>{{ connectionLabel }}</span>
                     </div>
                 </div>
             </div>

@@ -12,10 +12,13 @@ use App\Models\Message;
 use App\Models\PhoneNumber;
 use App\Models\PhonePrefix;
 use App\Models\User;
+use App\Events\MessageReceived;
+use App\Events\MessageStatusUpdated;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -209,7 +212,7 @@ class MessageService implements MessageServiceInterface
             }
 
             try {
-                $outbound = DB::transaction(function () use ($fromPhone, $destPhone, $cleanDest, $body, $sourceSystemId, $clientMessageId) {
+                $outboundPair = DB::transaction(function () use ($fromPhone, $destPhone, $cleanDest, $body, $sourceSystemId, $clientMessageId) {
                     $msg = Message::create([
                         'phone_number_id' => $fromPhone->id,
                         'destination_number' => $cleanDest,
@@ -223,8 +226,9 @@ class MessageService implements MessageServiceInterface
                         'direction' => MessageDirection::Outbound,
                     ]);
 
+                    $inboundMsg = null;
                     if ($destPhone && $destPhone->status === PhoneNumberStatus::Allocated && $destPhone->accepts_incoming_sms) {
-                        Message::create([
+                        $inboundMsg = Message::create([
                             'phone_number_id' => $destPhone->id,
                             'destination_number' => $destPhone->number,
                             'sender' => $fromPhone->number,
@@ -238,8 +242,14 @@ class MessageService implements MessageServiceInterface
                         ]);
                     }
 
-                    return $msg;
+                    return [$msg, $inboundMsg];
                 });
+
+                [$outbound, $inboundMsg] = $outboundPair;
+                $this->safeBroadcast(new MessageReceived($outbound));
+                if ($inboundMsg) {
+                    $this->safeBroadcast(new MessageReceived($inboundMsg));
+                }
 
                 $results[] = [
                     'destination' => $dest,
@@ -422,7 +432,7 @@ class MessageService implements MessageServiceInterface
         }
 
         // 4. Atomic message persistence with concurrent duplicate safety
-        return DB::transaction(function () use ($data, $phoneNumber, $sourceSystemId, $clientMessageId, $isOutbound, $peerNumber) {
+        $result = DB::transaction(function () use ($data, $phoneNumber, $sourceSystemId, $clientMessageId, $isOutbound, $peerNumber) {
             // Re-check idempotency under lock if keys are present
             if ($sourceSystemId !== null && $clientMessageId !== null) {
                 $existing = Message::where('source_system_id', $sourceSystemId)
@@ -462,11 +472,12 @@ class MessageService implements MessageServiceInterface
                     'direction' => $isOutbound ? MessageDirection::Outbound : MessageDirection::Inbound,
                 ]);
 
+                $inboundCopy = null;
                 // If outbound and recipient is an internal line that accepts incoming SMS, deliver inbound copy
                 if ($isOutbound) {
                     $destPhone = PhoneNumber::where('number', $peerNumber)->first();
                     if ($destPhone && $destPhone->status === PhoneNumberStatus::Allocated && $destPhone->accepts_incoming_sms) {
-                        Message::create([
+                        $inboundCopy = Message::create([
                             'phone_number_id' => $destPhone->id,
                             'destination_number' => $destPhone->number,
                             'sender' => $phoneNumber->number,
@@ -484,6 +495,7 @@ class MessageService implements MessageServiceInterface
 
                 return [
                     'message' => $message->load('phoneNumber'),
+                    'inbound_copy' => $inboundCopy ? $inboundCopy->load('phoneNumber') : null,
                     'is_duplicate' => false,
                 ];
             } catch (\Illuminate\Database\UniqueConstraintViolationException|\Illuminate\Database\QueryException $e) {
@@ -504,6 +516,17 @@ class MessageService implements MessageServiceInterface
                 throw $e;
             }
         });
+
+        if (isset($result['is_duplicate']) && $result['is_duplicate'] === false) {
+            if (! empty($result['message'])) {
+                $this->safeBroadcast(new MessageReceived($result['message']));
+            }
+            if (! empty($result['inbound_copy'])) {
+                $this->safeBroadcast(new MessageReceived($result['inbound_copy']));
+            }
+        }
+
+        return $result;
     }
 
     /**
@@ -717,6 +740,9 @@ class MessageService implements MessageServiceInterface
                 return [$outbound, $inbound];
             });
 
+            $this->safeBroadcast(new MessageReceived($messagePair[0]));
+            $this->safeBroadcast(new MessageReceived($messagePair[1]));
+
             $results[] = [
                 'destination' => $rawDest,
                 'status' => 'success',
@@ -851,23 +877,43 @@ class MessageService implements MessageServiceInterface
             });
 
         // When a user explicitly opens the conversation, mark inbound messages as processed (read)
-        Message::where('phone_number_id', $phoneNumber->id)
+        $inboundToUpdate = Message::where('phone_number_id', $phoneNumber->id)
             ->where(function ($q) use ($cleanPeer, $peerNumber) {
                 $q->where('peer_number', $cleanPeer)
                     ->orWhere('peer_number', $peerNumber);
             })
             ->where('direction', \App\Enums\MessageDirection::Inbound)
             ->where('processing_status', MessageProcessingStatus::Received)
-            ->update(['processing_status' => MessageProcessingStatus::Processed]);
+            ->get();
+
+        if ($inboundToUpdate->isNotEmpty()) {
+            Message::whereIn('id', $inboundToUpdate->pluck('id'))
+                ->update(['processing_status' => MessageProcessingStatus::Processed]);
+
+            foreach ($inboundToUpdate as $upMsg) {
+                $upMsg->processing_status = MessageProcessingStatus::Processed;
+                $this->safeBroadcast(new MessageStatusUpdated($upMsg));
+            }
+        }
 
         // Also if peer is an internal allocated line, mark that line's outbound messages to this line as processed (read)
         $peerPhone = PhoneNumber::where('number', $cleanPeer)->first();
         if ($peerPhone) {
-            Message::where('phone_number_id', $peerPhone->id)
+            $peerOutbounds = Message::where('phone_number_id', $peerPhone->id)
                 ->where('peer_number', $phoneNumber->number)
                 ->where('direction', \App\Enums\MessageDirection::Outbound)
                 ->where('processing_status', MessageProcessingStatus::Received)
-                ->update(['processing_status' => MessageProcessingStatus::Processed]);
+                ->get();
+
+            if ($peerOutbounds->isNotEmpty()) {
+                Message::whereIn('id', $peerOutbounds->pluck('id'))
+                    ->update(['processing_status' => MessageProcessingStatus::Processed]);
+
+                foreach ($peerOutbounds as $upMsg) {
+                    $upMsg->processing_status = MessageProcessingStatus::Processed;
+                    $this->safeBroadcast(new MessageStatusUpdated($upMsg));
+                }
+            }
         }
 
         if ($afterId) {
@@ -1164,5 +1210,17 @@ class MessageService implements MessageServiceInterface
     public function deleteMessage(Message $message): void
     {
         $message->delete();
+    }
+
+    /**
+     * Safely broadcast an event without interrupting caller if broadcast driver or websocket server is unreachable.
+     */
+    protected function safeBroadcast(object $event): void
+    {
+        try {
+            broadcast($event);
+        } catch (\Throwable $e) {
+            Log::debug('Real-time broadcast skipped: '.$e->getMessage());
+        }
     }
 }

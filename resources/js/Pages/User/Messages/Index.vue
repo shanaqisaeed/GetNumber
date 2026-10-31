@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { useRealtimeMessages, RealtimeMessagePayload, RealtimeStatusPayload } from '@/Composables/useRealtimeMessages';
 
 interface LineItem {
     id: number;
@@ -247,72 +248,130 @@ const loadOlderMessages = async () => {
     }
 };
 
-// Silent Polling in background
-let pollingInterval: any = null;
-const isPollingBusy = ref(false);
+const page = usePage();
 
-const performSilentPoll = async () => {
-    if (isPollingBusy.value || !selectedLineId.value) return;
-    if (document.hidden) return;
-
-    isPollingBusy.value = true;
-    try {
-        const params = new URLSearchParams();
-        params.append('phone_number_id', String(selectedLineId.value));
+// Real-Time WebSockets Engine with Intelligent Polling Fallback
+const { connectionLabel, connectionStatusDotClass, isWebSocketActive, performPoll } = useRealtimeMessages({
+    userId: (page.props.auth as any)?.user?.id,
+    lineId: selectedLineId.value,
+    isAdmin: !!(page.props.auth as any)?.user?.is_admin,
+    pollUrl: route('messages.poll'),
+    pollParams: () => {
+        const params: Record<string, any> = {
+            phone_number_id: selectedLineId.value,
+        };
         if (currentActivePeer.value && !isComposingNew.value) {
-            params.append('peer', currentActivePeer.value);
-            params.append('after_id', String(getHighestMessageId()));
+            params.peer = currentActivePeer.value;
+            params.after_id = getHighestMessageId();
         }
         if (searchQuery.value) {
-            params.append('search', searchQuery.value);
+            params.search = searchQuery.value;
+        }
+        return params;
+    },
+    onPollResponse: (data) => {
+        if (Array.isArray(data.conversations)) {
+            conversationList.value = data.conversations;
         }
 
-        const res = await fetch(`${route('messages.poll')}?${params.toString()}`, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-        });
+        if (data.unread_counts_by_line && typeof data.unread_counts_by_line === 'object') {
+            allocatedNumbersList.value.forEach(line => {
+                line.unread_count = Number(data.unread_counts_by_line[line.id] || 0);
+            });
+        }
 
-        if (res.ok) {
-            const data = await res.json();
-            if (data.success) {
-                if (Array.isArray(data.conversations)) {
-                    conversationList.value = data.conversations;
+        if (data.statuses && typeof data.statuses === 'object') {
+            chatMessages.value.forEach(m => {
+                if (data.statuses[m.id]) {
+                    m.processing_status = data.statuses[m.id];
                 }
+            });
+        }
 
-                if (data.unread_counts_by_line && typeof data.unread_counts_by_line === 'object') {
-                    allocatedNumbersList.value.forEach(line => {
-                        line.unread_count = Number(data.unread_counts_by_line[line.id] || 0);
-                    });
-                }
-
-                if (data.statuses && typeof data.statuses === 'object') {
-                    chatMessages.value.forEach(m => {
-                        if (data.statuses[m.id]) {
-                            m.processing_status = data.statuses[m.id];
-                        }
-                    });
-                }
-
-                if (Array.isArray(data.new_messages) && data.new_messages.length > 0 && currentActivePeer.value && !isComposingNew.value) {
-                    const existingIds = new Set(chatMessages.value.map(m => m.id));
-                    const fresh = data.new_messages.filter((m: ChatMessage) => !existingIds.has(m.id));
-                    if (fresh.length > 0) {
-                        chatMessages.value = [...chatMessages.value, ...fresh];
-                        if (!isScrolledUp.value) {
-                            scrollToBottom(true);
-                        }
-                    }
+        if (Array.isArray(data.new_messages) && data.new_messages.length > 0 && currentActivePeer.value && !isComposingNew.value) {
+            const existingIds = new Set(chatMessages.value.map(m => m.id));
+            const fresh = data.new_messages.filter((m: ChatMessage) => !existingIds.has(m.id));
+            if (fresh.length > 0) {
+                chatMessages.value = [...chatMessages.value, ...fresh];
+                if (!isScrolledUp.value) {
+                    scrollToBottom(true);
                 }
             }
         }
-    } catch {
-        // Silently tolerate
-    } finally {
-        isPollingBusy.value = false;
-    }
-};
+    },
+    onMessage: (msg: RealtimeMessagePayload) => {
+        if (selectedLineId.value && msg.phone_number_id === selectedLineId.value) {
+            const isMatchActiveChat = currentActivePeer.value &&
+                (msg.peer_number === currentActivePeer.value || msg.sender === currentActivePeer.value);
+
+            if (isMatchActiveChat && !isComposingNew.value) {
+                if (!chatMessages.value.some(m => m.id === msg.id)) {
+                    chatMessages.value.push({
+                        id: msg.id,
+                        phone_number_id: msg.phone_number_id,
+                        destination_number: msg.destination_number,
+                        sender: msg.sender,
+                        peer_number: msg.peer_number,
+                        direction: msg.direction,
+                        body: msg.body,
+                        server_received_at: msg.server_received_at,
+                        server_received_at_formatted: msg.server_received_at_formatted,
+                        processing_status: msg.processing_status,
+                    });
+                    if (!isScrolledUp.value) {
+                        scrollToBottom(true);
+                    }
+                }
+            }
+
+            // Update conversations list dynamically
+            const convIndex = conversationList.value.findIndex(c => c.peer_number === msg.peer_number);
+            if (convIndex !== -1) {
+                const conv = conversationList.value[convIndex];
+                conv.latest_message = {
+                    id: msg.id,
+                    body: msg.body,
+                    direction: msg.direction,
+                    server_received_at: msg.server_received_at,
+                    server_received_at_formatted: msg.server_received_at_formatted,
+                };
+                conv.messages_count += 1;
+                if (!isMatchActiveChat && msg.direction === 'inbound') {
+                    conv.unread_count = (conv.unread_count || 0) + 1;
+                }
+                conversationList.value.splice(convIndex, 1);
+                conversationList.value.unshift(conv);
+            } else {
+                performPoll();
+            }
+
+            const currentLine = allocatedNumbersList.value.find(l => l.id === selectedLineId.value);
+            if (currentLine && msg.direction === 'inbound' && !isMatchActiveChat) {
+                currentLine.unread_count = (currentLine.unread_count || 0) + 1;
+            }
+        } else if (msg.direction === 'inbound') {
+            const otherLine = allocatedNumbersList.value.find(l => l.id === msg.phone_number_id);
+            if (otherLine) {
+                otherLine.unread_count = (otherLine.unread_count || 0) + 1;
+            }
+        }
+    },
+    onStatusUpdate: (status: RealtimeStatusPayload) => {
+        const target = chatMessages.value.find(m => m.id === status.id);
+        if (target) {
+            target.processing_status = status.processing_status;
+        }
+    },
+    onUnreadUpdate: (totalUnread, byLine) => {
+        if (byLine) {
+            allocatedNumbersList.value.forEach(line => {
+                if (typeof byLine[line.id] === 'number') {
+                    line.unread_count = byLine[line.id];
+                }
+            });
+        }
+    },
+});
 
 const handleEscape = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
@@ -329,12 +388,10 @@ onMounted(() => {
         scrollToBottom(false, true);
         setTimeout(() => scrollToBottom(false, true), 150);
     }
-    pollingInterval = setInterval(performSilentPoll, 4000);
     window.addEventListener('keydown', handleEscape);
 });
 
 onUnmounted(() => {
-    if (pollingInterval) clearInterval(pollingInterval);
     window.removeEventListener('keydown', handleEscape);
 });
 
@@ -380,7 +437,7 @@ const closeChatOrComposer = () => {
     replyText.value = '';
     composerText.value = '';
     recipientChips.value = [];
-    performSilentPoll();
+    performPoll();
 };
 
 // Select a conversation from list (User explicitly clicks on a contact/number)
@@ -518,7 +575,7 @@ const sendFromComposer = async () => {
             } else {
                 composerText.value = '';
                 recipientChips.value = [];
-                performSilentPoll();
+                performPoll();
             }
         } else {
             showToast(data.message || 'خطا در ارسال پیامک');
@@ -574,7 +631,7 @@ const sendReply = async () => {
             });
             isScrolledUp.value = false;
             scrollToBottom(true, true);
-            performSilentPoll();
+            performPoll();
         } else {
             showToast(data.message || 'خطا در ارسال پیامک.');
             replyText.value = textToSend;
@@ -682,15 +739,13 @@ const smsPartCount = computed(() => {
 
                         <!-- Signal Status Indicator & Switcher Button -->
                         <div class="flex items-center gap-2">
-                            <div class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                                <!-- Signal Bars SVG -->
-                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                                    <rect x="2" y="17" width="3" height="5" rx="1"/>
-                                    <rect x="7" y="13" width="3" height="9" rx="1"/>
-                                    <rect x="12" y="9" width="3" height="13" rx="1"/>
-                                    <rect x="17" y="4" width="3" height="18" rx="1"/>
-                                </svg>
-                                <span>آنلاین</span>
+                            <div
+                                class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-help"
+                                :class="isWebSocketActive ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20'"
+                                :title="connectionLabel"
+                            >
+                                <span class="w-1.5 h-1.5 rounded-full" :class="connectionStatusDotClass"></span>
+                                <span>{{ isWebSocketActive ? 'زنده (WebSocket)' : 'همگام‌سازی خودکار' }}</span>
                             </div>
 
                             <button

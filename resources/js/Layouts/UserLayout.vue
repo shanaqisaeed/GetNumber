@@ -1,17 +1,60 @@
 <script setup lang="ts">
+import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user);
-const unreadCount = computed(() => page.props.auth?.unread_messages_count || 0);
+const liveUnreadCount = ref<number>(page.props.auth?.unread_messages_count || 0);
+
+watch(
+    () => page.props.auth?.unread_messages_count,
+    (val) => {
+        if (typeof val === 'number') {
+            liveUnreadCount.value = val;
+        }
+    }
+);
 
 const { isDark, toggleTheme } = useTheme();
 
 // More Menu / Services Sheet state
 const isMoreMenuOpen = ref(false);
+
+// Realtime incoming toast banner
+const toastNotification = ref<{ title: string; body: string; peer?: string; lineId?: number } | null>(null);
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showIncomingToast = (msg: RealtimeMessagePayload) => {
+    toastNotification.value = {
+        title: `پیامک جدید از ${msg.peer_number || msg.sender}`,
+        body: msg.body.length > 55 ? msg.body.slice(0, 52) + '...' : msg.body,
+        peer: msg.peer_number || msg.sender,
+        lineId: msg.phone_number_id,
+    };
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+        toastNotification.value = null;
+    }, 5000);
+};
+
+const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
+    userId: user.value?.id,
+    isAdmin: !!user.value?.is_admin,
+    onMessage: (msg) => {
+        if (msg.direction === 'inbound') {
+            liveUnreadCount.value += 1;
+            if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
+                showIncomingToast(msg);
+            }
+        }
+    },
+    onUnreadUpdate: (newTotal) => {
+        liveUnreadCount.value = newTotal;
+    },
+});
 
 const navItems = computed(() => [
     {
@@ -34,7 +77,7 @@ const navItems = computed(() => [
         href: route('messages.index'),
         active: route().current('messages.*'),
         icon: 'chat',
-        badge: unreadCount.value,
+        badge: liveUnreadCount.value,
     },
     {
         name: 'درخواست‌ها',
@@ -55,6 +98,36 @@ const navItems = computed(() => [
 
 <template>
     <div class="min-h-screen w-full flex flex-col items-center bg-[var(--bg-canvas)] relative transition-colors duration-300">
+        <!-- Floating Live Message Toast -->
+        <transition enter-active-class="transition ease-out duration-300" enter-from-class="-translate-y-8 opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100" leave-to-class="-translate-y-8 opacity-0">
+            <div v-if="toastNotification" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[420px] p-3 rounded-2xl border border-indigo-500/40 shadow-2xl flex items-center justify-between gap-3 backdrop-blur-xl bg-slate-900/90 text-white">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-xs font-black truncate">{{ toastNotification.title }}</p>
+                        <p class="text-[11px] text-slate-300 truncate">{{ toastNotification.body }}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <Link
+                        v-if="toastNotification.peer"
+                        :href="route('messages.index', { phone_number_id: toastNotification.lineId, peer: toastNotification.peer })"
+                        class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] font-bold text-white transition-all shadow-sm"
+                        @click="toastNotification = null"
+                    >
+                        مشاهده
+                    </Link>
+                    <button @click="toastNotification = null" class="p-1 text-slate-400 hover:text-white text-xs">
+                        ✕
+                    </button>
+                </div>
+            </div>
+        </transition>
+
         <!-- 3D Liquid Canvas Ambient Glows (Fixed in background) -->
         <div class="ambient-mesh">
             <div class="liquid-orb orb-1"></div>
@@ -80,6 +153,11 @@ const navItems = computed(() => [
                             <span class="text-xs sm:text-sm font-extrabold text-[var(--text-primary)] truncate">
                                 {{ user?.name || 'کاربر گرامی' }}
                             </span>
+                            <span
+                                class="w-2 h-2 rounded-full transition-all shrink-0 cursor-help"
+                                :class="connectionStatusDotClass"
+                                :title="connectionLabel"
+                            ></span>
                         </div>
                         <div class="flex items-center gap-1 text-[10px] text-indigo-500 dark:text-indigo-400 font-semibold">
                             <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">

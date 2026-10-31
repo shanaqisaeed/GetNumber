@@ -63,6 +63,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');
     Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
     Route::get('/messages/poll', [\App\Http\Controllers\User\MessageController::class, 'poll'])->name('messages.poll');
+    Route::get('/messages/unread-summary', [\App\Http\Controllers\User\MessageController::class, 'unreadSummary'])->name('messages.unread_summary');
     Route::get('/messages/{message}', [\App\Http\Controllers\User\MessageController::class, 'show'])->name('messages.show');
 
     // User API Token Management

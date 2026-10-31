@@ -336,6 +336,49 @@ class MessageController extends Controller
     }
 
     /**
+     * Global lightweight unread counter & real-time sync summary for user layouts and dashboards.
+     */
+    public function unreadSummary(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $allocatedLineIds = $user->phoneNumbers()
+            ->where('status', PhoneNumberStatus::Allocated)
+            ->pluck('id');
+
+        $unreadCountsByLine = Message::whereIn('phone_number_id', $allocatedLineIds)
+            ->where('direction', MessageDirection::Inbound)
+            ->where('processing_status', MessageProcessingStatus::Received)
+            ->selectRaw('phone_number_id, count(*) as count')
+            ->groupBy('phone_number_id')
+            ->pluck('count', 'phone_number_id')
+            ->mapWithKeys(fn ($count, $id) => [(int) $id => (int) $count]);
+
+        $totalUnread = (int) $unreadCountsByLine->sum();
+
+        $latestMessage = Message::whereIn('phone_number_id', $allocatedLineIds)
+            ->where('direction', MessageDirection::Inbound)
+            ->where('processing_status', MessageProcessingStatus::Received)
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'unread_total' => $totalUnread,
+            'unread_by_line' => $unreadCountsByLine,
+            'latest_message' => $latestMessage ? [
+                'id' => $latestMessage->id,
+                'phone_number_id' => $latestMessage->phone_number_id,
+                'destination_number' => $latestMessage->destination_number,
+                'sender' => $latestMessage->sender,
+                'peer_number' => $latestMessage->peer_number,
+                'body' => $latestMessage->body,
+                'server_received_at' => $latestMessage->server_received_at?->toIso8601String(),
+                'server_received_at_formatted' => $latestMessage->server_received_at?->diffForHumans(),
+            ] : null,
+        ]);
+    }
+
+    /**
      * Show details of a specific message.
      */
     public function show(Request $request, Message $message): JsonResponse
