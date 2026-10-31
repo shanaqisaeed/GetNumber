@@ -622,7 +622,7 @@ try {
                             :class="activeEndpoint === 'store' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded ml-1.5">POST</span>
-                            <span>ثبت پیام ورودی</span>
+                            <span>ارسال و ثبت پیام (یکپارچه)</span>
                         </button>
                         <button
                             type="button"
@@ -671,12 +671,13 @@ try {
                             <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/messages</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="glass-pill text-[11px] font-bold text-indigo-600 dark:text-indigo-400">مجوز لازم: messages:write</span>
+                            <span class="glass-pill text-[11px] font-bold text-indigo-600 dark:text-indigo-400">مجوز لازم: messages:write یا messages:send</span>
+                            <span class="glass-pill text-[11px] font-bold text-emerald-600 dark:text-emerald-400">هزینه: رایگان (بدون کسر Coin)</span>
                             <span class="glass-pill text-[11px] font-bold text-amber-600 dark:text-amber-400">سقف: ۶۰ در دقیقه</span>
                         </div>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                        این متد برای دریافت پیامک از سیستم‌های خارجی یا سرور گیت‌وی و <span class="font-bold">ثبت آن در کارتابل سامانه</span> استفاده می‌شود.
+                        این وب‌سرویس جامع جهت <span class="font-bold">ارسال پیامک خروجی (تکی یا چندگانه/گروهی)</span> از خطوط سازمانی شما، و همچنین <span class="font-bold">دریافت و ثبت وب‌هوک پیامک‌های ورودی</span> در کارتابل سامانه با پشتیبانی کامل از Idempotency طراحی شده است.
                     </p>
 
                     <!-- Parameters Table -->
@@ -694,24 +695,30 @@ try {
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/60 dark:divide-white/5">
                                     <tr>
-                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">destination_number</td>
-                                        <td class="p-3 font-mono">string</td>
+                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">destination_number / destinations</td>
+                                        <td class="p-3 font-mono">string | array</td>
                                         <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
                                         <td class="p-3 leading-relaxed">
-                                            شماره مقصد به همراه پیش‌شماره کامل و فعال سامانه (مثال: <code class="font-mono text-indigo-600 dark:text-indigo-400">{{ defaultPrefix }}000010001</code>). خط باید فعال و در مالکیت حساب باشد.
+                                            شماره مقصد (تکی یا آرایه‌ای از شماره‌ها جهت ارسال چندگانه/Bulk). شماره‌های شبکه GetNumber باید همراه با پیش‌شماره کامل سامانه ارسال شوند. فیلد <code class="font-mono">to</code> نیز به عنوان نام مستعار پشتیبانی می‌شود.
                                         </td>
                                     </tr>
                                     <tr>
-                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">sender</td>
+                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">sender / from_number</td>
                                         <td class="p-3 font-mono">string</td>
                                         <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
-                                        <td class="p-3">شماره یا شناسه متنی فرستنده پیام (حداکثر ۱۰۰ کاراکتر).</td>
+                                        <td class="p-3">خط فرستنده پیام (در ارسال خروجی باید متعلق به کاربر باشد). فیلدهای <code class="font-mono">from</code> یا <code class="font-mono">from_number_id</code> نیز پشتیبانی می‌شوند.</td>
                                     </tr>
                                     <tr>
-                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">body</td>
+                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">body / message</td>
                                         <td class="p-3 font-mono">string</td>
                                         <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
                                         <td class="p-3">متن کامل پیام (حداکثر ۵۰۰۰ کاراکتر با پشتیبانی کامل از UTF-8 و متون فارسی).</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">direction</td>
+                                        <td class="p-3 font-mono">string</td>
+                                        <td class="p-3 text-slate-500">اختیاری</td>
+                                        <td class="p-3">جهت پیام: <code class="font-mono">outbound</code> (پیش‌فرض هنگام ارسال از خطوط اختصاص‌یافته) یا <code class="font-mono">inbound</code> (دریافت وب‌هوک).</td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">client_message_id</td>

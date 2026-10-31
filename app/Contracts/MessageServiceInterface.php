@@ -28,6 +28,17 @@ interface MessageServiceInterface
     public function recordInboundMessage(array $data, ?User $actor = null, ?ApiToken $token = null): array;
 
     /**
+     * Unified message dispatcher supporting single or bulk destinations,
+     * inbound intake and outbound delivery, with full idempotency and auditing.
+     *
+     * @param array $payload
+     * @param User|null $actor
+     * @param ApiToken|null $token
+     * @return array
+     */
+    public function dispatchUnifiedMessage(array $payload, ?User $actor = null, ?ApiToken $token = null): array;
+
+    /**
      * Retrieve paginated messages for a user with optional filtering.
      */
     public function getUserMessages(User $user, array $filters = [], int $perPage = 15): LengthAwarePaginator;

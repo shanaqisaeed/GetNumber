@@ -23,6 +23,272 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 class MessageService implements MessageServiceInterface
 {
     /**
+     * Unified message dispatcher supporting single or bulk destinations,
+     * inbound intake and outbound delivery, with full idempotency and auditing.
+     */
+    public function dispatchUnifiedMessage(array $payload, ?User $actor = null, ?ApiToken $token = null): array
+    {
+        $effectiveActor = $actor ?? $token?->user;
+
+        // 1. Normalize sender
+        $rawSender = (string) ($payload['sender'] ?? ($payload['from_number'] ?? ($payload['from'] ?? '')));
+        if (empty($rawSender) && ! empty($payload['from_number_id'])) {
+            $senderPhoneById = PhoneNumber::find($payload['from_number_id']);
+            if ($senderPhoneById) {
+                $rawSender = $senderPhoneById->number;
+            }
+        }
+
+        // 2. Normalize destinations
+        $destinations = [];
+        if (isset($payload['destinations'])) {
+            if (is_array($payload['destinations'])) {
+                $destinations = $payload['destinations'];
+            } elseif (is_string($payload['destinations'])) {
+                $destinations = preg_split('/[\r\n,]+/', $payload['destinations']);
+            }
+        } elseif (isset($payload['destination_number'])) {
+            $destinations = [$payload['destination_number']];
+        } elseif (isset($payload['to'])) {
+            if (is_array($payload['to'])) {
+                $destinations = $payload['to'];
+            } else {
+                $destinations = preg_split('/[\r\n,]+/', (string) $payload['to']);
+            }
+        }
+
+        $destinations = collect($destinations)
+            ->map(fn ($d) => trim((string) $d))
+            ->filter(fn ($d) => ! empty($d))
+            ->unique()
+            ->values()
+            ->all();
+
+        // 3. Normalize body
+        $body = trim((string) ($payload['body'] ?? ($payload['message'] ?? ($payload['text'] ?? ''))));
+
+        // 4. Determine single vs bulk mode
+        $isBulk = count($destinations) > 1;
+
+        if (! $isBulk) {
+            // Single destination mode: delegating to existing recordInboundMessage logic for maximum consistency
+            $singleDest = $destinations[0] ?? (string) ($payload['destination_number'] ?? '');
+            $normalizedPayload = [
+                ...$payload,
+                'sender' => $rawSender,
+                'destination_number' => $singleDest,
+                'body' => $body,
+            ];
+
+            $result = $this->recordInboundMessage($normalizedPayload, $actor, $token);
+            $message = $result['message'];
+            $isDuplicate = $result['is_duplicate'];
+
+            // Log audit trail
+            \App\Models\AuditLog::create([
+                'user_id' => $effectiveActor?->id,
+                'action' => ($message->direction === MessageDirection::Outbound || $message->direction->value === 'outbound')
+                    ? 'api.message.sent'
+                    : 'api.message.inbound_recorded',
+                'entity_type' => Message::class,
+                'entity_id' => $message->id,
+                'payload' => [
+                    'direction' => $message->direction->value,
+                    'sender' => $message->sender,
+                    'destination' => $message->destination_number,
+                    'client_message_id' => $message->client_message_id,
+                    'is_duplicate' => $isDuplicate,
+                    'token_id' => $token?->id,
+                ],
+                'ip_address' => request()->ip() ?? '127.0.0.1',
+            ]);
+
+            return [
+                'mode' => 'single',
+                'message' => $message,
+                'is_duplicate' => $isDuplicate,
+                'sent_count' => 1,
+                'failed_count' => 0,
+                'results' => [
+                    [
+                        'destination' => $singleDest,
+                        'status' => 'sent',
+                        'message_id' => $message->id,
+                        'reason' => null,
+                    ],
+                ],
+            ];
+        }
+
+        // Multiple destinations mode (Bulk Dispatch)
+        // 5. Validation for Bulk Dispatch
+        if (empty($rawSender)) {
+            throw ValidationException::withMessages([
+                'sender' => 'خط فرستنده جهت ارسال چندگانه الزامی است.',
+            ]);
+        }
+
+        $cleanSender = PhoneNumberNormalizer::resolveToStoredNumber($rawSender);
+        $fromPhone = PhoneNumber::where('number', $cleanSender)->first();
+
+        if (! $fromPhone) {
+            throw ValidationException::withMessages([
+                'sender' => 'خط فرستنده در سامانه یافت نشد.',
+            ]);
+        }
+
+        if ($fromPhone->status !== PhoneNumberStatus::Allocated) {
+            throw ValidationException::withMessages([
+                'sender' => "خط فرستنده در وضعیت «{$fromPhone->status->label()}» بوده و آماده ارسال پیام نمی‌باشد.",
+            ]);
+        }
+
+        if (! $effectiveActor?->isAdmin() && $fromPhone->user_id !== $effectiveActor?->id) {
+            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+        }
+
+        if ($fromPhone->type === PhoneNumberType::PlatformService && ! $effectiveActor?->isAdmin()) {
+            throw new AccessDeniedHttpException('ارسال پیامک از سرشماره اختصاصی سامانه منحصراً در اختیار راهبر سیستم است.');
+        }
+
+        if (empty($body)) {
+            throw ValidationException::withMessages([
+                'body' => 'متن پیام نمی‌تواند خالی باشد.',
+            ]);
+        }
+
+        // 6. Check bulk idempotency
+        $sourceSystemId = ! empty($payload['source_system_id']) ? trim((string) $payload['source_system_id']) : null;
+        $clientMessageId = ! empty($payload['client_message_id']) ? trim((string) $payload['client_message_id']) : null;
+
+        if ($clientMessageId !== null && $sourceSystemId === null) {
+            $sourceSystemId = $token ? ('token:' . $token->id) : ('actor:' . ($effectiveActor?->id ?? 'system'));
+        }
+
+        if ($sourceSystemId !== null && $clientMessageId !== null) {
+            $existing = Message::where('source_system_id', $sourceSystemId)
+                ->where('client_message_id', $clientMessageId)
+                ->first();
+
+            if ($existing) {
+                return [
+                    'mode' => 'bulk',
+                    'sender' => $fromPhone->number,
+                    'message' => $existing,
+                    'is_duplicate' => true,
+                    'sent_count' => 0,
+                    'failed_count' => 0,
+                    'results' => [],
+                ];
+            }
+        }
+
+        // 7. Dispatch each destination
+        $results = [];
+        $sentCount = 0;
+        $failedCount = 0;
+        $createdMessages = [];
+
+        foreach ($destinations as $dest) {
+            $cleanDest = PhoneNumberNormalizer::resolveToStoredNumber((string) $dest);
+            $destPhone = PhoneNumber::where('number', $cleanDest)->first();
+
+            if ($destPhone) {
+                // Check receiving line permissions
+                $permission = $destPhone->canReceiveMessagesFrom($fromPhone, $effectiveActor);
+                if (! $permission['allowed']) {
+                    $results[] = [
+                        'destination' => $dest,
+                        'status' => 'failed',
+                        'message_id' => null,
+                        'reason' => $permission['reason'],
+                    ];
+                    $failedCount++;
+                    continue;
+                }
+            }
+
+            try {
+                $outbound = DB::transaction(function () use ($fromPhone, $destPhone, $cleanDest, $body, $sourceSystemId, $clientMessageId) {
+                    $msg = Message::create([
+                        'phone_number_id' => $fromPhone->id,
+                        'destination_number' => $cleanDest,
+                        'sender' => $fromPhone->number,
+                        'peer_number' => $cleanDest,
+                        'body' => $body,
+                        'server_received_at' => now(),
+                        'source_system_id' => $sourceSystemId,
+                        'client_message_id' => $clientMessageId ? ($clientMessageId . ':' . $cleanDest) : null,
+                        'processing_status' => MessageProcessingStatus::Received,
+                        'direction' => MessageDirection::Outbound,
+                    ]);
+
+                    if ($destPhone && $destPhone->status === PhoneNumberStatus::Allocated && $destPhone->accepts_incoming_sms) {
+                        Message::create([
+                            'phone_number_id' => $destPhone->id,
+                            'destination_number' => $destPhone->number,
+                            'sender' => $fromPhone->number,
+                            'peer_number' => $fromPhone->number,
+                            'body' => $body,
+                            'server_received_at' => now(),
+                            'source_system_id' => $sourceSystemId ? ($sourceSystemId . ':in') : null,
+                            'client_message_id' => $clientMessageId ? ($clientMessageId . ':in:' . $cleanDest) : null,
+                            'processing_status' => MessageProcessingStatus::Received,
+                            'direction' => MessageDirection::Inbound,
+                        ]);
+                    }
+
+                    return $msg;
+                });
+
+                $results[] = [
+                    'destination' => $dest,
+                    'status' => 'sent',
+                    'message_id' => $outbound->id,
+                    'reason' => null,
+                ];
+                $sentCount++;
+                $createdMessages[] = $outbound;
+            } catch (\Throwable $e) {
+                $results[] = [
+                    'destination' => $dest,
+                    'status' => 'failed',
+                    'message_id' => null,
+                    'reason' => 'خطای سیستمی در ثبت پیام: ' . $e->getMessage(),
+                ];
+                $failedCount++;
+            }
+        }
+
+        // 8. Record bulk audit log
+        \App\Models\AuditLog::create([
+            'user_id' => $effectiveActor?->id,
+            'action' => 'api.messages.bulk_sent',
+            'entity_type' => Message::class,
+            'entity_id' => $createdMessages[0]->id ?? null,
+            'payload' => [
+                'sender' => $fromPhone->number,
+                'total' => count($destinations),
+                'sent_count' => $sentCount,
+                'failed_count' => $failedCount,
+                'client_message_id' => $clientMessageId,
+                'token_id' => $token?->id,
+            ],
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+        ]);
+
+        return [
+            'mode' => 'bulk',
+            'sender' => $fromPhone->number,
+            'is_duplicate' => false,
+            'total' => count($destinations),
+            'sent_count' => $sentCount,
+            'failed_count' => $failedCount,
+            'results' => $results,
+            'message' => $createdMessages[0] ?? null,
+        ];
+    }
+    /**
      * Records an inbound or outbound message received via API or external source.
      */
     public function recordInboundMessage(array $data, ?User $actor = null, ?ApiToken $token = null): array
@@ -45,8 +311,11 @@ class MessageService implements MessageServiceInterface
         } elseif ($requestedDirection === 'inbound' || $requestedDirection === MessageDirection::Inbound->value) {
             $isOutbound = false;
         } else {
-            // Auto-detect: if sender is an allocated line owned by the actor/token, it's an outbound message!
-            if ($senderPhone && ($senderPhone->user_id === $effectiveActor?->id || $effectiveActor?->isAdmin())) {
+            // Auto-detect direction intelligently:
+            if (! empty($data['from']) || ! empty($data['from_number']) || ! empty($data['from_number_id'])) {
+                $isOutbound = true;
+            } elseif ($senderPhone) {
+                // If sender matches an internal allocated/system line, caller is attempting an outbound send
                 $isOutbound = true;
             } elseif ($destPhone && ! $senderPhone) {
                 $isOutbound = false;

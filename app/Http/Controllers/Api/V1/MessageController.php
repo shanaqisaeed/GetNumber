@@ -15,44 +15,107 @@ class MessageController extends Controller
     ) {}
 
     /**
-     * Inbound/Outbound message receiver API endpoint.
-     * Accessible by client API tokens (for their allocated numbers) or admin API tokens (for any number).
+     * Unified inbound/outbound messaging API endpoint.
+     * Supports single and bulk destinations, gateway intake, idempotency, and audit tracking.
+     * Accessible by API tokens with 'messages:write', 'messages:send', or '*' abilities.
      */
     public function store(Request $request): JsonResponse
     {
         /** @var ApiToken $token */
         $token = $request->attributes->get('api_token');
 
-        if (! $token->can('*') && ! $token->can('messages:write')) {
+        if (! $token->can('*') && ! $token->can('messages:write') && ! $token->can('messages:send')) {
             return response()->json([
                 'success' => false,
-                'message' => 'کلید ارتباطی فاقد مجوز ثبت پیام (messages:write) می‌باشد.',
+                'message' => 'کلید ارتباطی فاقد مجوز ثبت یا ارسال پیام (messages:write یا messages:send) می‌باشد.',
                 'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
             ], 403);
         }
 
-        $validated = $request->validate([
-            'destination_number' => ['required', 'string', 'max:30'],
-            'sender' => ['required', 'string', 'max:100'],
-            'from_number' => ['nullable', 'string', 'max:100'],
-            'direction' => ['nullable', 'string', 'in:inbound,outbound'],
-            'body' => ['required', 'string', 'max:5000'],
+        // 1. Validate destination presence
+        if (! $request->filled('destination_number') && ! $request->filled('destinations') && ! $request->filled('to')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'شماره مقصد (destination_number) الزامی است.',
+                'code' => 'VALIDATION_ERROR',
+                'errors' => [
+                    'destination_number' => ['شماره مقصد الزامی است.'],
+                ],
+            ], 422);
+        }
+
+        // 2. Validate sender presence
+        if (! $request->filled('sender') && ! $request->filled('from_number') && ! $request->filled('from') && ! $request->filled('from_number_id')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'شناسه فرستنده الزامی است.',
+                'code' => 'VALIDATION_ERROR',
+                'errors' => [
+                    'sender' => ['شناسه فرستنده الزامی است.'],
+                ],
+            ], 422);
+        }
+
+        // 3. Validate body presence and length
+        if (! $request->filled('body') && ! $request->filled('message') && ! $request->filled('text')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'متن پیام الزامی است.',
+                'code' => 'VALIDATION_ERROR',
+                'errors' => [
+                    'body' => ['متن پیام الزامی است.'],
+                ],
+            ], 422);
+        }
+
+        $bodyValue = (string) ($request->input('body') ?? ($request->input('message') ?? $request->input('text')));
+        if (mb_strlen($bodyValue) > 5000) {
+            return response()->json([
+                'success' => false,
+                'message' => 'متن پیام نمی‌تواند بیش از ۵۰۰۰ کاراکتر باشد.',
+                'code' => 'VALIDATION_ERROR',
+                'errors' => [
+                    'body' => ['متن پیام نمی‌تواند بیش از ۵۰۰۰ کاراکتر باشد.'],
+                ],
+            ], 422);
+        }
+
+        // 4. Validate optional fields
+        $request->validate([
             'source_time' => ['nullable', 'date'],
             'source_system_id' => ['nullable', 'string', 'max:100'],
             'client_message_id' => ['nullable', 'string', 'max:100'],
-        ], [
-            'destination_number.required' => 'شماره مقصد الزامی است.',
-            'sender.required' => 'شناسه فرستنده الزامی است.',
-            'body.required' => 'متن پیام الزامی است.',
-            'body.max' => 'متن پیام نمی‌تواند بیش از ۵۰۰۰ کاراکتر باشد.',
+            'direction' => ['nullable', 'string', 'in:inbound,outbound'],
         ]);
 
-        $result = $this->messageService->recordInboundMessage(
-            data: $validated,
+        $result = $this->messageService->dispatchUnifiedMessage(
+            payload: $request->all(),
             actor: $request->user(),
             token: $token
         );
 
+        if ($result['mode'] === 'bulk') {
+            $isDuplicate = $result['is_duplicate'] ?? false;
+            $sentCount = $result['sent_count'] ?? 0;
+            $failedCount = $result['failed_count'] ?? 0;
+
+            return response()->json([
+                'success' => $sentCount > 0,
+                'message' => $isDuplicate
+                    ? 'پیام‌های این بسته پیش‌تر در سامانه ثبت شده‌اند (درخواست تکراری / Idempotent).'
+                    : ($sentCount > 0 ? "تعداد {$sentCount} پیام با موفقیت ارسال گردید." : 'ارسال پیام به تمامی مقاصد ناموفق بود.'),
+                'data' => [
+                    'sender' => $result['sender'] ?? null,
+                    'total' => $result['total'] ?? 0,
+                    'sent_count' => $sentCount,
+                    'failed_count' => $failedCount,
+                    'is_duplicate' => $isDuplicate,
+                    'results' => $result['results'] ?? [],
+                ],
+            ], $isDuplicate ? 200 : ($sentCount > 0 ? 201 : 422));
+        }
+
+        // Single destination mode
         $message = $result['message'];
         $isDuplicate = $result['is_duplicate'];
         $isOutbound = ($message->direction === \App\Enums\MessageDirection::Outbound || $message->direction->value === 'outbound');
