@@ -59,6 +59,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Vite::prefetch(concurrency: 3);
 
+        \Illuminate\Support\Facades\Event::listen(
+            \App\Events\MessageReceived::class,
+            \App\Listeners\SendWebPushOnMessageReceived::class
+        );
+
         \Illuminate\Support\Facades\RateLimiter::for('api-token', function (\Illuminate\Http\Request $request) {
             /** @var \App\Models\ApiToken|null $token */
             $token = $request->attributes->get('api_token');

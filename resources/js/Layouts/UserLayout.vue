@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
+import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -40,13 +41,19 @@ const showIncomingToast = (msg: RealtimeMessagePayload) => {
     }, 5000);
 };
 
+const { showLocalNotification } = useWebNotifications();
+
 const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
     userId: user.value?.id,
     isAdmin: !!user.value?.is_admin,
     onMessage: (msg) => {
         if (msg.direction === 'inbound') {
             liveUnreadCount.value += 1;
-            if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
+            const sender = msg.peer_number || msg.sender;
+            // When tab is hidden/unfocused, trigger local OS notification with privacy preserved
+            if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) {
+                showLocalNotification(sender);
+            } else if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
                 showIncomingToast(msg);
             }
         }

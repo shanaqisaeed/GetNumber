@@ -91,6 +91,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/wallet/deposit/{trackingCode}/submit-tx', [\App\Http\Controllers\User\PaymentDepositController::class, 'submitTx'])->name('wallet.deposit.submit-tx');
     Route::get('/wallet/deposit/{trackingCode}/status', [\App\Http\Controllers\User\PaymentDepositController::class, 'status'])->name('wallet.deposit.status');
 
+    // Web Push Subscriptions & VAPID Key
+    Route::get('/webpush/vapid-public-key', [\App\Http\Controllers\Api\WebPushController::class, 'vapidPublicKey'])->name('webpush.key');
+    Route::post('/webpush/subscribe', [\App\Http\Controllers\Api\WebPushController::class, 'subscribe'])->name('webpush.subscribe');
+    Route::post('/webpush/unsubscribe', [\App\Http\Controllers\Api\WebPushController::class, 'unsubscribe'])->name('webpush.unsubscribe');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
