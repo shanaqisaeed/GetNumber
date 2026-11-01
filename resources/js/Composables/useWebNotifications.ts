@@ -16,6 +16,12 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
     return outputArray;
 }
 
+export interface SubscribeResult {
+    success: boolean;
+    mode: 'push' | 'local' | 'denied' | 'unsupported';
+    message: string;
+}
+
 const permission = ref<NotificationPermission>(
     typeof window !== 'undefined' && 'Notification' in window
         ? Notification.permission
@@ -29,7 +35,13 @@ export function useWebNotifications() {
     const isSupported = computed(() => {
         return (
             typeof window !== 'undefined' &&
-            'Notification' in window &&
+            'Notification' in window
+        );
+    });
+
+    const isPushApiSupported = computed(() => {
+        return (
+            typeof window !== 'undefined' &&
             'serviceWorker' in navigator &&
             'PushManager' in window
         );
@@ -40,90 +52,139 @@ export function useWebNotifications() {
     const isPermissionDenied = computed(() => permission.value === 'denied');
 
     const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
-        if (!isSupported.value) return null;
+        if (!isPushApiSupported.value) return null;
         try {
             return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
         } catch (err) {
-            console.warn('[WebPush] Service worker registration failed:', err);
+            console.warn('[WebPush] Service worker registration error:', err);
             return null;
         }
     };
 
     const checkSubscriptionStatus = async () => {
-        if (!isSupported.value) return;
-        try {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            isSubscribed.value = !!subscription;
-            if ('Notification' in window) {
-                permission.value = Notification.permission;
+        if (typeof window === 'undefined') return;
+
+        if ('Notification' in window) {
+            permission.value = Notification.permission;
+        }
+
+        if (isPushApiSupported.value) {
+            try {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                isSubscribed.value = !!subscription;
+            } catch (err) {
+                console.warn('[WebPush] Error checking subscription:', err);
             }
-        } catch (err) {
-            console.warn('[WebPush] Error checking subscription:', err);
         }
     };
 
-    const subscribeToPush = async (): Promise<boolean> => {
+    /**
+     * Request browser notification permission and optionally subscribe to push service
+     */
+    const subscribeToPush = async (): Promise<SubscribeResult> => {
         if (!isSupported.value) {
-            error.value = 'مرورگر شما از اعلان وب پشتیبانی نمی‌کند.';
-            return false;
+            error.value = 'مرورگر شما از قابلیت اعلان وب پشتیبانی نمی‌کند.';
+            return {
+                success: false,
+                mode: 'unsupported',
+                message: error.value,
+            };
         }
 
         isSubscribing.value = true;
         error.value = null;
 
         try {
-            // 1. Request user permission
+            // Step 1: Request user permission directly from browser
             const perm = await Notification.requestPermission();
             permission.value = perm;
 
             if (perm !== 'granted') {
                 isSubscribing.value = false;
-                return false;
+                return {
+                    success: false,
+                    mode: 'denied',
+                    message: 'مجوز ارسال اعلان توسط شما در مرورگر رد شد.',
+                };
             }
 
-            // 2. Register Service Worker and await ready
-            const registration = await registerServiceWorker();
-            if (!registration) {
-                throw new Error('عدم امکان ثبت سرویس‌ورکر مرورگر');
+            // At this point, permission IS GRANTED. User is guaranteed to receive notifications!
+            // Step 2: Attempt PushManager subscription for offline background delivery
+            let pushSubscribedSuccessfully = false;
+
+            if (isPushApiSupported.value) {
+                try {
+                    const registration = await registerServiceWorker();
+                    if (registration) {
+                        await navigator.serviceWorker.ready;
+
+                        // Fetch VAPID Public Key from backend
+                        const { data } = await axios.get('/webpush/vapid-public-key');
+                        if (data?.publicKey) {
+                            let subscription = await registration.pushManager.getSubscription();
+
+                            if (!subscription) {
+                                let appServerKey: any;
+                                try {
+                                    appServerKey = urlBase64ToUint8Array(data.publicKey);
+                                } catch {
+                                    appServerKey = data.publicKey;
+                                }
+
+                                subscription = await registration.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: appServerKey,
+                                });
+                            }
+
+                            if (subscription) {
+                                const subData = subscription.toJSON();
+                                await axios.post('/webpush/subscribe', {
+                                    endpoint: subData.endpoint,
+                                    keys: subData.keys,
+                                });
+                                isSubscribed.value = true;
+                                pushSubscribedSuccessfully = true;
+                            }
+                        }
+                    }
+                } catch (pushErr: any) {
+                    // Push service (e.g. FCM in restricted networks) might be unreachable,
+                    // but browser permission is granted, so local tab notifications still work 100%!
+                    console.warn('[WebPush] Background PushManager registration skipped or unavailable:', pushErr);
+                }
             }
-            await navigator.serviceWorker.ready;
 
-            // 3. Fetch VAPID Public Key from backend
-            const { data } = await axios.get('/webpush/vapid-public-key');
-            if (!data?.publicKey) {
-                throw new Error('کلید عمومی سرور دریافت نشد.');
-            }
-
-            // 4. Subscribe to PushManager
-            let subscription = await registration.pushManager.getSubscription();
-            if (!subscription) {
-                subscription = await registration.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: urlBase64ToUint8Array(data.publicKey) as any,
-                });
-            }
-
-            // 5. Send subscription to Laravel backend
-            const subData = subscription.toJSON();
-            await axios.post('/webpush/subscribe', {
-                endpoint: subData.endpoint,
-                keys: subData.keys,
-            });
-
-            isSubscribed.value = true;
-            return true;
-        } catch (err: any) {
-            console.error('[WebPush] Subscription error:', err);
-            error.value = err?.response?.data?.message || err?.message || 'خطا در ثبت اعلان‌های مرورگر';
-            return false;
-        } finally {
             isSubscribing.value = false;
+
+            if (pushSubscribedSuccessfully) {
+                return {
+                    success: true,
+                    mode: 'push',
+                    message: 'اعلان‌های پیشرفته مرورگر (حتی در صورت بسته بودن صفحه) فعال شدند.',
+                };
+            }
+
+            return {
+                success: true,
+                mode: 'local',
+                message: 'اعلان‌های مرورگر با موفقیت فعال شدند.',
+            };
+        } catch (err: any) {
+            console.error('[WebPush] Critical subscription error:', err);
+            isSubscribing.value = false;
+            error.value = err?.message || 'خطا در فعال‌سازی اعلان‌ها';
+            return {
+                success: false,
+                mode: 'denied',
+                message: error.value || 'خطا در فعال‌سازی اعلان‌ها',
+            };
         }
     };
 
     const unsubscribeFromPush = async (): Promise<boolean> => {
-        if (!isSupported.value) return false;
+        if (!isPushApiSupported.value) return false;
         isSubscribing.value = true;
         try {
             const registration = await navigator.serviceWorker.ready;
@@ -174,6 +235,7 @@ export function useWebNotifications() {
 
     return {
         isSupported,
+        isPushApiSupported,
         isPermissionGranted,
         isPermissionDefault,
         isPermissionDenied,

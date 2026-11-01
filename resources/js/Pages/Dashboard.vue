@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
+import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import { useWebNotifications } from '@/Composables/useWebNotifications';
+import type { SubscribeResult } from '@/Composables/useWebNotifications';
 import { Head, Link } from '@inertiajs/vue3';
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 
 interface Quota {
     active: number;
@@ -85,39 +86,8 @@ const copyToClipboard = async (text: string, label = 'شماره در کلیپ�
 // Standard Number Allocation Modal State
 const isAllocateModalOpen = ref(false);
 
-// Web Push Notification Prompt State
-const {
-    isSupported: isPushSupported,
-    isPermissionDefault,
-    isPermissionGranted,
-    isSubscribed: isPushSubscribed,
-    isSubscribing: isPushSubscribing,
-    checkSubscriptionStatus,
-    subscribeToPush,
-} = useWebNotifications();
-
-const isPromptDismissed = ref(false);
-
-onMounted(async () => {
-    await checkSubscriptionStatus();
-    const dismissedTime = localStorage.getItem('webpush_prompt_dismissed');
-    if (dismissedTime && Date.now() - Number(dismissedTime) < 24 * 60 * 60 * 1000) {
-        isPromptDismissed.value = true;
-    }
-});
-
-const handleDismissPrompt = () => {
-    isPromptDismissed.value = true;
-    localStorage.setItem('webpush_prompt_dismissed', String(Date.now()));
-};
-
-const handleEnablePush = async () => {
-    const success = await subscribeToPush();
-    if (success) {
-        showToast('اعلان‌های مرورگر با موفقیت فعال شدند.');
-    } else {
-        showToast('مجوز اعلان فعال نشد یا توسط مرورگر رد شد.');
-    }
+const handleNotificationResult = (result: SubscribeResult) => {
+    showToast(result.message);
 };
 </script>
 
@@ -142,49 +112,8 @@ const handleEnablePush = async () => {
             </transition>
         </teleport>
 
-        <!-- Web Push Notification Activation Prompt -->
-        <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 -translate-y-2 scale-98" enter-to-class="opacity-100 translate-y-0 scale-100">
-            <div
-                v-if="isPushSupported && !isPushSubscribed && !isPermissionGranted && !isPromptDismissed"
-                class="mb-6 p-4 md:p-5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/5 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-slate-900/40 border border-indigo-500/20 dark:border-indigo-500/30 shadow-lg backdrop-blur-md flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
-            >
-                <div class="flex items-center gap-3.5">
-                    <div class="w-12 h-12 rounded-2xl bg-indigo-600/15 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 shadow-inner">
-                        <svg class="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="text-sm md:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>دریافت فوری پیامک‌ها روی مرورگر</span>
-                            <span class="px-2 py-0.5 text-[10px] rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-extrabold">پیشنهادی</span>
-                        </h3>
-                        <p class="text-xs text-slate-600 dark:text-slate-300 mt-1 leading-relaxed">
-                            مایلید به محض رسیدن پیامک جدید (حتی در صورت بسته بودن این صفحه) روی سیستم یا گوشی شما اعلان ارسال شود؟
-                        </p>
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-2.5 w-full md:w-auto shrink-0 justify-end">
-                    <button
-                        type="button"
-                        @click="handleDismissPrompt"
-                        class="px-3.5 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors rounded-xl cursor-pointer"
-                    >
-                        بعداً
-                    </button>
-                    <button
-                        type="button"
-                        :disabled="isPushSubscribing"
-                        @click="handleEnablePush"
-                        class="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded-xl shadow-md shadow-indigo-500/25 transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
-                    >
-                        <span v-if="isPushSubscribing" class="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>فعال‌سازی اعلان پیامک</span>
-                    </button>
-                </div>
-            </div>
-        </transition>
+        <!-- Notification Permission Request Modal (Opens automatically on entry if not decided) -->
+        <NotificationPermissionModal @activated="handleNotificationResult" />
 
         <!-- 0. User Wallet & Balance Card (Consistent Liquid Glass Card) -->
         <div class="dash-wallet-card">
