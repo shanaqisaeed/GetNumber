@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
-import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import type { SubscribeResult } from '@/Composables/useWebNotifications';
 import { Head, Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -85,10 +83,6 @@ const copyToClipboard = async (text: string, label = 'شماره در کلیپ�
 
 // Standard Number Allocation Modal State
 const isAllocateModalOpen = ref(false);
-
-const handleNotificationResult = (result: SubscribeResult) => {
-    showToast(result.message);
-};
 </script>
 
 <template>
@@ -111,9 +105,6 @@ const handleNotificationResult = (result: SubscribeResult) => {
                 </div>
             </transition>
         </teleport>
-
-        <!-- Notification Permission Request Modal (Opens automatically on entry if not decided) -->
-        <NotificationPermissionModal @activated="handleNotificationResult" />
 
         <!-- 0. User Wallet & Balance Card (Consistent Liquid Glass Card) -->
         <div class="dash-wallet-card">

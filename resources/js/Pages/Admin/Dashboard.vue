@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import { Head, Link } from '@inertiajs/vue3';
 
 interface UserItem {
@@ -124,9 +123,6 @@ function formatStatus(status: string): string {
                 </div>
             </div>
         </template>
-
-        <!-- Notification Permission Request Modal (Opens automatically on entry if not decided) -->
-        <NotificationPermissionModal />
 
         <!-- Top 4 Primary KPI Analytics Cards -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

@@ -117,7 +117,10 @@ export function useWebNotifications() {
                 try {
                     const registration = await registerServiceWorker();
                     if (registration) {
-                        await navigator.serviceWorker.ready;
+                        await Promise.race([
+                            navigator.serviceWorker.ready,
+                            new Promise((resolve) => setTimeout(resolve, 2000)),
+                        ]);
 
                         // Fetch VAPID Public Key from backend
                         const { data } = await axios.get('/webpush/vapid-public-key');

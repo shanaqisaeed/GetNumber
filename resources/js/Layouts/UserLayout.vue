@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
+import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -105,6 +106,9 @@ const navItems = computed(() => [
 
 <template>
     <div class="min-h-screen w-full flex flex-col items-center bg-[var(--bg-canvas)] relative transition-colors duration-300">
+        <!-- Automatic Notification Permission Request Modal -->
+        <NotificationPermissionModal />
+
         <!-- Floating Live Message Toast -->
         <transition enter-active-class="transition ease-out duration-300" enter-from-class="-translate-y-8 opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100" leave-to-class="-translate-y-8 opacity-0">
             <div v-if="toastNotification" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-[420px] p-3 rounded-2xl border border-indigo-500/40 shadow-2xl flex items-center justify-between gap-3 backdrop-blur-xl bg-slate-900/90 text-white">

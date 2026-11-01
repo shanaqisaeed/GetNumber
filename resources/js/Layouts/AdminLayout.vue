@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
+import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
@@ -74,6 +75,9 @@ const adminNavigation = [
 
 <template>
     <div class="min-h-screen bg-slate-900/5 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row transition-colors duration-300">
+        <!-- Automatic Notification Permission Request Modal -->
+        <NotificationPermissionModal />
+
         <!-- Admin Desktop Sidebar -->
         <aside class="hidden md:flex flex-col w-72 bg-slate-900 text-slate-200 border-l border-slate-800 shrink-0">
             <!-- Brand & Admin Badge -->
