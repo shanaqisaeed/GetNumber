@@ -161,6 +161,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/payments/{deposit}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'show'])->name('payments.show');
     Route::post('/payments/{deposit}/verify', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'verify'])->name('payments.verify');
     Route::post('/payments/{deposit}/complete-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'completeManually'])->name('payments.complete-manually');
+    Route::post('/payments/{deposit}/reject-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'rejectManually'])->name('payments.reject-manually');
 });
 
 require __DIR__.'/auth.php';

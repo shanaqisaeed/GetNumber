@@ -129,6 +129,37 @@ const submitManualApproval = () => {
         },
     });
 };
+
+// Manual Rejection Modal
+const isRejectModalOpen = ref(false);
+const depositToReject = ref<DepositItem | null>(null);
+
+const rejectForm = useForm({
+    reason: '',
+});
+
+const openRejectModal = (d: DepositItem) => {
+    depositToReject.value = d;
+    rejectForm.reset();
+    isRejectModalOpen.value = true;
+};
+
+const closeRejectModal = () => {
+    isRejectModalOpen.value = false;
+    depositToReject.value = null;
+    rejectForm.reset();
+};
+
+const submitManualReject = () => {
+    if (!depositToReject.value) return;
+
+    rejectForm.post(route('admin.payments.reject-manually', depositToReject.value.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeRejectModal();
+        },
+    });
+};
 </script>
 
 <template>
@@ -337,7 +368,7 @@ const submitManualApproval = () => {
                                     <span class="text-[10px] text-slate-400 mr-1">COIN</span>
                                 </td>
                                 <td class="py-3 px-3 max-w-[140px] truncate">
-                                    <span v-if="d.tx_hash" class="font-mono text-[10px] select-all text-slate-600 dark:text-slate-300" :title="d.tx_hash">
+                                    <span v-if="d.tx_hash" dir="ltr" class="font-mono text-[10px] select-all text-slate-600 dark:text-slate-300 inline-block text-left" :title="d.tx_hash">
                                         {{ d.tx_hash.substring(0, 10) }}...{{ d.tx_hash.substring(d.tx_hash.length - 8) }}
                                     </span>
                                     <span v-else class="text-[10px] text-slate-400 italic">ثبت‌نشده</span>
@@ -352,11 +383,11 @@ const submitManualApproval = () => {
                                     <div class="flex items-center justify-center gap-1.5">
                                         <!-- Verify Button if TX Hash exists and not completed -->
                                         <button
-                                            v-if="d.tx_hash && d.status !== 'completed'"
+                                            v-if="d.tx_hash && d.status !== 'completed' && d.status !== 'failed'"
                                             type="button"
                                             @click="verifyDeposit(d)"
                                             :disabled="isVerifying === d.id"
-                                            class="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-500 transition-all disabled:opacity-50"
+                                            class="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-500 transition-all disabled:opacity-50 cursor-pointer"
                                             title="استعلام مجدد از شبکه"
                                         >
                                             <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isVerifying === d.id }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -369,10 +400,21 @@ const submitManualApproval = () => {
                                             v-if="d.status !== 'completed'"
                                             type="button"
                                             @click="openManualModal(d)"
-                                            class="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/30 transition-all"
+                                            class="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/30 transition-all cursor-pointer"
                                             title="تأیید دستی"
                                         >
-                                            تأیید دستی
+                                            تأیید
+                                        </button>
+
+                                        <!-- Manual Reject Button if not completed and not failed -->
+                                        <button
+                                            v-if="d.status !== 'completed' && d.status !== 'failed'"
+                                            type="button"
+                                            @click="openRejectModal(d)"
+                                            class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-500/30 transition-all cursor-pointer"
+                                            title="رد دستی تراکنش (فیک / نامعتبر)"
+                                        >
+                                            رد
                                         </button>
 
                                         <!-- Inspect Link -->
@@ -488,10 +530,78 @@ const submitManualApproval = () => {
                             <button
                                 type="submit"
                                 :disabled="manualForm.processing"
-                                class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all"
+                                class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all cursor-pointer"
                             >
                                 <span v-if="manualForm.processing">در حال اعمال...</span>
                                 <span v-else>تأیید و شارژ کیف پول کاربر</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </teleport>
+
+        <!-- 5. MANUAL REJECTION MODAL -->
+        <teleport to="body">
+            <div v-if="isRejectModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <div class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm" @click="closeRejectModal"></div>
+
+                <div class="relative w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl p-6 overflow-hidden z-10">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                        <h3 class="text-sm font-black text-rose-500 flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                            رد دستی تراکنش (فیک / نامعتبر)
+                        </h3>
+                        <button type="button" @click="closeRejectModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                            ✕
+                        </button>
+                    </div>
+
+                    <div v-if="depositToReject" class="my-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-1">
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">کد رهگیری:</span>
+                            <span class="font-mono font-bold text-indigo-400">{{ depositToReject.tracking_code }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">کاربر:</span>
+                            <span class="font-bold text-slate-900 dark:text-white">{{ depositToReject.user.name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-500">مبلغ درخواست:</span>
+                            <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{{ depositToReject.requested_amount }} TRX</span>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="submitManualReject" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                دلیل رد تراکنش (اجباری جهت لاگ امنیتی و نمایش به کاربر) <span class="text-rose-500">*</span>
+                            </label>
+                            <textarea
+                                v-model="rejectForm.reason"
+                                rows="3"
+                                required
+                                placeholder="مثلاً: هش تراکنش فیک است، واریزی در بلاکچین یا صرافی نوبیتکس ثبت نشده است..."
+                                class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none resize-none text-slate-900 dark:text-white"
+                            ></textarea>
+                            <p v-if="rejectForm.errors.reason" class="text-rose-500 text-[11px] mt-1">{{ rejectForm.errors.reason }}</p>
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 pt-2">
+                            <button
+                                type="button"
+                                @click="closeRejectModal"
+                                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                            >
+                                انصراف
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="rejectForm.processing"
+                                class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all cursor-pointer"
+                            >
+                                <span v-if="rejectForm.processing">در حال اعمال...</span>
+                                <span v-else>رد قطعی تراکنش</span>
                             </button>
                         </div>
                     </form>

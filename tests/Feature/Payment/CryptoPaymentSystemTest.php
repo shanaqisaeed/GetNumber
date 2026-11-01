@@ -313,6 +313,54 @@ class CryptoPaymentSystemTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_manually_reject_deposit_with_mandatory_reason_and_audit_log(): void
+    {
+        $deposit = $this->paymentService->createDepositRequest($this->user, '50.0000', 'TRON', 'mock');
+        $deposit->update(['tx_hash' => 'fake_hash_123456789']);
+
+        $response = $this->actingAs($this->admin)->post(route('admin.payments.reject-manually', $deposit->id), [
+            'reason' => 'کد رهگیری فیک است و هیچ تراکنشی در شبکه یافت نشد.',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('success');
+
+        $freshDeposit = $deposit->fresh();
+        $this->assertEquals(PaymentStatus::Failed, $freshDeposit->status);
+        $this->assertEquals('کد رهگیری فیک است و هیچ تراکنشی در شبکه یافت نشد.', $freshDeposit->failure_reason);
+        $this->assertNotNull($freshDeposit->metadata['manual_rejection'] ?? null);
+
+        // Wallet is NOT credited
+        $this->assertEquals('0.0000', (string) ($this->user->wallet()->first()->balance ?? '0.0000'));
+
+        // Audit Log verified
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $this->admin->id,
+            'action' => 'admin.payment.manual_rejected',
+            'entity_type' => CryptoDeposit::class,
+            'entity_id' => $deposit->id,
+        ]);
+    }
+
+    public function test_admin_cannot_reject_already_completed_deposit(): void
+    {
+        $deposit = $this->paymentService->createDepositRequest($this->user, '20.0000', 'TRON', 'mock');
+        $deposit->update([
+            'status' => PaymentStatus::Completed,
+            'completed_at' => now(),
+        ]);
+
+        $response = $this->actingAs($this->admin)->post(route('admin.payments.reject-manually', $deposit->id), [
+            'reason' => 'تلاش برای رد تراکنش تکمیل‌شده',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('error');
+
+        $freshDeposit = $deposit->fresh();
+        $this->assertEquals(PaymentStatus::Completed, $freshDeposit->status);
+    }
+
     public function test_admin_payments_pages_are_forbidden_to_standard_users(): void
     {
         $userResponse = $this->actingAs($this->user)->get(route('admin.payments.index'));

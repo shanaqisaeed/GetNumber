@@ -227,6 +227,56 @@ class PaymentManagementController extends Controller
     }
 
     /**
+     * Manually reject a deposit request with mandatory reason and Audit Log.
+     */
+    public function rejectManually(Request $request, CryptoDeposit $deposit): RedirectResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:255'],
+        ], [
+            'reason.required' => 'ثبت دلیل رد تراکنش الزامی است.',
+        ]);
+
+        if ($deposit->isCompleted()) {
+            return back()->with('error', 'تراکنش‌های تکمیل‌شده و شارژشده قابل رد کردن نمی‌باشند.');
+        }
+
+        $admin = $request->user();
+
+        try {
+            $deposit->update([
+                'status' => PaymentStatus::Failed,
+                'failure_reason' => $validated['reason'],
+                'metadata' => array_merge($deposit->metadata ?? [], [
+                    'manual_rejection' => [
+                        'rejected_by_user_id' => $admin->id,
+                        'rejected_by_name' => $admin->name,
+                        'rejected_at' => now()->toIso8601String(),
+                        'reason' => $validated['reason'],
+                    ],
+                ]),
+            ]);
+
+            AuditLog::create([
+                'user_id' => $admin->id,
+                'action' => 'admin.payment.manual_rejected',
+                'entity_type' => CryptoDeposit::class,
+                'entity_id' => $deposit->id,
+                'payload' => [
+                    'tracking_code' => $deposit->tracking_code,
+                    'tx_hash' => $deposit->tx_hash,
+                    'reason' => $validated['reason'],
+                ],
+                'ip_address' => $request->ip() ?? '127.0.0.1',
+            ]);
+
+            return back()->with('success', 'تراکنش با موفقیت به عنوان ناموفق/فیک رد شد.');
+        } catch (\Throwable $e) {
+            return back()->with('error', $e->getMessage() ?: 'خطا در ثبت رد تراکنش.');
+        }
+    }
+
+    /**
      * Gateway management screen.
      */
     public function gateways(): Response
