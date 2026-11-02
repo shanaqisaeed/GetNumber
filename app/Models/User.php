@@ -25,6 +25,11 @@ class User extends Authenticatable
         'password',
         'role',
         'status',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
+        'trust_tier',
+        'risk_score',
     ];
 
     /**
@@ -35,6 +40,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -48,6 +55,10 @@ class User extends Authenticatable
             'role' => UserRole::class,
             'status' => UserStatus::class,
             'password' => 'hashed',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
+            'risk_score' => 'integer',
         ];
     }
 
@@ -172,5 +183,37 @@ class User extends Authenticatable
     public function assignedTickets(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Ticket::class, 'assigned_to');
+    }
+
+    /**
+     * Security incidents linked to this user.
+     */
+    public function securityIncidents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(SecurityIncident::class);
+    }
+
+    /**
+     * Determine if the user has confirmed two-factor authentication enabled.
+     */
+    public function hasTwoFactorEnabled(): bool
+    {
+        return ! empty($this->two_factor_secret) && $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * Determine if account is considered trusted.
+     */
+    public function isTrustedTier(): bool
+    {
+        return $this->trust_tier === 'trusted' || $this->isAdmin();
+    }
+
+    /**
+     * Determine if account is restricted.
+     */
+    public function isRestrictedTier(): bool
+    {
+        return $this->trust_tier === 'restricted';
     }
 }

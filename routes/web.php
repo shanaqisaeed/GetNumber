@@ -22,6 +22,10 @@ Route::get('/', function () {
 Route::get('/docs/api', [\App\Http\Controllers\ApiDocsController::class, 'index'])->name('api.docs');
 Route::redirect('/docs', '/docs/api');
 
+// System Health Checks (Liveness & Readiness Probes)
+Route::get('/health/live', [\App\Http\Controllers\HealthCheckController::class, 'liveness'])->name('health.live');
+Route::get('/health/ready', [\App\Http\Controllers\HealthCheckController::class, 'readiness'])->name('health.ready');
+
 // XML Sitemap for Public Search Engines
 Route::get('/sitemap.xml', function () {
     $baseUrl = url('/');
@@ -144,6 +148,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Two-Factor Authentication & Account Security Management
+    Route::get('/two-factor/status', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'status'])->name('two-factor.status');
+    Route::post('/two-factor/enable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'store'])->name('two-factor.enable');
+    Route::post('/two-factor/confirm', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'confirm'])->name('two-factor.confirm');
+    Route::delete('/two-factor/disable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroy'])->name('two-factor.disable');
+    Route::post('/two-factor/recovery-codes', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('two-factor.recovery-codes');
+    Route::post('/sessions/other-devices/logout', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroyOtherSessions'])->name('sessions.logout_other');
 });
 
 // Staff & Support Agent Routes (Accessible by Admin and Agent)
@@ -202,6 +214,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin Audit Logs & Security Trails
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/audit-logs/{auditLog}', [\App\Http\Controllers\Admin\AuditLogController::class, 'show'])->name('audit-logs.show');
+
+    // Admin Security Oversight & Incidents
+    Route::get('/security/incidents', [\App\Http\Controllers\Admin\SecurityIncidentController::class, 'index'])->name('security.incidents.index');
+    Route::post('/security/incidents/{incident}/resolve', [\App\Http\Controllers\Admin\SecurityIncidentController::class, 'resolve'])->name('security.incidents.resolve');
+    Route::patch('/security/users/{user}/tier', [\App\Http\Controllers\Admin\SecurityIncidentController::class, 'updateUserTier'])->name('security.users.tier');
+
+    // Admin Health & Monitoring Oversight Dashboard
+    Route::get('/monitoring', [\App\Http\Controllers\Admin\MonitoringDashboardController::class, 'index'])->name('monitoring.index');
+    Route::get('/monitoring/metrics', [\App\Http\Controllers\Admin\MonitoringDashboardController::class, 'metrics'])->name('monitoring.metrics');
+    Route::post('/monitoring/errors/{errorLog}/resolve', [\App\Http\Controllers\Admin\MonitoringDashboardController::class, 'resolveError'])->name('monitoring.errors.resolve');
 
     // Admin Payment & Gateway Management
     Route::get('/payments', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.index');

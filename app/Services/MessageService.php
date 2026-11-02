@@ -684,6 +684,15 @@ class MessageService implements MessageServiceInterface
             ]);
         }
 
+        // 1. Content Security & Anti-Phishing Inspection (Phase 5.5)
+        app(\App\Services\Security\ContentSecurityFilterService::class)->validateContent($body, $senderUser, $fromNumber->id);
+
+        // 2. Tiered Rate Limiting Enforcement (Phase 5.2 & 5.3)
+        app(\App\Services\Security\TieredRateLimiterService::class)->enforceLimits($senderUser, $destinations->count());
+
+        // 3. Suspicious Behavior Evaluation & Risk Scoring (Phase 5.4)
+        app(\App\Services\Security\SuspiciousBehaviorEngine::class)->evaluateSend($senderUser, $destinations->all(), $body);
+
         $results = [];
         $sentCount = 0;
 
@@ -795,6 +804,15 @@ class MessageService implements MessageServiceInterface
                 'destinations' => 'حداقل یک شماره مقصد معتبر الزامی است.',
             ]);
         }
+
+        // 1. Content Security & Anti-Phishing Inspection (Phase 5.5)
+        app(\App\Services\Security\ContentSecurityFilterService::class)->validateContent($body, $senderUser, $fromNumber->id);
+
+        // 2. Tiered Rate Limiting Enforcement (Phase 5.2 & 5.3)
+        app(\App\Services\Security\TieredRateLimiterService::class)->enforceLimits($senderUser, $destinations->count());
+
+        // 3. Suspicious Behavior Evaluation & Risk Scoring (Phase 5.4)
+        app(\App\Services\Security\SuspiciousBehaviorEngine::class)->evaluateSend($senderUser, $destinations->all(), $body);
 
         $batchId = 'BATCH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(10));
 

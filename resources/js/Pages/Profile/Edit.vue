@@ -3,6 +3,8 @@ import UserLayout from '@/Layouts/UserLayout.vue';
 import DeleteUserForm from './Partials/DeleteUserForm.vue';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
+import TwoFactorAuthenticationForm from './Partials/TwoFactorAuthenticationForm.vue';
+import LogoutOtherBrowserSessionsForm from './Partials/LogoutOtherBrowserSessionsForm.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -355,9 +357,11 @@ const submitRecharge = () => {
                     <UpdateProfileInformationForm :status="status" />
                 </div>
 
-                <!-- Security / Password Tab -->
-                <div v-show="activeTab === 'security'">
+                <!-- Security Tab (2FA, Password, Sessions) -->
+                <div v-show="activeTab === 'security'" class="space-y-6">
+                    <TwoFactorAuthenticationForm />
                     <UpdatePasswordForm />
+                    <LogoutOtherBrowserSessionsForm />
                 </div>
 
                 <!-- Danger / Delete Account Tab -->
