@@ -75,6 +75,15 @@ export function useWebNotifications() {
                 if (registration) {
                     const subscription = await registration.pushManager.getSubscription();
                     isSubscribed.value = !!subscription;
+
+                    // Automatically ensure backend has the latest subscription registered for this user session
+                    if (subscription && Notification.permission === 'granted') {
+                        const subData = subscription.toJSON();
+                        axios.post('/webpush/subscribe', {
+                            endpoint: subData.endpoint,
+                            keys: subData.keys,
+                        }).catch(() => {});
+                    }
                 } else {
                     isSubscribed.value = false;
                 }
@@ -127,19 +136,30 @@ export function useWebNotifications() {
                         const { data } = await axios.get('/webpush/vapid-public-key');
                         if (data?.publicKey) {
                             let subscription = await registration.pushManager.getSubscription();
+                            let appServerKey: any;
+                            try {
+                                appServerKey = urlBase64ToUint8Array(data.publicKey);
+                            } catch {
+                                appServerKey = data.publicKey;
+                            }
 
                             if (!subscription) {
-                                let appServerKey: any;
                                 try {
-                                    appServerKey = urlBase64ToUint8Array(data.publicKey);
-                                } catch {
-                                    appServerKey = data.publicKey;
+                                    subscription = await registration.pushManager.subscribe({
+                                        userVisibleOnly: true,
+                                        applicationServerKey: appServerKey,
+                                    });
+                                } catch (subErr) {
+                                    console.warn('[WebPush] Initial subscribe failed, resetting existing subscription:', subErr);
+                                    const oldSub = await registration.pushManager.getSubscription();
+                                    if (oldSub) {
+                                        await oldSub.unsubscribe().catch(() => {});
+                                    }
+                                    subscription = await registration.pushManager.subscribe({
+                                        userVisibleOnly: true,
+                                        applicationServerKey: appServerKey,
+                                    });
                                 }
-
-                                subscription = await registration.pushManager.subscribe({
-                                    userVisibleOnly: true,
-                                    applicationServerKey: appServerKey,
-                                });
                             }
 
                             if (subscription) {
@@ -256,6 +276,21 @@ export function useWebNotifications() {
         }
     };
 
+    /**
+     * Trigger a real Web Push test from the server (useful for verifying closed browser behavior)
+     */
+    const sendTestPush = async (): Promise<{ success: boolean; message: string }> => {
+        try {
+            const { data } = await axios.post('/webpush/test');
+            return data;
+        } catch (err: any) {
+            return {
+                success: false,
+                message: err?.response?.data?.message || err.message,
+            };
+        }
+    };
+
     return {
         isSupported,
         isPushApiSupported,
@@ -270,5 +305,6 @@ export function useWebNotifications() {
         subscribeToPush,
         unsubscribeFromPush,
         showLocalNotification,
+        sendTestPush,
     };
 }

@@ -132,7 +132,6 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
 
     const performPoll = async () => {
         if (!enablePollingFallback || isPollingBusy) return;
-        if (typeof document !== 'undefined' && document.hidden) return;
 
         // If WebSocket is alive and well, do not hammer server with frequent polls
         if (isWebSocketActive.value) {
@@ -205,13 +204,14 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
         }
     };
 
-    // Page visibility handler (pause when tab is inactive, poll immediately when tab activates)
+    // Page visibility handler: keep gentle background polling when in another tab, full speed when active
     const handleVisibilityChange = () => {
         if (document.hidden) {
-            stopPolling();
+            // Keep polling alive in background tabs (every 6 seconds) so incoming SMS triggers native OS notifications immediately!
+            startPolling(Math.max(pollIntervalMs, 6000));
         } else {
             performPoll();
-            startPolling();
+            startPolling(pollIntervalMs);
         }
     };
 

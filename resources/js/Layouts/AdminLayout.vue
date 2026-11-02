@@ -11,7 +11,16 @@ const user = computed(() => page.props.auth?.user);
 
 const isMobileSidebarOpen = ref(false);
 
-const { showLocalNotification } = useWebNotifications();
+const { showLocalNotification, sendTestPush } = useWebNotifications();
+const isTestingPush = ref(false);
+
+const triggerTestPush = async () => {
+    isTestingPush.value = true;
+    showLocalNotification('سامانه GetNumber (تست پیش‌زمینه)');
+    const res = await sendTestPush();
+    isTestingPush.value = false;
+    alert(res.message + "\n\nاکنون می‌توانید مرورگر یا تب را ببندید تا دریافت آن را در حالت بسته تست نمایید.");
+};
 
 useRealtimeMessages({
     userId: user.value?.id,
@@ -288,6 +297,19 @@ const adminNavigation = [
                 </div>
 
                 <div class="flex items-center gap-3">
+                    <button
+                        type="button"
+                        @click="triggerTestPush"
+                        :disabled="isTestingPush"
+                        class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
+                        title="ارسال اعلان تست به مرورگر (حتی هنگام بسته بودن مرورگر)"
+                    >
+                        <span v-if="isTestingPush" class="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                        <svg v-else class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span class="hidden sm:inline">تست اعلان مرورگر</span>
+                    </button>
                     <ThemeSwitcher />
                 </div>
             </header>

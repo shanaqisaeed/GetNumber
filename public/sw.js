@@ -14,16 +14,25 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-    if (!event.data) return;
+    let payload = {
+        title: 'پیامک جدید دریافت شد',
+        body: 'پیام جدیدی دریافت شد.',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: 'sms-notification-' + Date.now(),
+        data: { url: '/messages' }
+    };
 
-    let payload = {};
-    try {
-        payload = event.data.json();
-    } catch (e) {
-        payload = {
-            title: 'پیامک جدید دریافت شد',
-            body: 'پیامک جدیدی دریافت شد.',
-        };
+    if (event.data) {
+        try {
+            const parsed = event.data.json();
+            payload = { ...payload, ...parsed };
+        } catch (e) {
+            const text = event.data.text();
+            if (text) {
+                payload.body = text;
+            }
+        }
     }
 
     const title = payload.title || 'پیامک جدید دریافت شد';

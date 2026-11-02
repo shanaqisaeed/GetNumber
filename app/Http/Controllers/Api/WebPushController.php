@@ -61,5 +61,15 @@ class WebPushController extends Controller
             'message' => 'اشتراک اعلان مرورگر لغو شد.',
         ]);
     }
+
+    /**
+     * Send a real test push notification to user's registered browsers
+     */
+    public function testPush(Request $request): JsonResponse
+    {
+        $result = $this->webPushService->sendTestNotification($request->user());
+
+        return response()->json($result);
+    }
 }
 

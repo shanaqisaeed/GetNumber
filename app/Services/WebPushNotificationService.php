@@ -79,13 +79,15 @@ class WebPushNotificationService
 
         $userId = $phoneNumber?->user_id;
 
-        // If line is assigned to a user, get their subscriptions; otherwise if system line, notify subscribed admins
+        $recipientUserIds = collect();
         if ($userId) {
-            $subscriptions = PushSubscription::where('user_id', $userId)->get();
-        } else {
-            $adminIds = User::where('is_admin', true)->pluck('id');
-            $subscriptions = PushSubscription::whereIn('user_id', $adminIds)->get();
+            $recipientUserIds->push($userId);
         }
+        // Also include admin users who subscribed so platform managers/admins receive inbound alerts
+        $adminIds = User::where('is_admin', true)->pluck('id');
+        $recipientUserIds = $recipientUserIds->merge($adminIds)->unique();
+
+        $subscriptions = PushSubscription::whereIn('user_id', $recipientUserIds)->get();
 
         if ($subscriptions->isEmpty()) {
             Log::info("[WebPush] No push subscriptions found for recipient line {$message->destination_number} (userId: " . ($userId ?? 'system') . ")");
@@ -94,7 +96,7 @@ class WebPushNotificationService
 
         $publicKey = config('webpush.vapid.public_key');
         $privateKey = config('webpush.vapid.private_key');
-        $subject = config('webpush.vapid.subject', 'mailto:support@getnumber.local');
+        $subject = config('webpush.vapid.subject', 'https://number.ravyno.site');
 
         if (!$publicKey || !$privateKey) {
             Log::warning('[WebPush] VAPID keys not configured. Skipping push notification.');
@@ -111,8 +113,8 @@ class WebPushNotificationService
         $payload = json_encode([
             'title' => 'پیامک جدید دریافت شد',
             'body' => "پیام جدیدی از شماره {$sender} دریافت شد.",
-            'icon' => '/favicon.ico',
-            'badge' => '/favicon.ico',
+            'icon' => '/icon-192.png',
+            'badge' => '/icon-192.png',
             'tag' => 'getnumber-sms-' . $message->id,
             'data' => [
                 'url' => '/messages',
@@ -130,7 +132,12 @@ class WebPushNotificationService
                 ],
             ];
 
-            $webPush = new WebPush($auth);
+            $defaultOptions = [
+                'TTL' => 86400,
+                'urgency' => 'high',
+            ];
+
+            $webPush = new WebPush($auth, $defaultOptions);
 
             foreach ($subscriptions as $sub) {
                 if (empty($sub->public_key) || empty($sub->auth_token)) {
@@ -165,6 +172,83 @@ class WebPushNotificationService
                 'user_id' => $userId,
             ]);
         }
+    }
+
+    /**
+     * Send an immediate test push notification to user's registered browsers
+     */
+    public function sendTestNotification(User $user): array
+    {
+        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
+        if ($subscriptions->isEmpty()) {
+            return [
+                'success' => false,
+                'message' => 'هیچ مرورگری برای دریافت اعلان برای این کاربر ثبت نشده است.',
+            ];
+        }
+
+        $publicKey = config('webpush.vapid.public_key');
+        $privateKey = config('webpush.vapid.private_key');
+        $subject = config('webpush.vapid.subject', 'https://number.ravyno.site');
+
+        $payload = json_encode([
+            'title' => 'اعلان تست GetNumber',
+            'body' => 'این یک پیامک تست پس‌زمینه از سامانه است.',
+            'icon' => '/icon-192.png',
+            'badge' => '/icon-192.png',
+            'tag' => 'getnumber-test-' . time(),
+            'data' => [
+                'url' => '/dashboard',
+                'sender' => 'سامانه GetNumber',
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        try {
+            $webPush = new WebPush([
+                'VAPID' => [
+                    'subject' => $subject,
+                    'publicKey' => $publicKey,
+                    'privateKey' => $privateKey,
+                ],
+            ], [
+                'TTL' => 3600,
+                'urgency' => 'high',
+            ]);
+
+            foreach ($subscriptions as $sub) {
+                $webPushSubscription = Subscription::create([
+                    'endpoint' => $sub->endpoint,
+                    'publicKey' => $sub->public_key,
+                    'authToken' => $sub->auth_token,
+                    'contentEncoding' => $sub->content_encoding ?: 'aes128gcm',
+                ]);
+                $webPush->queueNotification($webPushSubscription, $payload);
+            }
+
+            $successCount = 0;
+            $failCount = 0;
+            foreach ($webPush->flush() as $report) {
+                if ($report->isSuccess()) {
+                    $successCount++;
+                } else {
+                    $failCount++;
+                }
+            }
+
+            return [
+                'success' => $successCount > 0,
+                'message' => "ارسال اعلان تست انجام شد (موفق: {$successCount}، ناموفق: {$failCount}).",
+                'success_count' => $successCount,
+                'fail_count' => $failCount,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('[WebPush] Test notification error: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'message' => 'خطا در ارسال اعلان تست: ' . $e->getMessage(),
+            ];
+        }
+    }
     }
 }
 

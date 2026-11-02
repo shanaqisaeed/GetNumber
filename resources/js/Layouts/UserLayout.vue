@@ -42,7 +42,17 @@ const showIncomingToast = (msg: RealtimeMessagePayload) => {
     }, 5000);
 };
 
-const { showLocalNotification } = useWebNotifications();
+const { showLocalNotification, sendTestPush } = useWebNotifications();
+const isTestingPush = ref(false);
+
+const triggerTestPush = async () => {
+    isMoreMenuOpen.value = false;
+    isTestingPush.value = true;
+    showLocalNotification('سامانه GetNumber (تست)');
+    const res = await sendTestPush();
+    isTestingPush.value = false;
+    alert(res.message + "\n\nاکنون می‌توانید مرورگر یا تب را ببندید تا ارسال اعلان‌ها را در حالت بسته تست فرمایید.");
+};
 
 const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
     userId: user.value?.id,
@@ -370,6 +380,24 @@ const navItems = computed(() => [
                             </div>
                             <span>کلیدهای API</span>
                         </Link>
+
+                        <button
+                            type="button"
+                            @click="triggerTestPush"
+                            :disabled="isTestingPush"
+                            class="p-3 rounded-2xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 flex items-center gap-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-all text-right w-full cursor-pointer disabled:opacity-50"
+                        >
+                            <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                                <span v-if="isTestingPush" class="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="truncate font-extrabold">تست اعلان پیامک (پیش‌زمینه و پس‌زمینه)</p>
+                                <p class="text-[10px] text-slate-500 dark:text-slate-400 font-normal">بررسی دریافت اعلان در صورت بسته بودن مرورگر</p>
+                            </div>
+                        </button>
 
                         <Link
                             :href="route('profile.edit')"

@@ -135,6 +135,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/webpush/vapid-public-key', [\App\Http\Controllers\Api\WebPushController::class, 'vapidPublicKey'])->name('webpush.key');
     Route::post('/webpush/subscribe', [\App\Http\Controllers\Api\WebPushController::class, 'subscribe'])->name('webpush.subscribe');
     Route::post('/webpush/unsubscribe', [\App\Http\Controllers\Api\WebPushController::class, 'unsubscribe'])->name('webpush.unsubscribe');
+    Route::post('/webpush/test', [\App\Http\Controllers\Api\WebPushController::class, 'testPush'])->name('webpush.test');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
