@@ -385,13 +385,27 @@ class MessageController extends Controller
             return response()->json(['success' => false, 'message' => 'دسترسی غیرمجاز.']);
         }
 
-        // 1. Refreshed conversations list
-        $conversations = $this->messageService->getConversations($phoneNumber, $request->input('search'));
+        // Fast Delta Detection: check if any new messages exist beyond after_id
+        $latestId = (int) (Message::where('phone_number_id', $phoneNumber->id)->max('id') ?? 0);
+        $hasNewMessages = ($latestId > $afterId);
+
+        // 1. Refreshed conversations list (Cached for 30s unless new messages detected)
+        $cacheKey = "line:{$phoneNumber->id}:conversations:" . md5((string) $request->input('search'));
+        if ($hasNewMessages || $request->boolean('force')) {
+            \Illuminate\Support\Facades\Cache::forget($cacheKey);
+        }
+
+        $conversations = \Illuminate\Support\Facades\Cache::remember($cacheKey, 30, function () use ($phoneNumber, $request) {
+            return $this->messageService->getConversations($phoneNumber, $request->input('search'));
+        });
 
         // 2. New messages in active conversation if open, or general delta if no activePeer
-        $newMessages = $activePeer
-            ? $this->messageService->getConversationMessages($phoneNumber, $activePeer, $afterId)
-            : $this->messageService->pollUserMessages($user, $afterId, $phoneNumber->id);
+        $newMessages = collect();
+        if ($hasNewMessages || $afterId === 0) {
+            $newMessages = $activePeer
+                ? $this->messageService->getConversationMessages($phoneNumber, $activePeer, $afterId)
+                : $this->messageService->pollUserMessages($user, $afterId, $phoneNumber->id);
+        }
 
         $mappedMessages = $newMessages->map(fn (Message $m) => [
             'id' => $m->id,
@@ -407,7 +421,7 @@ class MessageController extends Controller
         ]);
 
         $statuses = [];
-        if ($activePeer) {
+        if ($activePeer && ($hasNewMessages || $afterId === 0)) {
             $cleanPeer = \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($activePeer);
             $statuses = Message::where('phone_number_id', $phoneNumber->id)
                 ->where(function ($q) use ($cleanPeer, $activePeer) {
@@ -422,12 +436,7 @@ class MessageController extends Controller
                 ->all();
         }
 
-        $unreadCountsByLine = Message::whereIn('phone_number_id', $user->phoneNumbers()->where('status', PhoneNumberStatus::Allocated)->pluck('id'))
-            ->where('direction', MessageDirection::Inbound)
-            ->where('processing_status', MessageProcessingStatus::Received)
-            ->selectRaw('phone_number_id, count(*) as count')
-            ->groupBy('phone_number_id')
-            ->pluck('count', 'phone_number_id');
+        $unreadCountsByLine = $this->unreadCountService->getUnreadSummaryForUser($user)['unread_by_line'];
 
         return response()->json([
             'success' => true,

@@ -903,6 +903,12 @@ class MessageService implements MessageServiceInterface
             ->distinct()
             ->pluck('peer_number');
 
+        // Pre-fetch all peer records in 1 single query instead of N queries
+        $peerRecords = PhoneNumber::with('user')
+            ->whereIn('number', $peerNumbers)
+            ->get()
+            ->keyBy('number');
+
         $conversations = collect();
 
         foreach ($peerNumbers as $peer) {
@@ -917,7 +923,7 @@ class MessageService implements MessageServiceInterface
             }
 
             $defaultPrefix = PhonePrefix::getDefaultPrefixString();
-            $peerRecord = PhoneNumber::with('user')->where('number', $peer)->first();
+            $peerRecord = $peerRecords->get($peer);
             $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$peer}"));
 
             // If search is active, check peer, title, or message bodies

@@ -38,6 +38,11 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(
+            \App\Contracts\MessageArchiveServiceInterface::class,
+            \App\Services\MessageArchiveService::class
+        );
+
+        $this->app->singleton(
             \App\Contracts\TicketServiceInterface::class,
             \App\Services\TicketService::class
         );

@@ -37,4 +37,10 @@ Schedule::command('payments:nobitex:sync-wallet')
     ->withoutOverlapping()
     ->runInBackground();
 
+Schedule::command('messages:archive --days=90')
+    ->daily()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 
