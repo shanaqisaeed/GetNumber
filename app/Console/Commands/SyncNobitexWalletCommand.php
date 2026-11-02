@@ -18,20 +18,20 @@ class SyncNobitexWalletCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'بررسی وضعیت اعتبار توکن نوبیتکس و همگام‌سازی روزانه آدرس کیف‌پول TRX در پایگاه‌داده';
+    protected $description = 'Verify Nobitex API token validity and synchronize daily TRX deposit addresses';
 
     /**
      * Execute the console command.
      */
     public function handle(PaymentGatewayManager $gatewayManager): int
     {
-        $this->info('در حال استعلام و همگام‌سازی کیف‌پول نوبیتکس...');
+        $this->info('Querying and synchronizing Nobitex gateway wallet...');
 
         /** @var PaymentGateway|null $gateway */
         $gateway = PaymentGateway::where('driver', 'nobitex')->first();
 
         if (! $gateway) {
-            $this->warn('درگاه نوبیتکس در جدول payment_gateways یافت نشد.');
+            $this->warn('Nobitex gateway not found in payment_gateways table.');
             return Command::FAILURE;
         }
 
@@ -39,7 +39,7 @@ class SyncNobitexWalletCommand extends Command
         $apiKey = trim((string) ($config['api_key'] ?? ''));
 
         if (empty($apiKey)) {
-            $this->warn('توکن یا کلید API نوبیتکس هنوز توسط مدیر سامانه تنظیم نشده است.');
+            $this->warn('Nobitex API token has not been configured yet by system administrator.');
             return Command::SUCCESS;
         }
 
@@ -49,8 +49,8 @@ class SyncNobitexWalletCommand extends Command
             // Step 1: Validate credentials
             $valResult = $adapter->validateCredentials($config);
             if (! ($valResult['valid'] ?? false)) {
-                $errMsg = $valResult['message'] ?? 'توکن نامعتبر است.';
-                $this->error("اعتبارسنجی توکن نوبیتکس رد شد: {$errMsg}");
+                $errMsg = $valResult['message'] ?? 'Invalid token credentials.';
+                $this->error("Nobitex token validation failed: {$errMsg}");
                 Log::channel('single')->error('Nobitex token validation failed in cron', ['error' => $errMsg]);
                 return Command::FAILURE;
             }
@@ -59,7 +59,7 @@ class SyncNobitexWalletCommand extends Command
             $syncResult = $adapter->syncWallets($config);
 
             if (! ($syncResult['success'] ?? false)) {
-                $this->error('خطا در همگام‌سازی آدرس TRX: ' . ($syncResult['message'] ?? 'آدرس دریافت نشد.'));
+                $this->error('Failed to sync TRX deposit address: ' . ($syncResult['message'] ?? 'Address not retrieved.'));
                 return Command::FAILURE;
             }
 
@@ -71,7 +71,7 @@ class SyncNobitexWalletCommand extends Command
             $gateway->update(['config' => $config]);
 
             if ($changed) {
-                $this->warn("آدرس کیف پول TRX تغییر کرده بود و به‌روزرسانی شد: {$oldAddress} -> {$newAddress}");
+                $this->warn("Nobitex TRX wallet address has changed and was updated: {$oldAddress} -> {$newAddress}");
                 Log::channel('single')->warning("Nobitex TRX wallet address updated: {$oldAddress} -> {$newAddress}");
 
                 AuditLog::create([
@@ -86,15 +86,14 @@ class SyncNobitexWalletCommand extends Command
                     'ip_address' => '127.0.0.1',
                 ]);
             } else {
-                $this->info("کیف‌پول نوبیتکس TRX معتبر و همگام است. آدرس جاری: {$newAddress}");
+                $this->info("Nobitex TRX wallet address is valid and synced. Current address: {$newAddress}");
             }
 
             return Command::SUCCESS;
         } catch (\Throwable $e) {
-            $this->error('خطا در اجرای فرآیند همگام‌سازی نوبیتکس: ' . $e->getMessage());
+            $this->error('Exception during Nobitex wallet sync execution: ' . $e->getMessage());
             Log::channel('single')->error('Exception during Nobitex sync', ['exception' => $e->getMessage()]);
             return Command::FAILURE;
         }
     }
 }
-

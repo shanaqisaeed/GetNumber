@@ -20,20 +20,20 @@ class SweepExpiredNumbersCommand extends Command
      *
      * @var string
      */
-    protected $description = 'آزادسازی خطوط منقضی‌شده رزرو و به‌روزرسانی وضعیت خطوط به سررسید رسیده';
+    protected $description = 'Release expired reserved phone numbers and update status of overdue lines';
 
     /**
      * Execute the console command.
      */
     public function handle(PhoneNumberAllocationServiceInterface $allocationService): int
     {
-        $this->info('در حال بررسی و پردازش خطوط منقضی‌شده سامانه...');
+        $this->info('Checking and processing expired phone numbers in the platform...');
 
         $processedCount = $allocationService->processExpiredNumbers();
 
         Log::info("Number expiration sweep executed: {$processedCount} numbers processed.");
 
-        $this->info("تعداد {$processedCount} شماره منقضی‌شده با موفقیت پردازش و وضعیت آن‌ها به‌روزرسانی گردید.");
+        $this->info("Successfully processed and released {$processedCount} expired phone numbers.");
 
         return Command::SUCCESS;
     }

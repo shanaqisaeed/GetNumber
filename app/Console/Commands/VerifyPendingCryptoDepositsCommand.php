@@ -10,12 +10,12 @@ class VerifyPendingCryptoDepositsCommand extends Command
     /**
      * The name and signature of the console command.
      */
-    protected $signature = 'payments:verify-pending {--limit=50 : تعداد حداکثر تراکنش‌ها جهت پردازش در هر نوبت}';
+    protected $signature = 'payments:verify-pending {--limit=50 : Maximum number of transactions to query per run}';
 
     /**
      * The console command description.
      */
-    protected $description = 'بررسی و استعلام دوره‌ای تراکنش‌های معلق کریپتو از شبکه و صرافی‌ها و شارژ خودکار کیف پول';
+    protected $description = 'Periodically verify pending crypto deposit transactions from blockchain networks and auto-credit wallets';
 
     /**
      * Execute the console command.
@@ -24,21 +24,20 @@ class VerifyPendingCryptoDepositsCommand extends Command
     {
         $limit = (int) $this->option('limit');
 
-        $this->info("در حال بررسی تراکنش‌های معلق کریپتو (حداکثر {$limit} مورد)...");
+        $this->info("Checking pending crypto deposits (limit: {$limit})...");
 
         $stats = $paymentService->processPendingDeposits($limit);
         $expiredCount = $paymentService->expireStaleDeposits();
 
-        $this->info("تراکنش‌های بررسی‌شده: {$stats['checked']}");
-        $this->info("تأیید و شارژشده: {$stats['completed']}");
-        $this->info("ردشده/ناموفق: {$stats['failed']}");
-        $this->info("همچنان در صف تایید: {$stats['still_pending']}");
+        $this->info("Transactions inspected: {$stats['checked']}");
+        $this->info("Confirmed and credited: {$stats['completed']}");
+        $this->info("Rejected or failed: {$stats['failed']}");
+        $this->info("Still awaiting confirmations: {$stats['still_pending']}");
 
         if ($expiredCount > 0) {
-            $this->warn("تراکنش‌های منقضی‌شده: {$expiredCount}");
+            $this->warn("Expired transactions: {$expiredCount}");
         }
 
         return Command::SUCCESS;
     }
 }
-

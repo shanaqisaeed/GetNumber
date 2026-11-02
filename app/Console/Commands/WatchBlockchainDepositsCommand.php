@@ -10,12 +10,12 @@ class WatchBlockchainDepositsCommand extends Command
     /**
      * The name and signature of the console command.
      */
-    protected $signature = 'blockchain:watch-deposits {--limit=50 : سقف تعداد فاکتورهای معلق جهت بررسی}';
+    protected $signature = 'blockchain:watch-deposits {--limit=50 : Maximum pending invoices to inspect per run}';
 
     /**
      * The console command description.
      */
-    protected $description = 'پایش خودکار و آنی تراکنش‌های ورودی بلاکچین (Blockchain Watcher) و انتساب خودکار بدون نیاز به ورود دستی هش';
+    protected $description = 'Automatically scan blockchain incoming transactions and match uncredited deposits without manual hash entry';
 
     /**
      * Execute the console command.
@@ -24,24 +24,23 @@ class WatchBlockchainDepositsCommand extends Command
     {
         $limit = (int) $this->option('limit');
 
-        $this->info("🛰️ در حال اسکن شبکه‌های بلاکچین و درگاه‌ها (حداکثر {$limit} مورد)...");
+        $this->info("Scanning blockchain networks and payment gateways (limit: {$limit})...");
 
         $stats = $watcherService->scanAndMatchIncomingDeposits($limit);
         $progressStats = $watcherService->progressPendingConfirmations($limit);
 
         $this->table(
-            ['شاخص واچر بلاکچین', 'مقدار'],
+            ['Blockchain Watcher Metric', 'Value'],
             [
-                ['درگاه‌های اسکن‌شده', $stats['scanned_gateways']],
-                ['تراکنش‌های ورودی رصدشده', $stats['incoming_transactions_detected']],
-                ['واریزی‌های منطبق‌شده خودکار', $stats['auto_matched_deposits']],
-                ['تأیید و شارژشده قطعی', $stats['completed'] + ($progressStats['completed'] ?? 0)],
-                ['در انتظار رسیدن به حد نصاب تأییدات', $stats['confirming'] + ($progressStats['still_pending'] ?? 0)],
-                ['خطاهای واچر', $stats['errors']],
+                ['Gateways Scanned', $stats['scanned_gateways']],
+                ['Incoming Transactions Detected', $stats['incoming_transactions_detected']],
+                ['Auto-Matched Deposits', $stats['auto_matched_deposits']],
+                ['Confirmed and Credited', $stats['completed'] + ($progressStats['completed'] ?? 0)],
+                ['Awaiting Confirmation Threshold', $stats['confirming'] + ($progressStats['still_pending'] ?? 0)],
+                ['Watcher Errors', $stats['errors']],
             ]
         );
 
         return Command::SUCCESS;
     }
 }
-

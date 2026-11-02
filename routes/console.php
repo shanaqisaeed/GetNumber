@@ -8,12 +8,37 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('numbers:sweep-expired')
-    ->hourly()
+/*
+|--------------------------------------------------------------------------
+| Active Queue Worker & Job Processing
+|--------------------------------------------------------------------------
+| Continuously process queued jobs across prioritized channels.
+| Automatically runs in the background and drains jobs every minute.
+*/
+Schedule::command('queue:work --queue=messages-high,messages,messages-bulk,notifications,default --stop-when-empty --max-time=55 --memory=128 --tries=3')
+    ->everyMinute()
     ->withoutOverlapping()
-    ->onOneServer()
     ->runInBackground();
 
+Schedule::command('queue:restart')
+    ->hourly()
+    ->runInBackground();
+
+Schedule::command('queue:prune-batches --hours=48')
+    ->daily()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+Schedule::command('queue:prune-failed --hours=168')
+    ->daily()
+    ->withoutOverlapping()
+    ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Financial & Blockchain Schedulers
+|--------------------------------------------------------------------------
+*/
 Schedule::command('payments:verify-pending')
     ->everyMinute()
     ->withoutOverlapping()
@@ -37,10 +62,19 @@ Schedule::command('payments:nobitex:sync-wallet')
     ->withoutOverlapping()
     ->runInBackground();
 
+/*
+|--------------------------------------------------------------------------
+| Telephony & Message Lifecycle Schedulers
+|--------------------------------------------------------------------------
+*/
+Schedule::command('numbers:sweep-expired')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 Schedule::command('messages:archive --days=90')
     ->daily()
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
-
-
