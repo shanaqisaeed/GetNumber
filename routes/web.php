@@ -45,6 +45,45 @@ Route::get('/sitemap.xml', function () {
     ]);
 })->name('sitemap');
 
+// Service Worker for Web Push Notifications
+Route::get('/sw.js', function () {
+    $swPath = public_path('sw.js');
+    $content = file_exists($swPath)
+        ? file_get_contents($swPath)
+        : <<<'JS'
+self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
+self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
+self.addEventListener('push', (e) => {
+    let d = {};
+    try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'پیامک جدید', body: e.data ? e.data.text() : '' }; }
+    e.waitUntil(self.registration.showNotification(d.title || 'پیامک جدید', {
+        body: d.body || 'یک پیامک جدید دریافت شد.',
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'sms-' + Date.now(),
+        renotify: true,
+        data: d.data || { url: '/messages' }
+    }));
+});
+self.addEventListener('notificationclick', (e) => {
+    e.notification.close();
+    const url = e.notification.data?.url || '/messages';
+    e.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+            for (const c of list) { if (c.url && 'focus' in c) return c.focus(); }
+            if (clients.openWindow) return clients.openWindow(url);
+        })
+    );
+});
+JS;
+
+    return response($content, 200, [
+        'Content-Type' => 'application/javascript; charset=utf-8',
+        'Service-Worker-Allowed' => '/',
+        'Cache-Control' => 'no-cache, no-store, must-revalidate',
+    ]);
+})->name('webpush.serviceworker');
+
 // Standard User Routes
 Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [\App\Http\Controllers\User\DashboardController::class, 'index'])->name('dashboard');

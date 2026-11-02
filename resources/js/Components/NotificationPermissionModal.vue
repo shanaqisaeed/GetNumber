@@ -26,17 +26,18 @@ const showToast = (msg: string) => {
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         toastMessage.value = null;
-    }, 3500);
+    }, 4000);
 };
 
 onMounted(async () => {
-    // Clear any previous stale test flags from localStorage
+    // Clear any test storage keys
     try {
         localStorage.removeItem('notification_prompt_dismissed');
         localStorage.removeItem('webpush_prompt_dismissed');
+        sessionStorage.removeItem('notification_prompt_dismissed');
     } catch {}
 
-    // Check current browser support and subscription status without hanging
+    // Check status immediately (safe, never hangs)
     await checkSubscriptionStatus();
 
     // 1. If notifications are not supported in browser, cannot show modal
@@ -44,24 +45,12 @@ onMounted(async () => {
         return;
     }
 
-    // 2. If user already explicitly blocked/denied in browser settings, cannot prompt
-    if (isPermissionDenied.value) {
-        return;
-    }
-
-    // 3. If already fully granted AND subscribed, don't show
+    // 2. If already fully granted AND push subscribed, don't show
     if (isSubscribed.value && isPermissionGranted.value) {
         return;
     }
 
-    // 4. Check if dismissed in this current browser session
-    try {
-        if (sessionStorage.getItem('notification_prompt_dismissed')) {
-            return;
-        }
-    } catch {}
-
-    // Open the modal after a smooth delay
+    // Open the modal smoothly on dashboard load
     setTimeout(() => {
         if (!isSubscribed.value || !isPermissionGranted.value) {
             isOpen.value = true;
@@ -79,10 +68,16 @@ const handleConfirm = async () => {
 
 const handleDismiss = () => {
     isOpen.value = false;
-    try {
-        sessionStorage.setItem('notification_prompt_dismissed', '1');
-    } catch {}
     emit('dismissed');
+};
+
+const handleRecheck = async () => {
+    await checkSubscriptionStatus();
+    if (isPermissionGranted.value) {
+        await handleConfirm();
+    } else {
+        showToast('هنوز مجوز اعلان در تنظیمات مرورگر روی Allow قرار نگرفته است.');
+    }
 };
 </script>
 
@@ -163,8 +158,21 @@ const handleDismiss = () => {
                         </button>
                     </div>
 
-                    <!-- Body -->
-                    <div class="space-y-3">
+                    <!-- Body: If Permission is Blocked/Denied in Browser Settings -->
+                    <div v-if="isPermissionDenied" class="space-y-3">
+                        <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs leading-relaxed space-y-2">
+                            <div class="flex items-center gap-2 font-black text-sm text-amber-600 dark:text-amber-400">
+                                <span>⚠️</span>
+                                <span>مجوز اعلان در مرورگر مسدود (Block) است</span>
+                            </div>
+                            <p>
+                                برای فعال‌سازی اعلان‌ها، لطفاً روی آیکون <strong>قفل (یا تنظیمات سایت)</strong> در ابتدای نوار آدرس مرورگر کلیک کنید، گزینه <strong>Notifications</strong> را روی <strong>Allow</strong> قرار دهید و سپس روی دکمه «بررسی مجدد» بزنید.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Body: Normal Prompt -->
+                    <div v-else class="space-y-3">
                         <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                             آیا مایلید هنگام رسیدن پیامک جدید (حتی در صورت بسته بودن این صفحه یا مرورگر) اعلان سیستم بر روی دستگاه خود دریافت کنید؟
                         </p>
@@ -185,7 +193,19 @@ const handleDismiss = () => {
                         >
                             خیر، بعداً
                         </button>
+
                         <button
+                            v-if="isPermissionDenied"
+                            type="button"
+                            @click="handleRecheck"
+                            class="px-5 py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 rounded-xl shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer"
+                        >
+                            <span>🔄</span>
+                            <span>بررسی مجدد مجوز</span>
+                        </button>
+
+                        <button
+                            v-else
                             type="button"
                             :disabled="isSubscribing"
                             @click="handleConfirm"

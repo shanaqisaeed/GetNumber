@@ -34,7 +34,7 @@ self.addEventListener('push', (event) => {
         tag: payload.tag || ('sms-notification-' + (payload.data?.messageId || Date.now())),
         renotify: true,
         vibrate: [200, 100, 200],
-        data: payload.data || { url: '/user/messages' },
+        data: payload.data || { url: '/messages' },
     };
 
     event.waitUntil(self.registration.showNotification(title, options));
@@ -42,7 +42,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const targetUrl = event.notification.data?.url || '/user/messages';
+    const targetUrl = event.notification.data?.url || '/messages';
 
     event.waitUntil(
         self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

@@ -70,11 +70,17 @@ export function useWebNotifications() {
 
         if (isPushApiSupported.value) {
             try {
-                const registration = await navigator.serviceWorker.ready;
-                const subscription = await registration.pushManager.getSubscription();
-                isSubscribed.value = !!subscription;
+                // Must use getRegistration() instead of ready, which hangs indefinitely if SW is not yet active
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (registration) {
+                    const subscription = await registration.pushManager.getSubscription();
+                    isSubscribed.value = !!subscription;
+                } else {
+                    isSubscribed.value = false;
+                }
             } catch (err) {
                 console.warn('[WebPush] Error checking subscription:', err);
+                isSubscribed.value = false;
             }
         }
     };
@@ -190,12 +196,14 @@ export function useWebNotifications() {
         if (!isPushApiSupported.value) return false;
         isSubscribing.value = true;
         try {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            if (subscription) {
-                const endpoint = subscription.endpoint;
-                await axios.post('/webpush/unsubscribe', { endpoint });
-                await subscription.unsubscribe();
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    const endpoint = subscription.endpoint;
+                    await axios.post('/webpush/unsubscribe', { endpoint });
+                    await subscription.unsubscribe();
+                }
             }
             isSubscribed.value = false;
             return true;
