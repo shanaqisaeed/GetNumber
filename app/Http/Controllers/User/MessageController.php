@@ -151,6 +151,10 @@ class MessageController extends Controller
                 'processing_status' => $m->processing_status->value,
             ]),
             'stats' => $stats,
+            'smsTariff' => [
+                'rate_per_segment' => (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+                'currency' => 'COIN',
+            ],
             'search' => $request->input('search', ''),
         ]);
     }
@@ -196,11 +200,35 @@ class MessageController extends Controller
         );
 
         if ($request->wantsJson()) {
+            $createdMessage = null;
+            if ($result['sent_count'] > 0 && ! empty($result['results'])) {
+                $firstSuccess = collect($result['results'])->firstWhere('status', 'success');
+                if ($firstSuccess && isset($firstSuccess['message_id'])) {
+                    $m = Message::find($firstSuccess['message_id']);
+                    if ($m) {
+                        $createdMessage = [
+                            'id' => $m->id,
+                            'phone_number_id' => $m->phone_number_id,
+                            'destination_number' => $m->destination_number,
+                            'sender' => $m->sender,
+                            'peer_number' => $m->peer_number,
+                            'direction' => $m->direction->value,
+                            'body' => $m->body,
+                            'server_received_at' => $m->server_received_at->toIso8601String(),
+                            'server_received_at_formatted' => $m->server_received_at->diffForHumans(),
+                            'processing_status' => $m->processing_status->value,
+                        ];
+                    }
+                }
+            }
+
             return response()->json([
                 'success' => $result['sent_count'] > 0,
                 'sent_count' => $result['sent_count'],
                 'failed_count' => $result['failed_count'],
                 'results' => $result['results'],
+                'client_message_id' => $request->input('client_message_id'),
+                'created_message' => $createdMessage,
                 'message' => $result['sent_count'] > 0
                     ? "پیامک با موفقیت به {$result['sent_count']} مقصد ارسال گردید."
                     : 'ارسال پیامک با خطا مواجه شد.',
@@ -279,6 +307,27 @@ class MessageController extends Controller
             'is_finished' => $batch->isFinished(),
             'created_at' => $batch->created_at->toIso8601String(),
             'completed_at' => $batch->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Authoritative server-side SMS segment & cost estimation endpoint.
+     */
+    public function estimateCost(Request $request, \App\Services\SmsSegmentCalculatorService $calculator): JsonResponse
+    {
+        $validated = $request->validate([
+            'body' => ['nullable', 'string', 'max:5000'],
+            'destinations_count' => ['nullable', 'integer', 'min:1', 'max:10000'],
+        ]);
+
+        $body = (string) ($validated['body'] ?? '');
+        $destCount = (int) ($validated['destinations_count'] ?? 1);
+
+        $calculation = $calculator->calculate($body, $destCount);
+
+        return response()->json([
+            'success' => true,
+            'data' => $calculation,
         ]);
     }
 

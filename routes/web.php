@@ -102,6 +102,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages', [\App\Http\Controllers\User\MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');
     Route::post('/messages/send-bulk', [\App\Http\Controllers\User\MessageController::class, 'sendBulk'])->name('messages.send_bulk');
+    Route::post('/messages/estimate-cost', [\App\Http\Controllers\User\MessageController::class, 'estimateCost'])->name('messages.estimate_cost');
     Route::get('/messages/batches/{batchId}', [\App\Http\Controllers\User\MessageController::class, 'batchStatus'])->name('messages.batch.status');
     Route::get('/messages/resync', [\App\Http\Controllers\User\MessageController::class, 'resync'])->name('messages.resync');
     Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
