@@ -219,15 +219,20 @@ export function useWebNotifications() {
         const body = sender ? `پیام جدیدی از شماره ${sender} دریافت شد.` : 'پیامک جدیدی دریافت شد.';
         const options: NotificationOptions = {
             body,
-            icon: '/favicon.ico',
-            badge: '/favicon.ico',
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
             tag: 'getnumber-sms-' + Date.now(),
+            // @ts-ignore
+            vibrate: [200, 100, 200],
         };
 
         // 1. Try service worker showNotification first (mandatory on Android Chrome, works universally)
         if ('serviceWorker' in navigator) {
             try {
-                const reg = await navigator.serviceWorker.getRegistration();
+                let reg = await navigator.serviceWorker.getRegistration();
+                if (!reg) {
+                    reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                }
                 if (reg && 'showNotification' in reg) {
                     await reg.showNotification(title, options);
                     return;

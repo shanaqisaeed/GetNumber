@@ -345,6 +345,11 @@ class MessageController extends Controller
             ->where('status', PhoneNumberStatus::Allocated)
             ->pluck('id');
 
+        // If user is Admin and has no personal lines allocated, monitor all allocated platform lines
+        if ($allocatedLineIds->isEmpty() && $user->isAdmin()) {
+            $allocatedLineIds = PhoneNumber::where('status', PhoneNumberStatus::Allocated)->pluck('id');
+        }
+
         $unreadCountsByLine = Message::whereIn('phone_number_id', $allocatedLineIds)
             ->where('direction', MessageDirection::Inbound)
             ->where('processing_status', MessageProcessingStatus::Received)
@@ -371,6 +376,8 @@ class MessageController extends Controller
                 'destination_number' => $latestMessage->destination_number,
                 'sender' => $latestMessage->sender,
                 'peer_number' => $latestMessage->peer_number,
+                'direction' => $latestMessage->direction->value,
+                'processing_status' => $latestMessage->processing_status->value,
                 'body' => $latestMessage->body,
                 'server_received_at' => $latestMessage->server_received_at?->toIso8601String(),
                 'server_received_at_formatted' => $latestMessage->server_received_at?->diffForHumans(),

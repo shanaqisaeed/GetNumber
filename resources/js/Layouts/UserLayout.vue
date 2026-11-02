@@ -48,7 +48,7 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
     userId: user.value?.id,
     isAdmin: !!user.value?.is_admin,
     onMessage: (msg) => {
-        if (msg.direction === 'inbound') {
+        if (msg.direction === 'inbound' || (!msg.direction && msg.sender)) {
             liveUnreadCount.value += 1;
             const sender = msg.peer_number || msg.sender;
             // Trigger browser notification (privacy-preserved: sender only)

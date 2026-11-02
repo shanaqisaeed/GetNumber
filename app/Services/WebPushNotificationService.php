@@ -24,6 +24,14 @@ class WebPushNotificationService
      */
     public function subscribe(User $user, array $data): PushSubscription
     {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('push_subscriptions')) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            } catch (\Throwable $e) {
+                Log::error('[WebPush] Auto-migration error: ' . $e->getMessage());
+            }
+        }
+
         $endpoint = $data['endpoint'];
         $endpointHash = PushSubscription::hashEndpoint($endpoint);
         $keys = $data['keys'] ?? [];
@@ -60,6 +68,10 @@ class WebPushNotificationService
      */
     public function sendSmsNotification(Message $message): void
     {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('push_subscriptions')) {
+            return;
+        }
+
         $phoneNumber = $message->phoneNumber;
         if (! $phoneNumber && $message->destination_number) {
             $phoneNumber = \App\Models\PhoneNumber::where('number', $message->destination_number)->first();

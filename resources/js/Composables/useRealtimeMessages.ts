@@ -169,8 +169,12 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
                         onUnreadUpdate(data.unread_total, data.unread_by_line);
                     }
 
-                    if (Array.isArray(data.new_messages)) {
-                        for (const msg of data.new_messages) {
+                    const messageList = Array.isArray(data.new_messages)
+                        ? data.new_messages
+                        : (Array.isArray(data.data) ? data.data : null);
+
+                    if (messageList && messageList.length > 0) {
+                        for (const msg of messageList) {
                             handleIncomingMessage(msg);
                         }
                     } else if (data.latest_message) {

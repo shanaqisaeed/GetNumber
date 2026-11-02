@@ -18,7 +18,7 @@ useRealtimeMessages({
     isAdmin: true,
     pollUrl: route('admin.messages.poll'),
     onMessage: (msg) => {
-        if (msg.direction === 'inbound') {
+        if (msg.direction === 'inbound' || (!msg.direction && msg.sender)) {
             const sender = msg.peer_number || msg.sender;
             showLocalNotification(sender);
         }
