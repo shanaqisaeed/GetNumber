@@ -75,6 +75,11 @@ class AppServiceProvider extends ServiceProvider
             \App\Contracts\PaymentServiceInterface::class,
             \App\Services\PaymentService::class
         );
+
+        $this->app->singleton(
+            \App\Contracts\SystemCacheServiceInterface::class,
+            \App\Services\Cache\SystemCacheService::class
+        );
     }
 
     /**

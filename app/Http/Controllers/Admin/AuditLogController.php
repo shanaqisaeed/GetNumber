@@ -79,15 +79,7 @@ class AuditLogController extends Controller
                 'created_at_human' => $log->created_at->diffForHumans(),
             ]);
 
-        $stats = [
-            'total' => AuditLog::count(),
-            'today' => AuditLog::whereDate('created_at', today())->count(),
-            'number_events' => AuditLog::where('action', 'like', 'number_%')->count(),
-            'security_events' => AuditLog::where(function ($q) {
-                $q->where('action', 'like', 'token_%')
-                  ->orWhere('action', 'like', 'user_%');
-            })->count(),
-        ];
+        $stats = app(\App\Contracts\SystemCacheServiceInterface::class)->getAuditLogsStats();
 
         $actionOptions = [
             ['value' => '', 'label' => 'همه رخدادها'],

@@ -28,40 +28,10 @@ class DashboardController extends Controller
      */
     public function index(): Response
     {
-        // 1. Users metrics
-        $totalUsers = User::count();
-        $activeUsers = User::where('status', UserStatus::Active)->count();
-        $suspendedUsers = User::where('status', UserStatus::Suspended)->count();
-        $adminUsers = User::where('role', UserRole::Admin)->count();
-        $newUsersToday = User::whereDate('created_at', today())->count();
+        $cacheService = app(\App\Contracts\SystemCacheServiceInterface::class);
 
-        // 2. Phone Numbers metrics
-        $totalNumbers = PhoneNumber::count();
-        $allocatedNumbers = PhoneNumber::where('status', PhoneNumberStatus::Allocated)->count();
-        $availableNumbers = PhoneNumber::where('status', PhoneNumberStatus::Available)->count();
-        $standardNumbers = PhoneNumber::where('type', PhoneNumberType::UserStandard)->count();
-        $serviceNumbers = PhoneNumber::where('type', PhoneNumberType::UserService)->count();
-        $platformNumbers = PhoneNumber::where('type', PhoneNumberType::PlatformService)->count();
-        $utilizationRate = $totalNumbers > 0 ? round(($allocatedNumbers / $totalNumbers) * 100, 1) : 0;
-
-        // 3. Messages metrics
-        $totalMessages = Message::count();
-        $todayMessages = Message::whereDate('server_received_at', today())->count();
-        $inboundMessages = Message::where('direction', MessageDirection::Inbound)->count();
-        $outboundMessages = Message::where('direction', MessageDirection::Outbound)->count();
-        $deliveredMessages = Message::where('processing_status', MessageProcessingStatus::Processed)->count();
-        $failedMessages = Message::where('processing_status', MessageProcessingStatus::Failed)->count();
-        $successRate = $totalMessages > 0 ? round(($deliveredMessages / $totalMessages) * 100, 1) : 100;
-
-        // 4. Number Requests metrics
-        $pendingRequestsCount = NumberRequest::where('status', NumberRequestStatus::Pending)->count();
-        $approvedRequestsCount = NumberRequest::where('status', NumberRequestStatus::Approved)->count();
-        $rejectedRequestsCount = NumberRequest::where('status', NumberRequestStatus::Rejected)->count();
-
-        // 5. API Tokens metrics
-        $totalTokens = ApiToken::count();
-        $activeTokens = ApiToken::where('status', ApiTokenStatus::Active)->count();
-        $revokedTokens = ApiToken::where('status', ApiTokenStatus::Revoked)->count();
+        // 1-5. Aggregated Analytics & KPIs (Cached with auto-invalidation on entity mutations)
+        $stats = $cacheService->getAdminDashboardStats();
 
         // 6. Recent Users (5 latest)
         $recentUsers = User::latest('id')
@@ -117,48 +87,12 @@ class DashboardController extends Controller
         ];
 
         return Inertia::render('Admin/Dashboard', [
-            'stats' => [
-                'users' => [
-                    'total' => $totalUsers,
-                    'active' => $activeUsers,
-                    'suspended' => $suspendedUsers,
-                    'admins' => $adminUsers,
-                    'new_today' => $newUsersToday,
-                ],
-                'numbers' => [
-                    'total' => $totalNumbers,
-                    'allocated' => $allocatedNumbers,
-                    'available' => $availableNumbers,
-                    'standard' => $standardNumbers,
-                    'service' => $serviceNumbers,
-                    'platform' => $platformNumbers,
-                    'utilization_rate' => $utilizationRate,
-                ],
-                'messages' => [
-                    'total' => $totalMessages,
-                    'today' => $todayMessages,
-                    'inbound' => $inboundMessages,
-                    'outbound' => $outboundMessages,
-                    'delivered' => $deliveredMessages,
-                    'failed' => $failedMessages,
-                    'success_rate' => $successRate,
-                ],
-                'requests' => [
-                    'pending' => $pendingRequestsCount,
-                    'approved' => $approvedRequestsCount,
-                    'rejected' => $rejectedRequestsCount,
-                ],
-                'tokens' => [
-                    'total' => $totalTokens,
-                    'active' => $activeTokens,
-                    'revoked' => $revokedTokens,
-                ],
-            ],
+            'stats' => $stats,
             // For backward compatibility with existing tests
-            'total_users' => $totalUsers,
-            'active_users' => $activeUsers,
-            'suspended_users' => $suspendedUsers,
-            'admin_users' => $adminUsers,
+            'total_users' => $stats['users']['total'],
+            'active_users' => $stats['users']['active'],
+            'suspended_users' => $stats['users']['suspended'],
+            'admin_users' => $stats['users']['admins'],
             'recentUsers' => $recentUsers,
             'pendingRequests' => $pendingRequests,
             'recentAudits' => $recentAudits,

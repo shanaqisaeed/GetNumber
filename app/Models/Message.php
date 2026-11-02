@@ -47,6 +47,27 @@ class Message extends Model
                     : $message->sender;
             }
         });
+
+        static::created(function (Message $message) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleMessageCreated($message);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::updated(function (Message $message) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleMessageCreated($message);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::deleted(function (Message $message) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleMessageDeleted($message);
+            } catch (\Throwable) {
+            }
+        });
     }
 
     public function phoneNumber(): BelongsTo

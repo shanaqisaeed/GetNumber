@@ -53,12 +53,7 @@ class SecurityIncidentController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $stats = [
-            'total' => SecurityIncident::count(),
-            'unresolved' => SecurityIncident::whereNull('resolved_at')->count(),
-            'critical' => SecurityIncident::whereIn('severity', ['high', 'critical'])->whereNull('resolved_at')->count(),
-            'today' => SecurityIncident::whereDate('created_at', today())->count(),
-        ];
+        $stats = app(\App\Contracts\SystemCacheServiceInterface::class)->getSecurityIncidentsStats();
 
         if ($request->wantsJson()) {
             return response()->json([

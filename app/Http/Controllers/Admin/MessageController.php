@@ -59,31 +59,18 @@ class MessageController extends Controller
             );
         }
 
-        // 4. System-wide numbers list for filtering
-        $phoneNumbers = PhoneNumber::with(['user', 'prefix'])
-            ->orderBy('number')
-            ->get()
+        // 4. System-wide numbers list for filtering (Cached)
+        $cacheService = app(\App\Contracts\SystemCacheServiceInterface::class);
+        $phoneNumbers = $cacheService->getSystemPhoneNumbersList();
 
-            ->map(fn (PhoneNumber $p) => [
-                'id' => $p->id,
-                'number' => $p->number,
-                'formatted' => $p->formatted_number,
-                'title' => $p->effective_title,
-                'type' => $p->type->value,
-                'type_label' => $p->type->label(),
-                'user' => $p->user ? [
-                    'id' => $p->user->id,
-                    'name' => $p->user->name,
-                    'username' => $p->user->username,
-                ] : null,
-            ]);
-
-        $stats = [
-            'total_messages' => Message::count(),
-            'today_messages' => Message::whereDate('server_received_at', today())->count(),
-            'failed_messages' => Message::where('processing_status', MessageProcessingStatus::Failed)->count(),
-            'total_conversations' => $conversations->count(),
-        ];
+        $stats = \Illuminate\Support\Facades\Cache::remember('admin:messages:stats', 120, function () use ($conversations) {
+            return [
+                'total_messages' => Message::count(),
+                'today_messages' => Message::whereDate('server_received_at', today())->count(),
+                'failed_messages' => Message::where('processing_status', MessageProcessingStatus::Failed)->count(),
+                'total_conversations' => $conversations->count(),
+            ];
+        });
 
         return Inertia::render('Admin/Messages/Index', [
             'messages' => $messages,
@@ -170,6 +157,21 @@ class MessageController extends Controller
     public function poll(Request $request): JsonResponse
     {
         $afterId = max(0, (int) $request->input('after_id', 0));
+        $cacheService = app(\App\Contracts\SystemCacheServiceInterface::class);
+
+        // Fast zero-DB check: if afterId reached global latest and no active conversation selected
+        if ($afterId > 0 && ! $request->filled('active_phone_id')) {
+            $globalLatest = $cacheService->getGlobalLatestMessageId();
+            if ($afterId >= $globalLatest) {
+                return response()->json([
+                    'success' => true,
+                    'count' => 0,
+                    'after_id' => $afterId,
+                    'active_messages' => null,
+                    'data' => [],
+                ]);
+            }
+        }
 
         $newMessages = $this->messageService->pollAllMessages(
             afterMessageId: $afterId,

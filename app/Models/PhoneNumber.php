@@ -49,6 +49,23 @@ class PhoneNumber extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (PhoneNumber $phoneNumber) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handlePhoneNumberChanged($phoneNumber);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::deleted(function (PhoneNumber $phoneNumber) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handlePhoneNumberChanged($phoneNumber);
+            } catch (\Throwable) {
+            }
+        });
+    }
+
     /**
      * Relationship with the dynamic prefix definition.
      */

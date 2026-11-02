@@ -911,108 +911,11 @@ class MessageService implements MessageServiceInterface
 
     /**
      * Retrieve conversation threads for a specific allocated line (Mobile SMS style).
+     * Cached with real-time invalidation & instant refresh on new messages.
      */
     public function getConversations(PhoneNumber $phoneNumber, ?string $search = null): Collection
     {
-        // Get all unique peer_numbers involved with this line
-        $peerNumbers = Message::where('phone_number_id', $phoneNumber->id)
-            ->whereNotNull('peer_number')
-            ->select('peer_number')
-            ->distinct()
-            ->pluck('peer_number');
-
-        // Pre-fetch all peer records in 1 single query instead of N queries
-        $peerRecords = PhoneNumber::with('user')
-            ->whereIn('number', $peerNumbers)
-            ->get()
-            ->keyBy('number');
-
-        $conversations = collect();
-
-        foreach ($peerNumbers as $peer) {
-            $latestMessage = Message::where('phone_number_id', $phoneNumber->id)
-                ->where('peer_number', $peer)
-                ->latest('server_received_at')
-                ->latest('id')
-                ->first();
-
-            if (! $latestMessage) {
-                continue;
-            }
-
-            $defaultPrefix = PhonePrefix::getDefaultPrefixString();
-            $peerRecord = $peerRecords->get($peer);
-            $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$peer}"));
-
-            // If search is active, check peer, title, or message bodies
-            if (! empty($search)) {
-                $s = trim($search);
-                $matchesPeer = str_contains($peer, $s);
-                $matchesTitle = str_contains($peerTitle, $s);
-                $matchesBody = Message::where('phone_number_id', $phoneNumber->id)
-                    ->where('peer_number', $peer)
-                    ->where('body', 'like', "%{$s}%")
-                    ->exists();
-
-                if (! $matchesPeer && ! $matchesTitle && ! $matchesBody) {
-                    continue;
-                }
-            }
-
-            $totalCount = Message::where('phone_number_id', $phoneNumber->id)
-                ->where('peer_number', $peer)
-                ->count();
-
-            $unreadCount = Message::where('phone_number_id', $phoneNumber->id)
-                ->where('peer_number', $peer)
-                ->where('direction', \App\Enums\MessageDirection::Inbound)
-                ->where('processing_status', MessageProcessingStatus::Received)
-                ->count();
-
-            $isOwn = $peerRecord && $peerRecord->user_id === $phoneNumber->user_id;
-            $isCommercial = $peerRecord ? $peerRecord->type->isService() : false;
-
-            $canReply = true;
-            $canReplyReason = null;
-            if ($peerRecord) {
-                if (! $peerRecord->accepts_incoming_sms) {
-                    $canReply = false;
-                    $canReplyReason = 'این سرشماره تجاری صرفاً یک‌طرفه بوده و امکان دریافت پیامک یا پاسخ را ندارد.';
-                } else {
-                    $check = $peerRecord->canReceiveMessagesFrom($phoneNumber, $phoneNumber->user);
-                    if (! $check['allowed']) {
-                        $canReply = false;
-                        $canReplyReason = $check['reason'];
-                    }
-                }
-            }
-
-            $conversations->push([
-                'peer_number' => $peer,
-                'peer_formatted' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$peer}",
-                'peer_title' => $peerTitle,
-                'peer_type' => $peerRecord?->type->value,
-                'peer_type_label' => $peerRecord?->type->label(),
-                'peer_badge_class' => $peerRecord?->type->badgeClasses(),
-                'is_own_number' => $isOwn,
-                'is_commercial' => $isCommercial,
-                'accepts_incoming_sms' => $peerRecord ? (bool) $peerRecord->accepts_incoming_sms : true,
-                'can_reply' => $canReply,
-                'can_reply_reason' => $canReplyReason,
-                'latest_message' => [
-                    'id' => $latestMessage->id,
-                    'body' => $latestMessage->body,
-                    'direction' => $latestMessage->direction->value,
-                    'server_received_at' => $latestMessage->server_received_at->toIso8601String(),
-                    'server_received_at_formatted' => $latestMessage->server_received_at->diffForHumans(),
-                ],
-                'messages_count' => $totalCount,
-                'unread_count' => $unreadCount,
-            ]);
-        }
-
-        // Sort conversations by latest message timestamp descending
-        return $conversations->sortByDesc(fn ($c) => $c['latest_message']['server_received_at'])->values();
+        return app(\App\Contracts\SystemCacheServiceInterface::class)->getLineConversations($phoneNumber, $search);
     }
 
     /**

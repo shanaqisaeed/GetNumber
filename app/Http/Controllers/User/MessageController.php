@@ -32,11 +32,8 @@ class MessageController extends Controller
     {
         $user = $request->user();
 
-        // 1. User's active allocated numbers (Line selector)
-        $allocatedNumbers = $user->phoneNumbers()
-            ->where('status', PhoneNumberStatus::Allocated)
-            ->orderBy('number')
-            ->get();
+        // 1. User's active allocated numbers (Line selector - Cached)
+        $allocatedNumbers = app(\App\Contracts\SystemCacheServiceInterface::class)->getUserAllocatedNumbers($user);
 
         /** @var PhoneNumber|null $currentNumber */
         $currentNumber = null;
@@ -434,19 +431,13 @@ class MessageController extends Controller
             return response()->json(['success' => false, 'message' => 'دسترسی غیرمجاز.']);
         }
 
-        // Fast Delta Detection: check if any new messages exist beyond after_id
-        $latestId = (int) (Message::where('phone_number_id', $phoneNumber->id)->max('id') ?? 0);
+        // Fast Delta Detection: check cached latest message ID (avoids database polling query)
+        $cacheService = app(\App\Contracts\SystemCacheServiceInterface::class);
+        $latestId = $cacheService->getLineLatestMessageId($phoneNumber->id);
         $hasNewMessages = ($latestId > $afterId);
 
-        // 1. Refreshed conversations list (Cached for 30s unless new messages detected)
-        $cacheKey = "line:{$phoneNumber->id}:conversations:" . md5((string) $request->input('search'));
-        if ($hasNewMessages || $request->boolean('force')) {
-            \Illuminate\Support\Facades\Cache::forget($cacheKey);
-        }
-
-        $conversations = \Illuminate\Support\Facades\Cache::remember($cacheKey, 30, function () use ($phoneNumber, $request) {
-            return $this->messageService->getConversations($phoneNumber, $request->input('search'));
-        });
+        // 1. Refreshed conversations list (Directly from Cache, auto-refreshed on message arrival)
+        $conversations = $this->messageService->getConversations($phoneNumber, $request->input('search'));
 
         // 2. New messages in active conversation if open, or general delta if no activePeer
         $newMessages = collect();

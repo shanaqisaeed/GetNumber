@@ -100,19 +100,10 @@ class PhoneNumberController extends Controller
                 ] : null,
             ]);
 
-        $users = User::select('id', 'name', 'username')
-            ->orderBy('name')
-            ->get();
-
-        $prefixes = \App\Models\PhonePrefix::active()
-            ->get(['id', 'prefix', 'name', 'is_default']);
-
-        $stats = [
-            'total' => PhoneNumber::count(),
-            'allocated' => PhoneNumber::where('status', PhoneNumberStatus::Allocated)->count(),
-            'available' => PhoneNumber::where('status', PhoneNumberStatus::Available)->count(),
-            'suspended' => PhoneNumber::where('status', PhoneNumberStatus::Suspended)->count(),
-        ];
+        $cacheService = app(\App\Contracts\SystemCacheServiceInterface::class);
+        $users = $cacheService->getAdminUsersDropdown();
+        $prefixes = \App\Models\PhonePrefix::active()->get(['id', 'prefix', 'name', 'is_default']);
+        $stats = $cacheService->getAdminNumbersStats();
 
         return Inertia::render('Admin/Numbers/Index', [
             'numbers' => $numbers,

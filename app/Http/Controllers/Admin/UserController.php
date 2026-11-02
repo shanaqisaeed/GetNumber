@@ -97,12 +97,7 @@ class UserController extends Controller
                 ]),
             ]);
 
-        $stats = [
-            'total' => User::count(),
-            'active' => User::where('status', UserStatus::Active)->count(),
-            'suspended' => User::where('status', UserStatus::Suspended)->count(),
-            'admins' => User::where('role', UserRole::Admin)->count(),
-        ];
+        $stats = app(\App\Contracts\SystemCacheServiceInterface::class)->getAdminUsersStats();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,

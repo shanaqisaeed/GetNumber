@@ -39,6 +39,23 @@ class NumberRequest extends Model
         'reviewed_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::saved(function (NumberRequest $req) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleNumberRequestChanged($req);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::deleted(function (NumberRequest $req) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleNumberRequestChanged($req);
+            } catch (\Throwable) {
+            }
+        });
+    }
+
     /**
      * The user who submitted the request.
      */

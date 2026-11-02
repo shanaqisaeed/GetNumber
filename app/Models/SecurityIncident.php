@@ -31,6 +31,23 @@ class SecurityIncident extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (SecurityIncident $incident) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleSecurityIncidentChanged($incident);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::deleted(function (SecurityIncident $incident) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleSecurityIncidentChanged($incident);
+            } catch (\Throwable) {
+            }
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

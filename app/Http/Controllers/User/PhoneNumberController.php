@@ -64,9 +64,7 @@ class PhoneNumberController extends Controller
                 'created_at' => $phone->created_at->format('Y/m/d'),
             ]);
 
-        $activeCount = PhoneNumber::where('user_id', $user->id)
-            ->where('status', \App\Enums\PhoneNumberStatus::Allocated)
-            ->count();
+        $activeCount = app(\App\Contracts\SystemCacheServiceInterface::class)->getUserActiveNumbersCount($user->id);
 
         return Inertia::render('User/Numbers/Index', [
             'numbers' => $numbers,

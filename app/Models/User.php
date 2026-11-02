@@ -62,6 +62,23 @@ class User extends Authenticatable
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::saved(function (User $user) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleUserChanged($user);
+            } catch (\Throwable) {
+            }
+        });
+
+        static::deleted(function (User $user) {
+            try {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->handleUserChanged($user);
+            } catch (\Throwable) {
+            }
+        });
+    }
+
     /**
      * Check if the user is an administrator.
      */
