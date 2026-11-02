@@ -53,6 +53,12 @@ class WebPushNotificationService
         $endpointHash = PushSubscription::hashEndpoint($endpoint);
         $keys = $data['keys'] ?? [];
 
+        // Security & privacy fix: A browser endpoint must belong to only one user account at a time.
+        // Purge any stale subscriptions associated with this endpoint from other users.
+        PushSubscription::where('endpoint_hash', $endpointHash)
+            ->where('user_id', '!=', $user->id)
+            ->delete();
+
         return PushSubscription::updateOrCreate(
             [
                 'user_id' => $user->id,
@@ -96,18 +102,18 @@ class WebPushNotificationService
 
         $userId = $phoneNumber?->user_id;
 
-        $recipientUserIds = collect();
-        if ($userId) {
-            $recipientUserIds->push($userId);
+        // Inbound SMS notification should strictly be delivered to the line owner
+        if (!$userId) {
+            Log::info("[WebPush] No line owner found for {$message->destination_number}. Skipping push notification.");
+            return;
         }
-        // Also include admin users who subscribed so platform managers/admins receive inbound alerts
-        $adminIds = User::where('is_admin', true)->pluck('id');
-        $recipientUserIds = $recipientUserIds->merge($adminIds)->unique();
 
-        $subscriptions = PushSubscription::whereIn('user_id', $recipientUserIds)->get();
+        $subscriptions = PushSubscription::where('user_id', $userId)
+            ->get()
+            ->unique('endpoint_hash');
 
         if ($subscriptions->isEmpty()) {
-            Log::info("[WebPush] No push subscriptions found for recipient line {$message->destination_number} (userId: " . ($userId ?? 'system') . ")");
+            Log::info("[WebPush] No push subscriptions found for recipient line {$message->destination_number} (userId: {$userId})");
             return;
         }
 
@@ -196,7 +202,7 @@ class WebPushNotificationService
      */
     public function sendTestNotification(User $user): array
     {
-        $subscriptions = PushSubscription::where('user_id', $user->id)->get();
+        $subscriptions = PushSubscription::where('user_id', $user->id)->get()->unique('endpoint_hash');
         if ($subscriptions->isEmpty()) {
             return [
                 'success' => false,
@@ -265,7 +271,6 @@ class WebPushNotificationService
                 'message' => 'خطا در ارسال اعلان تست: ' . $e->getMessage(),
             ];
         }
-    }
     }
 }
 

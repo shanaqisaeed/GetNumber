@@ -37,7 +37,6 @@ class ProcessMessageBatchJob implements ShouldQueue
         public int $messageBatchId,
         public int $chunkSize = 50
     ) {
-        $this->onQueue('messages');
     }
 
     public function handle(): void

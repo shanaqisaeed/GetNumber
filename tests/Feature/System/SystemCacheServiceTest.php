@@ -14,6 +14,7 @@ use App\Models\PhoneNumber;
 use App\Models\PhonePrefix;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
@@ -79,7 +80,7 @@ class SystemCacheServiceTest extends TestCase
 
         // Cache must have been immediately re-primed with the fresh conversation!
         $this->assertTrue(Cache::has($cacheKey));
-        $cachedConversations = Cache::get($cacheKey);
+        $cachedConversations = $this->cacheService->getLineConversations($this->phone);
         $this->assertCount(1, $cachedConversations);
         $this->assertEquals('989120000000', $cachedConversations[0]['peer_number']);
         $this->assertEquals('سلام، این یک پیامک تستی برای تست کش است.', $cachedConversations[0]['latest_message']['body']);
@@ -91,10 +92,11 @@ class SystemCacheServiceTest extends TestCase
 
     public function test_user_allocated_numbers_are_cached_and_invalidated_on_change(): void
     {
-        $cacheKey = "user:{$this->user->id}:allocated_numbers";
+        $cacheKey = "user:{$this->user->id}:allocated_number_ids";
 
         // First call caches user numbers
         $numbers = $this->cacheService->getUserAllocatedNumbers($this->user);
+        $this->assertInstanceOf(Collection::class, $numbers);
         $this->assertCount(1, $numbers);
         $this->assertTrue(Cache::has($cacheKey));
 
@@ -114,8 +116,45 @@ class SystemCacheServiceTest extends TestCase
 
         // Re-fetch should now return 2 numbers and re-cache
         $fresh = $this->cacheService->getUserAllocatedNumbers($this->user);
+        $this->assertInstanceOf(Collection::class, $fresh);
         $this->assertCount(2, $fresh);
         $this->assertTrue(Cache::has($cacheKey));
+    }
+
+    public function test_admin_users_dropdown_returns_collection_and_is_cached(): void
+    {
+        $users = $this->cacheService->getAdminUsersDropdown();
+        $this->assertInstanceOf(Collection::class, $users);
+        $this->assertNotEmpty($users);
+        $this->assertTrue(Cache::has('admin:users:dropdown'));
+
+        // Each element has id, name, username
+        $first = $users->first();
+        $this->assertNotNull($first->id);
+        $this->assertNotNull($first->name);
+        $this->assertNotNull($first->username);
+    }
+
+    public function test_self_healing_from_incomplete_class_in_cache(): void
+    {
+        // Simulate an incomplete class in cache (unserialized object without definition)
+        $incomplete = unserialize('O:16:"NonExistentClass":0:{}');
+
+        Cache::put('admin:users:dropdown', $incomplete, 3600);
+        Cache::put("user:{$this->user->id}:allocated_number_ids", $incomplete, 3600);
+        Cache::put("line:{$this->phone->id}:conversations", $incomplete, 3600);
+
+        // SystemCacheService must detect the incomplete class, purge it, and return valid Collections!
+        $users = $this->cacheService->getAdminUsersDropdown();
+        $this->assertInstanceOf(Collection::class, $users);
+        $this->assertNotEmpty($users);
+
+        $allocated = $this->cacheService->getUserAllocatedNumbers($this->user);
+        $this->assertInstanceOf(Collection::class, $allocated);
+        $this->assertCount(1, $allocated);
+
+        $convs = $this->cacheService->getLineConversations($this->phone);
+        $this->assertInstanceOf(Collection::class, $convs);
     }
 
     public function test_admin_dashboard_stats_are_cached_and_invalidated_on_user_creation(): void
@@ -140,4 +179,3 @@ class SystemCacheServiceTest extends TestCase
         $this->assertEquals(1, $stats['quota']['active']);
     }
 }
-

@@ -36,12 +36,13 @@ self.addEventListener('push', (event) => {
     }
 
     const title = payload.title || 'پیامک جدید دریافت شد';
+    const tag = payload.tag || (payload.data?.messageId ? `getnumber-sms-${payload.data.messageId}` : ('getnumber-sms-' + Date.now()));
     const options = {
         body: payload.body || 'پیام جدیدی دریافت شد.',
         icon: payload.icon || '/icon-192.png',
         badge: payload.badge || '/icon-192.png',
-        tag: payload.tag || ('sms-notification-' + (payload.data?.messageId || Date.now())),
-        renotify: true,
+        tag: tag,
+        renotify: false,
         vibrate: [200, 100, 200],
         data: payload.data || { url: '/messages' },
     };

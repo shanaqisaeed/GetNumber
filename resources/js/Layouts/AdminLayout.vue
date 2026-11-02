@@ -17,8 +17,10 @@ const isTestingPush = ref(false);
 
 const triggerTestPush = async () => {
     isTestingPush.value = true;
-    showLocalNotification('سامانه GetNumber (تست پیش‌زمینه)');
     const res = await sendTestPush();
+    if (!res.success) {
+        showLocalNotification('سامانه GetNumber (تست پیش‌زمینه)');
+    }
     isTestingPush.value = false;
     alert(res.message + "\n\nاکنون می‌توانید مرورگر یا تب را ببندید تا دریافت آن را در حالت بسته تست نمایید.");
 };
@@ -30,7 +32,7 @@ useRealtimeMessages({
     onMessage: (msg) => {
         if (msg.direction === 'inbound' || (!msg.direction && msg.sender)) {
             const sender = msg.peer_number || msg.sender;
-            showLocalNotification(sender);
+            showLocalNotification(sender, msg.id);
         }
     },
 });

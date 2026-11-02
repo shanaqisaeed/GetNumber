@@ -49,24 +49,29 @@ const isTestingPush = ref(false);
 const triggerTestPush = async () => {
     isMoreMenuOpen.value = false;
     isTestingPush.value = true;
-    showLocalNotification('سامانه GetNumber (تست)');
     const res = await sendTestPush();
+    if (!res.success) {
+        showLocalNotification('سامانه GetNumber (تست محلی)');
+    }
     isTestingPush.value = false;
     alert(res.message + "\n\nاکنون می‌توانید مرورگر یا تب را ببندید تا ارسال اعلان‌ها را در حالت بسته تست فرمایید.");
 };
 
 const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
     userId: user.value?.id,
-    isAdmin: !!user.value?.is_admin,
+    isAdmin: false, // Customer portal must never subscribe to platform-wide admin broadcast
     onMessage: (msg) => {
         if (msg.direction === 'inbound' || (!msg.direction && msg.sender)) {
             liveUnreadCount.value += 1;
             const sender = msg.peer_number || msg.sender;
-            // Trigger browser notification (privacy-preserved: sender only)
-            showLocalNotification(sender);
+
+            // In-app floating toast banner if not directly viewing the messages screen
             if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
                 showIncomingToast(msg);
             }
+
+            // Deduplicated browser notification using message ID
+            showLocalNotification(sender, msg.id);
         }
     },
     onUnreadUpdate: (newTotal) => {

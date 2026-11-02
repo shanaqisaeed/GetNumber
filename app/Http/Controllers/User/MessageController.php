@@ -501,16 +501,13 @@ class MessageController extends Controller
             ->where('status', PhoneNumberStatus::Allocated)
             ->pluck('id');
 
-        // If user is Admin and has no personal lines allocated, monitor all allocated platform lines
-        if ($allocatedLineIds->isEmpty() && $user->isAdmin()) {
-            $allocatedLineIds = PhoneNumber::where('status', PhoneNumberStatus::Allocated)->pluck('id');
-        }
-
-        $latestMessage = Message::whereIn('phone_number_id', $allocatedLineIds)
-            ->where('direction', MessageDirection::Inbound)
-            ->where('processing_status', MessageProcessingStatus::Received)
-            ->latest('id')
-            ->first();
+        $latestMessage = $allocatedLineIds->isNotEmpty()
+            ? Message::whereIn('phone_number_id', $allocatedLineIds)
+                ->where('direction', MessageDirection::Inbound)
+                ->where('processing_status', MessageProcessingStatus::Received)
+                ->latest('id')
+                ->first()
+            : null;
 
         return response()->json([
             'success' => true,

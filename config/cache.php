@@ -120,11 +120,22 @@ return [
     |--------------------------------------------------------------------------
     |
     | This value determines the classes that can be unserialized from cache
-    | storage. By default, no PHP classes will be unserialized from your
-    | cache to prevent gadget chain attacks if your APP_KEY is leaked.
+    | storage. By default, allowed classes are explicitly listed to support
+    | cached framework collections and models safely.
     |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => env('CACHE_SERIALIZABLE_CLASSES', [
+        \Illuminate\Support\Collection::class,
+        \Illuminate\Database\Eloquent\Collection::class,
+        \Illuminate\Database\Eloquent\Model::class,
+        \App\Models\PhoneNumber::class,
+        \App\Models\User::class,
+        \App\Models\Message::class,
+        \App\Models\PhonePrefix::class,
+        \App\Models\NumberRequest::class,
+        \Carbon\Carbon::class,
+        \Illuminate\Support\Carbon::class,
+    ]),
 
 ];

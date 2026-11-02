@@ -23,7 +23,6 @@ use App\Services\PhoneNumberAllocationService;
 use App\Services\PhoneNumberNormalizer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class SystemCacheService implements SystemCacheServiceInterface
 {
@@ -41,14 +40,21 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     /**
      * Get or calculate cached conversations for a phone number.
+     * Guaranteed to store primitive arrays to eliminate any __PHP_Incomplete_Class serialization issues.
      */
     public function getLineConversations(PhoneNumber $phoneNumber, ?string $search = null): Collection
     {
         $cacheKey = "line:{$phoneNumber->id}:conversations";
 
-        $conversations = Cache::remember($cacheKey, self::TTL_CONVERSATIONS, function () use ($phoneNumber) {
-            return $this->buildLineConversations($phoneNumber);
-        });
+        $raw = Cache::get($cacheKey);
+
+        if ($raw instanceof \__PHP_Incomplete_Class || ! is_array($raw)) {
+            Cache::forget($cacheKey);
+            $raw = $this->buildLineConversations($phoneNumber)->all();
+            Cache::put($cacheKey, $raw, self::TTL_CONVERSATIONS);
+        }
+
+        $conversations = collect($raw);
 
         if (! empty($search)) {
             return $this->filterConversations($conversations, $phoneNumber, $search);
@@ -63,41 +69,28 @@ class SystemCacheService implements SystemCacheServiceInterface
     public function getLineConversationMessages(PhoneNumber $phoneNumber, string $peer, ?int $afterId = null): Collection
     {
         $cleanPeer = PhoneNumberNormalizer::resolveToStoredNumber($peer);
-        $cacheKey = "line:{$phoneNumber->id}:peer:{$cleanPeer}:messages";
 
-        if ($afterId === null || $afterId === 0) {
-            return Cache::remember($cacheKey, self::TTL_CONVERSATIONS, function () use ($phoneNumber, $cleanPeer) {
-                return $this->buildLineConversationMessages($phoneNumber, $cleanPeer);
-            });
+        if ($afterId !== null && $afterId > 0) {
+            return Message::where('phone_number_id', $phoneNumber->id)
+                ->where(function ($q) use ($cleanPeer, $peer) {
+                    $q->where('peer_number', $cleanPeer)
+                      ->orWhere('peer_number', $peer)
+                      ->orWhere('sender', $cleanPeer)
+                      ->orWhere('destination_number', $cleanPeer);
+                })
+                ->where('id', '>', $afterId)
+                ->latest('server_received_at')
+                ->limit(50)
+                ->get()
+                ->reverse()
+                ->values();
         }
 
-        // Fast in-memory filter if full list is already cached
-        $cached = Cache::get($cacheKey);
-        if ($cached instanceof Collection) {
-            $delta = $cached->where('id', '>', $afterId)->values();
-            if ($delta->isNotEmpty()) {
-                return $delta;
-            }
-        }
-
-        // Fallback delta query
-        return Message::where('phone_number_id', $phoneNumber->id)
-            ->where(function ($q) use ($cleanPeer, $peer) {
-                $q->where('peer_number', $cleanPeer)
-                  ->orWhere('peer_number', $peer)
-                  ->orWhere('sender', $cleanPeer)
-                  ->orWhere('destination_number', $cleanPeer);
-            })
-            ->where('id', '>', $afterId)
-            ->latest('server_received_at')
-            ->limit(50)
-            ->get()
-            ->reverse()
-            ->values();
+        return $this->buildLineConversationMessages($phoneNumber, $cleanPeer);
     }
 
     /**
-     * Invalidate and immediately re-save/prime fresh conversations and messages for a line.
+     * Invalidate and immediately re-save/prime fresh conversations for a line.
      * Fulfills: "وقتی پیامک جدید میاد ما باید پیامک اون شماره که پیامک اومده بهش پاک کنیم جدید سیو کنیم"
      */
     public function handleMessageCreated(Message $message): void
@@ -125,16 +118,12 @@ class SystemCacheService implements SystemCacheServiceInterface
         // 3. Immediately prime & save fresh state for this phone number
         $phone = $message->phoneNumber ?: PhoneNumber::with('user')->find($lineId);
         if ($phone) {
-            $freshConversations = $this->buildLineConversations($phone);
+            $freshConversations = $this->buildLineConversations($phone)->all();
             Cache::put("line:{$lineId}:conversations", $freshConversations, self::TTL_CONVERSATIONS);
-
-            if ($cleanPeer) {
-                $freshChat = $this->buildLineConversationMessages($phone, $cleanPeer);
-                Cache::put("line:{$lineId}:peer:{$cleanPeer}:messages", $freshChat, self::TTL_CONVERSATIONS);
-            }
 
             if ($phone->user_id) {
                 Cache::forget("user:{$phone->user_id}:dashboard_stats");
+                Cache::forget("user:{$phone->user_id}:dashboard_stream");
             }
         }
     }
@@ -165,6 +154,7 @@ class SystemCacheService implements SystemCacheServiceInterface
         $phone = $message->phoneNumber ?: PhoneNumber::find($lineId);
         if ($phone && $phone->user_id) {
             Cache::forget("user:{$phone->user_id}:dashboard_stats");
+            Cache::forget("user:{$phone->user_id}:dashboard_stream");
         }
     }
 
@@ -173,9 +163,14 @@ class SystemCacheService implements SystemCacheServiceInterface
      */
     public function getLineLatestMessageId(int $phoneNumberId): int
     {
-        return (int) Cache::remember("line:{$phoneNumberId}:latest_msg_id", 3600, function () use ($phoneNumberId) {
-            return (int) (Message::where('phone_number_id', $phoneNumberId)->max('id') ?? 0);
-        });
+        $val = Cache::get("line:{$phoneNumberId}:latest_msg_id");
+        if ($val instanceof \__PHP_Incomplete_Class || ! is_numeric($val)) {
+            Cache::forget("line:{$phoneNumberId}:latest_msg_id");
+            $val = (int) (Message::where('phone_number_id', $phoneNumberId)->max('id') ?? 0);
+            Cache::put("line:{$phoneNumberId}:latest_msg_id", $val, 3600);
+        }
+
+        return (int) $val;
     }
 
     /**
@@ -183,50 +178,95 @@ class SystemCacheService implements SystemCacheServiceInterface
      */
     public function getGlobalLatestMessageId(): int
     {
-        return (int) Cache::remember("messages:global:latest_id", 3600, function () {
-            return (int) (Message::max('id') ?? 0);
-        });
+        $val = Cache::get("messages:global:latest_id");
+        if ($val instanceof \__PHP_Incomplete_Class || ! is_numeric($val)) {
+            Cache::forget("messages:global:latest_id");
+            $val = (int) (Message::max('id') ?? 0);
+            Cache::put("messages:global:latest_id", $val, 3600);
+        }
+
+        return (int) $val;
     }
 
     // ==========================================
     // Phone Numbers & Lines Caching
     // ==========================================
 
+    /**
+     * Get user's allocated numbers.
+     * Caches array of integer IDs in cache (100% immune to __PHP_Incomplete_Class),
+     * and performs a sub-millisecond primary key index query on retrieval.
+     */
     public function getUserAllocatedNumbers(User $user): Collection
     {
-        return Cache::remember("user:{$user->id}:allocated_numbers", self::TTL_USER_LINES, function () use ($user) {
-            return $user->phoneNumbers()
+        $cacheKey = "user:{$user->id}:allocated_number_ids";
+
+        $lineIds = Cache::get($cacheKey);
+
+        if ($lineIds instanceof \__PHP_Incomplete_Class || ! is_array($lineIds)) {
+            Cache::forget($cacheKey);
+            Cache::forget("user:{$user->id}:allocated_numbers"); // Clear legacy key if poisoned
+            $lineIds = $user->phoneNumbers()
                 ->where('status', PhoneNumberStatus::Allocated)
                 ->orderBy('number')
-                ->get();
-        });
+                ->pluck('id')
+                ->all();
+            Cache::put($cacheKey, $lineIds, self::TTL_USER_LINES);
+        }
+
+        if (empty($lineIds)) {
+            return collect();
+        }
+
+        return PhoneNumber::with(['prefix', 'user'])
+            ->whereIn('id', $lineIds)
+            ->orderBy('number')
+            ->get();
     }
 
     public function getUserActiveNumbersCount(int $userId): int
     {
-        return (int) Cache::remember("user:{$userId}:active_numbers_count", self::TTL_USER_LINES, function () use ($userId) {
-            return PhoneNumber::where('user_id', $userId)
+        $cacheKey = "user:{$userId}:active_numbers_count";
+
+        $val = Cache::get($cacheKey);
+        if ($val instanceof \__PHP_Incomplete_Class || ! is_numeric($val)) {
+            Cache::forget($cacheKey);
+            $val = PhoneNumber::where('user_id', $userId)
                 ->where('status', PhoneNumberStatus::Allocated)
                 ->count();
-        });
+            Cache::put($cacheKey, $val, self::TTL_USER_LINES);
+        }
+
+        return (int) $val;
     }
 
     public function getAdminNumbersStats(): array
     {
-        return Cache::remember('admin:numbers:stats', self::TTL_ADMIN_STATS, function () {
-            return [
+        $cacheKey = 'admin:numbers:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+            $stats = [
                 'total' => PhoneNumber::count(),
                 'allocated' => PhoneNumber::where('status', PhoneNumberStatus::Allocated)->count(),
                 'available' => PhoneNumber::where('status', PhoneNumberStatus::Available)->count(),
                 'suspended' => PhoneNumber::where('status', PhoneNumberStatus::Suspended)->count(),
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_ADMIN_STATS);
+        }
+
+        return $stats;
     }
 
     public function getSystemPhoneNumbersList(): Collection
     {
-        return Cache::remember('admin:system_phone_numbers_list', self::TTL_ADMIN_STATS, function () {
-            return PhoneNumber::with(['user', 'prefix'])
+        $cacheKey = 'admin:system_phone_numbers_list';
+
+        $list = Cache::get($cacheKey);
+        if ($list instanceof \__PHP_Incomplete_Class || ! is_array($list)) {
+            Cache::forget($cacheKey);
+            $list = PhoneNumber::with(['user', 'prefix'])
                 ->orderBy('number')
                 ->get()
                 ->map(fn (PhoneNumber $p) => [
@@ -241,16 +281,22 @@ class SystemCacheService implements SystemCacheServiceInterface
                         'name' => $p->user->name,
                         'username' => $p->user->username,
                     ] : null,
-                ]);
-        });
+                ])
+                ->all();
+            Cache::put($cacheKey, $list, self::TTL_ADMIN_STATS);
+        }
+
+        return collect($list);
     }
 
     public function handlePhoneNumberChanged(PhoneNumber $phoneNumber): void
     {
         if ($phoneNumber->user_id) {
+            Cache::forget("user:{$phoneNumber->user_id}:allocated_number_ids");
             Cache::forget("user:{$phoneNumber->user_id}:allocated_numbers");
             Cache::forget("user:{$phoneNumber->user_id}:active_numbers_count");
             Cache::forget("user:{$phoneNumber->user_id}:dashboard_stats");
+            Cache::forget("user:{$phoneNumber->user_id}:dashboard_stream");
         }
 
         Cache::forget('admin:numbers:stats');
@@ -264,24 +310,49 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     public function getAdminUsersStats(): array
     {
-        return Cache::remember('admin:users:stats', self::TTL_ADMIN_STATS, function () {
-            return [
+        $cacheKey = 'admin:users:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+            $stats = [
                 'total' => User::count(),
                 'active' => User::where('status', UserStatus::Active)->count(),
                 'suspended' => User::where('status', UserStatus::Suspended)->count(),
                 'admins' => User::where('role', UserRole::Admin)->count(),
                 'new_today' => User::whereDate('created_at', today())->count(),
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_ADMIN_STATS);
+        }
+
+        return $stats;
     }
 
+    /**
+     * Get users for admin dropdowns.
+     * Caches plain associative array of strings/integers, wrapping in Collection upon return.
+     */
     public function getAdminUsersDropdown(): Collection
     {
-        return Cache::remember('admin:users:dropdown', self::TTL_DROPDOWNS, function () {
-            return User::select('id', 'name', 'username')
+        $cacheKey = 'admin:users:dropdown';
+
+        $users = Cache::get($cacheKey);
+
+        if ($users instanceof \__PHP_Incomplete_Class || ! is_array($users)) {
+            Cache::forget($cacheKey);
+            $users = User::select('id', 'name', 'username')
                 ->orderBy('name')
-                ->get();
-        });
+                ->get()
+                ->map(fn ($u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'username' => $u->username,
+                ])
+                ->all();
+            Cache::put($cacheKey, $users, self::TTL_DROPDOWNS);
+        }
+
+        return collect($users)->map(fn ($item) => (object) $item);
     }
 
     public function handleUserChanged(User $user): void
@@ -290,6 +361,7 @@ class SystemCacheService implements SystemCacheServiceInterface
         Cache::forget('admin:users:dropdown');
         Cache::forget('admin:dashboard:stats');
         Cache::forget("user:{$user->id}:dashboard_stats");
+        Cache::forget("user:{$user->id}:dashboard_stream");
     }
 
     // ==========================================
@@ -298,22 +370,36 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     public function getUserPendingRequestsCount(int $userId): int
     {
-        return (int) Cache::remember("user:{$userId}:pending_requests_count", self::TTL_USER_LINES, function () use ($userId) {
-            return NumberRequest::where('user_id', $userId)
+        $cacheKey = "user:{$userId}:pending_requests_count";
+
+        $val = Cache::get($cacheKey);
+        if ($val instanceof \__PHP_Incomplete_Class || ! is_numeric($val)) {
+            Cache::forget($cacheKey);
+            $val = NumberRequest::where('user_id', $userId)
                 ->where('status', NumberRequestStatus::Pending)
                 ->count();
-        });
+            Cache::put($cacheKey, $val, self::TTL_USER_LINES);
+        }
+
+        return (int) $val;
     }
 
     public function getAdminRequestsStats(): array
     {
-        return Cache::remember('admin:requests:stats', self::TTL_ADMIN_STATS, function () {
-            return [
+        $cacheKey = 'admin:requests:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+            $stats = [
                 'pending' => NumberRequest::where('status', NumberRequestStatus::Pending)->count(),
                 'approved' => NumberRequest::where('status', NumberRequestStatus::Approved)->count(),
                 'rejected' => NumberRequest::where('status', NumberRequestStatus::Rejected)->count(),
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_ADMIN_STATS);
+        }
+
+        return $stats;
     }
 
     public function handleNumberRequestChanged(NumberRequest $request): void
@@ -321,6 +407,7 @@ class SystemCacheService implements SystemCacheServiceInterface
         if ($request->user_id) {
             Cache::forget("user:{$request->user_id}:pending_requests_count");
             Cache::forget("user:{$request->user_id}:dashboard_stats");
+            Cache::forget("user:{$request->user_id}:dashboard_stream");
         }
 
         Cache::forget('admin:requests:stats');
@@ -329,8 +416,12 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     public function getAuditLogsStats(): array
     {
-        return Cache::remember('admin:audit_logs:stats', self::TTL_LOG_STATS, function () {
-            return [
+        $cacheKey = 'admin:audit_logs:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+            $stats = [
                 'total' => AuditLog::count(),
                 'today' => AuditLog::whereDate('created_at', today())->count(),
                 'number_events' => AuditLog::where('action', 'like', 'number_%')->count(),
@@ -339,19 +430,29 @@ class SystemCacheService implements SystemCacheServiceInterface
                       ->orWhere('action', 'like', 'user_%');
                 })->count(),
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_LOG_STATS);
+        }
+
+        return $stats;
     }
 
     public function getSecurityIncidentsStats(): array
     {
-        return Cache::remember('admin:security_incidents:stats', self::TTL_LOG_STATS, function () {
-            return [
+        $cacheKey = 'admin:security_incidents:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+            $stats = [
                 'total' => SecurityIncident::count(),
                 'unresolved' => SecurityIncident::whereNull('resolved_at')->count(),
                 'critical' => SecurityIncident::whereIn('severity', ['high', 'critical'])->whereNull('resolved_at')->count(),
                 'today' => SecurityIncident::whereDate('created_at', today())->count(),
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_LOG_STATS);
+        }
+
+        return $stats;
     }
 
     public function handleSecurityIncidentChanged(SecurityIncident $incident): void
@@ -365,14 +466,19 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     public function getAdminDashboardStats(): array
     {
-        return Cache::remember('admin:dashboard:stats', self::TTL_DASHBOARD, function () {
+        $cacheKey = 'admin:dashboard:stats';
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+
             $totalUsers = User::count();
             $allocatedNumbers = PhoneNumber::where('status', PhoneNumberStatus::Allocated)->count();
             $totalNumbers = PhoneNumber::count();
             $totalMessages = Message::count();
             $deliveredMessages = Message::where('processing_status', MessageProcessingStatus::Processed)->count();
 
-            return [
+            $stats = [
                 'users' => [
                     'total' => $totalUsers,
                     'active' => User::where('status', UserStatus::Active)->count(),
@@ -409,12 +515,20 @@ class SystemCacheService implements SystemCacheServiceInterface
                     'revoked' => ApiToken::where('status', ApiTokenStatus::Revoked)->count(),
                 ],
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_DASHBOARD);
+        }
+
+        return $stats;
     }
 
     public function getUserDashboardStats(User $user): array
     {
-        return Cache::remember("user:{$user->id}:dashboard_stats", self::TTL_DASHBOARD, function () use ($user) {
+        $cacheKey = "user:{$user->id}:dashboard_stats";
+
+        $stats = Cache::get($cacheKey);
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+            Cache::forget($cacheKey);
+
             $activeCount = $this->getUserActiveNumbersCount($user->id);
             $maxQuota = PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER;
             $userPhoneIds = $user->phoneNumbers()->pluck('id');
@@ -426,7 +540,7 @@ class SystemCacheService implements SystemCacheServiceInterface
                 ->count();
             $pendingRequests = $this->getUserPendingRequestsCount($user->id);
 
-            return [
+            $stats = [
                 'quota' => [
                     'active' => $activeCount,
                     'max' => $maxQuota,
@@ -439,7 +553,10 @@ class SystemCacheService implements SystemCacheServiceInterface
                     'pending_requests' => $pendingRequests,
                 ],
             ];
-        });
+            Cache::put($cacheKey, $stats, self::TTL_DASHBOARD);
+        }
+
+        return $stats;
     }
 
     // ==========================================
@@ -572,4 +689,3 @@ class SystemCacheService implements SystemCacheServiceInterface
         })->values();
     }
 }
-

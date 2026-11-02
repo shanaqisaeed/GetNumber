@@ -92,7 +92,7 @@ const handleConfirm = async () => {
             localStorage.setItem('notification_permission_handled', 'granted');
             sessionStorage.removeItem('notification_prompt_dismissed');
         } catch {}
-        showLocalNotification('سامانه GetNumber');
+        showLocalNotification('سامانه GetNumber', 'welcome');
     }
 
     showToast(result.message);

@@ -232,18 +232,25 @@ export function useWebNotifications() {
      * Show local OS notification (universal for Desktop and Mobile/Android)
      * Note: Strictly respects privacy - announces only the sender, NEVER the message body!
      */
-    const showLocalNotification = async (sender: string) => {
+    const showLocalNotification = async (sender: string, messageId?: number | string) => {
         if (!isSupported.value || permission.value !== 'granted') return;
 
         const title = 'پیامک جدید دریافت شد';
         const body = sender ? `پیام جدیدی از شماره ${sender} دریافت شد.` : 'پیامک جدیدی دریافت شد.';
+        const tag = messageId ? `getnumber-sms-${messageId}` : `getnumber-sms-${Date.now()}`;
         const options: NotificationOptions = {
             body,
             icon: '/icon-192.png',
             badge: '/icon-192.png',
-            tag: 'getnumber-sms-' + Date.now(),
+            tag,
             // @ts-ignore
+            renotify: false,
             vibrate: [200, 100, 200],
+            data: {
+                url: '/messages',
+                messageId,
+                sender,
+            },
         };
 
         // 1. Try service worker showNotification first (mandatory on Android Chrome, works universally)

@@ -12,10 +12,10 @@ Artisan::command('inspire', function () {
 |--------------------------------------------------------------------------
 | Active Queue Worker & Job Processing
 |--------------------------------------------------------------------------
-| Continuously process queued jobs across prioritized channels.
+| Continuously process queued jobs across all channels.
 | Automatically runs in the background and drains jobs every minute.
 */
-Schedule::command('queue:work --queue=messages-high,messages,messages-bulk,notifications,default --stop-when-empty --max-time=55 --memory=128 --tries=3')
+Schedule::command('queue:work --stop-when-empty --max-time=55 --memory=128 --tries=3')
     ->everyMinute()
     ->withoutOverlapping()
     ->runInBackground();
