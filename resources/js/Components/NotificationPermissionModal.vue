@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useWebNotifications, SubscribeResult } from '@/Composables/useWebNotifications';
-import { onMounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref } from 'vue';
 
 const emit = defineEmits<{
     (e: 'activated', result: SubscribeResult): void;
@@ -11,7 +11,6 @@ const {
     isSupported,
     isPermissionDenied,
     isPermissionGranted,
-    isSubscribed,
     isSubscribing,
     checkSubscriptionStatus,
     subscribeToPush,
@@ -30,48 +29,84 @@ const showToast = (msg: string) => {
     }, 4000);
 };
 
-onMounted(async () => {
-    // Clear any test storage keys
-    try {
-        localStorage.removeItem('notification_prompt_dismissed');
-        localStorage.removeItem('webpush_prompt_dismissed');
-        sessionStorage.removeItem('notification_prompt_dismissed');
-    } catch {}
+const handleOpenModalEvent = () => {
+    isOpen.value = true;
+};
 
-    // Check status immediately (safe, never hangs)
+onMounted(async () => {
+    if (typeof window === 'undefined') return;
+
+    // Listen for manual triggers from header / settings
+    window.addEventListener('open-notification-modal', handleOpenModalEvent);
+
+    // 1. If notifications are not supported in browser, do not show modal
+    if (!('Notification' in window) || !isSupported.value) {
+        return;
+    }
+
+    // 2. Initial state check
     await checkSubscriptionStatus();
 
-    // 1. If notifications are not supported in browser, cannot show modal
-    if (!isSupported.value) {
+    // 3. CRITICAL: If permission is ALREADY granted, NEVER show the modal!
+    if (Notification.permission === 'granted') {
+        isOpen.value = false;
+        try {
+            localStorage.setItem('notification_permission_handled', 'granted');
+        } catch {}
+
+        // Silently ensure Service Worker push subscription is synchronized with backend
+        subscribeToPush().catch(() => {});
         return;
     }
 
-    // 2. If already fully granted AND push subscribed, don't show
-    if (isSubscribed.value && isPermissionGranted.value) {
-        return;
-    }
+    // 4. If dismissed during this session, do not show again
+    try {
+        if (sessionStorage.getItem('notification_prompt_dismissed') === '1') {
+            return;
+        }
+        if (Notification.permission === 'denied' && localStorage.getItem('notification_denied_dismissed') === '1') {
+            return;
+        }
+    } catch {}
 
-    // Open the modal smoothly on dashboard load
+    // 5. Only for first-time unhandled state ('default'), open modal smoothly after 600ms
     setTimeout(() => {
-        if (!isSubscribed.value || !isPermissionGranted.value) {
+        if (Notification.permission !== 'granted' && sessionStorage.getItem('notification_prompt_dismissed') !== '1') {
             isOpen.value = true;
         }
-    }, 400);
+    }, 600);
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('open-notification-modal', handleOpenModalEvent);
+    }
 });
 
 const handleConfirm = async () => {
-    const result = await subscribeToPush();
     isOpen.value = false;
+    const result = await subscribeToPush();
 
-    showToast(result.message);
-    if (result.success) {
+    if (result.success || (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted')) {
+        try {
+            localStorage.setItem('notification_permission_handled', 'granted');
+            sessionStorage.removeItem('notification_prompt_dismissed');
+        } catch {}
         showLocalNotification('سامانه GetNumber');
     }
+
+    showToast(result.message);
     emit('activated', result);
 };
 
 const handleDismiss = () => {
     isOpen.value = false;
+    try {
+        sessionStorage.setItem('notification_prompt_dismissed', '1');
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'denied') {
+            localStorage.setItem('notification_denied_dismissed', '1');
+        }
+    } catch {}
     emit('dismissed');
 };
 

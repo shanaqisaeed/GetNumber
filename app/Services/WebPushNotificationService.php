@@ -20,6 +20,23 @@ class WebPushNotificationService
     }
 
     /**
+     * Resolve valid VAPID subject claim (automatically from config/env APP_URL)
+     */
+    public function resolveSubject(): string
+    {
+        $subject = config('webpush.vapid.subject');
+        if (empty($subject) || str_ends_with($subject, '.local')) {
+            $subject = config('app.url');
+        }
+
+        if (!str_starts_with($subject, 'http://') && !str_starts_with($subject, 'https://') && !str_starts_with($subject, 'mailto:')) {
+            $subject = 'https://' . ltrim($subject, '/');
+        }
+
+        return $subject;
+    }
+
+    /**
      * Store or update a user's browser push subscription
      */
     public function subscribe(User $user, array $data): PushSubscription
@@ -96,7 +113,7 @@ class WebPushNotificationService
 
         $publicKey = config('webpush.vapid.public_key');
         $privateKey = config('webpush.vapid.private_key');
-        $subject = config('webpush.vapid.subject', 'https://number.ravyno.site');
+        $subject = $this->resolveSubject();
 
         if (!$publicKey || !$privateKey) {
             Log::warning('[WebPush] VAPID keys not configured. Skipping push notification.');
@@ -189,7 +206,7 @@ class WebPushNotificationService
 
         $publicKey = config('webpush.vapid.public_key');
         $privateKey = config('webpush.vapid.private_key');
-        $subject = config('webpush.vapid.subject', 'https://number.ravyno.site');
+        $subject = $this->resolveSubject();
 
         $payload = json_encode([
             'title' => 'اعلان تست GetNumber',
