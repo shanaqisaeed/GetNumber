@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Contracts\LedgerServiceInterface;
 use App\Contracts\WalletServiceInterface;
 use App\Enums\WalletTransactionType;
 use App\Exceptions\InsufficientWalletBalanceException;
@@ -19,6 +20,13 @@ class WalletService implements WalletServiceInterface
      * Precision for bcmath financial calculations.
      */
     protected const DECIMAL_SCALE = 4;
+
+    protected LedgerServiceInterface $ledgerService;
+
+    public function __construct(?LedgerServiceInterface $ledgerService = null)
+    {
+        $this->ledgerService = $ledgerService ?? app(LedgerServiceInterface::class);
+    }
 
     public function getWallet(User $user): Wallet
     {
@@ -52,7 +60,7 @@ class WalletService implements WalletServiceInterface
 
             $wallet->update(['balance' => $balanceAfter]);
 
-            return WalletTransaction::create([
+            $tx = WalletTransaction::create([
                 'wallet_id' => $wallet->id,
                 'user_id' => $user->id,
                 'type' => WalletTransactionType::Deposit,
@@ -63,6 +71,17 @@ class WalletService implements WalletServiceInterface
                 'description' => $description ?? 'افزایش موجودی کیف پول',
                 'metadata' => $metadata,
             ]);
+
+            // Strictly record balanced Double-Entry Ledger
+            $this->ledgerService->recordDeposit(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'افزایش موجودی کیف پول',
+                metadata: $metadata
+            );
+
+            return $tx;
         });
     }
 
@@ -102,7 +121,7 @@ class WalletService implements WalletServiceInterface
 
             $wallet->update(['balance' => $balanceAfter]);
 
-            return WalletTransaction::create([
+            $tx = WalletTransaction::create([
                 'wallet_id' => $wallet->id,
                 'user_id' => $user->id,
                 'type' => WalletTransactionType::NumberPurchase,
@@ -113,6 +132,17 @@ class WalletService implements WalletServiceInterface
                 'description' => $description ?? 'کسر اعتبار جهت تخصیص شماره مجازی',
                 'metadata' => $metadata,
             ]);
+
+            // Strictly record balanced Double-Entry Ledger
+            $this->ledgerService->recordNumberPurchase(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'کسر اعتبار جهت تخصیص شماره مجازی',
+                metadata: $metadata
+            );
+
+            return $tx;
         });
     }
 
@@ -143,7 +173,7 @@ class WalletService implements WalletServiceInterface
 
             $wallet->update(['balance' => $balanceAfter]);
 
-            return WalletTransaction::create([
+            $tx = WalletTransaction::create([
                 'wallet_id' => $wallet->id,
                 'user_id' => $user->id,
                 'type' => WalletTransactionType::Refund,
@@ -154,6 +184,17 @@ class WalletService implements WalletServiceInterface
                 'description' => $description ?? 'بازگشت وجه به کیف پول (عدم موفقیت تخصیص شماره)',
                 'metadata' => $metadata,
             ]);
+
+            // Strictly record balanced Double-Entry Ledger
+            $this->ledgerService->recordRefund(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'بازگشت وجه به کیف پول (عدم موفقیت تخصیص شماره)',
+                metadata: $metadata
+            );
+
+            return $tx;
         });
     }
 
@@ -201,6 +242,16 @@ class WalletService implements WalletServiceInterface
                     'reason' => $cleanReason,
                 ],
             ]);
+
+            // Strictly record balanced Double-Entry Ledger
+            $this->ledgerService->recordAdminAdjustment(
+                user: $user,
+                amount: $cleanAmount,
+                isCredit: true,
+                admin: $admin,
+                reason: $cleanReason,
+                referenceId: $ref
+            );
 
             AuditLog::create([
                 'user_id' => $admin->id,
@@ -275,6 +326,16 @@ class WalletService implements WalletServiceInterface
                 ],
             ]);
 
+            // Strictly record balanced Double-Entry Ledger
+            $this->ledgerService->recordAdminAdjustment(
+                user: $user,
+                amount: $cleanAmount,
+                isCredit: false,
+                admin: $admin,
+                reason: $cleanReason,
+                referenceId: $ref
+            );
+
             AuditLog::create([
                 'user_id' => $admin->id,
                 'action' => 'admin.wallet.debit',
@@ -316,8 +377,6 @@ class WalletService implements WalletServiceInterface
             $balanceBefore = (string) $wallet->balance;
             $amount = (string) $originalTransaction->amount;
 
-            // If original transaction was credit, reversal debits the wallet
-            // If original transaction was debit, reversal credits the wallet
             $isOriginalCredit = $originalTransaction->type->isCredit();
 
             if ($isOriginalCredit) {
@@ -355,6 +414,16 @@ class WalletService implements WalletServiceInterface
                 ],
             ]);
 
+            // Reverse in ledger
+            $this->ledgerService->recordAdminAdjustment(
+                user: $user,
+                amount: $amount,
+                isCredit: ! $isOriginalCredit,
+                admin: $admin,
+                reason: "اصلاح تراکنش #{$originalTransaction->id}: {$cleanReason}",
+                referenceId: $reversalRef
+            );
+
             AuditLog::create([
                 'user_id' => $admin->id,
                 'action' => 'admin.wallet.reversal',
@@ -376,7 +445,20 @@ class WalletService implements WalletServiceInterface
     public function reconcile(User $user): bool
     {
         $wallet = $this->getWallet($user);
-        return $wallet->reconcileBalanceFromLedger();
+
+        // First check internal transaction consistency
+        if (! $wallet->reconcileBalanceFromLedger()) {
+            return false;
+        }
+
+        // Second check double-entry ledger if entries exist
+        $hasLedger = \App\Models\LedgerEntry::where('user_id', $user->id)->exists();
+        if ($hasLedger) {
+            $ledgerBalance = $this->ledgerService->calculateUserBalance($user);
+            return bccomp((string) $wallet->balance, $ledgerBalance, self::DECIMAL_SCALE) === 0;
+        }
+
+        return true;
     }
 
     /**
@@ -392,4 +474,3 @@ class WalletService implements WalletServiceInterface
         return number_format((float) $cleaned, self::DECIMAL_SCALE, '.', '');
     }
 }
-

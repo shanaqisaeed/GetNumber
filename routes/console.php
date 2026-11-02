@@ -17,6 +17,19 @@ Schedule::command('numbers:sweep-expired')
 Schedule::command('payments:verify-pending')
     ->everyMinute()
     ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+Schedule::command('blockchain:watch-deposits')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+Schedule::command('financial:reconcile')
+    ->hourly()
+    ->withoutOverlapping()
+    ->onOneServer()
     ->runInBackground();
 
 Schedule::command('payments:nobitex:sync-wallet')

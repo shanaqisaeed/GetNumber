@@ -66,14 +66,20 @@ class TronGridGateway implements PaymentGatewayInterface
         ];
     }
 
+    public const REQUIRED_CONFIRMATIONS = 19;
+
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
-        $address = ! empty($this->depositAddress)
-            ? $this->depositAddress
-            : ('T' . substr(hash('sha256', "trongrid-{$deposit->user_id}-{$deposit->id}"), 0, 33));
+        if (empty($this->depositAddress)) {
+            throw new \RuntimeException('آدرس والت دریافت ترون (TRX) در تنظیمات درگاه ترون گرید تنظیم نشده است. امکان تولید آدرس ساختگی وجود ندارد.');
+        }
+
+        if (! str_starts_with($this->depositAddress, 'T') || strlen($this->depositAddress) !== 34) {
+            throw new \RuntimeException('فرمت آدرس والت ترون گرید معتبر نمی‌باشد.');
+        }
 
         return new PaymentAddressResult(
-            address: $address,
+            address: $this->depositAddress,
             currency: 'TRX',
             network: 'TRON',
             tag: null,

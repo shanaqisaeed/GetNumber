@@ -85,6 +85,10 @@ class PaymentService implements PaymentServiceInterface
         try {
             $addressResult = $gateway->generateDepositAddress($deposit);
 
+            if (empty($addressResult->address)) {
+                throw new \RuntimeException('درگاه انتخاب‌شده آدرس والتی جهت واریز ارائه نداد.');
+            }
+
             $deposit->update([
                 'deposit_address' => $addressResult->address,
                 'deposit_tag' => $addressResult->tag,
@@ -95,10 +99,13 @@ class PaymentService implements PaymentServiceInterface
             ]);
         } catch (\Throwable $e) {
             Log::error("Failed to generate deposit address for #{$deposit->id}: " . $e->getMessage());
-            // Keep fallback address generated in deposit record
             $deposit->update([
-                'deposit_address' => 'TFallbackAddress' . substr(md5((string) $deposit->id), 0, 10),
+                'status' => PaymentStatus::Failed,
+                'failure_reason' => 'عدم امکان تولید آدرس معتبر: ' . $e->getMessage(),
+                'deposit_address' => 'UNAVAILABLE',
             ]);
+
+            throw new \RuntimeException("تولید آدرس والت واریز ناموفق بود: " . $e->getMessage(), 0, $e);
         }
 
         return $deposit->fresh();
@@ -113,6 +120,10 @@ class PaymentService implements PaymentServiceInterface
 
         if ($cleanTxHash === '') {
             throw new InvalidArgumentException('کد رهگیری تراکنش (TX Hash) نمی‌تواند خالی باشد.');
+        }
+
+        if (! preg_match('/^[a-zA-Z0-9_-]{6,128}$/', $cleanTxHash)) {
+            throw new InvalidArgumentException('فرمت شناسه تراکنش نامعتبر است (باید شامل حروف و ارقام معتبر باشد).');
         }
 
         if (! $deposit->canSubmitTx()) {

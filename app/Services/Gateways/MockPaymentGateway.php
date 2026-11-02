@@ -114,7 +114,7 @@ class MockPaymentGateway implements PaymentGatewayInterface
 
     public function getRecentDeposits(?string $currency = null): array
     {
-        return [];
+        return $this->config['mock_transfers'] ?? [];
     }
 }
 

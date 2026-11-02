@@ -147,12 +147,12 @@ class WallexGateway implements PaymentGatewayInterface
 
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
-        $address = ! empty($this->depositAddress)
-            ? $this->depositAddress
-            : ('TWallexTrxDepositAddress' . substr(md5((string) $deposit->id), 0, 10));
+        if (empty($this->depositAddress)) {
+            throw new \RuntimeException('آدرس والت دریافت ترون در تنظیمات صرافی والکس پیکربندی نشده است. تولید آدرس ساختگی مجاز نمی‌باشد.');
+        }
 
         return new PaymentAddressResult(
-            address: $address,
+            address: $this->depositAddress,
             currency: 'TRX',
             network: 'TRON',
             tag: null,

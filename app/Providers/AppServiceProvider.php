@@ -38,6 +38,21 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(
+            \App\Contracts\LedgerServiceInterface::class,
+            \App\Services\LedgerService::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\FinancialReconciliationServiceInterface::class,
+            \App\Services\FinancialReconciliationService::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\BlockchainWatcherServiceInterface::class,
+            \App\Services\BlockchainWatcherService::class
+        );
+
+        $this->app->singleton(
             \App\Contracts\WalletServiceInterface::class,
             \App\Services\WalletService::class
         );
