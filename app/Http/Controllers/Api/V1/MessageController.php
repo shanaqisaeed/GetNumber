@@ -219,4 +219,61 @@ class MessageController extends Controller
             ]),
         ]);
     }
+
+    /**
+     * Get batch status and progress in API.
+     */
+    public function batchStatus(Request $request, string $batchId): JsonResponse
+    {
+        $batch = $this->messageService->getBatchStatus($batchId, $request->user());
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'batch_id' => $batch->batch_id,
+                'status' => $batch->status,
+                'total_count' => $batch->total_count,
+                'processed_count' => $batch->processed_count,
+                'success_count' => $batch->success_count,
+                'failed_count' => $batch->failed_count,
+                'progress_percentage' => $batch->progressPercentage(),
+                'is_finished' => $batch->isFinished(),
+                'created_at' => $batch->created_at->toIso8601String(),
+                'completed_at' => $batch->completed_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * Resynchronize lost/missed messages for API client.
+     */
+    public function resync(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $phoneNumberId = (int) $request->input('phone_number_id');
+        $afterId = $request->filled('after_id') ? (int) $request->input('after_id') : null;
+        $peerNumber = $request->input('peer');
+
+        if (! $phoneNumberId) {
+            $phoneNumberId = (int) $user->phoneNumbers()
+                ->where('status', \App\Enums\PhoneNumberStatus::Allocated)
+                ->value('id');
+        }
+
+        if (! $phoneNumberId) {
+            return response()->json(['success' => false, 'message' => 'شماره خط نامشخص است.'], 400);
+        }
+
+        $resyncData = $this->messageService->resyncMessages(
+            phoneNumberId: $phoneNumberId,
+            afterId: $afterId,
+            peerNumber: $peerNumber,
+            limit: min(100, max(1, (int) $request->input('limit', 50)))
+        );
+
+        return response()->json([
+            'success' => true,
+            'data' => $resyncData,
+        ]);
+    }
 }

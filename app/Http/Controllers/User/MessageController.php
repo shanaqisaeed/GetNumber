@@ -19,8 +19,11 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 class MessageController extends Controller
 {
     public function __construct(
-        protected MessageServiceInterface $messageService
-    ) {}
+        protected MessageServiceInterface $messageService,
+        protected ?\App\Contracts\UnreadCountServiceInterface $unreadCountService = null
+    ) {
+        $this->unreadCountService = $unreadCountService ?? app(\App\Contracts\UnreadCountServiceInterface::class);
+    }
 
     /**
      * Display the mobile SMS messenger & conversation interface.
@@ -217,6 +220,108 @@ class MessageController extends Controller
     }
 
     /**
+     * Dedicated asynchronous bulk SMS dispatch endpoint.
+     * Enqueues batch and returns tracking batch_id and status URL.
+     */
+    public function sendBulk(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'from_number_id' => ['required', 'exists:phone_numbers,id'],
+            'destinations' => ['required'],
+            'body' => ['required', 'string', 'max:2000'],
+        ]);
+
+        /** @var PhoneNumber $fromNumber */
+        $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
+
+        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
+            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+        }
+
+        $rawDest = $validated['destinations'];
+        $destArray = is_string($rawDest) ? preg_split('/[\r\n,]+/', $rawDest) : (array) $rawDest;
+
+        $batch = $this->messageService->queueBulkSms(
+            fromNumber: $fromNumber,
+            destinationNumbers: $destArray,
+            body: $validated['body'],
+            senderUser: $user
+        );
+
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batch->batch_id,
+            'total_count' => $batch->total_count,
+            'status' => $batch->status,
+            'status_url' => route('messages.batch.status', $batch->batch_id),
+            'message' => "بسته ارسال انبوه با موفقیت در صف پردازش پس‌زمینه قرار گرفت (شناسه: {$batch->batch_id}).",
+        ], 202);
+    }
+
+    /**
+     * Check progress and statistics of a bulk message batch.
+     */
+    public function batchStatus(Request $request, string $batchId): JsonResponse
+    {
+        $batch = $this->messageService->getBatchStatus($batchId, $request->user());
+
+        return response()->json([
+            'success' => true,
+            'batch_id' => $batch->batch_id,
+            'status' => $batch->status,
+            'total_count' => $batch->total_count,
+            'processed_count' => $batch->processed_count,
+            'success_count' => $batch->success_count,
+            'failed_count' => $batch->failed_count,
+            'progress_percentage' => $batch->progressPercentage(),
+            'is_finished' => $batch->isFinished(),
+            'created_at' => $batch->created_at->toIso8601String(),
+            'completed_at' => $batch->completed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Resynchronize lost/missed messages for client after WebSocket disconnection or sleep.
+     */
+    public function resync(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $phoneNumberId = (int) $request->input('phone_number_id');
+        $afterId = $request->filled('after_id') ? (int) $request->input('after_id') : null;
+        $peerNumber = $request->input('peer');
+
+        if (! $phoneNumberId) {
+            $phoneNumberId = (int) $user->phoneNumbers()
+                ->where('status', PhoneNumberStatus::Allocated)
+                ->value('id');
+        }
+
+        if (! $phoneNumberId) {
+            return response()->json(['success' => false, 'message' => 'شماره خط نامشخص است.'], 400);
+        }
+
+        /** @var PhoneNumber|null $phoneNumber */
+        $phoneNumber = PhoneNumber::where('id', $phoneNumberId)->first();
+        if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id)) {
+            return response()->json(['success' => false, 'message' => 'دسترسی غیرمجاز.'], 403);
+        }
+
+        $resyncData = $this->messageService->resyncMessages(
+            phoneNumberId: $phoneNumber->id,
+            afterId: $afterId,
+            peerNumber: $peerNumber,
+            limit: min(100, max(1, (int) $request->input('limit', 50)))
+        );
+
+        return response()->json([
+            'success' => true,
+            ...$resyncData,
+        ]);
+    }
+
+    /**
      * Fetch conversation messages asynchronously for fast chat switching.
      */
     public function conversation(Request $request): JsonResponse
@@ -341,6 +446,8 @@ class MessageController extends Controller
     public function unreadSummary(Request $request): JsonResponse
     {
         $user = $request->user();
+        $summary = $this->unreadCountService->getUnreadSummaryForUser($user);
+
         $allocatedLineIds = $user->phoneNumbers()
             ->where('status', PhoneNumberStatus::Allocated)
             ->pluck('id');
@@ -350,16 +457,6 @@ class MessageController extends Controller
             $allocatedLineIds = PhoneNumber::where('status', PhoneNumberStatus::Allocated)->pluck('id');
         }
 
-        $unreadCountsByLine = Message::whereIn('phone_number_id', $allocatedLineIds)
-            ->where('direction', MessageDirection::Inbound)
-            ->where('processing_status', MessageProcessingStatus::Received)
-            ->selectRaw('phone_number_id, count(*) as count')
-            ->groupBy('phone_number_id')
-            ->pluck('count', 'phone_number_id')
-            ->mapWithKeys(fn ($count, $id) => [(int) $id => (int) $count]);
-
-        $totalUnread = (int) $unreadCountsByLine->sum();
-
         $latestMessage = Message::whereIn('phone_number_id', $allocatedLineIds)
             ->where('direction', MessageDirection::Inbound)
             ->where('processing_status', MessageProcessingStatus::Received)
@@ -368,8 +465,8 @@ class MessageController extends Controller
 
         return response()->json([
             'success' => true,
-            'unread_total' => $totalUnread,
-            'unread_by_line' => $unreadCountsByLine,
+            'unread_total' => $summary['unread_total'],
+            'unread_by_line' => $summary['unread_by_line'],
             'latest_message' => $latestMessage ? [
                 'id' => $latestMessage->id,
                 'phone_number_id' => $latestMessage->phone_number_id,

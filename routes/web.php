@@ -101,6 +101,9 @@ Route::middleware(['auth'])->group(function () {
     // User SMS Messaging & Chat (Mobile style)
     Route::get('/messages', [\App\Http\Controllers\User\MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');
+    Route::post('/messages/send-bulk', [\App\Http\Controllers\User\MessageController::class, 'sendBulk'])->name('messages.send_bulk');
+    Route::get('/messages/batches/{batchId}', [\App\Http\Controllers\User\MessageController::class, 'batchStatus'])->name('messages.batch.status');
+    Route::get('/messages/resync', [\App\Http\Controllers\User\MessageController::class, 'resync'])->name('messages.resync');
     Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
     Route::get('/messages/poll', [\App\Http\Controllers\User\MessageController::class, 'poll'])->name('messages.poll');
     Route::get('/messages/unread-summary', [\App\Http\Controllers\User\MessageController::class, 'unreadSummary'])->name('messages.unread_summary');

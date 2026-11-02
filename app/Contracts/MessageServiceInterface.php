@@ -91,6 +91,27 @@ interface MessageServiceInterface
     public function getAdminConversationMessages(int $phoneNumberId, string $peerNumber, ?int $afterId = null): Collection;
 
     /**
+     * Queue bulk SMS dispatch to background workers for scalable, non-blocking execution.
+     *
+     * @param PhoneNumber $fromNumber
+     * @param array<string> $destinationNumbers
+     * @param string $body
+     * @param User $senderUser
+     * @return \App\Models\MessageBatch
+     */
+    public function queueBulkSms(PhoneNumber $fromNumber, array $destinationNumbers, string $body, User $senderUser): \App\Models\MessageBatch;
+
+    /**
+     * Retrieve status and progress statistics for a bulk message batch.
+     */
+    public function getBatchStatus(string $batchId, ?User $user = null): \App\Models\MessageBatch;
+
+    /**
+     * Resynchronize lost/missed messages for a client after reconnect or polling fallback.
+     */
+    public function resyncMessages(int $phoneNumberId, ?int $afterId = null, ?string $peerNumber = null, int $limit = 50): array;
+
+    /**
      * Delete a message (Admin action).
      */
     public function deleteMessage(Message $message): void;

@@ -13,4 +13,6 @@ Route::prefix('v1')->middleware(['auth.api_token', 'throttle:api-token'])->group
     Route::post('/messages', [\App\Http\Controllers\Api\V1\MessageController::class, 'store'])->name('api.v1.messages.store');
     Route::get('/messages', [\App\Http\Controllers\Api\V1\MessageController::class, 'index'])->name('api.v1.messages.index');
     Route::get('/messages/poll', [\App\Http\Controllers\Api\V1\MessageController::class, 'poll'])->name('api.v1.messages.poll');
+    Route::get('/messages/resync', [\App\Http\Controllers\Api\V1\MessageController::class, 'resync'])->name('api.v1.messages.resync');
+    Route::get('/messages/batches/{batchId}', [\App\Http\Controllers\Api\V1\MessageController::class, 'batchStatus'])->name('api.v1.messages.batch.status');
 });

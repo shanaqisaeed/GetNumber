@@ -2,17 +2,18 @@
 
 namespace App\Events;
 
+use App\Contracts\UnreadCountServiceInterface;
 use App\Enums\MessageDirection;
 use App\Enums\MessageProcessingStatus;
 use App\Models\Message;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageReceived implements ShouldBroadcastNow
+class MessageReceived implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -22,9 +23,9 @@ class MessageReceived implements ShouldBroadcastNow
     public int $unreadCount;
 
     /**
-     * Create a new event instance.
+     * Create a new event instance with lightweight unread count calculation.
      */
-    public function __construct(Message $message)
+    public function __construct(Message $message, ?int $unreadCount = null)
     {
         $this->message = $message;
         $this->phoneNumberId = $message->phone_number_id;
@@ -32,14 +33,24 @@ class MessageReceived implements ShouldBroadcastNow
         $phoneNumber = $message->phoneNumber;
         $this->userId = $phoneNumber?->user_id;
 
-        if ($this->userId) {
-            $this->unreadCount = Message::whereHas('phoneNumber', fn ($q) => $q->where('user_id', $this->userId))
-                ->where('direction', MessageDirection::Inbound)
-                ->where('processing_status', MessageProcessingStatus::Received)
-                ->count();
+        if ($unreadCount !== null) {
+            $this->unreadCount = $unreadCount;
+        } elseif ($this->userId && app()->bound(UnreadCountServiceInterface::class)) {
+            /** @var UnreadCountServiceInterface $unreadService */
+            $unreadService = app(UnreadCountServiceInterface::class);
+            $unreadService->incrementForMessage($message);
+            $this->unreadCount = $unreadService->getUserUnreadCount($this->userId);
         } else {
             $this->unreadCount = 0;
         }
+    }
+
+    /**
+     * Name of the queue on which broadcast jobs should be processed.
+     */
+    public function broadcastQueue(): string
+    {
+        return 'broadcasts';
     }
 
     /**
@@ -93,4 +104,3 @@ class MessageReceived implements ShouldBroadcastNow
         ];
     }
 }
-

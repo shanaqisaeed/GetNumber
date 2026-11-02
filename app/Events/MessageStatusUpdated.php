@@ -6,11 +6,11 @@ use App\Models\Message;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageStatusUpdated implements ShouldBroadcastNow
+class MessageStatusUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
@@ -26,6 +26,14 @@ class MessageStatusUpdated implements ShouldBroadcastNow
         $this->message = $message;
         $this->phoneNumberId = $message->phone_number_id;
         $this->userId = $message->phoneNumber?->user_id;
+    }
+
+    /**
+     * Name of the queue on which broadcast jobs should be processed.
+     */
+    public function broadcastQueue(): string
+    {
+        return 'broadcasts';
     }
 
     /**
@@ -65,10 +73,10 @@ class MessageStatusUpdated implements ShouldBroadcastNow
         return [
             'id' => $this->message->id,
             'phone_number_id' => $this->message->phone_number_id,
+            'peer_number' => $this->message->peer_number,
             'processing_status' => $this->message->processing_status->value,
-            'client_message_id' => $this->message->client_message_id,
-            'user_id' => $this->userId,
+            'processing_status_label' => $this->message->processing_status->label(),
+            'updated_at' => $this->message->updated_at?->toIso8601String() ?? now()->toIso8601String(),
         ];
     }
 }
-

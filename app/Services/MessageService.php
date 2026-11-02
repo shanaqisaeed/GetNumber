@@ -759,6 +759,139 @@ class MessageService implements MessageServiceInterface
     }
 
     /**
+     * Queue bulk SMS dispatch to background workers for scalable, non-blocking execution.
+     */
+    public function queueBulkSms(PhoneNumber $fromNumber, array $destinationNumbers, string $body, User $senderUser): \App\Models\MessageBatch
+    {
+        if (! $senderUser->isAdmin() && $fromNumber->user_id !== $senderUser->id) {
+            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+        }
+
+        if ($fromNumber->type === PhoneNumberType::PlatformService && ! $senderUser->isAdmin()) {
+            throw new AccessDeniedHttpException('ارسال پیامک از سرشماره اختصاصی سامانه منحصراً در اختیار راهبر سیستم است.');
+        }
+
+        if ($fromNumber->status !== PhoneNumberStatus::Allocated) {
+            throw ValidationException::withMessages([
+                'from_number_id' => 'خط فرستنده انتخابی در وضعیت فعال و تخصیص‌یافته نمی‌باشد.',
+            ]);
+        }
+
+        $body = trim($body);
+        if (empty($body)) {
+            throw ValidationException::withMessages([
+                'body' => 'متن پیامک نمی‌تواند خالی باشد.',
+            ]);
+        }
+
+        $destinations = collect($destinationNumbers)
+            ->map(fn ($d) => trim((string) $d))
+            ->filter(fn ($d) => ! empty($d))
+            ->unique()
+            ->values();
+
+        if ($destinations->isEmpty()) {
+            throw ValidationException::withMessages([
+                'destinations' => 'حداقل یک شماره مقصد معتبر الزامی است.',
+            ]);
+        }
+
+        $batchId = 'BATCH-' . date('Ymd') . '-' . strtoupper(\Illuminate\Support\Str::random(10));
+
+        return DB::transaction(function () use ($batchId, $senderUser, $fromNumber, $body, $destinations) {
+            $batch = \App\Models\MessageBatch::create([
+                'batch_id' => $batchId,
+                'user_id' => $senderUser->id,
+                'phone_number_id' => $fromNumber->id,
+                'sender' => $fromNumber->number,
+                'body' => $body,
+                'total_count' => $destinations->count(),
+                'status' => \App\Models\MessageBatch::STATUS_PENDING,
+            ]);
+
+            $itemsData = $destinations->map(fn ($dest) => [
+                'message_batch_id' => $batch->id,
+                'destination' => (string) $dest,
+                'status' => \App\Models\MessageBatchItem::STATUS_PENDING,
+                'attempts' => 0,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ])->all();
+
+            \App\Models\MessageBatchItem::insert($itemsData);
+
+            \App\Jobs\ProcessMessageBatchJob::dispatch($batch->id);
+
+            return $batch;
+        });
+    }
+
+    public function getBatchStatus(string $batchId, ?User $user = null): \App\Models\MessageBatch
+    {
+        $query = \App\Models\MessageBatch::where('batch_id', $batchId);
+        if ($user && ! $user->isAdmin()) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query->with('items')->firstOrFail();
+    }
+
+    public function resyncMessages(int $phoneNumberId, ?int $afterId = null, ?string $peerNumber = null, int $limit = 50): array
+    {
+        $query = Message::where('phone_number_id', $phoneNumberId);
+
+        if ($afterId) {
+            $query->where('id', '>', $afterId);
+        }
+
+        if (! empty($peerNumber)) {
+            $cleanPeer = PhoneNumberNormalizer::resolveToStoredNumber($peerNumber);
+            $query->where(function ($q) use ($cleanPeer, $peerNumber) {
+                $q->where('peer_number', $cleanPeer)
+                    ->orWhere('peer_number', $peerNumber);
+            });
+        }
+
+        $newMessages = $query->orderBy('id', 'asc')
+            ->limit($limit)
+            ->get();
+
+        $latestId = $newMessages->isNotEmpty()
+            ? $newMessages->last()->id
+            : ($afterId ?? (Message::where('phone_number_id', $phoneNumberId)->max('id') ?? 0));
+
+        $phone = PhoneNumber::find($phoneNumberId);
+        $user = $phone?->user;
+
+        $unreadService = app()->bound(\App\Contracts\UnreadCountServiceInterface::class)
+            ? app(\App\Contracts\UnreadCountServiceInterface::class)
+            : null;
+
+        $unreadUser = ($user && $unreadService) ? $unreadService->getUserUnreadCount($user->id) : 0;
+        $unreadLine = $unreadService ? $unreadService->getLineUnreadCount($phoneNumberId) : 0;
+
+        return [
+            'messages' => $newMessages->map(fn (Message $m) => [
+                'id' => $m->id,
+                'phone_number_id' => $m->phone_number_id,
+                'destination_number' => $m->destination_number,
+                'sender' => $m->sender,
+                'peer_number' => $m->peer_number,
+                'direction' => $m->direction->value,
+                'body' => $m->body,
+                'server_received_at' => $m->server_received_at?->toIso8601String() ?? now()->toIso8601String(),
+                'server_received_at_formatted' => $m->server_received_at?->diffForHumans() ?? 'هم‌اکنون',
+                'processing_status' => $m->processing_status->value,
+            ]),
+            'count' => $newMessages->count(),
+            'latest_id' => $latestId,
+            'unread_user' => $unreadUser,
+            'unread_line' => $unreadLine,
+            'server_time' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
      * Retrieve conversation threads for a specific allocated line (Mobile SMS style).
      */
     public function getConversations(PhoneNumber $phoneNumber, ?string $search = null): Collection

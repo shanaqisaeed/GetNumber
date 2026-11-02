@@ -33,6 +33,11 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(
+            \App\Contracts\UnreadCountServiceInterface::class,
+            \App\Services\UnreadCountService::class
+        );
+
+        $this->app->singleton(
             \App\Contracts\TicketServiceInterface::class,
             \App\Services\TicketService::class
         );
