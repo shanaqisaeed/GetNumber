@@ -2,6 +2,7 @@
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -244,7 +245,12 @@ const navItems = computed(() => [
             </header>
 
             <!-- Natural Flowing Page Content (With generous pb-36 so content NEVER goes under the floating dock) -->
-            <main class="flex-1 pt-3 pb-36 relative z-10">
+            <main class="flex-1 pt-2 pb-36 relative z-10">
+                <!-- Global Breadcrumb Navigation -->
+                <div class="mb-2.5 px-0.5">
+                    <Breadcrumb homeRoute="dashboard" homeLabel="پیشخوان" />
+                </div>
+
                 <!-- Global Flash Notifications -->
                 <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
                     <div v-if="$page.props.flash?.success" class="mb-3.5 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md shadow-sm">

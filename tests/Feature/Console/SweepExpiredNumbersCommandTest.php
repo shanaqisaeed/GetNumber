@@ -35,8 +35,8 @@ class SweepExpiredNumbersCommandTest extends TestCase
 
         // 3. Execute artisan command
         $this->artisan('numbers:sweep-expired')
-            ->expectsOutputToContain('در حال بررسی و پردازش خطوط منقضی‌شده سامانه...')
-            ->expectsOutputToContain('تعداد 2 شماره منقضی‌شده با موفقیت پردازش و وضعیت آن‌ها به‌روزرسانی گردید.')
+            ->expectsOutputToContain('Checking and processing expired phone numbers')
+            ->expectsOutputToContain('Successfully processed and released 2 expired phone numbers')
             ->assertExitCode(0);
 
         // 4. Verify database state

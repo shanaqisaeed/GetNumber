@@ -203,7 +203,7 @@ onMounted(() => {
         </div>
 
         <!-- Empty State (No Conversations) -->
-        <div v-else class="glass-card !p-8 text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+        <div v-else class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
             <div class="w-14 h-14 rounded-3xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
                 <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -215,11 +215,11 @@ onMounted(() => {
                     پیامک‌های دریافتی یا ارسالی شما در این بخش مانند پیام‌رسان گوشی نمایش داده می‌شوند.
                 </p>
             </div>
-            <div class="justify-center">
+            <div class="w-full flex justify-center pt-2">
                 <button
                     type="button"
                     @click="emit('start-new')"
-                    class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl inline-flex items-center gap-2"
+                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-xl inline-flex items-center justify-center gap-2"
                 >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />

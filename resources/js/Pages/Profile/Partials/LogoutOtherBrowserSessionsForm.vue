@@ -49,7 +49,7 @@ const logoutOtherSessions = async () => {
 </script>
 
 <template>
-    <div class="space-y-3 pt-4 border-t border-slate-200 dark:border-white/10">
+    <div class="space-y-3 pb-6 border-b border-slate-200 dark:border-white/10">
         <div v-if="toast" class="p-3 rounded-2xl bg-indigo-600 text-white text-xs font-bold text-center shadow-md">
             {{ toast }}
         </div>

@@ -10,7 +10,7 @@ import { computed, ref, watch } from 'vue';
 
 interface Props {
     status?: string;
-    initialTab?: 'info' | 'security' | 'danger';
+    initialTab?: 'info' | 'password' | 'two_factor' | 'account' | 'security' | 'danger';
     wallet?: { balance: string };
     pendingDeposit?: {
         tracking_code: string;
@@ -41,17 +41,22 @@ const userCredit = computed(() => {
     return Math.floor(raw);
 });
 
-// Tab navigation state (strictly 3 tabs: info, security, danger)
-const activeTab = ref<'info' | 'security' | 'danger'>(
-    props.initialTab === 'security' || props.initialTab === 'danger' ? props.initialTab : 'info'
-);
+// Tab navigation state (4 tabs: info, password, two_factor, account)
+type TabType = 'info' | 'password' | 'two_factor' | 'account';
+
+const resolveTab = (tab?: string): TabType => {
+    if (tab === 'two_factor') return 'two_factor';
+    if (tab === 'security' || tab === 'password') return 'password';
+    if (tab === 'danger' || tab === 'account') return 'account';
+    return 'info';
+};
+
+const activeTab = ref<TabType>(resolveTab(props.initialTab));
 
 watch(
     () => props.initialTab,
     (val) => {
-        if (val === 'security' || val === 'danger' || val === 'info') {
-            activeTab.value = val;
-        }
+        activeTab.value = resolveTab(val);
     }
 );
 
@@ -84,42 +89,42 @@ const submitRecharge = () => {
     <UserLayout>
         <div class="space-y-4 max-w-xl mx-auto pb-10">
             <!-- 1. Hero Profile Card with Credit Balance -->
-            <div class="dash-wallet-card !p-5 relative overflow-hidden">
+            <div class="dash-wallet-card !p-5 relative overflow-hidden bg-white/95 dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 shadow-sm">
                 <!-- Background decorative ambient blur -->
-                <div class="absolute -top-16 -right-16 w-40 h-40 bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
-                <div class="absolute -bottom-16 -left-16 w-40 h-40 bg-purple-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="absolute -top-16 -right-16 w-40 h-40 bg-indigo-500/10 dark:bg-indigo-500/20 rounded-full blur-2xl pointer-events-none"></div>
+                <div class="absolute -bottom-16 -left-16 w-40 h-40 bg-purple-500/10 dark:bg-purple-500/20 rounded-full blur-2xl pointer-events-none"></div>
 
                 <div class="relative z-10 flex items-center gap-3.5">
                     <!-- Avatar with gradient ring -->
                     <div class="relative shrink-0">
                         <div class="w-14 h-14 rounded-2xl p-0.5 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 shadow-md shadow-indigo-500/30">
-                            <div class="w-full h-full rounded-[14px] bg-slate-900 flex items-center justify-center font-black text-xl text-white">
+                            <div class="w-full h-full rounded-[14px] bg-slate-100 dark:bg-slate-900 flex items-center justify-center font-black text-xl text-slate-800 dark:text-white">
                                 {{ user?.name ? user.name.charAt(0) : 'U' }}
                             </div>
                         </div>
-                        <span class="status-dot-pulse absolute -bottom-0.5 -right-0.5 border-2 border-slate-900" title="وضعیت آنلاین"></span>
+                        <span class="status-dot-pulse absolute -bottom-0.5 -right-0.5 border-2 border-white dark:border-slate-900" title="وضعیت آنلاین"></span>
                     </div>
 
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center justify-between gap-2 flex-wrap">
-                            <h2 class="text-base font-extrabold text-white truncate">
+                            <h2 class="text-base font-extrabold text-slate-900 dark:text-white truncate">
                                 {{ user?.name || 'کاربر گرامی' }}
                             </h2>
 
                             <!-- Credit Balance Badge (Replacing Role Badge) -->
-                            <div class="px-3 py-1 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/35 text-xs font-black flex items-center gap-1.5 shadow-sm">
-                                <span class="text-amber-400">🪙</span>
+                            <div class="px-3 py-1 rounded-xl bg-amber-500/15 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-500/35 text-xs font-black flex items-center gap-1.5 shadow-sm">
+                                <span class="text-amber-500 dark:text-amber-400">🪙</span>
                                 <span>اعتبار: {{ userCredit }} واحد</span>
                             </div>
                         </div>
 
-                        <p class="text-xs text-indigo-200/80 font-mono mt-0.5 dir-ltr truncate text-right">
+                        <p class="text-xs text-indigo-600 dark:text-indigo-300 font-mono mt-0.5 dir-ltr truncate text-right">
                             @{{ user?.username }}
                         </p>
-                        <div class="flex items-center gap-2 text-[10px] text-slate-400 mt-1">
+                        <div class="flex items-center gap-2 text-[10px] text-slate-600 dark:text-slate-400 mt-1">
                             <span>شناسه حساب: #{{ user?.id }}</span>
                             <span>•</span>
-                            <span class="text-emerald-400">احراز شده و فعال</span>
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold">احراز شده و فعال</span>
                         </div>
                     </div>
                 </div>
@@ -292,10 +297,11 @@ const submitRecharge = () => {
                     </div>
 
                     <!-- Payment summary -->
-                    <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-850 border border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-                        <span class="text-slate-500 dark:text-slate-400">مبلغ نهایی قابل واریز:</span>
-                        <div class="font-mono font-black text-slate-900 dark:text-white text-sm">
-                            {{ rechargeForm.amount || 0 }} <span class="text-emerald-500 text-xs">TRX</span>
+                    <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs transition-colors">
+                        <span class="text-slate-600 dark:text-slate-300 font-bold">مبلغ نهایی قابل واریز:</span>
+                        <div class="font-mono font-black text-slate-900 dark:text-white text-sm flex items-center gap-1.5">
+                            <span>{{ rechargeForm.amount || 0 }}</span>
+                            <span class="text-emerald-600 dark:text-emerald-400 font-bold text-xs">TRX</span>
                         </div>
                     </div>
 
@@ -316,12 +322,12 @@ const submitRecharge = () => {
                 </form>
             </div>
 
-            <!-- 4. Profile Management Tabs (Strictly 3 tabs: Info, Security, Danger) -->
-            <div class="grid grid-cols-3 p-1 rounded-2xl bg-slate-200/70 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold">
+            <!-- 4. Profile Management Tabs (4 tabs: Info, Password, 2FA, Account & Sessions) -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold gap-1">
                 <button
                     type="button"
                     @click="activeTab = 'info'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
                     :class="activeTab === 'info'
                         ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
@@ -330,23 +336,33 @@ const submitRecharge = () => {
                 </button>
                 <button
                     type="button"
-                    @click="activeTab = 'security'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
-                    :class="activeTab === 'security'
-                        ? 'bg-white dark:bg-slate-800 text-purple-600 dark:text-purple-400 shadow-sm'
+                    @click="activeTab = 'password'"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
+                    :class="activeTab === 'password'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
                     <span>تغییر گذرواژه</span>
                 </button>
                 <button
                     type="button"
-                    @click="activeTab = 'danger'"
-                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer"
-                    :class="activeTab === 'danger'
+                    @click="activeTab = 'two_factor'"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
+                    :class="activeTab === 'two_factor'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                >
+                    <span>ورود دومرحله‌ای</span>
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'account'"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
+                    :class="activeTab === 'account'
                         ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
-                    <span>حذف حساب</span>
+                    <span>نشست‌ها و پایان حساب</span>
                 </button>
             </div>
 
@@ -357,15 +373,19 @@ const submitRecharge = () => {
                     <UpdateProfileInformationForm :status="status" />
                 </div>
 
-                <!-- Security Tab (2FA, Password, Sessions) -->
-                <div v-show="activeTab === 'security'" class="space-y-6">
-                    <TwoFactorAuthenticationForm />
+                <!-- Password Tab -->
+                <div v-show="activeTab === 'password'">
                     <UpdatePasswordForm />
-                    <LogoutOtherBrowserSessionsForm />
                 </div>
 
-                <!-- Danger / Delete Account Tab -->
-                <div v-show="activeTab === 'danger'">
+                <!-- Two-Factor Authentication Dedicated Tab -->
+                <div v-show="activeTab === 'two_factor'">
+                    <TwoFactorAuthenticationForm />
+                </div>
+
+                <!-- Sessions & Account Closure Tab -->
+                <div v-show="activeTab === 'account'" class="space-y-6">
+                    <LogoutOtherBrowserSessionsForm />
                     <DeleteUserForm />
                 </div>
             </div>

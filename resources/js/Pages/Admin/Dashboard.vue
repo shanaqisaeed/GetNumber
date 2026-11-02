@@ -105,19 +105,19 @@ function formatStatus(status: string): string {
 
     <AdminLayout>
         <template #header>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                    <h1 class="text-base font-bold text-slate-900 dark:text-white">کنسول راهبری و مانیتورینگ یکپارچه سامانه</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">وضعیت لحظه‌ای کاربران، خطوط سازمانی، ترافیک پیام‌ها و رخدادهای امنیتی</p>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
+                <div class="min-w-0">
+                    <h1 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">کنسول راهبری و مانیتورینگ یکپارچه سامانه</h1>
+                    <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate hidden sm:block">وضعیت لحظه‌ای کاربران، خطوط سازمانی، ترافیک پیام‌ها و رخدادهای امنیتی</p>
                 </div>
 
                 <!-- System Operational Status Pills -->
-                <div class="flex items-center gap-2">
-                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <span>سامانه عملیاتی</span>
                     </span>
-                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" dir="ltr">
+                    <span class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" dir="ltr">
                         v2.0 Enterprise
                     </span>
                 </div>

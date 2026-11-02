@@ -52,12 +52,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <div>
                 <div class="flex items-center gap-2">
                     <h3 class="font-black text-sm text-rose-600 dark:text-rose-400">
-                        ناحیه امنیتی و حذف حساب
+                        حذف دائم حساب کاربری
                     </h3>
                     <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">غیرقابل بازگشت</span>
                 </div>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    ابطال کلیه دسترسی‌ها و آزادسازی شماره‌های سازمانی
+                    ابطال کلیه دسترسی‌ها، کلیدها و آزادسازی فوری شماره‌های سازمانی
                 </p>
             </div>
         </header>

@@ -49,9 +49,12 @@ class SyncNobitexWalletCommand extends Command
             // Step 1: Validate credentials
             $valResult = $adapter->validateCredentials($config);
             if (! ($valResult['valid'] ?? false)) {
-                $errMsg = $valResult['message'] ?? 'Invalid token credentials.';
-                $this->error("Nobitex token validation failed: {$errMsg}");
-                Log::channel('single')->error('Nobitex token validation failed in cron', ['error' => $errMsg]);
+                $rawMsg = $valResult['message'] ?? 'Invalid token credentials.';
+                $cleanMsg = preg_match('/is not whitelisted/i', $rawMsg)
+                    ? 'Server IP is not whitelisted in Nobitex API settings.'
+                    : (preg_match('/[\x{0600}-\x{06FF}]/u', $rawMsg) ? 'API credentials rejected by Nobitex gateway.' : $rawMsg);
+                $this->error("Nobitex token validation failed: {$cleanMsg}");
+                Log::channel('single')->error('Nobitex token validation failed in cron', ['error' => $rawMsg]);
                 return Command::FAILURE;
             }
 
@@ -59,7 +62,9 @@ class SyncNobitexWalletCommand extends Command
             $syncResult = $adapter->syncWallets($config);
 
             if (! ($syncResult['success'] ?? false)) {
-                $this->error('Failed to sync TRX deposit address: ' . ($syncResult['message'] ?? 'Address not retrieved.'));
+                $rawMsg = $syncResult['message'] ?? 'Address not retrieved.';
+                $cleanMsg = preg_match('/[\x{0600}-\x{06FF}]/u', $rawMsg) ? 'Deposit address could not be retrieved from gateway.' : $rawMsg;
+                $this->error('Failed to sync TRX deposit address: ' . $cleanMsg);
                 return Command::FAILURE;
             }
 

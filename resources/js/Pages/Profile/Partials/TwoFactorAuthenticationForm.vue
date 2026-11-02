@@ -271,74 +271,101 @@ onMounted(() => {
                 با فعال‌سازی احراز هویت دومرحله‌ای، هنگام ورود علاوه بر گذرواژه، یک کد ۶ رقمی یکبار مصرف که توسط برنامه گوشی شما تولید می‌شود لازم خواهد بود. این ویژگی مانع نفوذ هکرها حتی در صورت لو رفتن گذرواژه می‌شود.
             </div>
 
-            <button
-                type="button"
-                @click="startEnable"
-                :disabled="isEnabling"
-                class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-xl inline-flex items-center gap-2"
-            >
-                <svg v-if="isEnabling" class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                <span>فعال‌سازی احراز هویت دومرحله‌ای</span>
-            </button>
+            <div class="flex justify-center pt-2">
+                <button
+                    type="button"
+                    @click="startEnable"
+                    :disabled="isEnabling"
+                    class="glass-btn-primary !w-auto !py-3 !px-6 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                >
+                    <svg v-if="isEnabling" class="animate-spin w-4 h-4 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    <span>شروع راه‌اندازی و دریافت کد QR</span>
+                </button>
+            </div>
         </div>
 
-        <!-- 2. Setup Step: QR Code & Confirmation Input -->
-        <div v-else-if="!status.enabled && qrCodeUrl" class="space-y-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10">
-            <h4 class="text-xs font-black text-slate-900 dark:text-white">مراحل راه‌اندازی با اپلیکیشن احراز هویت:</h4>
+        <!-- 2. Setup Step: Vertical Sequence (QR -> Token -> Copy Button -> 6-Digit Code -> Activation Button) -->
+        <div v-else-if="!status.enabled && qrCodeUrl" class="space-y-5 p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10">
+            <div class="text-center space-y-1">
+                <h4 class="text-sm font-black text-slate-900 dark:text-white">مراحل فعال‌سازی ورود دومرحله‌ای</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">مراحل زیر را به ترتیب دنبال نمایید:</p>
+            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                <!-- QR Code Box -->
-                <div class="flex flex-col items-center justify-center p-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-center space-y-2">
-                    <QrCode :value="qrCodeUrl" :size="160" />
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">کد QR بالا را با برنامه Authenticator اسکن کنید</span>
+            <!-- Level 1: QR Code on its own clean level -->
+            <div class="flex flex-col items-center justify-center p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-center shadow-xs">
+                <div class="p-3 bg-white rounded-2xl shadow-inner border border-slate-100 flex items-center justify-center">
+                    <QrCode :value="qrCodeUrl" :size="180" />
                 </div>
+                <p class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-3">
+                    سطح اول: تصویر QR بالا را با اپلیکیشن Google Authenticator اسکن کنید
+                </p>
+            </div>
 
-                <!-- Manual Secret Key -->
-                <div class="space-y-2 text-xs">
-                    <p class="text-slate-600 dark:text-slate-300">
-                        یا کلید زیر را به صورت دستی در برنامه احراز هویت خود وارد نمایید:
-                    </p>
-                    <div class="p-2.5 rounded-xl bg-slate-200/80 dark:bg-slate-800 font-mono text-xs font-black text-indigo-700 dark:text-indigo-300 flex items-center justify-between select-all">
-                        <span>{{ manualSecret }}</span>
-                        <button type="button" @click="copyText(manualSecret || '')" class="text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 text-[11px] font-sans">
-                            کپی
-                        </button>
-                    </div>
-
-                    <!-- 6-digit confirmation input -->
-                    <div class="pt-2 space-y-1.5">
-                        <label class="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                            کد ۶ رقمی نمایش‌داده‌شده در برنامه را وارد کنید:
-                        </label>
-                        <div class="flex items-center gap-2">
-                            <input
-                                v-model="confirmationCode"
-                                @keydown.enter.prevent="confirmEnable"
-                                type="text"
-                                maxlength="6"
-                                placeholder="123456"
-                                dir="ltr"
-                                class="w-36 h-10 px-3 text-center rounded-xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 font-mono text-base font-black text-slate-900 dark:text-white tracking-widest focus:border-indigo-500 outline-none"
-                            />
-                            <button
-                                type="button"
-                                @click="confirmEnable"
-                                :disabled="isConfirming || confirmationCode.length !== 6"
-                                class="glass-btn-primary !w-auto !py-2.5 !px-4 !text-xs !rounded-xl"
-                            >
-                                <span v-if="isConfirming">در حال بررسی...</span>
-                                <span v-else>تایید و اتمام</span>
-                            </button>
-                        </div>
-                        <p v-if="confirmError" class="text-[11px] text-rose-500 font-bold">{{ confirmError }}</p>
-                    </div>
+            <!-- Level 2: Token (Secret Key) below it -->
+            <div class="space-y-1.5 text-center">
+                <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block">
+                    سطح دوم: یا کلید متنی زیر را به صورت دستی در برنامه وارد فرمایید:
+                </span>
+                <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-sm sm:text-base font-black text-indigo-700 dark:text-indigo-300 text-center select-all tracking-wider dir-ltr shadow-xs">
+                    {{ manualSecret }}
                 </div>
+            </div>
+
+            <!-- Level 3: Copy button directly under the token -->
+            <div class="flex justify-center">
+                <button
+                    type="button"
+                    @click="copyText(manualSecret || '')"
+                    class="px-4 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800/60 text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span>کپی کلید متنی</span>
+                </button>
+            </div>
+
+            <!-- Level 4: 6-digit confirmation code input -->
+            <div class="space-y-2 pt-2 text-center">
+                <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                    سطح چهارم: کد ۶ رقمی تولید‌شده در اپلیکیشن را وارد نمایید:
+                </label>
+                <div class="flex justify-center">
+                    <input
+                        v-model="confirmationCode"
+                        @keydown.enter.prevent="confirmEnable"
+                        type="text"
+                        maxlength="6"
+                        placeholder="123456"
+                        dir="ltr"
+                        class="w-48 h-12 text-center rounded-2xl bg-white dark:bg-slate-900 border-2 border-indigo-400 dark:border-indigo-500/50 font-mono text-xl font-black text-slate-900 dark:text-white tracking-[0.3em] focus:border-indigo-600 focus:ring-4 focus:ring-indigo-500/20 outline-none shadow-sm transition-all"
+                    />
+                </div>
+                <p v-if="confirmError" class="text-xs text-rose-500 font-bold">{{ confirmError }}</p>
+            </div>
+
+            <!-- Level 5: Activation button -->
+            <div class="pt-2">
+                <button
+                    type="button"
+                    @click="confirmEnable"
+                    :disabled="isConfirming || confirmationCode.length !== 6"
+                    class="glass-btn-primary !w-full !py-3 !text-sm !font-black !rounded-2xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                    <span v-if="isConfirming">در حال بررسی و فعال‌سازی...</span>
+                    <template v-else>
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>فعالسازی ورود دومرحله‌ای</span>
+                    </template>
+                </button>
             </div>
         </div>
 

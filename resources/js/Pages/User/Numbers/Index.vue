@@ -373,7 +373,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
 
             <!-- Empty State -->
-            <div v-else class="glass-card !p-8 text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+            <div v-else class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
                 <div class="w-14 h-14 rounded-3xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
                     <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
@@ -386,17 +386,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         شما در حال حاضر خط فعالی با فیلترهای انتخابی ندارید.
                     </p>
                 </div>
-                <button
-                    v-if="quota.active < quota.max"
-                    type="button"
-                    @click="openAllocateModal"
-                    class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl inline-flex items-center gap-2"
-                >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>دریافت خط جدید</span>
-                </button>
+                <div v-if="quota.active < quota.max" class="w-full flex justify-center pt-2">
+                    <button
+                        type="button"
+                        @click="openAllocateModal"
+                        class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-xl inline-flex items-center justify-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>دریافت خط جدید</span>
+                    </button>
+                </div>
             </div>
         </div>
 
