@@ -128,6 +128,7 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
     // Polling machinery
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let isPollingBusy = false;
+    let isFirstPoll = true;
 
     const performPoll = async () => {
         if (!enablePollingFallback || isPollingBusy) return;
@@ -172,11 +173,13 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
                         for (const msg of data.new_messages) {
                             handleIncomingMessage(msg);
                         }
-                    } else if (data.latest_message && registerSeenId(data.latest_message.id)) {
-                        if (onMessage) {
+                    } else if (data.latest_message) {
+                        const isFresh = registerSeenId(data.latest_message.id);
+                        if (isFresh && !isFirstPoll && onMessage) {
                             onMessage(data.latest_message);
                         }
                     }
+                    isFirstPoll = false;
                 }
             }
         } catch {

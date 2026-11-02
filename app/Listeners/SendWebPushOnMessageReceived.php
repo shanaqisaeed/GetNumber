@@ -5,20 +5,16 @@ namespace App\Listeners;
 use App\Enums\MessageDirection;
 use App\Events\MessageReceived;
 use App\Services\WebPushNotificationService;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
 
-class SendWebPushOnMessageReceived implements ShouldQueue
+class SendWebPushOnMessageReceived
 {
-    use InteractsWithQueue;
-
     public function __construct(
         protected WebPushNotificationService $webPushService
     ) {}
 
     /**
-     * Handle the event.
+     * Handle the event synchronously so notifications are dispatched immediately without depending on queue workers.
      */
     public function handle(MessageReceived $event): void
     {

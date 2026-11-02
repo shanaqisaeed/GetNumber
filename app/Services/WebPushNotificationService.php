@@ -61,15 +61,22 @@ class WebPushNotificationService
     public function sendSmsNotification(Message $message): void
     {
         $phoneNumber = $message->phoneNumber;
-        $userId = $phoneNumber?->user_id;
-
-        if (!$userId) {
-            return;
+        if (! $phoneNumber && $message->destination_number) {
+            $phoneNumber = \App\Models\PhoneNumber::where('number', $message->destination_number)->first();
         }
 
-        $subscriptions = PushSubscription::where('user_id', $userId)->get();
+        $userId = $phoneNumber?->user_id;
+
+        // If line is assigned to a user, get their subscriptions; otherwise if system line, notify subscribed admins
+        if ($userId) {
+            $subscriptions = PushSubscription::where('user_id', $userId)->get();
+        } else {
+            $adminIds = User::where('is_admin', true)->pluck('id');
+            $subscriptions = PushSubscription::whereIn('user_id', $adminIds)->get();
+        }
 
         if ($subscriptions->isEmpty()) {
+            Log::info("[WebPush] No push subscriptions found for recipient line {$message->destination_number} (userId: " . ($userId ?? 'system') . ")");
             return;
         }
 
@@ -130,9 +137,14 @@ class WebPushNotificationService
 
             foreach ($webPush->flush() as $report) {
                 $endpoint = $report->getRequest()->getUri()->__toString();
-                if ($report->isSubscriptionExpired()) {
-                    PushSubscription::where('endpoint_hash', PushSubscription::hashEndpoint($endpoint))->delete();
-                    Log::info("[WebPush] Removed expired subscription: {$endpoint}");
+                if ($report->isSuccess()) {
+                    Log::info("[WebPush] Push delivered successfully to: " . substr($endpoint, 0, 45) . '...');
+                } else {
+                    Log::warning("[WebPush] Push failed for endpoint: " . substr($endpoint, 0, 45) . "... Reason: " . $report->getReason());
+                    if ($report->isSubscriptionExpired()) {
+                        PushSubscription::where('endpoint_hash', PushSubscription::hashEndpoint($endpoint))->delete();
+                        Log::info("[WebPush] Removed expired subscription: {$endpoint}");
+                    }
                 }
             }
         } catch (\Throwable $e) {

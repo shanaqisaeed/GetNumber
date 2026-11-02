@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import { useRealtimeMessages } from '@/Composables/useRealtimeMessages';
+import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { Link, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
@@ -8,6 +10,20 @@ const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
 const isMobileSidebarOpen = ref(false);
+
+const { showLocalNotification } = useWebNotifications();
+
+useRealtimeMessages({
+    userId: user.value?.id,
+    isAdmin: true,
+    pollUrl: route('admin.messages.poll'),
+    onMessage: (msg) => {
+        if (msg.direction === 'inbound') {
+            const sender = msg.peer_number || msg.sender;
+            showLocalNotification(sender);
+        }
+    },
+});
 
 const adminNavigation = [
     {

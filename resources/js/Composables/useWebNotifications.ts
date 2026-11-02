@@ -123,11 +123,6 @@ export function useWebNotifications() {
                 try {
                     const registration = await registerServiceWorker();
                     if (registration) {
-                        await Promise.race([
-                            navigator.serviceWorker.ready,
-                            new Promise((resolve) => setTimeout(resolve, 2000)),
-                        ]);
-
                         // Fetch VAPID Public Key from backend
                         const { data } = await axios.get('/webpush/vapid-public-key');
                         if (data?.publicKey) {
@@ -159,9 +154,7 @@ export function useWebNotifications() {
                         }
                     }
                 } catch (pushErr: any) {
-                    // Push service (e.g. FCM in restricted networks) might be unreachable,
-                    // but browser permission is granted, so local tab notifications still work 100%!
-                    console.warn('[WebPush] Background PushManager registration skipped or unavailable:', pushErr);
+                    console.error('[WebPush] Background PushManager registration error:', pushErr);
                 }
             }
 
@@ -216,23 +209,37 @@ export function useWebNotifications() {
     };
 
     /**
-     * Show local OS notification when tab is open but not focused
-     * Note: Respects privacy - strictly states sender, NOT message body!
+     * Show local OS notification (universal for Desktop and Mobile/Android)
+     * Note: Strictly respects privacy - announces only the sender, NEVER the message body!
      */
-    const showLocalNotification = (sender: string) => {
+    const showLocalNotification = async (sender: string) => {
         if (!isSupported.value || permission.value !== 'granted') return;
 
+        const title = 'پیامک جدید دریافت شد';
+        const body = sender ? `پیام جدیدی از شماره ${sender} دریافت شد.` : 'پیامک جدیدی دریافت شد.';
+        const options: NotificationOptions = {
+            body,
+            icon: '/favicon.ico',
+            badge: '/favicon.ico',
+            tag: 'getnumber-sms-' + Date.now(),
+        };
+
+        // 1. Try service worker showNotification first (mandatory on Android Chrome, works universally)
+        if ('serviceWorker' in navigator) {
+            try {
+                const reg = await navigator.serviceWorker.getRegistration();
+                if (reg && 'showNotification' in reg) {
+                    await reg.showNotification(title, options);
+                    return;
+                }
+            } catch (swErr) {
+                console.warn('[WebPush] SW showNotification fallback:', swErr);
+            }
+        }
+
+        // 2. Fallback to standard window Notification constructor
         try {
-            const title = 'پیامک جدید دریافت شد';
-            const body = sender ? `پیام جدیدی از شماره ${sender} دریافت شد.` : 'پیامک جدیدی دریافت شد.';
-
-            const notification = new Notification(title, {
-                body,
-                icon: '/favicon.ico',
-                badge: '/favicon.ico',
-                tag: 'getnumber-local-' + Date.now(),
-            });
-
+            const notification = new Notification(title, options);
             notification.onclick = () => {
                 notification.close();
                 if (window.focus) {
@@ -240,7 +247,7 @@ export function useWebNotifications() {
                 }
             };
         } catch (err) {
-            console.warn('[WebPush] Local notification failed:', err);
+            console.warn('[WebPush] Window Notification failed:', err);
         }
     };
 

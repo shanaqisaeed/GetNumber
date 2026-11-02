@@ -15,6 +15,7 @@ const {
     isSubscribing,
     checkSubscriptionStatus,
     subscribeToPush,
+    showLocalNotification,
 } = useWebNotifications();
 
 const isOpen = ref(false);
@@ -63,6 +64,9 @@ const handleConfirm = async () => {
     isOpen.value = false;
 
     showToast(result.message);
+    if (result.success) {
+        showLocalNotification('سامانه GetNumber');
+    }
     emit('activated', result);
 };
 

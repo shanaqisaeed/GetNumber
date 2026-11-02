@@ -51,10 +51,9 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
         if (msg.direction === 'inbound') {
             liveUnreadCount.value += 1;
             const sender = msg.peer_number || msg.sender;
-            // When tab is hidden/unfocused, trigger local OS notification with privacy preserved
-            if (typeof document !== 'undefined' && (document.hidden || !document.hasFocus())) {
-                showLocalNotification(sender);
-            } else if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
+            // Trigger browser notification (privacy-preserved: sender only)
+            showLocalNotification(sender);
+            if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
                 showIncomingToast(msg);
             }
         }
