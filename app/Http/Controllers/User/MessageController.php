@@ -54,11 +54,8 @@ class MessageController extends Controller
 
         if ($currentNumber) {
             $search = $request->input('search');
-            $conversations = $this->messageService->getConversations($currentNumber, $search);
 
-            // Do not auto-select first conversation: exactly like a mobile messaging app,
-            // conversation remains unselected until user clicks on a contact.
-
+            // 1. If an active conversation is open, mark messages as read first
             if ($activePeer) {
                 $activeMessages = $this->messageService->getConversationMessages($currentNumber, $activePeer);
 
@@ -96,6 +93,9 @@ class MessageController extends Controller
                     'can_reply_reason' => $canReplyReason,
                 ];
             }
+
+            // 2. Fetch conversations after read state has been updated
+            $conversations = $this->messageService->getConversations($currentNumber, $search);
         }
 
         $unreadCounts = Message::whereIn('phone_number_id', $allocatedNumbers->pluck('id'))
@@ -387,6 +387,8 @@ class MessageController extends Controller
 
         $messages = $this->messageService->getConversationMessages($phoneNumber, $peerNumber, $afterId, $beforeId);
 
+        $summary = $this->unreadCountService->getUnreadSummaryForUser($user);
+
         return response()->json([
             'success' => true,
             'count' => $messages->count(),
@@ -402,6 +404,8 @@ class MessageController extends Controller
                 'server_received_at_formatted' => $m->server_received_at->diffForHumans(),
                 'processing_status' => $m->processing_status->value,
             ]),
+            'unread_total' => $summary['unread_total'],
+            'unread_by_line' => $summary['unread_by_line'],
         ]);
     }
 

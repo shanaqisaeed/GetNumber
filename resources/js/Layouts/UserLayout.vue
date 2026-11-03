@@ -6,7 +6,7 @@ import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
 import { Link, usePage } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
 const page = usePage<PageProps>();
 const user = computed(() => page.props.auth?.user);
@@ -20,6 +20,24 @@ watch(
         }
     }
 );
+
+const handleUnreadCountUpdated = (e: any) => {
+    if (typeof e.detail?.total === 'number') {
+        liveUnreadCount.value = e.detail.total;
+    }
+};
+
+onMounted(() => {
+    if (typeof window !== 'undefined') {
+        window.addEventListener('unread-count-updated', handleUnreadCountUpdated);
+    }
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('unread-count-updated', handleUnreadCountUpdated);
+    }
+});
 
 const { isDark, toggleTheme } = useTheme();
 

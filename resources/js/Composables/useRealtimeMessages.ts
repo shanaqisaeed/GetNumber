@@ -118,10 +118,13 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
         }
     };
 
-    const handleStatusUpdate = (payload: RealtimeStatusPayload) => {
+    const handleStatusUpdate = (payload: RealtimeStatusPayload & { unread_count?: number }) => {
         if (!payload || !payload.id) return;
         if (onStatusUpdate) {
             onStatusUpdate(payload);
+        }
+        if (typeof payload.unread_count === 'number' && onUnreadUpdate) {
+            onUnreadUpdate(payload.unread_count);
         }
     };
 
@@ -130,11 +133,11 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
     let isPollingBusy = false;
     let isFirstPoll = true;
 
-    const performPoll = async () => {
+    const performPoll = async (force = false) => {
         if (!enablePollingFallback || isPollingBusy) return;
 
-        // If WebSocket is alive and well, do not hammer server with frequent polls
-        if (isWebSocketActive.value) {
+        // If WebSocket is alive and well, do not hammer server with frequent polls unless force is requested
+        if (isWebSocketActive.value && !force) {
             return;
         }
 

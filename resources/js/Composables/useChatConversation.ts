@@ -63,6 +63,15 @@ export function useChatConversation() {
                 if (data.success && Array.isArray(data.messages)) {
                     messages.value = data.messages;
                     hasMoreOlder.value = data.messages.length >= 20;
+
+                    if (typeof data.unread_total === 'number' && typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('unread-count-updated', {
+                            detail: {
+                                total: data.unread_total,
+                                byLine: data.unread_by_line,
+                            }
+                        }));
+                    }
                 }
             }
         } catch (err) {

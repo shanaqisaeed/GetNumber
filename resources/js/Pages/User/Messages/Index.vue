@@ -259,8 +259,30 @@ const closeChatOrComposer = () => {
     currentActivePeer.value = null;
     currentPeerInfo.value = null;
     isComposingNew.value = false;
-    performPoll();
+    performPoll(true);
 };
+
+const handleUnreadCountUpdated = (e: any) => {
+    if (e.detail?.byLine && typeof e.detail.byLine === 'object') {
+        allocatedNumbersList.value.forEach(line => {
+            if (typeof e.detail.byLine[line.id] === 'number') {
+                line.unread_count = Number(e.detail.byLine[line.id]);
+            }
+        });
+    }
+};
+
+onMounted(() => {
+    if (typeof window !== 'undefined') {
+        window.addEventListener('unread-count-updated', handleUnreadCountUpdated);
+    }
+});
+
+onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('unread-count-updated', handleUnreadCountUpdated);
+    }
+});
 
 // Start composing a new message
 const startNewMessage = () => {

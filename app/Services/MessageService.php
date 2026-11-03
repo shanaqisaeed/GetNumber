@@ -17,6 +17,7 @@ use App\Events\MessageStatusUpdated;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -940,7 +941,9 @@ class MessageService implements MessageServiceInterface
         $inboundToUpdate = Message::where('phone_number_id', $phoneNumber->id)
             ->where(function ($q) use ($cleanPeer, $peerNumber) {
                 $q->where('peer_number', $cleanPeer)
-                    ->orWhere('peer_number', $peerNumber);
+                    ->orWhere('peer_number', $peerNumber)
+                    ->orWhere('sender', $cleanPeer)
+                    ->orWhere('sender', $peerNumber);
             })
             ->where('direction', \App\Enums\MessageDirection::Inbound)
             ->where('processing_status', MessageProcessingStatus::Received)
@@ -953,6 +956,26 @@ class MessageService implements MessageServiceInterface
             foreach ($inboundToUpdate as $upMsg) {
                 $upMsg->processing_status = MessageProcessingStatus::Processed;
                 $this->safeBroadcast(new MessageStatusUpdated($upMsg));
+            }
+
+            // Invalidate conversation, unread and dashboard caches immediately
+            Cache::forget("line:{$phoneNumber->id}:conversations");
+            if ($cleanPeer) {
+                Cache::forget("line:{$phoneNumber->id}:peer:{$cleanPeer}:messages");
+            }
+            Cache::forget('admin:messages:stats');
+            Cache::forget('admin:dashboard:stats');
+
+            if ($phoneNumber->user_id) {
+                Cache::forget("user:{$phoneNumber->user_id}:dashboard_stats");
+                Cache::forget("user:{$phoneNumber->user_id}:dashboard_stream");
+
+                if (app()->bound(\App\Contracts\UnreadCountServiceInterface::class)) {
+                    /** @var \App\Contracts\UnreadCountServiceInterface $unreadService */
+                    $unreadService = app(\App\Contracts\UnreadCountServiceInterface::class);
+                    $unreadService->getLineUnreadCount($phoneNumber->id, forceFresh: true);
+                    $unreadService->reconcileUserUnread($phoneNumber->user_id);
+                }
             }
         }
 
@@ -972,6 +995,12 @@ class MessageService implements MessageServiceInterface
                 foreach ($peerOutbounds as $upMsg) {
                     $upMsg->processing_status = MessageProcessingStatus::Processed;
                     $this->safeBroadcast(new MessageStatusUpdated($upMsg));
+                }
+
+                Cache::forget("line:{$peerPhone->id}:conversations");
+                if ($peerPhone->user_id) {
+                    Cache::forget("user:{$peerPhone->user_id}:dashboard_stats");
+                    Cache::forget("user:{$peerPhone->user_id}:dashboard_stream");
                 }
             }
         }

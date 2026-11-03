@@ -30,10 +30,11 @@ class MessageStatusUpdated implements ShouldBroadcast
 
     /**
      * Name of the queue on which broadcast jobs should be processed.
+     * Unified to 'default' queue so all jobs are processed together.
      */
     public function broadcastQueue(): string
     {
-        return 'broadcasts';
+        return 'default';
     }
 
     /**
@@ -70,12 +71,20 @@ class MessageStatusUpdated implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
+        $unreadTotal = null;
+        if ($this->userId && app()->bound(\App\Contracts\UnreadCountServiceInterface::class)) {
+            /** @var \App\Contracts\UnreadCountServiceInterface $unreadService */
+            $unreadService = app(\App\Contracts\UnreadCountServiceInterface::class);
+            $unreadTotal = $unreadService->getUserUnreadCount($this->userId);
+        }
+
         return [
             'id' => $this->message->id,
             'phone_number_id' => $this->message->phone_number_id,
             'peer_number' => $this->message->peer_number,
             'processing_status' => $this->message->processing_status->value,
             'processing_status_label' => $this->message->processing_status->label(),
+            'unread_count' => $unreadTotal,
             'updated_at' => $this->message->updated_at?->toIso8601String() ?? now()->toIso8601String(),
         ];
     }

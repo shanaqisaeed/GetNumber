@@ -47,10 +47,11 @@ class MessageReceived implements ShouldBroadcast
 
     /**
      * Name of the queue on which broadcast jobs should be processed.
+     * Unified to 'default' queue so all jobs are processed together.
      */
     public function broadcastQueue(): string
     {
-        return 'broadcasts';
+        return 'default';
     }
 
     /**
