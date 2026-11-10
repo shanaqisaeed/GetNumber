@@ -45,37 +45,24 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <section class="w-full space-y-4">
-        <header class="flex items-center gap-2.5 pb-3 border-b border-slate-200/80 dark:border-white/10">
-            <div class="w-9 h-9 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
-                ⚠️
-            </div>
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
             <div>
-                <div class="flex items-center gap-2">
-                    <h3 class="font-black text-sm text-rose-600 dark:text-rose-400">
-                        حذف دائم حساب کاربری
-                    </h3>
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">غیرقابل بازگشت</span>
-                </div>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    ابطال کلیه دسترسی‌ها، کلیدها و آزادسازی فوری شماره‌های سازمانی
+                <h3 class="font-black text-sm text-rose-600 dark:text-rose-400">
+                    حذف حساب کاربری
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">
+                    با حذف حساب، کلیه خطوط و پیام‌های شما برای همیشه پاک خواهند شد.
                 </p>
             </div>
-        </header>
-
-        <div class="p-3.5 rounded-2xl bg-rose-50/80 dark:bg-rose-950/20 border border-rose-200/80 dark:border-rose-900/40 text-xs space-y-3">
-            <p class="text-[11px] text-rose-800 dark:text-rose-200/90 leading-relaxed">
-                با حذف حساب کاربری، کلیه دسترسی‌ها، کلیدهای ارتباطی و پیام‌های ثبت‌شده به‌صورت دائمی منقضی شده و شماره‌های اختصاص‌یافته فوراً آزاد می‌گردند.
-            </p>
-
             <button
                 type="button"
                 @click="confirmUserDeletion"
-                class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/25 hover:shadow-rose-600/40 transition-all inline-flex items-center gap-1.5"
+                class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/25 transition-all inline-flex items-center gap-1.5 cursor-pointer"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                <span>شروع فرآیند حذف حساب</span>
+                <span>حذف حساب کاربری</span>
             </button>
         </div>
 

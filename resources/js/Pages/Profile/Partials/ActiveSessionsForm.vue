@@ -129,21 +129,16 @@ const logoutOtherSessions = async () => {
             {{ toast }}
         </div>
 
-        <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-3">
             <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <span class="w-2.5 h-2.5 rounded-full bg-cyan-500 shadow-sm shadow-cyan-500/50"></span>
-                    دستگاه‌ها و نشست‌های فعال (Active Sessions)
-                </h3>
-                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    فهرست تمام مرورگرها و دستگاه‌هایی که هم‌اکنون به این حساب کاربری دسترسی دارند. با خروج از هر نشست، ارتباط آن دستگاه بلافاصله قطع می‌شود.
-                </p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white">دستگاه‌های متصل به حساب</h3>
+                <p class="text-xs text-slate-400 mt-0.5">مشاهده و مدیریت نشست‌های فعال</p>
             </div>
 
             <button
                 type="button"
                 @click="isModalOpen = true; password = ''; passwordError = null;"
-                class="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                class="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60 transition-all flex items-center gap-1.5 cursor-pointer"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

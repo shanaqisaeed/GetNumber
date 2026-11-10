@@ -107,23 +107,15 @@ const unlink = (provider: string) => {
 </script>
 
 <template>
-    <div class="space-y-6">
-        <div>
-            <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50"></span>
-                اتصال حساب‌ها و هویت‌های ورود مجاز
-            </h3>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                تنها شیوه‌هایی که در تنظیمات عمومی سامانه توسط مدیریت فعال شده باشند در این بخش قابل اتصال خواهند بود.
-            </p>
+    <div class="space-y-5">
+        <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">روش‌های متصل برای ورود</h3>
+            <p class="text-xs text-slate-400 mt-0.5">مدیریت شیوه‌های مجاز ورود به حساب کاربری</p>
         </div>
 
         <!-- Info notice if no external auth is enabled in general settings -->
-        <div v-if="!hasAnyExternalProviderEnabled" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
-            <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>در حال حاضر شیوه‌های ورود خارجی (ایمیل، LDAP، Keycloak) در تنظیمات عمومی سامانه غیرفعال می‌باشند و تنها ورود با نام کاربری مجاز است.</span>
+        <div v-if="!hasAnyExternalProviderEnabled" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs flex items-center gap-2">
+            <span>در حال حاضر شیوه‌های ورود خارجی در تنظیمات سامانه غیرفعال می‌باشند.</span>
         </div>
 
         <div class="space-y-4">

@@ -167,7 +167,7 @@ const submit = () => {
                         type="text"
                         v-model="form.username"
                         class="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
-                        placeholder="e.g. saeed_sh"
+                        placeholder="e.g. morteza_sh"
                         required
                         dir="ltr"
                         autocomplete="username"
