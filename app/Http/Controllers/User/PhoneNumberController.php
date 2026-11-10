@@ -71,7 +71,7 @@ class PhoneNumberController extends Controller
             'filters' => $request->only(['search', 'type']),
             'quota' => [
                 'active' => $activeCount,
-                'max' => \App\Services\PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER,
+                'max' => (int) \App\Models\SystemSetting::get('max_lines_per_user', \App\Services\PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER),
             ],
             'wallet' => [
                 'balance' => (string) $user->getOrCreateWallet()->balance,

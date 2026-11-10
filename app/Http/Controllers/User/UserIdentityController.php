@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\SystemSetting;
 use App\Services\Auth\IdentityAuthService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,6 +20,10 @@ class UserIdentityController extends Controller
      */
     public function linkEmail(Request $request): RedirectResponse
     {
+        if (!SystemSetting::isAuthProviderEnabled('email')) {
+            return back()->withErrors(['email' => 'امکان اتصال نشانی ایمیل در تنظیمات عمومی سامانه غیرفعال شده است.']);
+        }
+
         $request->validate([
             'email' => ['required', 'string', 'email', 'max:255'],
             'current_password' => [$request->user()->password ? 'required' : 'nullable', 'string'],
@@ -46,6 +51,10 @@ class UserIdentityController extends Controller
      */
     public function linkLdap(Request $request): RedirectResponse
     {
+        if (!SystemSetting::isAuthProviderEnabled('ldap')) {
+            return back()->withErrors(['ldap_username' => 'امکان اتصال حساب سازمانی LDAP در تنظیمات عمومی سامانه غیرفعال شده است.']);
+        }
+
         $request->validate([
             'ldap_username' => ['required', 'string'],
             'ldap_password' => ['required', 'string'],

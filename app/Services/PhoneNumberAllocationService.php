@@ -318,19 +318,21 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
     /**
      * Checks if user has exceeded maximum active phone number quota.
      */
-    protected function ensureUserWithinQuota(User $user, int $maxQuota = self::DEFAULT_MAX_QUOTA_PER_USER): void
+    protected function ensureUserWithinQuota(User $user, ?int $maxQuota = null): void
     {
         // Admin users have unlimited quota
         if ($user->isAdmin()) {
             return;
         }
 
+        $effectiveQuota = $maxQuota ?? (int) \App\Models\SystemSetting::get('max_lines_per_user', self::DEFAULT_MAX_QUOTA_PER_USER);
+
         $activeCount = PhoneNumber::where('user_id', $user->id)
             ->where('status', PhoneNumberStatus::Allocated)
             ->count();
 
-        if ($activeCount >= $maxQuota) {
-            throw new UserQuotaExceededException($maxQuota);
+        if ($activeCount >= $effectiveQuota) {
+            throw new UserQuotaExceededException($effectiveQuota);
         }
     }
 

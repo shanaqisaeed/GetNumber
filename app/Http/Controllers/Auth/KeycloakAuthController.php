@@ -24,6 +24,9 @@ class KeycloakAuthController extends Controller
     public function redirect(Request $request): RedirectResponse
     {
         if (!SystemSetting::isAuthProviderEnabled('keycloak')) {
+            if (Auth::check()) {
+                return redirect()->route('profile.edit')->with('error', 'امکان اتصال با Keycloak در تنظیمات عمومی سامانه غیرفعال شده است.');
+            }
             return redirect()->route('login')->with('error', 'ورود با Keycloak در حال حاضر فعال نمی‌باشد.');
         }
 

@@ -530,7 +530,7 @@ class SystemCacheService implements SystemCacheServiceInterface
             Cache::forget($cacheKey);
 
             $activeCount = $this->getUserActiveNumbersCount($user->id);
-            $maxQuota = PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER;
+            $maxQuota = (int) \App\Models\SystemSetting::get('max_lines_per_user', PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER);
             $userPhoneIds = $user->phoneNumbers()->pluck('id');
 
             $totalMessages = Message::whereIn('phone_number_id', $userPhoneIds)->count();

@@ -16,63 +16,86 @@ use Inertia\Response;
 class SettingController extends Controller
 {
     /**
-     * Display the General Settings view.
+     * Display the Unified System Settings view with all tabs.
      */
-    public function general(): Response
-    {
+    public function general(
+        Request $request,
+        LdapAuthService $ldapService,
+        KeycloakAuthService $keycloakService
+    ): Response {
+        $tab = $request->query('tab', 'general');
+        if (!in_array($tab, ['general', 'auth', 'ldap', 'keycloak'])) {
+            $tab = 'general';
+        }
+
         return Inertia::render('Admin/Settings/General', [
-            'settings' => [
+            'initialTab' => $tab,
+            'generalSettings' => [
                 'app_name' => SystemSetting::get('app_name', 'سامانه جامع مدیریت شماره‌ها و ارتباطات'),
                 'app_description' => SystemSetting::get('app_description', 'هسته مرکزی مدیریت خطوط مجازی، درگاه پیامک و احراز هویت سازمانی'),
+                'max_lines_per_user' => (int) SystemSetting::get('max_lines_per_user', '10'),
                 'event_notify_login_failed' => (bool) (int) SystemSetting::get('event_notify_login_failed', '1'),
                 'event_notify_user_registered' => (bool) (int) SystemSetting::get('event_notify_user_registered', '1'),
                 'event_notify_security_alert' => (bool) (int) SystemSetting::get('event_notify_security_alert', '1'),
             ],
-        ]);
-    }
-
-    /**
-     * Update General Settings.
-     */
-    public function updateGeneral(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'app_name' => ['required', 'string', 'max:100'],
-            'app_description' => ['nullable', 'string', 'max:255'],
-            'event_notify_login_failed' => ['boolean'],
-            'event_notify_user_registered' => ['boolean'],
-            'event_notify_security_alert' => ['boolean'],
-        ], [
-            'app_name.required' => 'ورود عنوان سامانه الزامی است.',
-        ]);
-
-        SystemSetting::set('app_name', $validated['app_name'], 'عنوان اصلی و نام رسمی سامانه');
-        SystemSetting::set('app_description', $validated['app_description'] ?? '', 'شرح مختصر سامانه در صفحات عمومی');
-        SystemSetting::set('event_notify_login_failed', $request->boolean('event_notify_login_failed') ? '1' : '0', 'ثبت و گزارش رویداد تلاش‌های ناموفق ورود در لاگ امنیتی');
-        SystemSetting::set('event_notify_user_registered', $request->boolean('event_notify_user_registered') ? '1' : '0', 'ثبت رویداد ثبت‌نام کاربران جدید در گزارش‌های سامانه');
-        SystemSetting::set('event_notify_security_alert', $request->boolean('event_notify_security_alert') ? '1' : '0', 'ارسال هشدار و ثبت رویداد مخاطرات امنیتی');
-
-        $this->logSettingChange($request, 'تنظیمات عمومی سامانه با موفقیت ذخیره گردید.');
-
-        return back()->with('success', 'تنظیمات عمومی سامانه با موفقیت به‌روزرسانی شد.');
-    }
-
-    /**
-     * Display the Auth Providers Settings view.
-     */
-    public function auth(): Response
-    {
-        return Inertia::render('Admin/Settings/Auth', [
-            'settings' => [
+            'authSettings' => [
                 'auth_username_enabled' => (bool) (int) SystemSetting::get('auth_username_enabled', '1'),
                 'auth_email_enabled' => (bool) (int) SystemSetting::get('auth_email_enabled', '1'),
                 'auth_ldap_enabled' => (bool) (int) SystemSetting::get('auth_ldap_enabled', '0'),
                 'auth_keycloak_enabled' => (bool) (int) SystemSetting::get('auth_keycloak_enabled', '0'),
                 'allow_user_registration' => (bool) (int) SystemSetting::get('allow_user_registration', '1'),
             ],
-            'ldapConfigured' => !empty(SystemSetting::get('ldap_host')),
-            'keycloakConfigured' => !empty(SystemSetting::get('keycloak_client_id')),
+            'ldapSettings' => [
+                'config' => $ldapService->getConfig(),
+                'extensionLoaded' => extension_loaded('ldap'),
+                'isEnabled' => (bool) (int) SystemSetting::get('auth_ldap_enabled', '0'),
+            ],
+            'keycloakSettings' => [
+                'config' => $keycloakService->getConfig(),
+                'callbackUrl' => route('auth.keycloak.callback'),
+                'isEnabled' => (bool) (int) SystemSetting::get('auth_keycloak_enabled', '0'),
+            ],
         ]);
+    }
+
+    /**
+     * Update General Settings & Line Quota & Events.
+     */
+    public function updateGeneral(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'app_name' => ['required', 'string', 'max:100'],
+            'app_description' => ['nullable', 'string', 'max:255'],
+            'max_lines_per_user' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'event_notify_login_failed' => ['boolean'],
+            'event_notify_user_registered' => ['boolean'],
+            'event_notify_security_alert' => ['boolean'],
+        ], [
+            'app_name.required' => 'ورود عنوان سامانه الزامی است.',
+            'max_lines_per_user.min' => 'سقف مجاز خطوط باید حداقل ۱ خط باشد.',
+            'max_lines_per_user.max' => 'سقف مجاز خطوط نمی‌تواند بیش از ۱۰۰۰ خط باشد.',
+        ]);
+
+        $maxLines = $validated['max_lines_per_user'] ?? (int) SystemSetting::get('max_lines_per_user', '10');
+
+        SystemSetting::set('app_name', $validated['app_name'], 'عنوان اصلی و نام رسمی سامانه');
+        SystemSetting::set('app_description', $validated['app_description'] ?? '', 'شرح مختصر سامانه در صفحات عمومی');
+        SystemSetting::set('max_lines_per_user', (string) $maxLines, 'حداکثر سقف مجاز تخصیص خطوط برای هر حساب کاربری');
+        SystemSetting::set('event_notify_login_failed', $request->boolean('event_notify_login_failed') ? '1' : '0', 'ثبت و گزارش رویداد تلاش‌های ناموفق ورود در لاگ امنیتی');
+        SystemSetting::set('event_notify_user_registered', $request->boolean('event_notify_user_registered') ? '1' : '0', 'ثبت رویداد ثبت‌نام کاربران جدید در گزارش‌های سامانه');
+        SystemSetting::set('event_notify_security_alert', $request->boolean('event_notify_security_alert') ? '1' : '0', 'ارسال هشدار و ثبت رویداد مخاطرات امنیتی');
+
+        $this->logSettingChange($request, 'تنظیمات عمومی سامانه با موفقیت ذخیره گردید.');
+
+        return redirect()->route('admin.settings.general', ['tab' => 'general'])->with('success', 'تنظیمات عمومی سامانه و سقف مجاز خطوط با موفقیت به‌روزرسانی شد.');
+    }
+
+    /**
+     * Redirect auth route to unified settings page.
+     */
+    public function auth(): RedirectResponse
+    {
+        return redirect()->route('admin.settings.general', ['tab' => 'auth']);
     }
 
     /**
@@ -100,19 +123,15 @@ class SettingController extends Controller
 
         $this->logSettingChange($request, 'پیکربندی وضعیت فعال‌بودن روش‌های احراز هویت تغییر یافت.');
 
-        return back()->with('success', 'وضعیت فعال‌بودن روش‌های احراز هویت با موفقیت به‌روزرسانی شد.');
+        return redirect()->route('admin.settings.general', ['tab' => 'auth'])->with('success', 'وضعیت فعال‌بودن روش‌های احراز هویت با موفقیت به‌روزرسانی شد.');
     }
 
     /**
-     * Display LDAP Dedicated Settings view.
+     * Redirect LDAP route to unified settings page.
      */
-    public function ldap(LdapAuthService $ldapService): Response
+    public function ldap(): RedirectResponse
     {
-        return Inertia::render('Admin/Settings/Ldap', [
-            'settings' => $ldapService->getConfig(),
-            'ldapExtensionLoaded' => extension_loaded('ldap'),
-            'isEnabled' => (bool) (int) SystemSetting::get('auth_ldap_enabled', '0'),
-        ]);
+        return redirect()->route('admin.settings.general', ['tab' => 'ldap']);
     }
 
     /**
@@ -154,7 +173,7 @@ class SettingController extends Controller
 
         $this->logSettingChange($request, 'تنظیمات سرور سازمانی LDAP به‌روزرسانی شد.');
 
-        return back()->with('success', 'تنظیمات اتصال به سرویس LDAP با موفقیت ذخیره گردید.');
+        return redirect()->route('admin.settings.general', ['tab' => 'ldap'])->with('success', 'تنظیمات اتصال به سرویس LDAP با موفقیت ذخیره گردید.');
     }
 
     /**
@@ -167,15 +186,11 @@ class SettingController extends Controller
     }
 
     /**
-     * Display Keycloak Dedicated Settings view.
+     * Redirect Keycloak route to unified settings page.
      */
-    public function keycloak(KeycloakAuthService $keycloakService): Response
+    public function keycloak(): RedirectResponse
     {
-        return Inertia::render('Admin/Settings/Keycloak', [
-            'settings' => $keycloakService->getConfig(),
-            'callbackUrl' => route('auth.keycloak.callback'),
-            'isEnabled' => (bool) (int) SystemSetting::get('auth_keycloak_enabled', '0'),
-        ]);
+        return redirect()->route('admin.settings.general', ['tab' => 'keycloak']);
     }
 
     /**
@@ -206,7 +221,7 @@ class SettingController extends Controller
 
         $this->logSettingChange($request, 'تنظیمات سرور یکپارچه هویت Keycloak به‌روزرسانی شد.');
 
-        return back()->with('success', 'تنظیمات احراز هویت یکپارچه Keycloak با موفقیت ذخیره گردید.');
+        return redirect()->route('admin.settings.general', ['tab' => 'keycloak'])->with('success', 'تنظیمات احراز هویت یکپارچه Keycloak با موفقیت ذخیره گردید.');
     }
 
     /**
@@ -237,4 +252,3 @@ class SettingController extends Controller
         }
     }
 }
-

@@ -160,7 +160,11 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/two-factor/confirm', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'confirm'])->name('two-factor.confirm');
     Route::delete('/two-factor/disable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroy'])->name('two-factor.disable');
     Route::post('/two-factor/recovery-codes', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('two-factor.recovery-codes');
-    Route::post('/sessions/other-devices/logout', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroyOtherSessions'])->name('sessions.logout_other');
+
+    // Active Sessions & Devices Management
+    Route::get('/sessions', [\App\Http\Controllers\User\SessionController::class, 'index'])->name('sessions.index');
+    Route::post('/sessions/other-devices/logout', [\App\Http\Controllers\User\SessionController::class, 'destroyOther'])->name('sessions.logout_other');
+    Route::delete('/sessions/{sessionId}', [\App\Http\Controllers\User\SessionController::class, 'destroy'])->name('sessions.destroy');
 });
 
 // Staff & Support Agent Routes (Accessible by Admin and Agent)

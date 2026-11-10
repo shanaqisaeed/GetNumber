@@ -108,26 +108,26 @@ const adminNavigation = [
 const settingsSubMenu = [
     {
         name: 'تنظیمات عمومی',
-        href: route('admin.settings.general'),
-        active: route().current('admin.settings.general'),
+        href: route('admin.settings.general', { tab: 'general' }),
+        active: Boolean(route().current('admin.settings.general') && (typeof window !== 'undefined' && (!window.location?.search?.includes('tab=') || window.location?.search?.includes('tab=general')))),
         icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
     },
     {
-        name: 'روش‌های احراز هویت',
-        href: route('admin.settings.auth'),
-        active: route().current('admin.settings.auth'),
+        name: 'درگاه‌های احراز هویت',
+        href: route('admin.settings.general', { tab: 'auth' }),
+        active: Boolean(typeof window !== 'undefined' && window.location?.search?.includes('tab=auth')),
         icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
     },
     {
-        name: 'تنظیمات LDAP',
-        href: route('admin.settings.ldap'),
-        active: route().current('admin.settings.ldap'),
+        name: 'سرویس سازمانی LDAP',
+        href: route('admin.settings.general', { tab: 'ldap' }),
+        active: Boolean(typeof window !== 'undefined' && window.location?.search?.includes('tab=ldap')),
         icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01',
     },
     {
-        name: 'تنظیمات Keycloak',
-        href: route('admin.settings.keycloak'),
-        active: route().current('admin.settings.keycloak'),
+        name: 'سرویس Keycloak SSO',
+        href: route('admin.settings.general', { tab: 'keycloak' }),
+        active: Boolean(typeof window !== 'undefined' && window.location?.search?.includes('tab=keycloak')),
         icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z',
     },
 ];

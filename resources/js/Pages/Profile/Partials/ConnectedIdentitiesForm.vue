@@ -43,6 +43,15 @@ const emailIdentity = computed(() => props.identities.find(i => i.provider === '
 const ldapIdentity = computed(() => props.identities.find(i => i.provider === 'ldap'));
 const keycloakIdentity = computed(() => props.identities.find(i => i.provider === 'keycloak'));
 
+// Visibility based on General Settings & existing connections
+const showEmailSection = computed(() => props.authSettings.email_enabled || !!emailIdentity.value || !!user.value?.email);
+const showLdapSection = computed(() => props.authSettings.ldap_enabled || !!ldapIdentity.value);
+const showKeycloakSection = computed(() => props.authSettings.keycloak_enabled || !!keycloakIdentity.value);
+
+const hasAnyExternalProviderEnabled = computed(() =>
+    props.authSettings.email_enabled || props.authSettings.ldap_enabled || props.authSettings.keycloak_enabled
+);
+
 // Forms for linking
 const emailForm = useForm({
     email: '',
@@ -102,15 +111,23 @@ const unlink = (provider: string) => {
         <div>
             <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50"></span>
-                اتصال حساب‌ها و هویت‌های ورود چندگانه
+                اتصال حساب‌ها و هویت‌های ورود مجاز
             </h3>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                شما می‌توانید چندین شیوه مختلف (نام کاربری، ایمیل، اکتیو دایرکتوری LDAP و Keycloak) را به این حساب کاربری متصل فرمایید تا با هرکدام امکان ورود داشته باشید.
+                تنها شیوه‌هایی که در تنظیمات عمومی سامانه توسط مدیریت فعال شده باشند در این بخش قابل اتصال خواهند بود.
             </p>
         </div>
 
+        <!-- Info notice if no external auth is enabled in general settings -->
+        <div v-if="!hasAnyExternalProviderEnabled" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2.5">
+            <svg class="w-5 h-5 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>در حال حاضر شیوه‌های ورود خارجی (ایمیل، LDAP، Keycloak) در تنظیمات عمومی سامانه غیرفعال می‌باشند و تنها ورود با نام کاربری مجاز است.</span>
+        </div>
+
         <div class="space-y-4">
-            <!-- 1. Username Identity Card -->
+            <!-- 1. Username Identity Card (Always visible) -->
             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -121,15 +138,15 @@ const unlink = (provider: string) => {
                     <div>
                         <div class="flex items-center gap-2">
                             <h4 class="text-xs font-bold text-slate-900 dark:text-white">شناسه کاربری سامانه</h4>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل (اصلی)</span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل (هویت پایه)</span>
                         </div>
                         <p class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">@{{ user?.username }}</p>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Email Identity Card -->
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+            <!-- 2. Email Identity Card (Only if email_enabled or already connected) -->
+            <div v-if="showEmailSection" class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
@@ -142,6 +159,10 @@ const unlink = (provider: string) => {
                                 <h4 class="text-xs font-bold text-slate-900 dark:text-white">نشانی پست الکترونیک (ایمیل)</h4>
                                 <span v-if="emailIdentity || user?.email" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
                                 <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+
+                                <span v-if="!authSettings.email_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                    غیرفعال در سامانه
+                                </span>
                             </div>
                             <p v-if="user?.email" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">{{ user?.email }}</p>
                             <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال ایمیل جهت ورود و دریافت اطلاعیه‌ها</p>
@@ -159,7 +180,7 @@ const unlink = (provider: string) => {
                             قطع اتصال
                         </button>
                         <button
-                            v-else
+                            v-else-if="authSettings.email_enabled"
                             type="button"
                             @click="isEmailFormOpen = !isEmailFormOpen"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer"
@@ -170,7 +191,7 @@ const unlink = (provider: string) => {
                 </div>
 
                 <!-- Inline Connect Email Form -->
-                <form v-if="isEmailFormOpen && !user?.email" @submit.prevent="submitLinkEmail" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
+                <form v-if="isEmailFormOpen && !user?.email && authSettings.email_enabled" @submit.prevent="submitLinkEmail" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="space-y-1">
                         <label for="link_email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">نشانی ایمیل:</label>
                         <input
@@ -218,8 +239,8 @@ const unlink = (provider: string) => {
                 </form>
             </div>
 
-            <!-- 3. LDAP Directory Identity Card -->
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
+            <!-- 3. LDAP Directory Identity Card (Only if ldap_enabled or already connected) -->
+            <div v-if="showLdapSection" class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-3">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
@@ -232,6 +253,10 @@ const unlink = (provider: string) => {
                                 <h4 class="text-xs font-bold text-slate-900 dark:text-white">سامانه سازمانی LDAP</h4>
                                 <span v-if="ldapIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
                                 <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+
+                                <span v-if="!authSettings.ldap_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                    غیرفعال در سامانه
+                                </span>
                             </div>
                             <p v-if="ldapIdentity" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">UID: {{ ldapIdentity.provider_id }}</p>
                             <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال حساب کاربری دایرکتوری سازمانی</p>
@@ -249,7 +274,7 @@ const unlink = (provider: string) => {
                             قطع اتصال
                         </button>
                         <button
-                            v-else
+                            v-else-if="authSettings.ldap_enabled"
                             type="button"
                             @click="isLdapFormOpen = !isLdapFormOpen"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer"
@@ -260,7 +285,7 @@ const unlink = (provider: string) => {
                 </div>
 
                 <!-- Inline Connect LDAP Form -->
-                <form v-if="isLdapFormOpen && !ldapIdentity" @submit.prevent="submitLinkLdap" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
+                <form v-if="isLdapFormOpen && !ldapIdentity && authSettings.ldap_enabled" @submit.prevent="submitLinkLdap" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="space-y-1">
                         <label for="link_ldap_user" class="block text-xs font-bold text-slate-700 dark:text-slate-300">نام کاربری سازمانی (LDAP):</label>
                         <input
@@ -308,8 +333,8 @@ const unlink = (provider: string) => {
                 </form>
             </div>
 
-            <!-- 4. Keycloak SSO Identity Card -->
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3">
+            <!-- 4. Keycloak SSO Identity Card (Only if keycloak_enabled or already connected) -->
+            <div v-if="showKeycloakSection" class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -321,6 +346,10 @@ const unlink = (provider: string) => {
                             <h4 class="text-xs font-bold text-slate-900 dark:text-white">ورود یکپارچه Keycloak SSO</h4>
                             <span v-if="keycloakIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
                             <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+
+                            <span v-if="!authSettings.keycloak_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                غیرفعال در سامانه
+                            </span>
                         </div>
                         <p v-if="keycloakIdentity" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">Sub: {{ keycloakIdentity.provider_id.slice(0, 14) }}...</p>
                         <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال حساب متمرکز سازمانی Keycloak</p>
@@ -338,7 +367,7 @@ const unlink = (provider: string) => {
                         قطع اتصال
                     </button>
                     <a
-                        v-else-if="keycloakLinkUrl"
+                        v-else-if="authSettings.keycloak_enabled && keycloakLinkUrl"
                         :href="keycloakLinkUrl"
                         class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 transition-all inline-flex items-center gap-1 cursor-pointer"
                     >
@@ -352,4 +381,3 @@ const unlink = (provider: string) => {
         </div>
     </div>
 </template>
-

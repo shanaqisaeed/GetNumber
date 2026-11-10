@@ -93,6 +93,17 @@ class ProfileController extends Controller
             'keycloak_enabled' => \App\Models\SystemSetting::isAuthProviderEnabled('keycloak'),
         ];
 
+        $sessionService = app(\App\Services\Auth\SessionManagerService::class);
+        $sessions = $sessionService->getSessions($user, $request);
+
+        $activeNumbersCount = $user->phoneNumbers()
+            ->where('status', \App\Enums\PhoneNumberStatus::Allocated)
+            ->count();
+        $maxLinesQuota = (int) \App\Models\SystemSetting::get(
+            'max_lines_per_user',
+            \App\Services\PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER
+        );
+
         return Inertia::render('Profile/Edit', [
             'status' => session('status'),
             'initialTab' => $request->query('tab', 'info'),
@@ -100,6 +111,13 @@ class ProfileController extends Controller
             'wallet' => [
                 'balance' => (string) $wallet->balance,
             ],
+            'stats' => [
+                'active_lines' => $activeNumbersCount,
+                'max_lines' => $maxLinesQuota,
+                'active_sessions' => count($sessions),
+                'connected_identities' => $identities->count(),
+            ],
+            'sessions' => $sessions,
             'transactions' => $transactions,
             'activeGateways' => $activeGateways,
             'pendingDeposit' => $pendingDepositData,

@@ -129,7 +129,7 @@ const submit = () => {
             <!-- Full Name (Mandatory) -->
             <div class="space-y-1.5">
                 <label for="name" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    نام و نام خانوادگی / عنوان سازمان:
+                    نام و نام خانوادگی:
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -142,7 +142,7 @@ const submit = () => {
                         type="text"
                         v-model="form.name"
                         class="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
-                        placeholder="مثال: شرکت ارتباطات نوین یا سعید شناقی"
+                        placeholder="مثال: سعید قاسمی"
                         required
                         autofocus
                         autocomplete="name"

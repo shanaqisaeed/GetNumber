@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\CorrelationIdMiddleware::class,
             \App\Http\Middleware\SecurityHeaders::class,
+            \Illuminate\Session\Middleware\AuthenticateSession::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             EnsureAccountIsActive::class,
