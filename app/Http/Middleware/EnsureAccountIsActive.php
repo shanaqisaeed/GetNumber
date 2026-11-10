@@ -26,7 +26,7 @@ class EnsureAccountIsActive
                 $request->session()->regenerateToken();
 
                 return redirect()->route('login')->withErrors([
-                    'username' => 'حساب کاربری شما توسط مدیریت سامانه به حالت تعلیق درآمده است.',
+                    'username' => __('middleware.account_status.suspended'),
                 ]);
             }
 
@@ -36,7 +36,7 @@ class EnsureAccountIsActive
                 $request->session()->regenerateToken();
 
                 return redirect()->route('login')->withErrors([
-                    'username' => 'حساب کاربری شما در وضعیت غیرفعال قرار دارد.',
+                    'username' => __('middleware.account_status.inactive'),
                 ]);
             }
         }

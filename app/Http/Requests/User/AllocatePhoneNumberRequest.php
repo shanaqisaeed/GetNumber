@@ -22,4 +22,16 @@ class AllocatePhoneNumberRequest extends FormRequest
             'display_title' => ['nullable', 'string', 'max:100'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'phone_prefix_id.exists' => __('requests.user.allocate_phone_number.phone_prefix_id_exists'),
+            'preferred_number.regex' => __('requests.user.allocate_phone_number.preferred_number_regex'),
+            'display_title.max' => __('requests.user.allocate_phone_number.display_title_max'),
+        ];
+    }
 }

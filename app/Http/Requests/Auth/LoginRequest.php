@@ -62,12 +62,12 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'username.required' => 'ورود شناسه کاربری الزامی است.',
-            'email.required' => 'ورود نشانی پست الکترونیک (ایمیل) الزامی است.',
-            'email.email' => 'فرمت نشانی ایمیل وارد شده معتبر نمی‌باشد.',
-            'password.required' => 'ورود کلمه عبور الزامی است.',
-            'ldap_username.required' => 'ورود شناسه کاربری سازمانی LDAP الزامی است.',
-            'ldap_password.required' => 'ورود گذرواژه سازمانی LDAP الزامی است.',
+            'username.required' => __('requests.auth.login.username_required'),
+            'email.required' => __('requests.auth.login.email_required'),
+            'email.email' => __('requests.auth.login.email_invalid'),
+            'password.required' => __('requests.auth.login.password_required'),
+            'ldap_username.required' => __('requests.auth.login.ldap_username_required'),
+            'ldap_password.required' => __('requests.auth.login.ldap_password_required'),
         ];
     }
 
@@ -92,7 +92,7 @@ class LoginRequest extends FormRequest
             };
 
             throw ValidationException::withMessages([
-                $field => 'ورود از طریق این شیوه در حال حاضر توسط راهبر ارشد سامانه غیرفعال شده است.',
+                $field => __('requests.auth.login.provider_disabled'),
             ]);
         }
 
@@ -154,7 +154,7 @@ class LoginRequest extends FormRequest
         };
 
         throw ValidationException::withMessages([
-            $field => "تعداد تلاش‌های ناموفق بیش از حد مجاز است. لطفاً پس از {$seconds} ثانیه مجدداً تلاش فرمایید.",
+            $field => __('requests.auth.login.throttle', ['seconds' => $seconds]),
         ]);
     }
 

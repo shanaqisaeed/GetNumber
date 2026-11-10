@@ -34,9 +34,9 @@ class RejectNumberRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'reason.required' => 'درج دلیل رد درخواست برای اطلاع متقاضی الزامی است.',
-            'reason.min' => 'دلیل رد درخواست باید حداقل ۳ کاراکتر باشد.',
-            'reason.max' => 'دلیل رد درخواست نباید بیش از ۵۰۰ کاراکتر باشد.',
+            'reason.required' => __('requests.admin.reject_number_request.reason_required'),
+            'reason.min' => __('requests.admin.reject_number_request.reason_min'),
+            'reason.max' => __('requests.admin.reject_number_request.reason_max'),
         ];
     }
 }

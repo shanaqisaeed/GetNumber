@@ -36,4 +36,3 @@ class LedgerAccount extends Model
         return static::where('code', $code)->first();
     }
 }
-

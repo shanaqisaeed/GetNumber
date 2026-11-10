@@ -79,4 +79,3 @@ class MessageBatch extends Model
         ], true);
     }
 }
-

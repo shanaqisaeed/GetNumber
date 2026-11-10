@@ -52,14 +52,16 @@ class ApproveNumberRequestRequest extends FormRequest
         $length = $numberRequest?->requested_length;
 
         return [
-            'mode.required' => 'تعیین شیوه تخصیص سرشماره الزامی است.',
-            'mode.in' => 'شیوه تخصیص انتخاب‌شده نامعتبر است.',
-            'custom_number.required_if' => 'در حالت تخصیص دستی، درج مقدار سرشماره الزامی است.',
-            'custom_number.unique' => 'این شماره قبلاً در سامانه ثبت شده و در دسترس نمی‌باشد.',
-            'custom_number.digits' => $length ? "طول سرشماره دستی باید دقیقاً {$length} رقم باشد." : 'طول شماره دستی نامعتبر است.',
-            'custom_number.regex' => 'سرشماره دستی باید فقط شامل ارقام عددی بین ۴ تا ۸ رقم باشد.',
-            'pool_number_id.required_if' => 'در حالت انتخاب از استخر، انتخاب خط الزامی است.',
-            'pool_number_id.exists' => 'خط انتخاب‌شده در استخر شماره‌های سامانه معتبر نمی‌باشد.',
+            'mode.required' => __('requests.admin.approve_number_request.mode_required'),
+            'mode.in' => __('requests.admin.approve_number_request.mode_in'),
+            'custom_number.required_if' => __('requests.admin.approve_number_request.custom_number_required'),
+            'custom_number.unique' => __('requests.admin.approve_number_request.custom_number_unique'),
+            'custom_number.digits' => $length
+                ? __('requests.admin.approve_number_request.custom_number_digits', ['length' => $length])
+                : __('requests.admin.approve_number_request.custom_number_digits_invalid'),
+            'custom_number.regex' => __('requests.admin.approve_number_request.custom_number_regex'),
+            'pool_number_id.required_if' => __('requests.admin.approve_number_request.pool_number_required'),
+            'pool_number_id.exists' => __('requests.admin.approve_number_request.pool_number_exists'),
         ];
     }
 }

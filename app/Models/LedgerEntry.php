@@ -42,4 +42,3 @@ class LedgerEntry extends Model
         return $this->belongsTo(User::class);
     }
 }
-

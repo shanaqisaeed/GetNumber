@@ -57,4 +57,3 @@ class Wallet extends Model
         return bccomp($currentBalance, $expectedBalance, 4) === 0;
     }
 }
-

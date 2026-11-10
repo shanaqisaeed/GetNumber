@@ -35,4 +35,3 @@ class PushSubscription extends Model
         return hash('sha256', $endpoint);
     }
 }
-

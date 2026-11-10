@@ -16,7 +16,7 @@ class EnsureUserIsAdmin
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->user() || ! $request->user()->isAdmin()) {
-            abort(Response::HTTP_FORBIDDEN, 'دسترسی غیرمجاز. این بخش منحصراً در اختیار راهبران ارشد سامانه می‌باشد.');
+            abort(Response::HTTP_FORBIDDEN, __('middleware.access.admin_only'));
         }
 
         return $next($request);

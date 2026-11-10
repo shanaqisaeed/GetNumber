@@ -107,4 +107,3 @@ class CryptoDeposit extends Model
         return ! $this->isExpired() && $this->status->canBeVerified();
     }
 }
-

@@ -62,7 +62,7 @@ class VerifyCryptoDepositJob implements ShouldQueue
         if ($deposit->attempts >= 3) {
             $deposit->update([
                 'status' => PaymentStatus::ManualReview,
-                'failure_reason' => 'عدم تأیید تراکنش پس از ۳ مرحله استعلام ۳۰ دقیقه‌ای (ارسال جهت بررسی دستی راهبر)',
+                'failure_reason' => __('jobs.crypto_deposit.manual_review_reason'),
                 'next_check_at' => null,
             ]);
 

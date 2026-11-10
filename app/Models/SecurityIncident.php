@@ -76,4 +76,3 @@ class SecurityIncident extends Model
         ]);
     }
 }
-

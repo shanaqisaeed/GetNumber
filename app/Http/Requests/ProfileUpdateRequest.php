@@ -29,8 +29,8 @@ class ProfileUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'ورود عنوان سازمانی / نام الزامی است.',
-            'name.max' => 'طول عنوان سازمانی / نام نمی‌تواند بیش از ۲۵۵ کاراکتر باشد.',
+            'name.required' => __('requests.profile.name_required'),
+            'name.max' => __('requests.profile.name_max'),
         ];
     }
 }

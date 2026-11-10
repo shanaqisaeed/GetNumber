@@ -51,4 +51,3 @@ class ArchivedMessage extends Model
         return $this->belongsTo(PhoneNumber::class);
     }
 }
-

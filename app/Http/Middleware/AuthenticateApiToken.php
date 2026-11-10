@@ -24,7 +24,7 @@ class AuthenticateApiToken
         if (! $plainToken) {
             return new JsonResponse([
                 'success' => false,
-                'message' => 'کلید دسترسی معتبر (API Token) در هدر درخواست ارسال نشده است.',
+                'message' => __('middleware.api_token.missing'),
                 'code' => 'MISSING_API_TOKEN',
             ], Response::HTTP_UNAUTHORIZED);
         }
@@ -34,7 +34,7 @@ class AuthenticateApiToken
         if (! $token) {
             return new JsonResponse([
                 'success' => false,
-                'message' => 'کلید دسترسی ارسال‌شده نامعتبر، باطل‌شده، منقضی و یا حساب کاربری متصل غیرفعال است.',
+                'message' => __('middleware.api_token.invalid'),
                 'code' => 'INVALID_API_TOKEN',
             ], Response::HTTP_UNAUTHORIZED);
         }
@@ -43,7 +43,7 @@ class AuthenticateApiToken
         if ($requiredAbility && ! $token->can($requiredAbility)) {
             return new JsonResponse([
                 'success' => false,
-                'message' => "کلید دسترسی فاقد مجوز لازم «{$requiredAbility}» می‌باشد.",
+                'message' => __('middleware.api_token.insufficient_ability', ['ability' => $requiredAbility]),
                 'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
             ], Response::HTTP_FORBIDDEN);
         }

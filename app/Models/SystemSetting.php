@@ -166,4 +166,3 @@ class SystemSetting extends Model
         return $matrix;
     }
 }
-

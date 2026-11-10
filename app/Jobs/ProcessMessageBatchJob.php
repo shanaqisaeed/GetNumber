@@ -81,7 +81,7 @@ class ProcessMessageBatchJob implements ShouldQueue
             if (! $destPhone) {
                 $item->update([
                     'status' => MessageBatchItem::STATUS_FAILED,
-                    'error_reason' => 'شماره مقصد در شبکه و سامانه یافت نشد.',
+                    'error_reason' => __('jobs.batch_messages.destination_not_found'),
                     'processed_at' => now(),
                 ]);
                 continue;
@@ -92,7 +92,7 @@ class ProcessMessageBatchJob implements ShouldQueue
             if (! $permission['allowed']) {
                 $item->update([
                     'status' => MessageBatchItem::STATUS_FAILED,
-                    'error_reason' => $permission['reason'] ?? 'خط مقصد مجاز به دریافت پیامک نمی‌باشد.',
+                    'error_reason' => $permission['reason'] ?? __('jobs.batch_messages.destination_not_allowed'),
                     'processed_at' => now(),
                 ]);
                 continue;
@@ -149,7 +149,7 @@ class ProcessMessageBatchJob implements ShouldQueue
                 Log::error("Failed to process batch item #{$item->id}: " . $e->getMessage());
                 $item->update([
                     'status' => MessageBatchItem::STATUS_FAILED,
-                    'error_reason' => 'خطای پردازش دیتابیس: ' . $e->getMessage(),
+                    'error_reason' => __('jobs.batch_messages.database_processing_error', ['error' => $e->getMessage()]),
                     'processed_at' => now(),
                 ]);
             }

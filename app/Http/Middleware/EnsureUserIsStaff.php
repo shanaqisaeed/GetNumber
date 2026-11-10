@@ -16,7 +16,7 @@ class EnsureUserIsStaff
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->user() || ! $request->user()->isStaff()) {
-            abort(Response::HTTP_FORBIDDEN, 'دسترسی غیرمجاز. این بخش در اختیار کارشناسان پشتیبانی و راهبران سامانه می‌باشد.');
+            abort(Response::HTTP_FORBIDDEN, __('middleware.access.staff_only'));
         }
 
         return $next($request);

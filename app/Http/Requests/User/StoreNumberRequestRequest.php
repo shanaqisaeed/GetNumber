@@ -40,15 +40,15 @@ class StoreNumberRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'requested_length.required' => 'تعیین طول سرشماره سازمانی الزامی است.',
-            'requested_length.between' => 'طول سرشماره درخواستی باید بین ۴ تا ۸ رقم باشد.',
-            'service_title.required' => 'درج عنوان سرویس الزامی است.',
-            'service_title.min' => 'عنوان سرویس باید حداقل ۲ کاراکتر باشد.',
-            'service_title.max' => 'عنوان سرویس نباید بیش از ۱۰۰ کاراکتر باشد.',
-            'description.required' => 'درج توضیح کاربرد سرشماره سازمانی الزامی است.',
-            'description.min' => 'توضیح کاربرد باید حداقل ۵ کاراکتر باشد.',
-            'description.max' => 'توضیح کاربرد نباید بیش از ۱۰۰۰ کاراکتر باشد.',
-            'preferred_number.regex' => 'سرشماره پیشنهادی باید فقط شامل ارقام عددی بین ۴ تا ۸ رقم باشد.',
+            'requested_length.required' => __('requests.user.store_number_request.requested_length_required'),
+            'requested_length.between' => __('requests.user.store_number_request.requested_length_between'),
+            'service_title.required' => __('requests.user.store_number_request.service_title_required'),
+            'service_title.min' => __('requests.user.store_number_request.service_title_min'),
+            'service_title.max' => __('requests.user.store_number_request.service_title_max'),
+            'description.required' => __('requests.user.store_number_request.description_required'),
+            'description.min' => __('requests.user.store_number_request.description_min'),
+            'description.max' => __('requests.user.store_number_request.description_max'),
+            'preferred_number.regex' => __('requests.user.store_number_request.preferred_number_regex'),
         ];
     }
 
@@ -66,7 +66,10 @@ class StoreNumberRequestRequest extends FormRequest
                 if (strlen($cleaned) !== $length) {
                     $validator->errors()->add(
                         'preferred_number',
-                        "طول سرشماره پیشنهادی ({strlen($cleaned)} رقم) با طول درخواستی انتخاب‌شده ({$length} رقم) همخوانی ندارد."
+                        __('requests.user.store_number_request.preferred_number_length_mismatch', [
+                            'actual' => strlen($cleaned),
+                            'expected' => $length,
+                        ])
                     );
                 }
             }

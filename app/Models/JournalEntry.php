@@ -56,4 +56,3 @@ class JournalEntry extends Model
         return bccomp($totalDebit, $totalCredit, 4) === 0;
     }
 }
-

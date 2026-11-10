@@ -55,4 +55,3 @@ class PaymentGateway extends Model
             ?? static::active()->first();
     }
 }
-
