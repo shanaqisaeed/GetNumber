@@ -27,11 +27,18 @@ function switchLanguage(code: 'fa' | 'en') {
         return;
     }
 
+    isOpen.value = false;
+
     router.post(
         route('locale.update', { locale: code }),
         {},
         {
-            preserveScroll: true,
+            preserveScroll: false,
+            preserveState: false,
+            onSuccess: () => {
+                // Force a full clean reload so the entire DOM, direction (RTL/LTR) and fonts completely re-render
+                window.location.reload();
+            },
             onFinish: () => {
                 isOpen.value = false;
             },

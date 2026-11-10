@@ -208,4 +208,98 @@ class OperationalMultiAuthAndSettingsTest extends TestCase
         $response->assertRedirect();
         $this->assertStringContainsString('https://sso.example.com/realms/testrealm/protocol/openid-connect/auth', $response->headers->get('Location'));
     }
+
+    /**
+     * Test user can have completely different passwords for username vs email identities in table 2.
+     */
+    public function test_user_can_have_different_passwords_for_username_and_email_identities(): void
+    {
+        $user = User::factory()->create([
+            'username' => 'custom_user',
+            'email' => 'custom@domain.com',
+            'password' => Hash::make('FallbackPass123!'),
+            'status' => UserStatus::Active,
+        ]);
+
+        // Table 2: Username credential is PasswordOne!
+        $user->linkIdentity('username', 'custom_user', null, [], 'PasswordOne!');
+        // Table 2: Email credential is PasswordTwo!
+        $user->linkIdentity('email', 'custom@domain.com', 'custom@domain.com', [], 'PasswordTwo!');
+
+        // 1. Logging in with username and PasswordOne! must succeed
+        $response1 = $this->post(route('login'), [
+            'auth_type' => 'username',
+            'username' => 'custom_user',
+            'password' => 'PasswordOne!',
+        ]);
+        $response1->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($user);
+
+        auth()->logout();
+
+        // 2. Logging in with username and Email's password (PasswordTwo!) must fail
+        $response2 = $this->post(route('login'), [
+            'auth_type' => 'username',
+            'username' => 'custom_user',
+            'password' => 'PasswordTwo!',
+        ]);
+        $response2->assertSessionHasErrors('username');
+        $this->assertGuest();
+
+        // 3. Logging in with email and PasswordTwo! must succeed
+        $response3 = $this->post(route('login'), [
+            'auth_type' => 'email',
+            'email' => 'custom@domain.com',
+            'password' => 'PasswordTwo!',
+        ]);
+        $response3->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($user);
+
+        auth()->logout();
+
+        // 4. Logging in with email and Username's password (PasswordOne!) must fail
+        $response4 = $this->post(route('login'), [
+            'auth_type' => 'email',
+            'email' => 'custom@domain.com',
+            'password' => 'PasswordOne!',
+        ]);
+        $response4->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
+
+    /**
+     * Test user can set or update dedicated password for an identity.
+     */
+    public function test_user_can_update_dedicated_identity_password(): void
+    {
+        $user = User::factory()->create([
+            'username' => 'pwd_updater',
+            'email' => 'update_pwd@domain.com',
+            'password' => Hash::make('InitialPass123!'),
+            'status' => UserStatus::Active,
+        ]);
+
+        $user->linkIdentity('username', 'pwd_updater', null, [], 'InitialPass123!');
+        $user->linkIdentity('email', 'update_pwd@domain.com', 'update_pwd@domain.com', [], 'InitialPass123!');
+
+        // Update dedicated password for email
+        $response = $this->actingAs($user)->put(route('profile.identities.password.update', 'email'), [
+            'current_password' => 'InitialPass123!',
+            'password' => 'BrandNewEmailPass888!',
+            'password_confirmation' => 'BrandNewEmailPass888!',
+        ]);
+
+        $response->assertSessionHas('success');
+
+        auth()->logout();
+
+        // New email password works
+        $loginRes = $this->post(route('login'), [
+            'auth_type' => 'email',
+            'email' => 'update_pwd@domain.com',
+            'password' => 'BrandNewEmailPass888!',
+        ]);
+        $loginRes->assertRedirect(route('dashboard'));
+        $this->assertAuthenticatedAs($user);
+    }
 }

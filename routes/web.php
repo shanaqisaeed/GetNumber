@@ -154,9 +154,10 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
-    // Multi-Provider User Identity Linking
+    // Multi-Provider User Identity Linking & Credentials Management
     Route::post('/profile/identities/email', [\App\Http\Controllers\User\UserIdentityController::class, 'linkEmail'])->name('profile.identities.email');
     Route::post('/profile/identities/ldap', [\App\Http\Controllers\User\UserIdentityController::class, 'linkLdap'])->name('profile.identities.ldap');
+    Route::put('/profile/identities/{provider}/password', [\App\Http\Controllers\User\UserIdentityController::class, 'updatePassword'])->name('profile.identities.password.update');
     Route::delete('/profile/identities/{provider}', [\App\Http\Controllers\User\UserIdentityController::class, 'unlink'])->name('profile.identities.unlink');
 
     // Two-Factor Authentication & Account Security Management

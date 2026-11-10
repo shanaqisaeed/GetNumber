@@ -83,6 +83,7 @@ class ProfileController extends Controller
             'provider_label' => $id->providerLabel(),
             'provider_id' => $id->provider_id,
             'provider_email' => $id->provider_email,
+            'has_password' => !empty($id->password),
             'linked_at' => $id->linked_at ? $id->linked_at->format('Y/m/d H:i') : null,
         ]);
 

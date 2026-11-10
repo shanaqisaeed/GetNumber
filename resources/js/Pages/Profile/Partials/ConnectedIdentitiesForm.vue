@@ -9,6 +9,7 @@ interface UserIdentityData {
     provider_label: string;
     provider_id: string;
     provider_email: string | null;
+    has_password?: boolean;
     linked_at: string | null;
 }
 
@@ -39,6 +40,7 @@ const props = withDefaults(defineProps<Props>(), {
 const page = usePage();
 const user = computed(() => page.props.auth?.user);
 
+const usernameIdentity = computed(() => props.identities.find(i => i.provider === 'username'));
 const emailIdentity = computed(() => props.identities.find(i => i.provider === 'email'));
 const ldapIdentity = computed(() => props.identities.find(i => i.provider === 'ldap'));
 const keycloakIdentity = computed(() => props.identities.find(i => i.provider === 'keycloak'));
@@ -55,6 +57,8 @@ const hasAnyExternalProviderEnabled = computed(() =>
 // Forms for linking
 const emailForm = useForm({
     email: '',
+    email_password: '',
+    email_password_confirmation: '',
     current_password: '',
 });
 
@@ -83,6 +87,32 @@ const submitLinkLdap = () => {
         onSuccess: () => {
             ldapForm.reset();
             isLdapFormOpen.value = false;
+        },
+    });
+};
+
+// Dedicated identity password update modal state
+const isPasswordModalOpen = ref(false);
+const activeProvider = ref<'username' | 'email'>('username');
+const passwordForm = useForm({
+    current_password: '',
+    password: '',
+    password_confirmation: '',
+});
+
+const openPasswordModal = (provider: 'username' | 'email') => {
+    activeProvider.value = provider;
+    passwordForm.reset();
+    passwordForm.clearErrors();
+    isPasswordModalOpen.value = true;
+};
+
+const submitIdentityPassword = () => {
+    passwordForm.put(route('profile.identities.password.update', activeProvider.value), {
+        preserveScroll: true,
+        onSuccess: () => {
+            isPasswordModalOpen.value = false;
+            passwordForm.reset();
         },
     });
 };
@@ -131,9 +161,20 @@ const unlink = (provider: string) => {
                         <div class="flex items-center gap-2">
                             <h4 class="text-xs font-bold text-slate-900 dark:text-white">شناسه کاربری سامانه</h4>
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل (هویت پایه)</span>
+                            <span v-if="usernameIdentity?.has_password || hasPassword" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">دارای گذرواژه فعال</span>
                         </div>
                         <p class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">@{{ user?.username }}</p>
                     </div>
+                </div>
+
+                <div>
+                    <button
+                        type="button"
+                        @click="openPasswordModal('username')"
+                        class="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
+                    >
+                        تغییر گذرواژه شناسه
+                    </button>
                 </div>
             </div>
 
@@ -152,16 +193,28 @@ const unlink = (provider: string) => {
                                 <span v-if="emailIdentity || user?.email" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
                                 <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
 
+                                <span v-if="emailIdentity?.has_password" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                    گذرواژه اختصاصی فعال
+                                </span>
+
                                 <span v-if="!authSettings.email_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
                                     غیرفعال در سامانه
                                 </span>
                             </div>
                             <p v-if="user?.email" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">{{ user?.email }}</p>
-                            <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال ایمیل جهت ورود و دریافت اطلاعیه‌ها</p>
+                            <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال ایمیل جهت ورود مستقل و دریافت اطلاعیه‌ها</p>
                         </div>
                     </div>
 
-                    <div>
+                    <div class="flex items-center gap-2">
+                        <button
+                            v-if="emailIdentity || user?.email"
+                            type="button"
+                            @click="openPasswordModal('email')"
+                            class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer"
+                        >
+                            {{ emailIdentity?.has_password ? 'تغییر گذرواژه ایمیل' : 'تعیین گذرواژه ایمیل' }}
+                        </button>
                         <button
                             v-if="emailIdentity || user?.email"
                             type="button"
@@ -183,7 +236,7 @@ const unlink = (provider: string) => {
                 </div>
 
                 <!-- Inline Connect Email Form -->
-                <form v-if="isEmailFormOpen && !user?.email && authSettings.email_enabled" @submit.prevent="submitLinkEmail" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
+                <form v-if="isEmailFormOpen && !user?.email && authSettings.email_enabled" @submit.prevent="submitLinkEmail" class="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3.5">
                     <div class="space-y-1">
                         <label for="link_email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">نشانی ایمیل:</label>
                         <input
@@ -199,7 +252,7 @@ const unlink = (provider: string) => {
                     </div>
 
                     <div v-if="hasPassword" class="space-y-1">
-                        <label for="email_current_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">رمز عبور فعلی جهت تایید:</label>
+                        <label for="email_current_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">رمز عبور فعلی حساب جهت تایید:</label>
                         <input
                             id="email_current_password"
                             type="password"
@@ -212,7 +265,37 @@ const unlink = (provider: string) => {
                         <InputError class="mt-1" :message="emailForm.errors.current_password" />
                     </div>
 
-                    <div class="flex justify-end gap-2 pt-1">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div class="space-y-1">
+                            <label for="link_email_password" class="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                گذرواژه اختصاصی ورود با ایمیل (اختیاری):
+                            </label>
+                            <input
+                                id="link_email_password"
+                                type="password"
+                                v-model="emailForm.email_password"
+                                placeholder="حداقل ۸ نویسه امن"
+                                dir="ltr"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                            />
+                            <InputError class="mt-1" :message="emailForm.errors.email_password" />
+                        </div>
+                        <div class="space-y-1">
+                            <label for="link_email_password_confirmation" class="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                                تکرار گذرواژه اختصاصی ایمیل:
+                            </label>
+                            <input
+                                id="link_email_password_confirmation"
+                                type="password"
+                                v-model="emailForm.email_password_confirmation"
+                                placeholder="تکرار کلمه عبور"
+                                dir="ltr"
+                                class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-2 pt-2">
                         <button
                             type="button"
                             @click="isEmailFormOpen = false"
@@ -371,5 +454,97 @@ const unlink = (provider: string) => {
                 </div>
             </div>
         </div>
+
+        <!-- Dedicated Identity Password Modal -->
+        <Teleport to="body">
+            <Transition
+                enter-active-class="transition duration-200 ease-out"
+                enter-from-class="opacity-0"
+                enter-to-class="opacity-100"
+                leave-active-class="transition duration-150 ease-in"
+                leave-from-class="opacity-100"
+                leave-to-class="opacity-0"
+            >
+                <div v-if="isPasswordModalOpen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" @click.self="isPasswordModalOpen = false">
+                    <div class="w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-2xl space-y-4">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <div>
+                                <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                                    {{ activeProvider === 'email' ? 'تنظیم گذرواژه ورود با ایمیل' : 'تنظیم گذرواژه شناسه کاربری' }}
+                                </h3>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    تعریف گذرواژه اختصاصی و مستقل در جدول شیوه‌های ورود
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                @click="isPasswordModalOpen = false"
+                                class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitIdentityPassword" class="space-y-3.5">
+                            <div v-if="hasPassword" class="space-y-1">
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">گذرواژه فعلی حساب جهت تایید:</label>
+                                <input
+                                    type="password"
+                                    v-model="passwordForm.current_password"
+                                    dir="ltr"
+                                    placeholder="••••••••••••"
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="passwordForm.errors.current_password" />
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">گذرواژه جدید اختصاصی:</label>
+                                <input
+                                    type="password"
+                                    v-model="passwordForm.password"
+                                    dir="ltr"
+                                    placeholder="حداقل ۸ نویسه امن"
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="passwordForm.errors.password" />
+                            </div>
+
+                            <div class="space-y-1">
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">تکرار گذرواژه جدید:</label>
+                                <input
+                                    type="password"
+                                    v-model="passwordForm.password_confirmation"
+                                    dir="ltr"
+                                    placeholder="تکرار کلمه عبور جدید"
+                                    class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="passwordForm.errors.password_confirmation" />
+                            </div>
+
+                            <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    @click="isPasswordModalOpen = false"
+                                    class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                                >
+                                    انصراف
+                                </button>
+                                <button
+                                    type="submit"
+                                    :disabled="passwordForm.processing"
+                                    class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
+                                >
+                                    ذخیره گذرواژه
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </Transition>
+        </Teleport>
     </div>
 </template>

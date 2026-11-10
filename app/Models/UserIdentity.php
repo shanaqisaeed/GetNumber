@@ -14,17 +14,36 @@ class UserIdentity extends Model
         'user_id',
         'provider',
         'provider_id',
+        'password',
         'provider_email',
         'provider_data',
         'linked_at',
     ];
 
+    /**
+     * Hidden attributes for serialization.
+     *
+     * @var list<string>
+     */
+    protected $hidden = [
+        'password',
+    ];
+
     protected function casts(): array
     {
         return [
+            'password' => 'hashed',
             'provider_data' => 'array',
             'linked_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Check if a dedicated password is set for this identity.
+     */
+    public function hasPassword(): bool
+    {
+        return !empty($this->password);
     }
 
     /**

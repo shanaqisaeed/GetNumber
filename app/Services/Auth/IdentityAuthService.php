@@ -20,22 +20,31 @@ class IdentityAuthService
     ) {}
 
     /**
-     * Authenticate via Username and Password.
+     * Authenticate via Username and Password from table 2 (user_identities).
      */
     public function authenticateUsername(string $username, string $password): User
     {
         $username = trim(strtolower($username));
 
-        // Find user by username directly or through user_identities
-        $user = User::where('username', $username)->first();
+        // 1. Look up the credential in table 2 (user_identities)
+        $identity = UserIdentity::where('provider', 'username')
+            ->where('provider_id', $username)
+            ->first();
+
+        $user = $identity?->user;
+
+        // Fallback if not yet in table 2 (e.g. direct database insert or legacy record)
         if (!$user) {
-            $identity = UserIdentity::where('provider', 'username')
-                ->where('provider_id', $username)
-                ->first();
-            $user = $identity?->user;
+            $user = User::where('username', $username)->first();
+            if ($user && !empty($user->password)) {
+                $identity = $user->linkIdentity('username', $username, $user->email, ['auto_healed' => true], $user->password);
+            }
         }
 
-        if (!$user || !Hash::check($password, $user->password)) {
+        // Determine password to check: must match the username identity password
+        $hashToCheck = $identity?->password ?? $user?->password;
+
+        if (!$user || !$hashToCheck || !Hash::check($password, $hashToCheck)) {
             $this->logLoginFailed('username', $username, 'نام کاربری یا کلمه عبور وارد شده نادرست است.');
             throw ValidationException::withMessages([
                 'username' => 'نام کاربری یا کلمه عبور وارد شده صحیح نمی‌باشد.',
@@ -47,21 +56,31 @@ class IdentityAuthService
     }
 
     /**
-     * Authenticate via Email and Password.
+     * Authenticate via Email and Password from table 2 (user_identities).
      */
     public function authenticateEmail(string $email, string $password): User
     {
         $email = trim(strtolower($email));
 
-        $user = User::where('email', $email)->first();
+        // 1. Look up the credential in table 2 (user_identities)
+        $identity = UserIdentity::where('provider', 'email')
+            ->where('provider_id', $email)
+            ->first();
+
+        $user = $identity?->user;
+
+        // Fallback if not yet in table 2
         if (!$user) {
-            $identity = UserIdentity::where('provider', 'email')
-                ->where('provider_id', $email)
-                ->first();
-            $user = $identity?->user;
+            $user = User::where('email', $email)->first();
+            if ($user && !empty($user->password)) {
+                $identity = $user->linkIdentity('email', $email, $email, ['auto_healed' => true], $user->password);
+            }
         }
 
-        if (!$user || !Hash::check($password, $user->password)) {
+        // Determine password to check: must match the email identity password
+        $hashToCheck = $identity?->password ?? $user?->password;
+
+        if (!$user || !$hashToCheck || !Hash::check($password, $hashToCheck)) {
             $this->logLoginFailed('email', $email, 'ایمیل یا کلمه عبور وارد شده نادرست است.');
             throw ValidationException::withMessages([
                 'email' => 'ایمیل یا کلمه عبور وارد شده صحیح نمی‌باشد.',
@@ -218,9 +237,9 @@ class IdentityAuthService
     }
 
     /**
-     * Link an email identity to an authenticated user.
+     * Link an email identity to an authenticated user with an optional dedicated password.
      */
-    public function linkEmail(User $user, string $email, ?string $currentPassword = null): UserIdentity
+    public function linkEmail(User $user, string $email, ?string $currentPassword = null, ?string $emailPassword = null): UserIdentity
     {
         $email = trim(strtolower($email));
 
@@ -245,7 +264,7 @@ class IdentityAuthService
         $user->email = $email;
         $user->save();
 
-        return $user->linkIdentity('email', $email, $email, []);
+        return $user->linkIdentity('email', $email, $email, [], $emailPassword ?: $user->password);
     }
 
     /**

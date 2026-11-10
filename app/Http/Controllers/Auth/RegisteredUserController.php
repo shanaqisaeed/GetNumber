@@ -85,8 +85,10 @@ class RegisteredUserController extends Controller
                 'status' => UserStatus::Active,
             ]);
 
-            $user->linkIdentity('email', $cleanEmail, $cleanEmail, ['registered_with' => 'email']);
-            $user->linkIdentity('username', $uniqueUsername, $cleanEmail, ['registered_with' => 'email']);
+            // Save dedicated email identity credential in table 2 (user_identities)
+            $user->linkIdentity('email', $cleanEmail, $cleanEmail, ['registered_with' => 'email'], $validated['password']);
+            // Save username identity without email's password so they can set a separate password if desired
+            $user->linkIdentity('username', $uniqueUsername, $cleanEmail, ['registered_with' => 'email'], null);
         } else {
             if (!SystemSetting::isAuthProviderEnabled('username')) {
                 return back()->withErrors(['username' => 'ثبت‌نام با شناسه کاربری در حال حاضر غیرفعال است.']);

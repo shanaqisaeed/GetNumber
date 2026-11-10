@@ -65,6 +65,18 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
+        static::created(function (User $user) {
+            if (!empty($user->username) && !$user->hasIdentity('username')) {
+                $user->linkIdentity(
+                    'username',
+                    strtolower($user->username),
+                    $user->email,
+                    ['auto_created' => true],
+                    $user->password
+                );
+            }
+        });
+
         static::saved(function (User $user) {
             try {
                 app(\App\Contracts\SystemCacheServiceInterface::class)->handleUserChanged($user);
@@ -262,16 +274,26 @@ class User extends Authenticatable
     /**
      * Link a new or existing identity provider to this user.
      */
-    public function linkIdentity(string $provider, string $providerId, ?string $email = null, array $data = []): UserIdentity
+    public function linkIdentity(string $provider, string $providerId, ?string $email = null, array $data = [], ?string $password = null): UserIdentity
     {
-        return $this->identities()->updateOrCreate(
-            ['provider' => $provider, 'provider_id' => $providerId],
-            [
-                'provider_email' => $email,
-                'provider_data' => $data,
-                'linked_at' => now(),
-            ]
-        );
+        $attributes = [
+            'provider' => $provider,
+            'provider_id' => $providerId,
+        ];
+
+        $values = [
+            'provider_email' => $email,
+            'provider_data' => $data,
+            'linked_at' => now(),
+        ];
+
+        if ($password !== null) {
+            $values['password'] = \Illuminate\Support\Facades\Hash::needsRehash($password)
+                ? \Illuminate\Support\Facades\Hash::make($password)
+                : $password;
+        }
+
+        return $this->identities()->updateOrCreate($attributes, $values);
     }
 
     /**
