@@ -13,14 +13,7 @@ enum PhoneNumberStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Available => 'آزاد برای تخصیص',
-            self::Allocated => 'تخصیص‌یافته',
-            self::Reserved => 'رزروشده',
-            self::Suspended => 'تعلیق‌شده',
-            self::Inactive => 'غیرفعال',
-            self::Expired => 'منقضی‌شده',
-        };
+        return __('enums.phone_number_status.' . $this->value);
     }
 
     public function badgeClasses(): string

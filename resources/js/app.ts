@@ -1,11 +1,22 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, DefineComponent, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { initTheme } from './Composables/useTheme';
+
+// Sync application language and direction automatically on navigation
+router.on('navigate', (event) => {
+    const pageProps = event.detail.page.props as any;
+    if (pageProps.locale) {
+        document.documentElement.lang = pageProps.locale;
+    }
+    if (pageProps.dir) {
+        document.documentElement.dir = pageProps.dir;
+    }
+});
 
 // Initialize theme immediately to prevent any flash of unstyled theme
 initTheme();
@@ -51,6 +62,14 @@ createInertiaApp({
             import.meta.glob<DefineComponent>('./Pages/**/*.vue'),
         ),
     setup({ el, App, props, plugin }) {
+        const initialProps = props.initialPage.props as any;
+        if (initialProps?.locale) {
+            document.documentElement.lang = initialProps.locale;
+        }
+        if (initialProps?.dir) {
+            document.documentElement.dir = initialProps.dir;
+        }
+
         const vueApp = createApp({ render: () => h(App, props) });
 
         vueApp.config.errorHandler = (err, instance, info) => {

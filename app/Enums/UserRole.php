@@ -10,11 +10,7 @@ enum UserRole: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Admin => 'راهبر ارشد',
-            self::Agent => 'کارشناس پشتیبانی',
-            self::User => 'کاربر سازمانی',
-        };
+        return __('enums.user_role.' . $this->value);
     }
 
     public function isAdmin(): bool

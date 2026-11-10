@@ -6,6 +6,6 @@ class NumberAlreadyAllocatedException extends NumberAllocationException
 {
     public function __construct(string $number)
     {
-        parent::__construct("شماره سازمانی {$number} در حال حاضر در سامانه موجود بوده و امکان ثبت یا تخصیص مجدد آن وجود ندارد.");
+        parent::__construct(__('exceptions.number_already_allocated', ['number' => $number]));
     }
 }

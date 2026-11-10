@@ -4,8 +4,8 @@ namespace App\Exceptions;
 
 class InvalidNumberFormatException extends NumberAllocationException
 {
-    public function __construct(string $message = 'قالب شماره وارد شده نامعتبر است.')
+    public function __construct(?string $message = null)
     {
-        parent::__construct($message);
+        parent::__construct($message ?? __('exceptions.invalid_number_format'));
     }
 }

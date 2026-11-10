@@ -8,9 +8,9 @@ class ContentSecurityViolationException extends RuntimeException
 {
     protected array $details = [];
 
-    public function __construct(string $message = 'محتوای پیام به دلیل نقض قوانین ضدکلاهبرداری و فیشینگ رد شد.', array $details = [])
+    public function __construct(?string $message = null, array $details = [])
     {
-        parent::__construct($message);
+        parent::__construct($message ?? __('exceptions.content_security_violation'));
         $this->details = $details;
     }
 

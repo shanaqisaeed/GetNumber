@@ -13,11 +13,7 @@ enum NumberRequestStatus: string
      */
     public function label(): string
     {
-        return match ($this) {
-            self::Pending => 'در انتظار بررسی',
-            self::Approved => 'تأیید و تخصیص یافته',
-            self::Rejected => 'رد شده',
-        };
+        return __('enums.number_request_status.' . $this->value);
     }
 
     /**

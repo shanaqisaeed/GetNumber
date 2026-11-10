@@ -9,10 +9,7 @@ enum ApiTokenStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Active => 'فعال و معتبر',
-            self::Revoked => 'لغو‌شده (باطل)',
-        };
+        return __('enums.api_token_status.' . $this->value);
     }
 
     public function badgeClasses(): string

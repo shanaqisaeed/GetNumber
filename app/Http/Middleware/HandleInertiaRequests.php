@@ -53,6 +53,8 @@ class HandleInertiaRequests extends Middleware
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
             ],
+            'locale' => fn () => app()->getLocale(),
+            'dir' => fn () => app()->getLocale() === 'fa' ? 'rtl' : 'ltr',
         ];
     }
 }

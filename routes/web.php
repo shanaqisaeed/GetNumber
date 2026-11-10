@@ -18,6 +18,9 @@ Route::get('/', function () {
     ]);
 });
 
+// Public Locale Switcher
+Route::post('/locale/{locale}', [\App\Http\Controllers\LocaleController::class, 'update'])->name('locale.update');
+
 // Public API Documentation
 Route::get('/docs/api', [\App\Http\Controllers\ApiDocsController::class, 'index'])->name('api.docs');
 Route::redirect('/docs', '/docs/api');

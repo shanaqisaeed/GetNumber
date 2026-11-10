@@ -10,9 +10,14 @@ class UnbalancedJournalEntryException extends RuntimeException
         public readonly string $totalDebit,
         public readonly string $totalCredit,
         public readonly string $entryNumber,
-        string $message = 'سند حسابداری نامتوازن است: مجموع بدهکار با مجموع بستانکار برابر نیست.'
+        ?string $message = null
     ) {
-        parent::__construct("{$message} [سند: {$entryNumber} | بدهکار: {$totalDebit} | بستانکار: {$totalCredit}]");
+        $msg = $message ?? __('exceptions.unbalanced_journal_entry', [
+            'entry' => $entryNumber,
+            'debit' => $totalDebit,
+            'credit' => $totalCredit,
+        ]);
+        parent::__construct($msg);
     }
 }
 

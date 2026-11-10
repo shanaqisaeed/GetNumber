@@ -6,6 +6,6 @@ class UserQuotaExceededException extends NumberAllocationException
 {
     public function __construct(int $maxAllowed)
     {
-        parent::__construct("سقف مجاز تخصیص خطوط فعال برای این حساب کاربری ({$maxAllowed} خط) تکمیل شده است.");
+        parent::__construct(__('exceptions.user_quota_exceeded', ['max' => $maxAllowed]));
     }
 }

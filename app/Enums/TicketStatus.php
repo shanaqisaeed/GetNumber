@@ -11,12 +11,7 @@ enum TicketStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Open => 'در انتظار پاسخ کارشناس',
-            self::InProgress => 'در حال بررسی',
-            self::Answered => 'پاسخ داده‌شده',
-            self::Closed => 'بسته‌شده',
-        };
+        return __('enums.ticket_status.' . $this->value);
     }
 
     public function badgeClasses(): string

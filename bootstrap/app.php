@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\CorrelationIdMiddleware::class,
             \App\Http\Middleware\SecurityHeaders::class,
             \Illuminate\Session\Middleware\AuthenticateSession::class,
+            \App\Http\Middleware\SetLocaleMiddleware::class,
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             EnsureAccountIsActive::class,

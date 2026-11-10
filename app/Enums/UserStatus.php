@@ -10,11 +10,7 @@ enum UserStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Active => 'فعال',
-            self::Suspended => 'تعلیق‌شده',
-            self::Inactive => 'غیرفعال',
-        };
+        return __('enums.user_status.' . $this->value);
     }
 
     public function isActive(): bool

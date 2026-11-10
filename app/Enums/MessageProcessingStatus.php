@@ -10,11 +10,7 @@ enum MessageProcessingStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Received => 'دریافت‌شده',
-            self::Processed => 'پردازش‌شده',
-            self::Failed => 'خطا در پردازش',
-        };
+        return __('enums.message_processing_status.' . $this->value);
     }
 
     public function badgeClasses(): string

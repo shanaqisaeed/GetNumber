@@ -11,12 +11,7 @@ enum TicketPriority: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Low => 'کم',
-            self::Medium => 'عادی',
-            self::High => 'بالا',
-            self::Urgent => 'فوری',
-        };
+        return __('enums.ticket_priority.' . $this->value);
     }
 
     public function badgeClasses(): string

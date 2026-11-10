@@ -7,6 +7,7 @@ import { ref, watch } from 'vue';
 interface GeneralSettings {
     app_name: string;
     app_description: string;
+    default_locale?: 'fa' | 'en';
     max_lines_per_user: number;
     event_notify_login_failed: boolean;
     event_notify_user_registered: boolean;
@@ -88,6 +89,7 @@ watch(() => props.initialTab, (newTab) => {
 const generalForm = useForm({
     app_name: props.generalSettings.app_name,
     app_description: props.generalSettings.app_description,
+    default_locale: props.generalSettings.default_locale || 'fa',
     max_lines_per_user: props.generalSettings.max_lines_per_user,
     event_notify_login_failed: props.generalSettings.event_notify_login_failed,
     event_notify_user_registered: props.generalSettings.event_notify_user_registered,
@@ -345,6 +347,37 @@ const testKeycloakConnection = async () => {
                                     class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
                                 ></textarea>
                                 <InputError class="mt-1" :message="generalForm.errors.app_description" />
+                            </div>
+
+                            <!-- Language & Direction (RTL / LTR) Configuration -->
+                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 space-y-2">
+                                <div class="flex items-center justify-between gap-2 flex-wrap">
+                                    <div>
+                                        <label for="default_locale" class="block text-xs font-black text-slate-900 dark:text-white">
+                                            زبان پیش‌فرض سامانه و جهت متون:
+                                        </label>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                            تعیین زبان رسمی پلتفرم؛ جهت نمایش صفحات بر اساس زبان انتخابی به صورت خودکار (فارسی: راست‌چین RTL / انگلیسی: چپ‌چین LTR) تنظیم می‌شود.
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <select
+                                            id="default_locale"
+                                            v-model="generalForm.default_locale"
+                                            class="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
+                                        >
+                                            <option value="fa">🇮🇷 فارسی (راست‌چین - RTL)</option>
+                                            <option value="en">🇬🇧 English (چپ‌چین - LTR)</option>
+                                        </select>
+                                        <span
+                                            class="px-2 py-1 rounded-lg text-[10px] font-mono font-black border"
+                                            :class="generalForm.default_locale === 'fa' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-blue-500/10 text-blue-600 border-blue-500/20'"
+                                        >
+                                            {{ generalForm.default_locale === 'fa' ? 'RTL' : 'LTR' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <InputError class="mt-1" :message="generalForm.errors.default_locale" />
                             </div>
 
                             <!-- Maximum Lines Quota Field -->

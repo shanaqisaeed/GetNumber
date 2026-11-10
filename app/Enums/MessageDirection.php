@@ -9,9 +9,6 @@ enum MessageDirection: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Inbound => 'دریافتی',
-            self::Outbound => 'ارسالی',
-        };
+        return __('enums.message_direction.' . $this->value);
     }
 }

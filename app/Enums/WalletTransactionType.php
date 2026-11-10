@@ -15,16 +15,7 @@ enum WalletTransactionType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Deposit => 'شارژ حساب (واریز)',
-            self::NumberPurchase => 'خرید شماره مجازی',
-            self::Hold => 'مسدودی وجه (درخواست سرشماره سازمانی)',
-            self::HoldRelease => 'آزادسازی وجه مسدودی (رد/لغو درخواست)',
-            self::AdminCredit => 'افزایش اعتبار توسط مدیر',
-            self::AdminDebit => 'کسر اعتبار توسط مدیر',
-            self::Refund => 'بازگشت وجه (استرداد)',
-            self::Reversal => 'تراکنش اصلاحی (معکوس)',
-        };
+        return __('enums.wallet_transaction_type.' . $this->value);
     }
 
     public function isCredit(): bool

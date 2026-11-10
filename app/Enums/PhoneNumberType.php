@@ -10,11 +10,7 @@ enum PhoneNumberType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::UserStandard => 'اعتباری',
-            self::UserService => 'تجاری',
-            self::PlatformService => 'تجاری سامانه',
-        };
+        return __('enums.phone_number_type.' . $this->value);
     }
 
     public function badgeClasses(): string

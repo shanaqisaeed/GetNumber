@@ -11,12 +11,7 @@ enum TicketDepartment: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Technical => 'پشتیبانی فنی خطوط',
-            self::Numbers => 'امور سرشماره‌های اختصاصی',
-            self::Api => 'وب‌سرویس و API',
-            self::General => 'امور عمومی و مالی',
-        };
+        return __('enums.ticket_department.' . $this->value);
     }
 
     public function badgeClasses(): string

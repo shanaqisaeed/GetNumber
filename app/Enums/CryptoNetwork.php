@@ -11,12 +11,7 @@ enum CryptoNetwork: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Tron => 'شبکه ترون (TRON / TRX)',
-            self::Trc20 => 'شبکه ترون (TRC-20)',
-            self::Erc20 => 'شبکه اتریوم (ERC-20)',
-            self::Bep20 => 'شبکه بایننس اسمارت چین (BEP-20)',
-        };
+        return __('enums.crypto_network.' . $this->value);
     }
 
     public function defaultCurrency(): string

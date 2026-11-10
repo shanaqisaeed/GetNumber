@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
+import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import { useRealtimeMessages } from '@/Composables/useRealtimeMessages';
@@ -438,6 +439,7 @@ const isAnySettingsActive = computed(() => {
                 </div>
 
                 <div class="flex items-center gap-2 sm:gap-3 shrink-0">
+                    <LanguageSwitcher />
                     <ThemeSwitcher />
                 </div>
             </header>

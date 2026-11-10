@@ -33,6 +33,7 @@ class SettingController extends Controller
             'generalSettings' => [
                 'app_name' => SystemSetting::get('app_name', 'سامانه جامع مدیریت شماره‌ها و ارتباطات'),
                 'app_description' => SystemSetting::get('app_description', 'هسته مرکزی مدیریت خطوط مجازی، درگاه پیامک و احراز هویت سازمانی'),
+                'default_locale' => SystemSetting::getDefaultLocale(),
                 'max_lines_per_user' => (int) SystemSetting::get('max_lines_per_user', '10'),
                 'event_notify_login_failed' => (bool) (int) SystemSetting::get('event_notify_login_failed', '1'),
                 'event_notify_user_registered' => (bool) (int) SystemSetting::get('event_notify_user_registered', '1'),
@@ -78,20 +79,24 @@ class SettingController extends Controller
         $validated = $request->validate([
             'app_name' => ['required', 'string', 'max:100'],
             'app_description' => ['nullable', 'string', 'max:255'],
+            'default_locale' => ['nullable', 'string', 'in:fa,en'],
             'max_lines_per_user' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'event_notify_login_failed' => ['boolean'],
             'event_notify_user_registered' => ['boolean'],
             'event_notify_security_alert' => ['boolean'],
         ], [
             'app_name.required' => 'ورود عنوان سامانه الزامی است.',
+            'default_locale.in' => 'زبان انتخابی باید فارسی (fa) یا انگلیسی (en) باشد.',
             'max_lines_per_user.min' => 'سقف مجاز خطوط باید حداقل ۱ خط باشد.',
             'max_lines_per_user.max' => 'سقف مجاز خطوط نمی‌تواند بیش از ۱۰۰۰ خط باشد.',
         ]);
 
         $maxLines = $validated['max_lines_per_user'] ?? (int) SystemSetting::get('max_lines_per_user', '10');
+        $defaultLocale = !empty($validated['default_locale']) ? $validated['default_locale'] : SystemSetting::getDefaultLocale();
 
         SystemSetting::set('app_name', $validated['app_name'], 'عنوان اصلی و نام رسمی سامانه');
         SystemSetting::set('app_description', $validated['app_description'] ?? '', 'شرح مختصر سامانه در صفحات عمومی');
+        SystemSetting::set('default_locale', $defaultLocale, 'زبان پیش‌فرض سامانه و جهت متن');
         SystemSetting::set('max_lines_per_user', (string) $maxLines, 'حداکثر سقف مجاز تخصیص خطوط برای هر حساب کاربری');
         SystemSetting::set('event_notify_login_failed', $request->boolean('event_notify_login_failed') ? '1' : '0', 'ثبت و گزارش رویداد تلاش‌های ناموفق ورود در لاگ امنیتی');
         SystemSetting::set('event_notify_user_registered', $request->boolean('event_notify_user_registered') ? '1' : '0', 'ثبت رویداد ثبت‌نام کاربران جدید در گزارش‌های سامانه');

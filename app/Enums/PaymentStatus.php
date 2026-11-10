@@ -14,15 +14,7 @@ enum PaymentStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::PendingTransfer => 'در انتظار انتقال ترون',
-            self::TxSubmitted => 'کد رهگیری ثبت‌شده',
-            self::Verifying => 'در حال استعلام از شبکه',
-            self::ManualReview => 'نیازمند بررسی دستی راهبر',
-            self::Completed => 'تأیید و شارژشده',
-            self::Failed => 'ناموفق / ردشده',
-            self::Expired => 'منقضی‌شده',
-        };
+        return __('enums.payment_status.' . $this->value);
     }
 
     public function badgeClasses(): string

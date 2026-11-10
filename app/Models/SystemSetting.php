@@ -43,6 +43,23 @@ class SystemSetting extends Model
     }
 
     /**
+     * Get the default system locale ('fa' or 'en').
+     */
+    public static function getDefaultLocale(): string
+    {
+        return (string) self::get('default_locale', 'fa');
+    }
+
+    /**
+     * Get direction for given or active locale ('rtl' or 'ltr').
+     */
+    public static function getLocaleDirection(?string $locale = null): string
+    {
+        $loc = $locale ?: app()->getLocale();
+        return $loc === 'fa' ? 'rtl' : 'ltr';
+    }
+
+    /**
      * Get the active TRX to COIN exchange rate (Default 1 TRX = 1 COIN).
      */
     public static function getTrxToCoinRate(): string
