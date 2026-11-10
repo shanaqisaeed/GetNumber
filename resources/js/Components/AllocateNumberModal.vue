@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { useForm, usePage, Link, router } from '@inertiajs/vue3';
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { useForm, usePage, Link } from '@inertiajs/vue3';
 import axios from 'axios';
 
 export interface PrefixItem {
@@ -61,15 +61,34 @@ const emit = defineEmits<{
 const page = usePage();
 const userBalance = computed(() => Number((page.props.auth as any)?.wallet_balance || 0));
 
-// Wizard Step: 1 = Country, 2 = Number Search & Suggestions, 3 = Confirmation
-const currentStep = ref<1 | 2 | 3>(1);
+// Wizard Step: 1 = Search & Number Structure, 2 = Confirmation & Payment
+const currentStep = ref<1 | 2>(1);
 
-// Step 1: Selected Prefix
-const selectedPrefix = ref<PrefixItem | null>(null);
+// Step 1: Selected Prefix ID
+const selectedPrefixId = ref<number | null>(null);
 
-// Step 2: Selected SubPrefix & 6-digit Suffix
+const selectedPrefix = computed<PrefixItem | null>(() => {
+    if (!props.activePrefixes || props.activePrefixes.length === 0) return null;
+    if (selectedPrefixId.value) {
+        const found = props.activePrefixes.find((p) => p.id === selectedPrefixId.value);
+        if (found) return found;
+    }
+    const def = props.activePrefixes.find((p) => p.is_default);
+    return def || props.activePrefixes[0] || null;
+});
+
+const subPrefixesList = computed<string[]>(() => {
+    if (selectedPrefix.value && Array.isArray(selectedPrefix.value.sub_prefixes) && selectedPrefix.value.sub_prefixes.length > 0) {
+        return selectedPrefix.value.sub_prefixes;
+    }
+    return ['912', '910', '918', '919', '935', '936', '937', '938', '939', '990'];
+});
+
+// Step 1: Selected SubPrefix & 6-digit Suffix
 const selectedSubPrefix = ref<string>('');
 const suffixInput = ref<string>('');
+const suffixInputRef = ref<HTMLInputElement | null>(null);
+
 const isChecking = ref(false);
 const checkResult = ref<{
     is_available: boolean;
@@ -84,8 +103,9 @@ const checkResult = ref<{
 // Random pool suggestions for browsing
 const poolSuggestions = ref<any[]>([]);
 const isLoadingPool = ref(false);
+const showTariffsOverview = ref(false);
 
-// Step 3: Terms
+// Step 2: Terms & Form
 const termsAccepted = ref(false);
 
 const form = useForm({
@@ -110,9 +130,16 @@ watch(
             // Default prefix selection
             const defaultPref = props.activePrefixes.find((p) => p.is_default) || props.activePrefixes[0] || null;
             if (defaultPref) {
-                selectPrefix(defaultPref);
+                selectedPrefixId.value = defaultPref.id;
+                selectedSubPrefix.value = subPrefixesList.value[0] || '912';
             }
+            loadPoolSuggestions();
+
             window.addEventListener('keydown', handleKeydown);
+
+            nextTick(() => {
+                suffixInputRef.value?.focus();
+            });
         } else {
             window.removeEventListener('keydown', handleKeydown);
         }
@@ -135,36 +162,33 @@ const handleClose = () => {
     }
 };
 
-const selectPrefix = (prefix: PrefixItem) => {
-    selectedPrefix.value = prefix;
-    const subs = Array.isArray(prefix.sub_prefixes) && prefix.sub_prefixes.length > 0
-        ? prefix.sub_prefixes
-        : ['912', '910', '918', '935'];
-    selectedSubPrefix.value = subs[0];
-    checkResult.value = null;
-};
-
-const goToStep2 = () => {
-    if (!selectedPrefix.value) return;
-    currentStep.value = 2;
+const onPrefixIdChange = () => {
+    selectedSubPrefix.value = subPrefixesList.value[0] || '912';
     loadPoolSuggestions();
+    if (suffixInput.value.length === 6) {
+        executeCheck();
+    } else {
+        checkResult.value = null;
+    }
 };
 
-const goToStep1 = () => {
-    currentStep.value = 1;
+const onSubPrefixSelectChange = () => {
+    if (suffixInput.value.length === 6) {
+        executeCheck();
+    }
 };
 
-const goToStep3 = () => {
-    if (!checkResult.value || !checkResult.value.is_available) return;
-    form.phone_prefix_id = selectedPrefix.value?.id || null;
-    form.preferred_number = checkResult.value.number || '';
-    currentStep.value = 3;
+const pickSubPrefix = (sub: string) => {
+    selectedSubPrefix.value = sub;
+    if (suffixInput.value.length === 6) {
+        executeCheck();
+    }
 };
 
 // Real-time verification debounce
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-const onSuffixChange = () => {
+const onSuffixInput = () => {
     const clean = suffixInput.value.replace(/\D/g, '').slice(0, 6);
     suffixInput.value = clean;
 
@@ -176,7 +200,7 @@ const onSuffixChange = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
         executeCheck();
-    }, 350);
+    }, 250);
 };
 
 const executeCheck = async () => {
@@ -197,17 +221,23 @@ const executeCheck = async () => {
     }
 };
 
-const pickSubPrefix = (sub: string) => {
-    selectedSubPrefix.value = sub;
-    if (suffixInput.value.length === 6) {
-        executeCheck();
-    }
-};
-
 const pickSuggestion = (item: SuggestionItem | any) => {
     selectedSubPrefix.value = item.sub_prefix;
     suffixInput.value = item.suffix;
     executeCheck();
+};
+
+const pickPoolNumber = (pool: any) => {
+    const num = String(pool.number || '');
+    if (num.length >= 9) {
+        selectedSubPrefix.value = num.slice(0, 3);
+        suffixInput.value = num.slice(3, 9);
+        executeCheck();
+    } else {
+        selectedSubPrefix.value = pool.sub_prefix;
+        suffixInput.value = pool.suffix;
+        executeCheck();
+    }
 };
 
 const loadPoolSuggestions = async () => {
@@ -221,11 +251,25 @@ const loadPoolSuggestions = async () => {
             },
         });
         poolSuggestions.value = res.data.suggestions || [];
-    } catch (e) {
-        // Ignore
+    } catch {
+        poolSuggestions.value = [];
     } finally {
         isLoadingPool.value = false;
     }
+};
+
+const goToConfirmation = () => {
+    if (!checkResult.value || !checkResult.value.is_available) return;
+    form.phone_prefix_id = selectedPrefix.value?.id || null;
+    form.preferred_number = checkResult.value.number || '';
+    currentStep.value = 2;
+};
+
+const goBackToSearch = () => {
+    currentStep.value = 1;
+    nextTick(() => {
+        suffixInputRef.value?.focus();
+    });
 };
 
 const currentRequiredCost = computed(() => {
@@ -236,6 +280,13 @@ const currentRequiredCost = computed(() => {
 });
 
 const hasInsufficientBalance = computed(() => userBalance.value < currentRequiredCost.value);
+
+const fullPreviewNumber = computed(() => {
+    const pfx = selectedPrefix.value?.prefix || '+85';
+    const sub = selectedSubPrefix.value || '---';
+    const sfx = suffixInput.value ? suffixInput.value.padEnd(6, '·') : '······';
+    return `${pfx} ${sub} ${sfx.slice(0, 3)} ${sfx.slice(3)}`;
+});
 
 const submitAllocation = () => {
     if (!termsAccepted.value || form.processing || hasInsufficientBalance.value) return;
@@ -268,9 +319,9 @@ const submitAllocation = () => {
                 @click.self="handleClose"
             >
                 <div
-                    class="glass-card responsive-modal-scroll-card my-auto !p-6 w-full max-w-xl shadow-2xl relative space-y-5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                    class="glass-card responsive-modal-scroll-card my-auto !p-5 sm:!p-6 w-full max-w-xl shadow-2xl relative space-y-5 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
                 >
-                    <!-- Header with Wizard Steps Indicator -->
+                    <!-- Header with Wizard Title & Close -->
                     <div class="flex items-center justify-between pb-3.5 border-b border-slate-200/80 dark:border-white/10">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex items-center justify-center text-lg shrink-0 shadow-sm">
@@ -279,39 +330,39 @@ const submitAllocation = () => {
                             <div>
                                 <h3 class="font-black text-base text-slate-900 dark:text-white">دریافت و رزرو خط ۹ رقمی</h3>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    سامانه تخصیص هوشمند پیش‌شماره و تشخیص خطوط رند
+                                    طراحی ساختار شماره، تشخیص خودکار رند و تخصیص برخط
                                 </p>
                             </div>
                         </div>
                         <button
                             type="button"
                             @click="handleClose"
-                            class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                            class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
                             aria-label="بستن پنجره"
                         >
                             ✕
                         </button>
                     </div>
 
-                    <!-- Steps Progress Bar -->
-                    <div class="flex items-center justify-between px-2 pt-1">
+                    <!-- Steps Progress Indicator -->
+                    <div class="flex items-center justify-between px-2 pt-1 text-xs font-bold">
                         <!-- Step 1 -->
                         <div class="flex items-center gap-2">
                             <div
                                 class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black transition-all"
                                 :class="currentStep === 1
                                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                                    : (currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
+                                    : 'bg-emerald-500 text-white'"
                             >
                                 <span v-if="currentStep > 1">✓</span>
                                 <span v-else>۱</span>
                             </div>
-                            <span class="text-xs font-bold" :class="currentStep === 1 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'">
-                                انتخاب کشور
+                            <span :class="currentStep === 1 ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-500'">
+                                ساختار و استعلام شماره
                             </span>
                         </div>
 
-                        <div class="flex-1 mx-2 h-0.5 bg-slate-200 dark:bg-white/10"></div>
+                        <div class="flex-1 mx-3 h-0.5 bg-slate-200 dark:bg-white/10"></div>
 
                         <!-- Step 2 -->
                         <div class="flex items-center gap-2">
@@ -319,143 +370,141 @@ const submitAllocation = () => {
                                 class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black transition-all"
                                 :class="currentStep === 2
                                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                                    : (currentStep > 2 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
-                            >
-                                <span v-if="currentStep > 2">✓</span>
-                                <span v-else>۲</span>
-                            </div>
-                            <span class="text-xs font-bold" :class="currentStep === 2 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'">
-                                جستجوی ۶ رقم
-                            </span>
-                        </div>
-
-                        <div class="flex-1 mx-2 h-0.5 bg-slate-200 dark:bg-white/10"></div>
-
-                        <!-- Step 3 -->
-                        <div class="flex items-center gap-2">
-                            <div
-                                class="w-7 h-7 rounded-xl flex items-center justify-center text-xs font-black transition-all"
-                                :class="currentStep === 3
-                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                                     : 'bg-slate-100 dark:bg-white/10 text-slate-400'"
                             >
-                                ۳
+                                <span>۲</span>
                             </div>
-                            <span class="text-xs font-bold" :class="currentStep === 3 ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500'">
-                                تأیید و پرداخت
+                            <span :class="currentStep === 2 ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-500'">
+                                تأیید نهایی و پرداخت
                             </span>
                         </div>
                     </div>
 
                     <!-- ============================================== -->
-                    <!-- STEP 1: Select Country & Prefix                -->
+                    <!-- STEP 1: Interactive Number Structure Search    -->
                     <!-- ============================================== -->
                     <div v-if="currentStep === 1" class="space-y-4">
+                        <!-- Quota & Country Info Line -->
                         <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                            <span>کشور و پیش‌شماره مورد نظر خود را برگزینید:</span>
+                            <span>پیش‌شماره، پیش‌کد و ۶ رقم دلخواه خود را تعیین کنید:</span>
                             <span v-if="remainingQuota !== undefined" class="font-bold text-indigo-600 dark:text-indigo-400">
                                 سهمیه آزاد: {{ remainingQuota }} خط
                             </span>
                         </div>
 
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                        <!-- MAIN UNIFIED PHONE NUMBER BUILDER (LTR) -->
+                        <div class="space-y-2">
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                                ساختار شماره تلفن (از چپ به راست):
+                            </label>
+
                             <div
-                                v-for="p in activePrefixes"
-                                :key="p.id"
-                                @click="selectPrefix(p)"
-                                class="p-3.5 rounded-2xl border cursor-pointer transition-all flex items-center justify-between"
-                                :class="selectedPrefix?.id === p.id
-                                    ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 shadow-sm shadow-indigo-500/10'
-                                    : 'bg-slate-50/70 dark:bg-white/5 border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'"
+                                dir="ltr"
+                                class="flex flex-wrap sm:flex-nowrap items-center p-2 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border-2 transition-all gap-2 shadow-inner"
+                                :class="suffixInput.length === 6
+                                    ? (checkResult?.is_available ? 'border-emerald-500/80 dark:border-emerald-500/60' : 'border-rose-400 dark:border-rose-500/60')
+                                    : 'border-slate-200/90 dark:border-slate-700/80 focus-within:border-indigo-500'"
                             >
-                                <div class="flex items-center gap-3">
-                                    <span class="text-2xl">{{ p.flag || '🌐' }}</span>
-                                    <div>
-                                        <div class="flex items-center gap-1.5">
-                                            <span class="text-xs font-black text-slate-900 dark:text-white">
-                                                {{ p.country_name || p.name }}
-                                            </span>
-                                            <span v-if="p.country_code" class="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/60 dark:bg-white/10 text-slate-600 dark:text-slate-300 font-mono">
-                                                {{ p.country_code }}
-                                            </span>
-                                        </div>
-                                        <span dir="ltr" class="text-[11px] font-mono text-indigo-600 dark:text-indigo-400 font-bold block mt-0.5">
-                                            {{ p.prefix }}
+                                <!-- 1. Country & Prefix Select -->
+                                <div class="relative min-w-[130px] sm:w-auto shrink-0">
+                                    <select
+                                        v-model="selectedPrefixId"
+                                        @change="onPrefixIdChange"
+                                        class="w-full sm:w-auto h-12 pl-3 pr-8 rounded-xl bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono font-black text-xs sm:text-sm border border-slate-200 dark:border-slate-700 shadow-xs focus:border-indigo-500 outline-none cursor-pointer appearance-none"
+                                        title="انتخاب پیش‌شماره کشور"
+                                    >
+                                        <option v-for="p in activePrefixes" :key="p.id" :value="p.id">
+                                            {{ p.flag || '🌐' }} {{ p.prefix }} ({{ p.country_name || p.name }})
+                                        </option>
+                                    </select>
+                                    <div class="pointer-events-none absolute right-2.5 top-4 text-slate-400">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <span class="hidden sm:inline text-slate-300 dark:text-slate-600 font-bold text-base select-none">/</span>
+
+                                <!-- 2. Sub-Prefix 3-digit Select -->
+                                <div class="relative min-w-[95px] sm:w-auto shrink-0">
+                                    <select
+                                        v-model="selectedSubPrefix"
+                                        @change="onSubPrefixSelectChange"
+                                        class="w-full sm:w-auto h-12 pl-3 pr-7 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono font-black text-sm sm:text-base border border-indigo-200 dark:border-indigo-800 shadow-xs focus:border-indigo-500 outline-none cursor-pointer appearance-none"
+                                        title="انتخاب پیش‌کد سه رقمی"
+                                    >
+                                        <option v-for="sub in subPrefixesList" :key="sub" :value="sub">
+                                            {{ sub }}
+                                        </option>
+                                    </select>
+                                    <div class="pointer-events-none absolute right-2.5 top-4 text-indigo-500">
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <!-- 3. Dash Separator -->
+                                <span class="text-slate-400 dark:text-slate-500 font-mono font-black text-xl select-none px-0.5">-</span>
+
+                                <!-- 4. 6-digit Suffix Input -->
+                                <div class="relative flex-1 min-w-[140px]">
+                                    <input
+                                        ref="suffixInputRef"
+                                        v-model="suffixInput"
+                                        @input="onSuffixInput"
+                                        type="text"
+                                        inputmode="numeric"
+                                        maxlength="6"
+                                        dir="ltr"
+                                        placeholder="123456"
+                                        class="w-full h-12 px-3.5 rounded-xl bg-white dark:bg-slate-800 font-mono font-black text-lg tracking-widest text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-0 outline-none shadow-xs"
+                                        title="ورود ۶ رقم دلخواه شماره"
+                                    />
+
+                                    <!-- Status Spinner / Indicator inside input -->
+                                    <div class="absolute right-3 top-3.5 flex items-center gap-1.5">
+                                        <svg v-if="isChecking" class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                        </svg>
+                                        <span
+                                            v-else-if="suffixInput.length === 6 && checkResult?.is_available"
+                                            class="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-black shadow-xs"
+                                            title="شماره آزاد است"
+                                        >
+                                            ✓
+                                        </span>
+                                        <span
+                                            v-else-if="suffixInput.length === 6 && checkResult && !checkResult.is_available"
+                                            class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-black shadow-xs"
+                                            title="شماره واگذار شده است"
+                                        >
+                                            ✕
+                                        </span>
+                                        <span v-else-if="suffixInput.length > 0 && suffixInput.length < 6" class="text-[10px] font-mono text-slate-400 font-bold">
+                                            {{ suffixInput.length }}/6
                                         </span>
                                     </div>
                                 </div>
-                                <div class="text-left">
-                                    <span v-if="selectedPrefix?.id === p.id" class="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
-                                        ✓
-                                    </span>
-                                </div>
                             </div>
                         </div>
 
-                        <!-- Price Matrix Overview for Selected Prefix -->
-                        <div v-if="selectedPrefix" class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2 text-xs">
-                            <div class="flex items-center justify-between text-slate-700 dark:text-slate-300 font-semibold">
-                                <span>تعرفه‌های خطوط ۹ رقمی {{ selectedPrefix.country_name || selectedPrefix.name }}:</span>
-                                <span dir="ltr" class="font-mono text-indigo-600 font-bold">{{ selectedPrefix.prefix }}</span>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2 text-center pt-1">
-                                <div class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-white/10">
-                                    <span class="text-[10px] text-slate-500 block">خط عادی</span>
-                                    <span class="font-black text-xs text-slate-900 dark:text-white">{{ selectedPrefix.price_regular }} کوین</span>
-                                </div>
-                                <div class="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-500/20">
-                                    <span class="text-[10px] text-blue-600 dark:text-blue-400 block">نیمه‌رند</span>
-                                    <span class="font-black text-xs text-blue-700 dark:text-blue-300">{{ selectedPrefix.price_semi_rond }} کوین</span>
-                                </div>
-                                <div class="p-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-500/20">
-                                    <span class="text-[10px] text-amber-600 dark:text-amber-400 block">طلایی</span>
-                                    <span class="font-black text-xs text-amber-700 dark:text-amber-300">{{ selectedPrefix.price_golden_rond }} کوین</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Step 1 Footer -->
-                        <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-white/10">
-                            <button
-                                type="button"
-                                @click="handleClose"
-                                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
-                            >
-                                انصراف
-                            </button>
-                            <button
-                                type="button"
-                                @click="goToStep2"
-                                :disabled="!selectedPrefix"
-                                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
-                            >
-                                <span>مرحله بعد: جستجوی شماره</span>
-                                <span>←</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- ============================================== -->
-                    <!-- STEP 2: Sub-prefix & 6-digit Search            -->
-                    <!-- ============================================== -->
-                    <div v-else-if="currentStep === 2" class="space-y-4">
-                        <!-- Sub-prefixes selector pills -->
+                        <!-- Quick Sub-prefix pills for instant switching -->
                         <div class="space-y-1.5">
-                            <div class="flex items-center justify-between text-xs">
-                                <label class="font-bold text-slate-700 dark:text-slate-300">
-                                    ۱. انتخاب پیش‌کد (۳ رقم اول):
-                                </label>
-                                <span class="text-[11px] text-slate-500">{{ selectedPrefix?.country_name }} ({{ selectedPrefix?.prefix }})</span>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
+                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">
+                                انتخاب سریع پیش‌کد سه‌رقمی:
+                            </span>
+                            <div class="flex flex-wrap gap-1.5" dir="ltr">
                                 <button
-                                    v-for="sub in (selectedPrefix?.sub_prefixes || ['912', '910', '918', '935'])"
+                                    v-for="sub in subPrefixesList"
                                     :key="sub"
                                     type="button"
                                     @click="pickSubPrefix(sub)"
-                                    class="px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all border"
+                                    class="px-3 py-1 rounded-xl text-xs font-mono font-bold transition-all border cursor-pointer"
                                     :class="selectedSubPrefix === sub
-                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                                         : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:border-slate-300'"
                                 >
                                     {{ sub }}
@@ -463,49 +512,17 @@ const submitAllocation = () => {
                             </div>
                         </div>
 
-                        <!-- 6-digit Suffix Input Field -->
-                        <div class="space-y-1.5">
-                            <label class="font-bold text-xs text-slate-700 dark:text-slate-300">
-                                ۲. ورود ۶ رقم دلخواه شماره:
-                            </label>
-                            <div class="flex items-center gap-2">
-                                <div class="px-4 py-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-500/20 font-mono font-black text-sm text-indigo-600 dark:text-indigo-400">
-                                    {{ selectedPrefix?.prefix }} {{ selectedSubPrefix }}
-                                </div>
-                                <div class="relative flex-1">
-                                    <input
-                                        v-model="suffixInput"
-                                        @input="onSuffixChange"
-                                        type="text"
-                                        maxlength="6"
-                                        dir="ltr"
-                                        placeholder="مثال: 345678"
-                                        class="w-full text-center font-mono font-black tracking-widest text-lg py-2.5 px-4 rounded-2xl border bg-white dark:bg-slate-800 border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                    <div v-if="isChecking" class="absolute left-3 top-3">
-                                        <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                                        </svg>
-                                    </div>
-                                </div>
-                            </div>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                                ۶ رقم عددی وارد کنید تا وضعیت آزاد بودن و رند بودن شماره بی‌درنگ استعلام شود.
-                            </p>
-                        </div>
-
-                        <!-- Verification Result Display -->
+                        <!-- LIVE VERIFICATION RESULT DISPLAY -->
                         <div v-if="checkResult" class="space-y-3 pt-1">
-                            <!-- AVAILABLE -->
+                            <!-- 1. AVAILABLE BANNER -->
                             <div
                                 v-if="checkResult.is_available"
-                                class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 space-y-2.5 animate-in fade-in duration-200"
+                                class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3 animate-in fade-in duration-200"
                             >
-                                <div class="flex items-center justify-between">
+                                <div class="flex items-center justify-between flex-wrap gap-2">
                                     <span class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-400">
                                         <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">✓</span>
-                                        شماره آزاد و آماده واگذاری است
+                                        شماره آزاد و آماده واگذاری آنی می‌باشد
                                     </span>
                                     <span
                                         class="px-2.5 py-0.5 rounded-full text-[11px] font-black border"
@@ -519,44 +536,53 @@ const submitAllocation = () => {
                                     </span>
                                 </div>
 
-                                <div class="flex items-center justify-between pt-1">
+                                <div class="flex items-center justify-between pt-1 flex-wrap gap-3">
                                     <div>
-                                        <span dir="ltr" class="text-base font-mono font-black text-slate-900 dark:text-white">
+                                        <span dir="ltr" class="text-lg font-mono font-black text-slate-900 dark:text-white block">
                                             {{ checkResult.formatted }}
                                         </span>
-                                        <span class="text-[11px] text-slate-500 dark:text-slate-400 block">
+                                        <span class="text-[11px] text-slate-500 dark:text-slate-400 block mt-0.5">
                                             الگو: {{ checkResult.rond?.pattern }}
                                         </span>
                                     </div>
                                     <div class="text-left">
-                                        <span class="text-[10px] text-slate-500 block">تعرفه شماره:</span>
-                                        <span class="text-sm font-black text-indigo-600 dark:text-indigo-400">
-                                            {{ checkResult.price }} کوین
+                                        <span class="text-[10px] text-slate-500 block">تعرفه خط:</span>
+                                        <span class="text-base font-black text-indigo-600 dark:text-indigo-400">
+                                            {{ checkResult.price }} کوین (TRX)
                                         </span>
                                     </div>
                                 </div>
+
+                                <button
+                                    type="button"
+                                    @click="goToConfirmation"
+                                    class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                >
+                                    <span>ادامه و رزرو این شماره (مرحله بعد)</span>
+                                    <span>←</span>
+                                </button>
                             </div>
 
-                            <!-- OCCUPIED / SUGGESTIONS -->
+                            <!-- 2. OCCUPIED BANNER & SMART SUGGESTIONS -->
                             <div
                                 v-else
                                 class="space-y-3 animate-in fade-in duration-200"
                             >
                                 <div class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2">
-                                    <span>⚠️</span>
-                                    <span>شماره انتخابی در حال حاضر واگذار شده است. می‌توانید یکی از گزینه‌های مشابه زیر را برگزینید:</span>
+                                    <span class="text-base">⚠️</span>
+                                    <span>شماره درخواستی ({{ fullPreviewNumber }}) قبلاً واگذار شده است. گزینه‌های آزاد پیشنهادی زیر را بررسی فرمایید:</span>
                                 </div>
 
                                 <div v-if="checkResult.suggestions && checkResult.suggestions.length > 0" class="space-y-2">
                                     <span class="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                                        شماره‌های پیشنهادی سیستم:
+                                        پیشنهاد شماره با همین ۶ رقم در سایر پیش‌کدها:
                                     </span>
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                                         <div
                                             v-for="(sug, idx) in checkResult.suggestions"
                                             :key="idx"
                                             @click="pickSuggestion(sug)"
-                                            class="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-800 hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between"
+                                            class="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-slate-800 hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between shadow-xs"
                                         >
                                             <div>
                                                 <span dir="ltr" class="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400 block">
@@ -576,24 +602,32 @@ const submitAllocation = () => {
                             </div>
                         </div>
 
+                        <!-- Typing helper hint (when less than 6 digits) -->
+                        <div v-else-if="suffixInput.length > 0 && suffixInput.length < 6" class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/60 dark:border-white/10 text-xs text-slate-500 flex items-center justify-between">
+                            <span>پیش‌نمایش شماره شما:</span>
+                            <span dir="ltr" class="font-mono font-black text-indigo-600 dark:text-indigo-400">
+                                {{ fullPreviewNumber }}
+                            </span>
+                        </div>
+
                         <!-- Browsing Free Numbers in Pool (when search is empty) -->
                         <div v-else-if="poolSuggestions.length > 0" class="space-y-2 pt-2 border-t border-slate-200/60 dark:border-white/10">
                             <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                                <span>پیشنهاد شماره‌های آزاد موجود در استخر:</span>
+                                <span>یا انتخاب از بین شماره‌های آماده استخر:</span>
                                 <button
                                     type="button"
                                     @click="loadPoolSuggestions"
-                                    class="text-indigo-600 hover:underline text-[11px]"
+                                    class="text-indigo-600 hover:underline text-[11px] cursor-pointer"
                                 >
-                                    بروزرسانی لیست ↻
+                                    بروزرسانی استخر ↻
                                 </button>
                             </div>
                             <div class="grid grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
                                 <div
                                     v-for="(pool, idx) in poolSuggestions"
                                     :key="idx"
-                                    @click="pickSuggestion(pool)"
-                                    class="p-2 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between text-xs"
+                                    @click="pickPoolNumber(pool)"
+                                    class="p-2.5 rounded-xl border border-slate-200/80 dark:border-white/10 bg-slate-50/60 dark:bg-white/5 hover:border-indigo-500 cursor-pointer transition-all flex items-center justify-between text-xs"
                                 >
                                     <span dir="ltr" class="font-mono font-black text-slate-800 dark:text-slate-200">
                                         {{ pool.sub_prefix }} {{ pool.suffix }}
@@ -603,20 +637,46 @@ const submitAllocation = () => {
                             </div>
                         </div>
 
-                        <!-- Step 2 Footer -->
+                        <!-- Collapsible Tariff Overview for Selected Prefix -->
+                        <div class="pt-1">
+                            <button
+                                type="button"
+                                @click="showTariffsOverview = !showTariffsOverview"
+                                class="text-[11px] font-bold text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 cursor-pointer"
+                            >
+                                <span>{{ showTariffsOverview ? '▲ بستن تعرفه‌های پیش‌شماره' : '▼ مشاهده تعرفه‌های خطوط ۹ رقمی ' + (selectedPrefix?.country_name || selectedPrefix?.name) }}</span>
+                            </button>
+
+                            <div v-if="showTariffsOverview && selectedPrefix" class="mt-2 p-3 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 grid grid-cols-3 gap-2 text-center text-xs">
+                                <div class="p-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-white/10">
+                                    <span class="text-[10px] text-slate-500 block">خط عادی</span>
+                                    <span class="font-black text-xs text-slate-900 dark:text-white">{{ selectedPrefix.price_regular }} کوین</span>
+                                </div>
+                                <div class="p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-500/20">
+                                    <span class="text-[10px] text-blue-600 dark:text-blue-400 block">نیمه‌رند</span>
+                                    <span class="font-black text-xs text-blue-700 dark:text-blue-300">{{ selectedPrefix.price_semi_rond }} کوین</span>
+                                </div>
+                                <div class="p-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/30 border border-amber-500/20">
+                                    <span class="text-[10px] text-amber-600 dark:text-amber-400 block">طلایی</span>
+                                    <span class="font-black text-xs text-amber-700 dark:text-amber-300">{{ selectedPrefix.price_golden_rond }} کوین</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 1 Footer -->
                         <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
                             <button
                                 type="button"
-                                @click="goToStep1"
-                                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                                @click="handleClose"
+                                class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
                             >
-                                → تغییر کشور
+                                انصراف
                             </button>
                             <button
                                 type="button"
-                                @click="goToStep3"
+                                @click="goToConfirmation"
                                 :disabled="!checkResult || !checkResult.is_available"
-                                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                                class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
                             >
                                 <span>مرحله بعد: تأیید نهایی</span>
                                 <span>←</span>
@@ -625,9 +685,9 @@ const submitAllocation = () => {
                     </div>
 
                     <!-- ============================================== -->
-                    <!-- STEP 3: Review & Instant Allocation            -->
+                    <!-- STEP 2: Review, Payment & Activation           -->
                     <!-- ============================================== -->
-                    <div v-else-if="currentStep === 3" class="space-y-4">
+                    <div v-else-if="currentStep === 2" class="space-y-4">
                         <form @submit.prevent="submitAllocation" class="space-y-4">
                             <!-- Invoice Summary Card -->
                             <div class="p-4 rounded-2xl bg-indigo-50/90 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-500/20 space-y-3 text-xs">
@@ -635,7 +695,7 @@ const submitAllocation = () => {
                                     <span class="text-slate-600 dark:text-slate-400 font-semibold">کشور و پیش‌شماره:</span>
                                     <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                         <span>{{ selectedPrefix?.flag }}</span>
-                                        <span>{{ selectedPrefix?.country_name }}</span>
+                                        <span>{{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
                                         <span dir="ltr" class="font-mono text-indigo-600 font-black">({{ selectedPrefix?.prefix }})</span>
                                     </span>
                                 </div>
@@ -667,7 +727,7 @@ const submitAllocation = () => {
                                 <div class="flex items-center justify-between">
                                     <span class="text-slate-700 dark:text-slate-300 font-semibold">موجودی کیف پول شما:</span>
                                     <span class="font-mono font-black text-amber-600 dark:text-amber-400">
-                                        {{ userBalance.toFixed(2) }} کوین
+                                        {{ userBalance.toFixed(2) }} کوین (TRX)
                                     </span>
                                 </div>
 
@@ -684,33 +744,33 @@ const submitAllocation = () => {
                                 <input
                                     type="checkbox"
                                     v-model="termsAccepted"
-                                    class="rounded-lg border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-indigo-500 mt-0.5"
+                                    class="rounded-lg border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-indigo-500 mt-0.5 cursor-pointer"
                                 />
                                 <span class="leading-relaxed">
                                     قوانین و مقررات استفاده از خطوط مجازی و سیاست‌های ضداسپم سامانه را مطالعه نموده و می‌پذیرم.
                                 </span>
                             </label>
 
-                            <!-- Step 3 Footer -->
+                            <!-- Step 2 Footer -->
                             <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
                                 <button
                                     type="button"
-                                    @click="goToStep2"
+                                    @click="goBackToSearch"
                                     :disabled="form.processing"
-                                    class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all"
+                                    class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
                                 >
                                     → بازگشت به جستجو
                                 </button>
                                 <button
                                     type="submit"
                                     :disabled="!termsAccepted || form.processing || hasInsufficientBalance"
-                                    class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                                    class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
                                 >
                                     <svg v-if="form.processing" class="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                     </svg>
-                                    <span>{{ form.processing ? 'در حال ثبت و تخصیص خط...' : 'پرداخت و دریافت آنی خط' }}</span>
+                                    <span>{{ form.processing ? 'در حال فعال‌سازی خط...' : 'پرداخت و دریافت آنی خط' }}</span>
                                 </button>
                             </div>
                         </form>
