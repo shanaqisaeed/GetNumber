@@ -133,11 +133,13 @@ class PhoneNumberController extends Controller
         $validated = $request->validate([
             'prefix_id' => ['required', 'integer', 'exists:phone_prefixes,id'],
             'sub_prefix' => ['nullable', 'string', 'regex:/^[0-9]{3}$/'],
+            'suffix_prefix' => ['nullable', 'string', 'max:6'],
         ]);
 
         $suggestions = $this->searchService->getPoolSuggestions(
             prefixId: (int) $validated['prefix_id'],
             subPrefix: $validated['sub_prefix'] ?? null,
+            suffixPrefix: $validated['suffix_prefix'] ?? null,
             limit: 6
         );
 

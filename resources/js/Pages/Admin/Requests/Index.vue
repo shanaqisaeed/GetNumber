@@ -19,6 +19,13 @@ interface NumberRequestItem {
     id: number;
     user: UserInfo;
     requested_length: number;
+    phone_prefix_id?: number | null;
+    prefix?: {
+        id: number;
+        prefix: string;
+        country_name?: string;
+        flag?: string;
+    } | null;
     service_title: string;
     description: string;
     preferred_number: string | null;
@@ -400,6 +407,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 </td>
 
                                 <td class="px-5 py-4 text-center">
+                                    <div v-if="req.prefix" class="text-[10px] text-slate-500 font-bold mb-1">
+                                        {{ req.prefix.flag }} {{ req.prefix.prefix }}
+                                    </div>
                                     <div v-if="req.allocated_number" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
                                         <span dir="ltr" class="font-mono text-xs font-black text-emerald-600 dark:text-emerald-400 tracking-wider">
                                             {{ req.allocated_number.number }}

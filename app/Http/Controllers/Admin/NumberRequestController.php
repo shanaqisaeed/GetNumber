@@ -28,7 +28,7 @@ class NumberRequestController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = NumberRequest::with(['user', 'allocatedNumber.prefix', 'reviewer']);
+        $query = NumberRequest::with(['user', 'allocatedNumber.prefix', 'reviewer', 'prefix']);
 
 
         if ($request->filled('search')) {
@@ -63,6 +63,13 @@ class NumberRequestController extends Controller
                     'username' => $req->user->username,
                 ],
                 'requested_length' => $req->requested_length,
+                'phone_prefix_id' => $req->phone_prefix_id,
+                'prefix' => $req->prefix ? [
+                    'id' => $req->prefix->id,
+                    'prefix' => $req->prefix->prefix,
+                    'country_name' => $req->prefix->country_name ?? $req->prefix->name,
+                    'flag' => $req->prefix->flag ?? '🌐',
+                ] : null,
                 'service_title' => $req->service_title,
                 'description' => $req->description,
                 'preferred_number' => $req->preferred_number,

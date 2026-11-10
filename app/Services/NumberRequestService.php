@@ -48,7 +48,8 @@ class NumberRequestService implements NumberRequestServiceInterface
         string $serviceTitle,
         string $description,
         ?string $preferredNumber = null,
-        bool $acceptsIncomingSms = true
+        bool $acceptsIncomingSms = true,
+        ?int $phonePrefixId = null
     ): NumberRequest {
         if ($requestedLength < 4 || $requestedLength > 8) {
             throw new InvalidNumberRequestException('طول سرشماره درخواستی باید بین ۴ تا ۸ رقم باشد.');
@@ -76,7 +77,7 @@ class NumberRequestService implements NumberRequestServiceInterface
         $isRond = (bool) ($rond['is_rond'] ?? false);
         $price = SystemSetting::getOrgNumberPrice($requestedLength, $isRond);
 
-        return DB::transaction(function () use ($user, $requestedLength, $cleanTitle, $cleanDescription, $cleanPreferred, $acceptsIncomingSms, $isRond, $rond, $price) {
+        return DB::transaction(function () use ($user, $phonePrefixId, $requestedLength, $cleanTitle, $cleanDescription, $cleanPreferred, $acceptsIncomingSms, $isRond, $rond, $price) {
             $holdRef = 'HOLD-REQ-' . Str::uuid();
 
             // Atomically hold/block funds in user's wallet
@@ -86,6 +87,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                 referenceId: $holdRef,
                 description: "مسدودی وجه جهت ثبت درخواست سرشماره سازمانی «{$cleanTitle}»",
                 metadata: [
+                    'phone_prefix_id' => $phonePrefixId,
                     'requested_length' => $requestedLength,
                     'service_title' => $cleanTitle,
                     'preferred_number' => $cleanPreferred,
@@ -95,6 +97,7 @@ class NumberRequestService implements NumberRequestServiceInterface
 
             return NumberRequest::create([
                 'user_id' => $user->id,
+                'phone_prefix_id' => $phonePrefixId,
                 'requested_length' => $requestedLength,
                 'service_title' => $cleanTitle,
                 'description' => $cleanDescription,
@@ -268,8 +271,10 @@ class NumberRequestService implements NumberRequestServiceInterface
             throw new NumberAlreadyAllocatedException($cleanNumber);
         }
 
+        $prefixId = $req->phone_prefix_id ?? \App\Models\PhonePrefix::getDefaultPrefix()->id;
+
         $phone = PhoneNumber::create([
-            'phone_prefix_id' => \App\Models\PhonePrefix::getDefaultPrefix()->id,
+            'phone_prefix_id' => $prefixId,
             'number' => $cleanNumber,
             'type' => PhoneNumberType::UserService,
             'status' => PhoneNumberStatus::Allocated,
@@ -367,8 +372,9 @@ class NumberRequestService implements NumberRequestServiceInterface
 
             $exists = PhoneNumber::where('number', $generated)->exists();
             if (! $exists) {
+                $prefixId = $req->phone_prefix_id ?? \App\Models\PhonePrefix::getDefaultPrefix()->id;
                 $newPhone = PhoneNumber::create([
-                    'phone_prefix_id' => \App\Models\PhonePrefix::getDefaultPrefix()->id,
+                    'phone_prefix_id' => $prefixId,
                     'number' => $generated,
                     'type' => PhoneNumberType::UserService,
                     'status' => PhoneNumberStatus::Allocated,

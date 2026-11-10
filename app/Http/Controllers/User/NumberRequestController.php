@@ -26,7 +26,7 @@ class NumberRequestController extends Controller
     {
         $user = $request->user();
 
-        $query = NumberRequest::with(['allocatedNumber.prefix', 'reviewer'])
+        $query = NumberRequest::with(['allocatedNumber.prefix', 'reviewer', 'prefix'])
             ->where('user_id', $user->id);
 
 
@@ -48,6 +48,13 @@ class NumberRequestController extends Controller
             ->withQueryString()
             ->through(fn ($req) => [
                 'id' => $req->id,
+                'phone_prefix_id' => $req->phone_prefix_id,
+                'prefix' => $req->prefix ? [
+                    'id' => $req->prefix->id,
+                    'prefix' => $req->prefix->prefix,
+                    'country_name' => $req->prefix->country_name ?? $req->prefix->name,
+                    'flag' => $req->prefix->flag ?? '🌐',
+                ] : null,
                 'requested_length' => $req->requested_length,
                 'service_title' => $req->service_title,
                 'description' => $req->description,
@@ -100,6 +107,16 @@ class NumberRequestController extends Controller
                 'balance' => (string) $user->getOrCreateWallet()->balance,
             ],
             'available_pool_numbers' => $availablePoolNumbers,
+            'active_prefixes' => \App\Models\PhonePrefix::active()->get([
+                'id',
+                'prefix',
+                'clean_prefix',
+                'name',
+                'country_name',
+                'country_code',
+                'flag',
+                'is_default',
+            ]),
         ]);
     }
 
@@ -115,7 +132,8 @@ class NumberRequestController extends Controller
                 serviceTitle: (string) $request->input('service_title'),
                 description: (string) $request->input('description'),
                 preferredNumber: $request->input('preferred_number'),
-                acceptsIncomingSms: $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true
+                acceptsIncomingSms: $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
+                phonePrefixId: $request->filled('phone_prefix_id') ? (int) $request->input('phone_prefix_id') : null
             );
 
             return back()->with('success', "درخواست سرشماره سازمانی «{$newRequest->service_title}» با موفقیت ثبت شد و در صف بررسی مدیریت قرار گرفت.");

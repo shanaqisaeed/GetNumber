@@ -23,6 +23,7 @@ class StoreNumberRequestRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'phone_prefix_id' => ['nullable', 'integer', 'exists:phone_prefixes,id'],
             'requested_length' => ['required', 'integer', 'between:4,8'],
             'service_title' => ['required', 'string', 'min:2', 'max:100'],
             'description' => ['required', 'string', 'min:5', 'max:1000'],

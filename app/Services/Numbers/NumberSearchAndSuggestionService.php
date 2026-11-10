@@ -190,17 +190,20 @@ class NumberSearchAndSuggestionService
     /**
      * Get free numbers from available pool or generated candidates for browsing.
      */
-    public function getPoolSuggestions(int $prefixId, ?string $subPrefix = null, int $limit = 6): array
+    public function getPoolSuggestions(int $prefixId, ?string $subPrefix = null, ?string $suffixPrefix = null, int $limit = 6): array
     {
         /** @var PhonePrefix $prefix */
         $prefix = PhonePrefix::findOrFail($prefixId);
         $sub = $subPrefix ?: ($prefix->getSubPrefixesList()[0] ?? '912');
+        $cleanSufPref = $suffixPrefix ? preg_replace('/\D/', '', $suffixPrefix) : null;
 
         $query = PhoneNumber::where('phone_prefix_id', $prefix->id)
             ->where('status', PhoneNumberStatus::Available)
             ->where('type', PhoneNumberType::UserStandard);
 
-        if ($subPrefix) {
+        if ($cleanSufPref) {
+            $query->where('number', 'like', "{$sub}{$cleanSufPref}%");
+        } elseif ($subPrefix) {
             $query->where('number', 'like', "{$sub}%");
         }
 
@@ -226,9 +229,20 @@ class NumberSearchAndSuggestionService
 
         // If pool has fewer than limit, create candidate suggestions
         $attempts = 0;
-        while (count($results) < $limit && $attempts < 20) {
+        while (count($results) < $limit && $attempts < 25) {
             $attempts++;
-            $randSuffix = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            if ($cleanSufPref) {
+                $remLen = 6 - strlen($cleanSufPref);
+                if ($remLen > 0) {
+                    $randTail = str_pad((string) random_int(0, (10 ** $remLen) - 1), $remLen, '0', STR_PAD_LEFT);
+                    $randSuffix = $cleanSufPref . $randTail;
+                } else {
+                    $randSuffix = substr($cleanSufPref, 0, 6);
+                }
+            } else {
+                $randSuffix = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            }
+
             $candidateNum = $sub . $randSuffix;
 
             $occupied = PhoneNumber::where('phone_prefix_id', $prefix->id)

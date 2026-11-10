@@ -17,6 +17,7 @@ class NumberRequest extends Model
      */
     protected $fillable = [
         'user_id',
+        'phone_prefix_id',
         'requested_length',
         'service_title',
         'description',
@@ -76,6 +77,14 @@ class NumberRequest extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    /**
+     * The requested phone prefix if specified.
+     */
+    public function prefix(): BelongsTo
+    {
+        return $this->belongsTo(PhonePrefix::class, 'phone_prefix_id');
     }
 
     /**

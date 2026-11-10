@@ -52,6 +52,38 @@ class NumberRequestTest extends TestCase
         ]);
     }
 
+    public function test_user_can_submit_request_with_specific_prefix(): void
+    {
+        $user = User::factory()->create();
+        $prefix = \App\Models\PhonePrefix::firstOrCreate(
+            ['clean_prefix' => '98'],
+            [
+                'prefix' => '+98',
+                'name' => 'Iran',
+                'country_name' => 'ایران',
+                'country_code' => 'IR',
+                'flag' => '🇮🇷',
+                'is_active' => true,
+            ]
+        );
+        app(\App\Contracts\WalletServiceInterface::class)->deposit($user, '1000.00000000', 'TEST-FUNDS');
+
+        $response = $this->actingAs($user)->post('/requests', [
+            'phone_prefix_id' => $prefix->id,
+            'requested_length' => 4,
+            'service_title' => 'سازمان ملی خدمات',
+            'description' => 'پشتیبانی خطوط ارتباطی',
+            'preferred_number' => '4444',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('number_requests', [
+            'user_id' => $user->id,
+            'phone_prefix_id' => $prefix->id,
+            'preferred_number' => '4444',
+        ]);
+    }
+
     public function test_number_request_fails_if_length_is_outside_4_to_8_range(): void
     {
         $user = User::factory()->create();

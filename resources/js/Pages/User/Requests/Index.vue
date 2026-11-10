@@ -11,6 +11,13 @@ interface AllocatedNumber {
 
 interface NumberRequestItem {
     id: number;
+    phone_prefix_id?: number | null;
+    prefix?: {
+        id: number;
+        prefix: string;
+        country_name?: string;
+        flag?: string;
+    } | null;
     requested_length: number;
     service_title: string;
     description: string;
@@ -44,6 +51,17 @@ interface PoolNumberItem {
     rond_pattern?: string;
 }
 
+export interface PrefixOption {
+    id: number;
+    prefix: string;
+    clean_prefix: string;
+    name: string;
+    country_name?: string;
+    country_code?: string;
+    flag?: string;
+    is_default: boolean;
+}
+
 const props = defineProps<{
     requests: {
         data: NumberRequestItem[];
@@ -65,6 +83,7 @@ const props = defineProps<{
     org_tariffs?: Record<number, { regular: string; rond: string }>;
     wallet?: { balance: string };
     available_pool_numbers?: PoolNumberItem[];
+    active_prefixes?: PrefixOption[];
 }>();
 
 // Filter states
@@ -94,11 +113,20 @@ const availableLengths = [4, 5, 6, 7, 8];
 const termsAccepted = ref(false);
 
 const createForm = useForm({
+    phone_prefix_id: null as number | null,
     requested_length: 4,
     service_title: '',
     description: '',
     preferred_number: '',
     accepts_incoming_sms: true,
+});
+
+const selectedPrefix = computed(() => {
+    if (!props.active_prefixes || props.active_prefixes.length === 0) return null;
+    if (createForm.phone_prefix_id) {
+        return props.active_prefixes.find((p) => p.id === createForm.phone_prefix_id) || props.active_prefixes[0];
+    }
+    return props.active_prefixes.find((p) => p.is_default) || props.active_prefixes[0];
 });
 
 // Detect rondness for preferred number
@@ -146,6 +174,7 @@ const pickPoolNumber = (pNum: string) => {
 const openCreateModal = () => {
     termsAccepted.value = false;
     createForm.reset();
+    createForm.phone_prefix_id = selectedPrefix.value?.id || null;
     createForm.requested_length = 4;
     createForm.accepts_incoming_sms = true;
     createForm.clearErrors();
@@ -354,6 +383,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Header: Service Title & Status Badge -->
                     <div class="flex items-center justify-between gap-2">
                         <div class="flex items-center flex-wrap gap-2 min-w-0">
+                            <span v-if="req.prefix" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-400 shrink-0">
+                                {{ req.prefix.flag }} {{ req.prefix.prefix }}
+                            </span>
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0">
                                 {{ req.requested_length }} رقمی
                             </span>
@@ -522,6 +554,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <form @submit.prevent="submitCreate" class="space-y-4">
+                            <!-- 1. Country & Prefix Selector (مانند شماره عادی) -->
+                            <div>
+                                <label class="form-label">کشور و پیش‌شماره سرشماره سازمانی:</label>
+                                <div class="relative">
+                                    <select
+                                        v-model="createForm.phone_prefix_id"
+                                        :disabled="createForm.processing"
+                                        class="form-select !py-2.5 !text-xs font-bold cursor-pointer"
+                                    >
+                                        <option v-for="p in active_prefixes" :key="p.id" :value="p.id">
+                                            {{ p.flag || '🌐' }} {{ p.prefix }} — {{ p.country_name || p.name }}
+                                        </option>
+                                    </select>
+                                </div>
+                            </div>
+
                             <!-- Length Chips -->
                             <div>
                                 <label class="form-label">طول سرشماره درخواستی:</label>
@@ -565,26 +613,44 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </div>
                             </div>
 
-                            <!-- Preferred Number Input -->
+                            <!-- Preferred Number Input with Prefix Pill -->
                             <div>
                                 <label class="form-label">
                                     شماره درخواستی
                                     <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(انتخاب از استخر یا تایپ شماره دلخواه)</span>:
                                 </label>
-                                <input
-                                    type="text"
-                                    v-model="createForm.preferred_number"
-                                    :maxlength="createForm.requested_length"
-                                    placeholder="مثال: 8888"
-                                    dir="ltr"
-                                    :disabled="createForm.processing"
-                                    class="form-input !py-2.5 !text-xs !font-mono text-center font-black tracking-widest"
-                                />
+                                <div dir="ltr" class="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                                    <div class="h-10 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono font-black text-xs flex items-center gap-1 text-slate-800 dark:text-slate-200 shrink-0">
+                                        <span>{{ selectedPrefix?.flag }}</span>
+                                        <span>{{ selectedPrefix?.prefix || '+85' }}</span>
+                                    </div>
+                                    <span class="text-slate-400 font-bold select-none">-</span>
+                                    <input
+                                        type="text"
+                                        v-model="createForm.preferred_number"
+                                        :maxlength="createForm.requested_length"
+                                        placeholder="مثال: 8888"
+                                        dir="ltr"
+                                        :disabled="createForm.processing"
+                                        class="w-full h-10 px-3 rounded-xl bg-white dark:bg-slate-900 font-mono font-black text-sm text-center tracking-widest text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-purple-500 outline-none"
+                                    />
+                                </div>
                             </div>
 
                             <!-- Financial Hold Summary Card -->
                             <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs space-y-2">
                                 <div class="flex items-center justify-between">
+                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">
+                                        کشور و پیش‌شماره انتخابی:
+                                    </span>
+                                    <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                                        <span>{{ selectedPrefix?.flag }}</span>
+                                        <span>{{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
+                                        <span dir="ltr" class="font-mono text-purple-600 font-black">({{ selectedPrefix?.prefix }})</span>
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
                                     <span class="text-slate-600 dark:text-slate-400 font-semibold">
                                         تعرفه خط {{ createForm.requested_length }} رقمی
                                         <span v-if="currentIsRond" class="text-amber-600 font-bold">(رند)</span>
@@ -755,6 +821,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <div class="space-y-3 text-xs">
+                            <div v-if="selectedRequest.prefix" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">پیش‌شماره / کشور:</span>
+                                <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                    <span>{{ selectedRequest.prefix.flag }}</span>
+                                    <span>{{ selectedRequest.prefix.country_name }}</span>
+                                    <span dir="ltr" class="font-mono text-purple-600 font-black">({{ selectedRequest.prefix.prefix }})</span>
+                                </span>
+                            </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
                                 <span class="text-slate-500 dark:text-slate-400">عنوان:</span>
                                 <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.service_title }}</span>
