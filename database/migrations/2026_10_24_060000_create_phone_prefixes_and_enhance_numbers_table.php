@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->string('prefix', 12)->unique(); // e.g. '+85', '+98'
             $table->string('clean_prefix', 12)->index(); // e.g. '85', '98'
-            $table->string('name', 100); // e.g. 'پیش‌شماره سازمانی راوی نو'
+            $table->string('name', 100); // e.g. 'Default Organizational Prefix'
             $table->string('country_code', 10)->nullable(); // e.g. 'INTL', 'IR'
             $table->boolean('is_default')->default(false)->index();
             $table->boolean('is_active')->default(true)->index();

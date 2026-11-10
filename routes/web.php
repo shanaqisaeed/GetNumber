@@ -55,16 +55,19 @@ Route::get('/sitemap.xml', function () {
 // Service Worker for Web Push Notifications
 Route::get('/sw.js', function () {
     $swPath = public_path('sw.js');
-    $content = file_exists($swPath)
-        ? file_get_contents($swPath)
-        : <<<'JS'
+    if (file_exists($swPath)) {
+        $content = file_get_contents($swPath);
+    } else {
+        $defaultTitle = json_encode(__('system.web_push.default_title'), JSON_UNESCAPED_UNICODE);
+        $defaultBody = json_encode(__('system.web_push.default_body'), JSON_UNESCAPED_UNICODE);
+        $content = <<<JS
 self.addEventListener('install', (e) => { e.waitUntil(self.skipWaiting()); });
 self.addEventListener('activate', (e) => { e.waitUntil(self.clients.claim()); });
 self.addEventListener('push', (e) => {
     let d = {};
-    try { d = e.data ? e.data.json() : {}; } catch { d = { title: 'پیامک جدید', body: e.data ? e.data.text() : '' }; }
-    e.waitUntil(self.registration.showNotification(d.title || 'پیامک جدید', {
-        body: d.body || 'یک پیامک جدید دریافت شد.',
+    try { d = e.data ? e.data.json() : {}; } catch { d = { title: {$defaultTitle}, body: e.data ? e.data.text() : '' }; }
+    e.waitUntil(self.registration.showNotification(d.title || {$defaultTitle}, {
+        body: d.body || {$defaultBody},
         icon: '/icon-192.png',
         badge: '/icon-192.png',
         tag: 'sms-' + Date.now(),
@@ -84,6 +87,7 @@ self.addEventListener('notificationclick', (e) => {
     );
 });
 JS;
+    }
 
     return response($content, 200, [
         'Content-Type' => 'application/javascript; charset=utf-8',

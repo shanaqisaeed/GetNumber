@@ -51,7 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->validator->errors()->first() ?: 'داده‌های ارسالی اعتبارسنجی نشدند.',
+                    'message' => $e->validator->errors()->first() ?: __('system.validation_error'),
                     'code' => 'VALIDATION_ERROR',
                     'errors' => $e->errors(),
                 ], 422);
@@ -62,7 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage() ?: 'دسترسی غیرمجاز می‌باشد.',
+                    'message' => $e->getMessage() ?: __('system.forbidden'),
                     'code' => 'FORBIDDEN',
                 ], 403);
             }
@@ -72,7 +72,7 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($request->is('api/*') || $request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage() ?: 'منبع مورد نظر در سامانه یافت نشد.',
+                    'message' => $e->getMessage() ?: __('system.not_found'),
                     'code' => 'NOT_FOUND',
                 ], 404);
             }

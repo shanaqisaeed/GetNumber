@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Chart of Accounts (سرفصل‌های دفاتر کل حسابداری)
+        // 1. Chart of Accounts (General Ledger Chart of Accounts)
         Schema::create('ledger_accounts', function (Blueprint $table) {
             $table->id();
             $table->string('code', 50)->unique();
@@ -24,7 +24,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // 2. Journal Entries (دفتر روزنامه - اسناد مالی)
+        // 2. Journal Entries (General Journal Financial Records)
         Schema::create('journal_entries', function (Blueprint $table) {
             $table->id();
             $table->string('entry_number', 64)->unique();
@@ -41,7 +41,7 @@ return new class extends Migration
             $table->index('posted_at');
         });
 
-        // 3. Ledger Entries (سطرهای بدهکار و بستانکار دفتر کل)
+        // 3. Ledger Entries (General Ledger Entries)
         Schema::create('ledger_entries', function (Blueprint $table) {
             $table->id();
             $table->foreignId('journal_entry_id')->constrained('journal_entries')->cascadeOnDelete();

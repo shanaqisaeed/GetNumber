@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 1. Message Batches (مدیریت کارزارهای ارسال پیامک انبوه)
+        // 1. Message Batches (Bulk SMS Campaigns Management)
         Schema::create('message_batches', function (Blueprint $table) {
             $table->id();
             $table->string('batch_id', 64)->unique();
@@ -32,7 +32,7 @@ return new class extends Migration
             $table->index(['phone_number_id', 'created_at']);
         });
 
-        // 2. Message Batch Items (آیتم‌های مقصدهای هر بسته ارسالی با قابلیت Resume و جلوگیری از ارسال تکراری)
+        // 2. Message Batch Items (Campaign Destination Items with Resume & Idempotency)
         Schema::create('message_batch_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('message_batch_id')->constrained('message_batches')->cascadeOnDelete();

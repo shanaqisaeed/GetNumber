@@ -162,7 +162,7 @@ class PhonePrefix extends Model
         return new self([
             'prefix' => '+85',
             'clean_prefix' => '85',
-            'name' => 'پیش‌شماره سازمانی پیش‌فرض',
+            'name' => __('models.phone_prefix.default_name'),
             'country_code' => 'INTL',
             'is_default' => true,
             'is_active' => true,

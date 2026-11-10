@@ -38,13 +38,13 @@ class TicketAttachment extends Model
     {
         $bytes = $this->file_size;
         if ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' مگابایت';
+            return __('models.ticket_attachment.units.mb', ['size' => round($bytes / 1048576, 2)]);
         }
         if ($bytes >= 1024) {
-            return round($bytes / 1024, 1) . ' کیلوبایت';
+            return __('models.ticket_attachment.units.kb', ['size' => round($bytes / 1024, 1)]);
         }
 
-        return $bytes . ' بایت';
+        return __('models.ticket_attachment.units.bytes', ['size' => $bytes]);
     }
 
     public function isImage(): bool

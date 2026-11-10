@@ -10,4 +10,3 @@ return [
         'manual_review_reason' => 'Transaction unconfirmed after 3 consecutive 30-minute verification attempts (escalated for manual admin review).',
     ],
 ];
-

@@ -55,15 +55,15 @@ class UserIdentity extends Model
     }
 
     /**
-     * Human-readable provider label in formal Persian.
+     * Human-readable provider label.
      */
     public function providerLabel(): string
     {
         return match ($this->provider) {
-            'username' => 'شناسه کاربری و گذرواژه',
-            'email' => 'پست الکترونیک (ایمیل)',
-            'ldap' => 'سامانه سازمانی LDAP / اکتیو دایرکتوری',
-            'keycloak' => 'ورود یکپارچه Keycloak SSO',
+            'username' => __('models.user_identity.providers.username'),
+            'email' => __('models.user_identity.providers.email'),
+            'ldap' => __('models.user_identity.providers.ldap'),
+            'keycloak' => __('models.user_identity.providers.keycloak'),
             default => $this->provider,
         };
     }

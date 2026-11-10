@@ -54,9 +54,9 @@ class PhoneNumber extends Model
     public function getRondTierLabelAttribute(): string
     {
         return match ($this->rond_tier) {
-            'golden_rond' => 'رند طلایی',
-            'semi_rond' => 'نیمه‌رند',
-            default => 'عادی',
+            'golden_rond' => __('models.phone_number.rond_tiers.golden_rond'),
+            'semi_rond' => __('models.phone_number.rond_tiers.semi_rond'),
+            default => __('models.phone_number.rond_tiers.regular'),
         };
     }
 
@@ -231,7 +231,7 @@ class PhoneNumber extends Model
         if ($this->status !== PhoneNumberStatus::Allocated) {
             return [
                 'allowed' => false,
-                'reason' => "خط مقصد در وضعیت «{$this->status->label()}» بوده و آماده دریافت پیامک نمی‌باشد.",
+                'reason' => __('models.phone_number.inbound_rules.not_allocated', ['status' => $this->status->label()]),
             ];
         }
 
@@ -239,7 +239,7 @@ class PhoneNumber extends Model
         if (! $this->accepts_incoming_sms) {
             return [
                 'allowed' => false,
-                'reason' => 'این سرشماره برای عدم دریافت پیامک ورودی (صرفاً یک‌طرفه/اطلاع‌رسانی) پیکربندی شده است.',
+                'reason' => __('models.phone_number.inbound_rules.incoming_disabled'),
             ];
         }
 
@@ -248,7 +248,7 @@ class PhoneNumber extends Model
             if (! $senderUser?->isAdmin()) {
                 return [
                     'allowed' => false,
-                    'reason' => 'ارسال پیامک به این سرشماره اختصاصی سامانه توسط کاربران عادی مجاز نمی‌باشد.',
+                    'reason' => __('models.phone_number.inbound_rules.platform_service_forbidden'),
                 ];
             }
         }

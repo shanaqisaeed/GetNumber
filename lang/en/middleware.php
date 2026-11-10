@@ -15,4 +15,3 @@ return [
         'staff_only' => 'Unauthorized access. This area is restricted to support staff and administrators.',
     ],
 ];
-

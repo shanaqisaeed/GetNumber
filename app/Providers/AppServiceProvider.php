@@ -106,7 +106,7 @@ class AppServiceProvider extends ServiceProvider
             return \Illuminate\Cache\RateLimiting\Limit::perMinute(60)->by($key)->response(function () {
                 return response()->json([
                     'success' => false,
-                    'message' => 'تعداد درخواست‌های ارسالی بیش از سقف مجاز (Rate Limit) در دقیقه می‌باشد. لطفاً شکیبا باشید.',
+                    'message' => __('system.rate_limit_exceeded'),
                     'code' => 'RATE_LIMIT_EXCEEDED',
                 ], 429);
             });
