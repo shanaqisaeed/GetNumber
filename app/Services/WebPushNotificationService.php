@@ -132,10 +132,10 @@ class WebPushNotificationService
         }
 
         // Privacy rule: Only state who sent the SMS, never the message body!
-        $sender = $message->peer_number ?: $message->sender ?: 'شماره ناشناس';
+        $sender = $message->peer_number ?: $message->sender ?: __('services.web_push.unknown_sender');
         $payload = json_encode([
-            'title' => 'پیامک جدید دریافت شد',
-            'body' => "پیام جدیدی از شماره {$sender} دریافت شد.",
+            'title' => __('services.web_push.new_message_title'),
+            'body' => __('services.web_push.new_message_body', ['sender' => $sender]),
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
             'tag' => 'getnumber-sms-' . $message->id,
@@ -206,7 +206,7 @@ class WebPushNotificationService
         if ($subscriptions->isEmpty()) {
             return [
                 'success' => false,
-                'message' => 'هیچ مرورگری برای دریافت اعلان برای این کاربر ثبت نشده است.',
+                'message' => __('services.web_push.no_subscriptions'),
             ];
         }
 
@@ -215,14 +215,14 @@ class WebPushNotificationService
         $subject = $this->resolveSubject();
 
         $payload = json_encode([
-            'title' => 'اعلان تست GetNumber',
-            'body' => 'این یک پیامک تست پس‌زمینه از سامانه است.',
+            'title' => __('services.web_push.test_title'),
+            'body' => __('services.web_push.test_body'),
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
             'tag' => 'getnumber-test-' . time(),
             'data' => [
                 'url' => '/dashboard',
-                'sender' => 'سامانه GetNumber',
+                'sender' => __('services.web_push.test_sender'),
             ],
         ], JSON_UNESCAPED_UNICODE);
 
@@ -260,7 +260,7 @@ class WebPushNotificationService
 
             return [
                 'success' => $successCount > 0,
-                'message' => "ارسال اعلان تست انجام شد (موفق: {$successCount}، ناموفق: {$failCount}).",
+                'message' => __('services.web_push.test_sent_summary', ['success' => $successCount, 'fail' => $failCount]),
                 'success_count' => $successCount,
                 'fail_count' => $failCount,
             ];
@@ -268,9 +268,8 @@ class WebPushNotificationService
             Log::error('[WebPush] Test notification error: ' . $e->getMessage());
             return [
                 'success' => false,
-                'message' => 'خطا در ارسال اعلان تست: ' . $e->getMessage(),
+                'message' => __('services.web_push.test_failed', ['error' => $e->getMessage()]),
             ];
         }
     }
 }
-

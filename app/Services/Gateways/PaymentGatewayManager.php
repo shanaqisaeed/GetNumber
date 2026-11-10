@@ -37,7 +37,7 @@ class PaymentGatewayManager
         }
 
         if (! isset($this->drivers[$resolvedDriver])) {
-            throw new InvalidArgumentException("درگاه پرداختی با شناسه «{$resolvedDriver}» تعریف نشده است.");
+            throw new InvalidArgumentException(__('services.gateways.manager.gateway_not_found', ['code' => $resolvedDriver]));
         }
 
         $gatewayModel = PaymentGateway::where('driver', $resolvedDriver)->first();
@@ -54,7 +54,7 @@ class PaymentGatewayManager
         $driver = $model->driver;
 
         if (! isset($this->drivers[$driver])) {
-            throw new InvalidArgumentException("درایور ناشناخته: «{$driver}»");
+            throw new InvalidArgumentException(__('services.gateways.manager.gateway_not_found', ['code' => $driver]));
         }
 
         $class = $this->drivers[$driver];
@@ -122,4 +122,3 @@ class PaymentGatewayManager
         $this->drivers[$driver] = $class;
     }
 }
-

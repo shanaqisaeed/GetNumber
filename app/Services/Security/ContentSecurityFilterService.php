@@ -73,7 +73,7 @@ class ContentSecurityFilterService
             }
 
             throw new ContentSecurityViolationException(
-                message: 'ارسال پیام به علت شناسایی الگوهای مشکوک فیشینگ و کلاهبرداری مسدود گردید.',
+                message: __('services.security.filter.blocked_phishing'),
                 details: $inspection
             );
         }
@@ -98,14 +98,14 @@ class ContentSecurityFilterService
         }
 
         if (count($matchedPhrases) > 0) {
-            $reasons[] = 'شناسایی کلیدواژه‌های پرتکرار فیشینگ بانکی یا قضایی';
+            $reasons[] = __('services.security.filter.reason_keywords');
         }
 
         // 2. Suspicious URL patterns check
         foreach (self::SUSPICIOUS_URL_REGEX as $regex) {
             if (preg_match($regex, $body, $matches)) {
                 $matchedPhrases[] = $matches[0];
-                $reasons[] = 'شناسایی آدرس وب مشکوک یا پیوند فیشینگ';
+                $reasons[] = __('services.security.filter.reason_url');
             }
         }
 
@@ -118,4 +118,3 @@ class ContentSecurityFilterService
         ];
     }
 }
-

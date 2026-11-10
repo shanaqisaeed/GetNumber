@@ -91,7 +91,7 @@ class SystemCacheService implements SystemCacheServiceInterface
 
     /**
      * Invalidate and immediately re-save/prime fresh conversations for a line.
-     * Fulfills: "وقتی پیامک جدید میاد ما باید پیامک اون شماره که پیامک اومده بهش پاک کنیم جدید سیو کنیم"
+     * Fulfills: Cache invalidation and update when new inbound/outbound SMS arrives.
      */
     public function handleMessageCreated(Message $message): void
     {
@@ -615,7 +615,7 @@ class SystemCacheService implements SystemCacheServiceInterface
             if ($peerRecord) {
                 if (! $peerRecord->accepts_incoming_sms) {
                     $canReply = false;
-                    $canReplyReason = 'این سرشماره تجاری صرفاً یک‌طرفه بوده و امکان دریافت پیامک یا پاسخ را ندارد.';
+                    $canReplyReason = __('services.cache.one_way_line_no_reply');
                 } else {
                     $check = $peerRecord->canReceiveMessagesFrom($phoneNumber, $phoneNumber->user);
                     if (! $check['allowed']) {

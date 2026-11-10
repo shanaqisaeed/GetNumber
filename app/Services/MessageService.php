@@ -128,7 +128,7 @@ class MessageService implements MessageServiceInterface
         // 5. Validation for Bulk Dispatch
         if (empty($rawSender)) {
             throw ValidationException::withMessages([
-                'sender' => 'خط فرستنده جهت ارسال چندگانه الزامی است.',
+                'sender' => __('services.messages.sender_required'),
             ]);
         }
 
@@ -137,27 +137,27 @@ class MessageService implements MessageServiceInterface
 
         if (! $fromPhone) {
             throw ValidationException::withMessages([
-                'sender' => 'خط فرستنده در سامانه یافت نشد.',
+                'sender' => __('services.messages.sender_not_found'),
             ]);
         }
 
         if ($fromPhone->status !== PhoneNumberStatus::Allocated) {
             throw ValidationException::withMessages([
-                'sender' => "خط فرستنده در وضعیت «{$fromPhone->status->label()}» بوده و آماده ارسال پیام نمی‌باشد.",
+                'sender' => __('services.messages.sender_not_ready', ['status' => $fromPhone->status->label()]),
             ]);
         }
 
         if (! $effectiveActor?->isAdmin() && $fromPhone->user_id !== $effectiveActor?->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('services.messages.not_owner'));
         }
 
         if ($fromPhone->type === PhoneNumberType::PlatformService && ! $effectiveActor?->isAdmin()) {
-            throw new AccessDeniedHttpException('ارسال پیامک از سرشماره اختصاصی سامانه منحصراً در اختیار راهبر سیستم است.');
+            throw new AccessDeniedHttpException(__('services.messages.platform_sender_admin_only'));
         }
 
         if (empty($body)) {
             throw ValidationException::withMessages([
-                'body' => 'متن پیام نمی‌تواند خالی باشد.',
+                'body' => __('services.messages.body_empty'),
             ]);
         }
 
@@ -265,7 +265,7 @@ class MessageService implements MessageServiceInterface
                     'destination' => $dest,
                     'status' => 'failed',
                     'message_id' => null,
-                    'reason' => 'خطای سیستمی در ثبت پیام: ' . $e->getMessage(),
+                    'reason' => __('services.messages.system_record_error', ['error' => $e->getMessage()]),
                 ];
                 $failedCount++;
             }
@@ -349,13 +349,13 @@ class MessageService implements MessageServiceInterface
 
             if (! $phoneNumber) {
                 throw ValidationException::withMessages([
-                    'sender' => 'خط فرستنده در سامانه یافت نشد.',
+                    'sender' => __('services.messages.sender_not_found'),
                 ]);
             }
 
             if ($phoneNumber->status !== PhoneNumberStatus::Allocated) {
                 throw ValidationException::withMessages([
-                    'sender' => "خط فرستنده در وضعیت «{$phoneNumber->status->label()}» بوده و آماده ارسال پیام نمی‌باشد.",
+                    'sender' => __('services.messages.sender_not_ready', ['status' => $phoneNumber->status->label()]),
                 ]);
             }
 
@@ -377,19 +377,19 @@ class MessageService implements MessageServiceInterface
 
             if (! $phoneNumber) {
                 throw ValidationException::withMessages([
-                    'destination_number' => 'شماره مقصد در سامانه یافت نشد.',
+                    'destination_number' => __('services.messages.dest_not_found'),
                 ]);
             }
 
             if ($phoneNumber->status !== PhoneNumberStatus::Allocated) {
                 throw ValidationException::withMessages([
-                    'destination_number' => "شماره مقصد در وضعیت «{$phoneNumber->status->label()}» بوده و آماده دریافت پیام نمی‌باشد.",
+                    'destination_number' => __('services.messages.dest_not_ready', ['status' => $phoneNumber->status->label()]),
                 ]);
             }
 
             if (! $phoneNumber->accepts_incoming_sms) {
                 throw ValidationException::withMessages([
-                    'destination_number' => 'این سرشماره برای عدم دریافت پیامک ورودی (صرفاً یک‌طرفه/اطلاع‌رسانی) پیکربندی شده است.',
+                    'destination_number' => __('services.messages.dest_no_inbound'),
                 ]);
             }
 
@@ -401,11 +401,11 @@ class MessageService implements MessageServiceInterface
 
         if ($phoneNumber->type === PhoneNumberType::PlatformService) {
             if (! $effectiveActor || ! $effectiveActor->isAdmin()) {
-                throw new AccessDeniedHttpException('دسترسی غیرمجاز. ثبت پیام برای سرشماره‌های اختصاصی سامانه منحصراً در اختیار راهبر سامانه است.');
+                throw new AccessDeniedHttpException(__('services.messages.platform_number_admin_only'));
             }
         } elseif ($effectiveActor && ! $effectiveActor->isAdmin()) {
             if ($phoneNumber->user_id !== $effectiveActor->id) {
-                throw new AccessDeniedHttpException('دسترسی غیرمجاز. ثبت پیام منحصراً برای خطوط فعال اختصاص‌یافته به حساب خودتان مجاز است.');
+                throw new AccessDeniedHttpException(__('services.messages.only_own_allocated_lines'));
             }
         }
 
@@ -652,23 +652,23 @@ class MessageService implements MessageServiceInterface
     public function sendSms(PhoneNumber $fromNumber, array $destinationNumbers, string $body, User $senderUser): array
     {
         if (! $senderUser->isAdmin() && $fromNumber->user_id !== $senderUser->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('services.messages.not_owner'));
         }
 
         if ($fromNumber->type === PhoneNumberType::PlatformService && ! $senderUser->isAdmin()) {
-            throw new AccessDeniedHttpException('ارسال پیامک از سرشماره اختصاصی سامانه منحصراً در اختیار راهبر سیستم است.');
+            throw new AccessDeniedHttpException(__('services.messages.platform_sender_admin_only'));
         }
 
         if ($fromNumber->status !== PhoneNumberStatus::Allocated) {
             throw ValidationException::withMessages([
-                'from_number_id' => 'خط فرستنده انتخابی در وضعیت فعال و تخصیص‌یافته نمی‌باشد.',
+                'from_number_id' => __('services.messages.sender_not_active'),
             ]);
         }
 
         $body = trim($body);
         if (empty($body)) {
             throw ValidationException::withMessages([
-                'body' => 'متن پیامک نمی‌تواند خالی باشد.',
+                'body' => __('services.messages.body_empty'),
             ]);
         }
 
@@ -681,7 +681,7 @@ class MessageService implements MessageServiceInterface
 
         if ($destinations->isEmpty()) {
             throw ValidationException::withMessages([
-                'destinations' => 'حداقل یک شماره مقصد معتبر الزامی است.',
+                'destinations' => __('services.messages.at_least_one_dest'),
             ]);
         }
 
@@ -707,7 +707,7 @@ class MessageService implements MessageServiceInterface
                 $results[] = [
                     'destination' => $rawDest,
                     'status' => 'failed',
-                    'reason' => 'شماره مقصد در شبکه و سامانه یافت نشد.',
+                    'reason' => __('services.messages.dest_not_found_network'),
                 ];
                 continue;
             }
@@ -774,23 +774,23 @@ class MessageService implements MessageServiceInterface
     public function queueBulkSms(PhoneNumber $fromNumber, array $destinationNumbers, string $body, User $senderUser): \App\Models\MessageBatch
     {
         if (! $senderUser->isAdmin() && $fromNumber->user_id !== $senderUser->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('services.messages.not_owner'));
         }
 
         if ($fromNumber->type === PhoneNumberType::PlatformService && ! $senderUser->isAdmin()) {
-            throw new AccessDeniedHttpException('ارسال پیامک از سرشماره اختصاصی سامانه منحصراً در اختیار راهبر سیستم است.');
+            throw new AccessDeniedHttpException(__('services.messages.platform_sender_admin_only'));
         }
 
         if ($fromNumber->status !== PhoneNumberStatus::Allocated) {
             throw ValidationException::withMessages([
-                'from_number_id' => 'خط فرستنده انتخابی در وضعیت فعال و تخصیص‌یافته نمی‌باشد.',
+                'from_number_id' => __('services.messages.sender_not_active'),
             ]);
         }
 
         $body = trim($body);
         if (empty($body)) {
             throw ValidationException::withMessages([
-                'body' => 'متن پیامک نمی‌تواند خالی باشد.',
+                'body' => __('services.messages.body_empty'),
             ]);
         }
 
@@ -802,7 +802,7 @@ class MessageService implements MessageServiceInterface
 
         if ($destinations->isEmpty()) {
             throw ValidationException::withMessages([
-                'destinations' => 'حداقل یک شماره مقصد معتبر الزامی است.',
+                'destinations' => __('services.messages.at_least_one_dest'),
             ]);
         }
 
@@ -899,7 +899,7 @@ class MessageService implements MessageServiceInterface
                 'direction' => $m->direction->value,
                 'body' => $m->body,
                 'server_received_at' => $m->server_received_at?->toIso8601String() ?? now()->toIso8601String(),
-                'server_received_at_formatted' => $m->server_received_at?->diffForHumans() ?? 'هم‌اکنون',
+                'server_received_at_formatted' => $m->server_received_at?->diffForHumans() ?? __('services.messages.now'),
                 'processing_status' => $m->processing_status->value,
             ]),
             'count' => $newMessages->count(),
@@ -1111,11 +1111,11 @@ class MessageService implements MessageServiceInterface
                 continue;
             }
 
-            $lineAName = $lineA->user ? $lineA->user->name : 'سیستم';
+            $lineAName = $lineA->user ? $lineA->user->name : __('services.messages.system');
             $lineAUsername = $lineA->user ? $lineA->user->username : 'system';
             $lineATitle = $lineA->effective_title;
 
-            $lineBName = $lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'شماره خارجی';
+            $lineBName = $lineB ? ($lineB->user ? $lineB->user->name : __('services.messages.system')) : __('services.messages.external_number');
             $lineBUsername = $lineB?->user ? $lineB->user->username : null;
             $lineBTitle = $lineB ? $lineB->effective_title : (PhonePrefix::getDefaultPrefixString() . " {$peerStr}");
 
@@ -1251,8 +1251,8 @@ class MessageService implements MessageServiceInterface
             $senderNumber = $isOutbound ? $lineA->number : $cleanPeer;
             $senderFormatted = $isOutbound ? $lineA->formatted_number : ($lineB ? $lineB->formatted_number : "{$defaultPrefix} {$cleanPeer}");
             $senderName = $isOutbound
-                ? ($lineA->user ? $lineA->user->name : 'سیستم')
-                : ($lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'فرستنده خارجی');
+                ? ($lineA->user ? $lineA->user->name : __('services.messages.system'))
+                : ($lineB ? ($lineB->user ? $lineB->user->name : __('services.messages.system')) : __('services.messages.external_sender'));
             $senderUsername = $isOutbound
                 ? ($lineA->user ? $lineA->user->username : null)
                 : ($lineB?->user ? $lineB->user->username : null);
@@ -1260,8 +1260,8 @@ class MessageService implements MessageServiceInterface
             $receiverNumber = $isOutbound ? $cleanPeer : $lineA->number;
             $receiverFormatted = $isOutbound ? ($lineB ? $lineB->formatted_number : "{$defaultPrefix} {$cleanPeer}") : $lineA->formatted_number;
             $receiverName = $isOutbound
-                ? ($lineB ? ($lineB->user ? $lineB->user->name : 'سیستم') : 'شماره خارجی')
-                : ($lineA->user ? $lineA->user->name : 'سیستم');
+                ? ($lineB ? ($lineB->user ? $lineB->user->name : __('services.messages.system')) : __('services.messages.external_number'))
+                : ($lineA->user ? $lineA->user->name : __('services.messages.system'));
 
             return [
                 'id' => $m->id,

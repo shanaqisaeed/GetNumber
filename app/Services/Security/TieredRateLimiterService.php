@@ -20,28 +20,28 @@ class TieredRateLimiterService
             'per_hour' => 20,
             'daily_destinations' => 10,
             'max_bulk_batch' => 3,
-            'label' => 'کاربر جدید',
+            'label_key' => 'services.security.rate_limiter.tiers.new_user',
         ],
         'standard' => [
             'per_minute' => 30,
             'per_hour' => 200,
             'daily_destinations' => 50,
             'max_bulk_batch' => 50,
-            'label' => 'کاربر استاندارد',
+            'label_key' => 'services.security.rate_limiter.tiers.standard_user',
         ],
         'trusted' => [
             'per_minute' => 100,
             'per_hour' => 1000,
             'daily_destinations' => 500,
             'max_bulk_batch' => 500,
-            'label' => 'کاربر معتبر و تاییدشده',
+            'label_key' => 'services.security.rate_limiter.tiers.verified_user',
         ],
         'restricted' => [
             'per_minute' => 0,
             'per_hour' => 0,
             'daily_destinations' => 0,
             'max_bulk_batch' => 0,
-            'label' => 'حساب محدود شده',
+            'label_key' => 'services.security.rate_limiter.tiers.restricted_account',
         ],
     ];
 
@@ -89,7 +89,10 @@ class TieredRateLimiterService
     public function getLimits(User $user): array
     {
         $tier = $this->resolveTier($user);
-        return array_merge(self::TIER_LIMITS[$tier], ['tier' => $tier]);
+        $limits = self::TIER_LIMITS[$tier];
+        $limits['tier'] = $tier;
+        $limits['label'] = __($limits['label_key'] ?? 'services.security.rate_limiter.tiers.new_user');
+        return $limits;
     }
 
     /**
@@ -103,12 +106,12 @@ class TieredRateLimiterService
             return; // Admins bypass rate limits
         }
 
-        $tier = $this->resolveTier($user);
-        $limits = self::TIER_LIMITS[$tier];
+        $limits = $this->getLimits($user);
+        $tier = $limits['tier'];
 
         if ($tier === 'restricted') {
             throw new TierLimitExceededException(
-                message: 'حساب کاربری شما به دلیل تخلفات امنیتی در وضعیت محدود قرار گرفته و امکان ارسال پیام ندارد.',
+                message: __('services.security.rate_limiter.restricted_account_blocked'),
                 tier: $tier,
                 limitType: 'restricted',
                 limit: 0,
@@ -119,7 +122,7 @@ class TieredRateLimiterService
         // 1. Check max bulk destinations in a single request
         if ($destinationsCount > $limits['max_bulk_batch']) {
             throw new TierLimitExceededException(
-                message: "حساب کاربری شما ({$limits['label']}) در هر درخواست حداکثر مجاز به ارسال به {$limits['max_bulk_batch']} مقصد می‌باشد.",
+                message: __('services.security.rate_limiter.max_bulk_batch_exceeded', ['label' => $limits['label'], 'max' => $limits['max_bulk_batch']]),
                 tier: $tier,
                 limitType: 'bulk_batch_size',
                 limit: $limits['max_bulk_batch'],
@@ -134,7 +137,7 @@ class TieredRateLimiterService
         if (($currentMinuteCount + $destinationsCount) > $limits['per_minute']) {
             $this->logRateLimitIncident($user, 'velocity_minute', $limits['per_minute']);
             throw new TierLimitExceededException(
-                message: "سقف مجاز ارسال در دقیقه ({$limits['per_minute']} پیامک) تکمیل گردیده است. لطفاً کمی صبر فرمایید.",
+                message: __('services.security.rate_limiter.per_minute_exceeded', ['count' => $limits['per_minute']]),
                 tier: $tier,
                 limitType: 'per_minute',
                 limit: $limits['per_minute'],
@@ -149,7 +152,7 @@ class TieredRateLimiterService
         if (($currentHourCount + $destinationsCount) > $limits['per_hour']) {
             $this->logRateLimitIncident($user, 'velocity_hour', $limits['per_hour']);
             throw new TierLimitExceededException(
-                message: "سقف مجاز ارسال در ساعت ({$limits['per_hour']} پیامک) برای حساب شما تکمیل شده است.",
+                message: __('services.security.rate_limiter.per_hour_exceeded', ['count' => $limits['per_hour']]),
                 tier: $tier,
                 limitType: 'per_hour',
                 limit: $limits['per_hour'],
@@ -164,7 +167,7 @@ class TieredRateLimiterService
         if (($currentDayCount + $destinationsCount) > $limits['daily_destinations']) {
             $this->logRateLimitIncident($user, 'daily_destinations', $limits['daily_destinations']);
             throw new TierLimitExceededException(
-                message: "سقف مجاز ارسال روزانه ({$limits['daily_destinations']} مقصد) برای سطح کاربری شما به اتمام رسیده است.",
+                message: __('services.security.rate_limiter.daily_destinations_exceeded', ['count' => $limits['daily_destinations']]),
                 tier: $tier,
                 limitType: 'daily_destinations',
                 limit: $limits['daily_destinations'],

@@ -32,7 +32,7 @@ class WallexGateway implements PaymentGatewayInterface
 
     public function getName(): string
     {
-        return 'صرافی والکس (Wallex Exchange)';
+        return __('services.gateways.wallex.name');
     }
 
     /**
@@ -46,7 +46,7 @@ class WallexGateway implements PaymentGatewayInterface
         if (empty($apiKey)) {
             return [
                 'valid' => false,
-                'message' => 'کلید API صرافی والکس وارد نشده است.',
+                'message' => __('services.gateways.wallex.no_api_key'),
             ];
         }
 
@@ -58,19 +58,19 @@ class WallexGateway implements PaymentGatewayInterface
             if ($response->successful()) {
                 return [
                     'valid' => true,
-                    'message' => 'ارتباط با والکس برقرار و کلید API معتبر است.',
+                    'message' => __('services.gateways.wallex.connection_success'),
                     'details' => $response->json('result') ?? [],
                 ];
             }
 
             return [
                 'valid' => false,
-                'message' => 'کلید API صرافی والکس نامعتبر است (کد وضعیت ' . $response->status() . ').',
+                'message' => __('services.gateways.wallex.api_key_invalid', ['status' => $response->status()]),
             ];
         } catch (\Throwable $e) {
             return [
                 'valid' => false,
-                'message' => 'خطا در ارتباط با وب‌سرویس والکس: ' . $e->getMessage(),
+                'message' => __('services.gateways.wallex.connection_error', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -88,7 +88,7 @@ class WallexGateway implements PaymentGatewayInterface
                 'success' => false,
                 'currency' => 'TRX',
                 'changed' => false,
-                'message' => 'کلید API والکس جهت همگام‌سازی کیف پول تنظیم نشده است.',
+                'message' => __('services.gateways.wallex.sync_no_api_key'),
             ];
         }
 
@@ -124,7 +124,7 @@ class WallexGateway implements PaymentGatewayInterface
                         'address' => $address,
                         'currency' => 'TRX',
                         'changed' => $changed,
-                        'message' => 'کیف پول TRX والکس با موفقیت همگام‌سازی شد.',
+                        'message' => __('services.gateways.wallex.wallet_synced'),
                     ];
                 }
             }
@@ -133,14 +133,14 @@ class WallexGateway implements PaymentGatewayInterface
                 'success' => false,
                 'currency' => 'TRX',
                 'changed' => false,
-                'message' => 'کیف پول ترون در پاسخ وب‌سرویس والکس یافت نشد.',
+                'message' => __('services.gateways.wallex.wallet_not_found'),
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'currency' => 'TRX',
                 'changed' => false,
-                'message' => 'خطا در ارتباط با والکس: ' . $e->getMessage(),
+                'message' => __('services.gateways.wallex.sync_error', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -148,7 +148,7 @@ class WallexGateway implements PaymentGatewayInterface
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
         if (empty($this->depositAddress)) {
-            throw new \RuntimeException('آدرس والت دریافت ترون در تنظیمات صرافی والکس پیکربندی نشده است. تولید آدرس ساختگی مجاز نمی‌باشد.');
+            throw new \RuntimeException(__('services.gateways.wallex.no_rx_address_configured'));
         }
 
         return new PaymentAddressResult(
@@ -167,7 +167,7 @@ class WallexGateway implements PaymentGatewayInterface
         $cleanTxHash = trim($txHash);
 
         if (empty($this->apiKey)) {
-            return PaymentVerificationResult::pending('NoApiKey', 'کلید API والکس پیکربندی نشده است.');
+            return PaymentVerificationResult::pending('NoApiKey', __('services.gateways.wallex.verification_no_api_key'));
         }
 
         try {
@@ -190,7 +190,7 @@ class WallexGateway implements PaymentGatewayInterface
                         if (in_array(strtolower($status), ['done', 'completed', 'success'])) {
                             if (bccomp($amount, (string) $deposit->requested_amount, 4) < 0) {
                                 return PaymentVerificationResult::rejected(
-                                    "مبلغ واریز ({$amount} TRX) کمتر از مبلغ درخواست ({$deposit->requested_amount} TRX) است.",
+                                    __('services.gateways.wallex.amount_less', ['amount' => $amount, 'requested' => $deposit->requested_amount]),
                                     $item
                                 );
                             }
@@ -206,15 +206,15 @@ class WallexGateway implements PaymentGatewayInterface
                             );
                         }
 
-                        return PaymentVerificationResult::pending($status, "تراکنش در والکس در وضعیت {$status} است.", $item);
+                        return PaymentVerificationResult::pending($status, __('services.gateways.wallex.pending_status', ['status' => $status]), $item);
                     }
                 }
             }
 
-            return PaymentVerificationResult::pending('NotFound', 'تراکنش هنوز در والکس ثبت نهایی نشده است.');
+            return PaymentVerificationResult::pending('NotFound', __('services.gateways.wallex.not_found'));
         } catch (\Throwable $e) {
             Log::error('Wallex verifyTransaction exception: ' . $e->getMessage());
-            return PaymentVerificationResult::pending('Error', 'خطا در استعلام والکس: ' . $e->getMessage());
+            return PaymentVerificationResult::pending('Error', __('services.gateways.wallex.query_error', ['error' => $e->getMessage()]));
         }
     }
 
@@ -223,4 +223,3 @@ class WallexGateway implements PaymentGatewayInterface
         return [];
     }
 }
-

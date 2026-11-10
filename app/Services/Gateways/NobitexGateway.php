@@ -91,7 +91,7 @@ class NobitexGateway implements PaymentGatewayInterface
     public function signPayload(string $payload, string $secretKey): string
     {
         if (! extension_loaded('sodium')) {
-            throw new \RuntimeException('اکستنشن sodium در PHP فعال نیست. لطفاً extension=sodium را در php.ini فعال نمایید.');
+            throw new \RuntimeException(__('services.gateways.nobitex.sodium_missing'));
         }
 
         $secBytes = $this->base64UrlDecode($secretKey);
@@ -102,7 +102,7 @@ class NobitexGateway implements PaymentGatewayInterface
         } elseif (strlen($secBytes) === 64) {
             $secretKeyBytes = $secBytes;
         } else {
-            throw new \InvalidArgumentException('طول کلید محرمانه (Secret Key) نامعتبر است. کلید Ed25519 باید ۳۲ بایتی (۴۴ کاراکتر Base64) باشد.');
+            throw new \InvalidArgumentException(__('services.gateways.nobitex.secret_key_invalid_length'));
         }
 
         $signatureBytes = sodium_crypto_sign_detached($payload, $secretKeyBytes);
@@ -230,7 +230,7 @@ class NobitexGateway implements PaymentGatewayInterface
 
     public function getName(): string
     {
-        return 'صرافی نوبیتکس (Nobitex)';
+        return __('services.gateways.nobitex.name');
     }
 
     /**
@@ -245,7 +245,7 @@ class NobitexGateway implements PaymentGatewayInterface
         if (empty($apiKey)) {
             return [
                 'valid' => false,
-                'message' => 'کلید API صرافی نوبیتکس وارد نشده است.',
+                'message' => __('services.gateways.nobitex.api_key_missing'),
             ];
         }
 
@@ -272,16 +272,16 @@ class NobitexGateway implements PaymentGatewayInterface
             if ($response->successful()) {
                 $status = $response->json('status');
                 if ($status === 'failed') {
-                    $err = $response->json('message') ?? 'توکن نامعتبر است';
+                    $err = $response->json('message') ?? __('services.gateways.nobitex.invalid_token');
                     return [
                         'valid' => false,
-                        'message' => "اعتبارسنجی در نوبیتکس رد شد: {$err}",
+                        'message' => __('services.gateways.nobitex.validation_rejected', ['error' => $err]),
                     ];
                 }
 
                 return [
                     'valid' => true,
-                    'message' => 'ارتباط با نوبیتکس برقرار و کلیدهای احراز هویت معتبر هستند.',
+                    'message' => __('services.gateways.nobitex.connection_success'),
                     'details' => $response->json('profile') ?? $response->json('wallets') ?? [],
                 ];
             }
@@ -295,7 +295,7 @@ class NobitexGateway implements PaymentGatewayInterface
                 return [
                     'valid' => false,
                     'is_ip_restricted' => true,
-                    'message' => "کلیدها در نوبیتکس تأیید شدند، اما IP سیستم در لیست مجاز کلید نیست ({$detail}). لطفاً این IP را در پنل کاربری نوبیتکس (تنظیمات > مدیریت کلیدهای API) به فهرست مجاز (Whitelist) اضافه فرمایید.",
+                    'message' => __('services.gateways.nobitex.ip_not_whitelisted', ['detail' => $detail]),
                 ];
             }
 
@@ -303,26 +303,26 @@ class NobitexGateway implements PaymentGatewayInterface
             if ($status === 401 && ! $isEd25519 && strlen($apiKey) >= 40 && str_ends_with($apiKey, '=')) {
                 return [
                     'valid' => false,
-                    'message' => 'کلید وارد شده یک کلید عمومی Ed25519 (API Key) است. برای اتصال نوبیتکس، وارد کردن هر دو کلید عمومی و کلید محرمانه (Secret Key) الزامی است.',
+                    'message' => __('services.gateways.nobitex.both_keys_required'),
                 ];
             }
 
             if ($status === 401 && (str_contains($rawBody, 'توکن غیر مجاز') || str_contains($rawBody, 'Invalid token'))) {
                 return [
                     'valid' => false,
-                    'message' => 'توکن وارد شده در نوبیتکس مجاز شناخته نشد (پیام نوبیتکس: توکن غیر مجاز). لطفاً کلید جدیدی از پنل کاربری نوبیتکس دریافت نمایید.',
+                    'message' => __('services.gateways.nobitex.token_unauthorized'),
                 ];
             }
 
-            $errMsg = $detail ?: 'خطای احراز هویت در نوبیتکس (کد HTTP ' . $status . ')';
+            $errMsg = $detail ?: __('services.gateways.nobitex.auth_error', ['status' => $status]);
             return [
                 'valid' => false,
-                'message' => "کلید API نامعتبر است: {$errMsg}",
+                'message' => __('services.gateways.nobitex.api_key_invalid', ['error' => $errMsg]),
             ];
         } catch (\Throwable $e) {
             return [
                 'valid' => false,
-                'message' => 'خطا در اتصال به سرور نوبیتکس: ' . $e->getMessage(),
+                'message' => __('services.gateways.nobitex.connection_error', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -341,7 +341,7 @@ class NobitexGateway implements PaymentGatewayInterface
                 'success' => false,
                 'currency' => 'TRX',
                 'changed' => false,
-                'message' => 'کلید API جهت همگام‌سازی کیف پول تنظیم نشده است.',
+                'message' => __('services.gateways.nobitex.sync_api_key_missing'),
             ];
         }
 
@@ -354,7 +354,7 @@ class NobitexGateway implements PaymentGatewayInterface
                     'success' => false,
                     'currency' => 'TRX',
                     'changed' => false,
-                    'message' => 'خطا در دریافت فهرست کیف‌پول‌های نوبیتکس: ' . $err,
+                    'message' => __('services.gateways.nobitex.wallets_list_error', ['error' => $err]),
                 ];
             }
 
@@ -373,7 +373,7 @@ class NobitexGateway implements PaymentGatewayInterface
                     'success' => false,
                     'currency' => 'TRX',
                     'changed' => false,
-                    'message' => 'کیف پول ترون (TRX) در حساب نوبیتکس یافت نشد. لطفاً در پنل نوبیتکس کیف پول TRX ایجاد نمایید.',
+                    'message' => __('services.gateways.nobitex.trx_wallet_not_found'),
                 ];
             }
 
@@ -409,15 +409,15 @@ class NobitexGateway implements PaymentGatewayInterface
                 'currency' => 'TRX',
                 'changed' => $changed,
                 'message' => $changed
-                    ? 'آدرس کیف پول TRX تغییر کرده بود و در پایگاه‌داده به‌روزرسانی شد.'
-                    : 'کیف پول TRX با موفقیت تأیید و همگام‌سازی شد.',
+                    ? __('services.gateways.nobitex.trx_wallet_updated')
+                    : __('services.gateways.nobitex.trx_wallet_synced'),
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
                 'currency' => 'TRX',
                 'changed' => false,
-                'message' => 'خطا در فرآیند همگام‌سازی کیف پول نوبیتکس: ' . $e->getMessage(),
+                'message' => __('services.gateways.nobitex.sync_error', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -513,7 +513,7 @@ class NobitexGateway implements PaymentGatewayInterface
         $cleanTxHash = trim($txHash);
 
         if (empty($this->apiKey)) {
-            return PaymentVerificationResult::pending('NoApiKey', 'کلید API صرافی نوبیتکس پیکربندی نشده است.');
+            return PaymentVerificationResult::pending('NoApiKey', __('services.gateways.nobitex.verification_no_api_key'));
         }
 
         try {
@@ -531,7 +531,7 @@ class NobitexGateway implements PaymentGatewayInterface
 
                     // Check currency
                     if ($currency !== 'TRX') {
-                        return PaymentVerificationResult::rejected("ارز تراکنش ({$currency}) با ترون (TRX) مطابقت ندارد.", $item);
+                        return PaymentVerificationResult::rejected(__('services.gateways.nobitex.currency_mismatch', ['currency' => $currency]), $item);
                     }
 
                     // Check status in Nobitex
@@ -539,7 +539,7 @@ class NobitexGateway implements PaymentGatewayInterface
                         // Validate amount using bcmath
                         if (bccomp($amount, (string) $deposit->requested_amount, 4) < 0) {
                             return PaymentVerificationResult::rejected(
-                                "مبلغ واریزشده ({$amount} TRX) کمتر از مبلغ درخواست ({$deposit->requested_amount} TRX) است.",
+                                __('services.gateways.nobitex.amount_less', ['amount' => $amount, 'requested' => $deposit->requested_amount]),
                                 $item
                             );
                         }
@@ -547,7 +547,7 @@ class NobitexGateway implements PaymentGatewayInterface
                         // Validate destination address if applicable
                         if ($deposit->deposit_address && ! empty($address) && strcasecmp($address, $deposit->deposit_address) !== 0) {
                             return PaymentVerificationResult::rejected(
-                                "آدرس واریز تراکنش ({$address}) با آدرس اختصاص‌یافته به درخواست ({$deposit->deposit_address}) مطابقت ندارد.",
+                                __('services.gateways.nobitex.address_mismatch', ['address' => $address, 'expected' => $deposit->deposit_address]),
                                 $item
                             );
                         }
@@ -562,20 +562,20 @@ class NobitexGateway implements PaymentGatewayInterface
                             raw: $item
                         );
                     } elseif (in_array(strtolower($status), ['rejected', 'failed', 'canceled'])) {
-                        return PaymentVerificationResult::rejected("تراکنش در صرافی نوبیتکس رد شده است (وضعیت: {$status}).", $item);
+                        return PaymentVerificationResult::rejected(__('services.gateways.nobitex.rejected_in_nobitex', ['status' => $status]), $item);
                     } else {
-                        return PaymentVerificationResult::pending($status, "تراکنش با موفقیت دریافت شده و در مرحله تأیید صرافی است (وضعیت: {$status}).", $item);
+                        return PaymentVerificationResult::pending($status, __('services.gateways.nobitex.pending_verification_step', ['status' => $status]), $item);
                     }
                 }
             }
 
             return PaymentVerificationResult::pending(
                 'NotFound',
-                'شناسه تراکنش هنوز در فهرست واریزی‌های تأییدشده نوبیتکس ثبت نشده است. فرآیند همگام‌سازی شبکه ممکن است چند دقیقه زمان ببرد.'
+                __('services.gateways.nobitex.not_in_confirmed_deposits')
             );
         } catch (\Throwable $e) {
             Log::error('Nobitex verifyTransaction exception: ' . $e->getMessage());
-            return PaymentVerificationResult::pending('Error', 'خطا در ارتباط با وب‌سرویس نوبیتکس: ' . $e->getMessage());
+            return PaymentVerificationResult::pending('Error', __('services.gateways.nobitex.network_error', ['error' => $e->getMessage()]));
         }
     }
 

@@ -36,7 +36,7 @@ class PaymentService implements PaymentServiceInterface
         $cleanAmount = $this->sanitizeAmount($trxAmount);
 
         if (bccomp($cleanAmount, '1.0000', self::DECIMAL_SCALE) < 0) {
-            throw new InvalidArgumentException('حداقل مبلغ شارژ حساب کاربری ۱ TRX می‌باشد.');
+            throw new InvalidArgumentException(__('services.payments.min_deposit_amount'));
         }
 
         $trxToCoinRate = SystemSetting::getTrxToCoinRate();
@@ -86,7 +86,7 @@ class PaymentService implements PaymentServiceInterface
             $addressResult = $gateway->generateDepositAddress($deposit);
 
             if (empty($addressResult->address)) {
-                throw new \RuntimeException('درگاه انتخاب‌شده آدرس والتی جهت واریز ارائه نداد.');
+                throw new \RuntimeException(__('services.payments.no_deposit_address'));
             }
 
             $deposit->update([
@@ -101,11 +101,11 @@ class PaymentService implements PaymentServiceInterface
             Log::error("Failed to generate deposit address for #{$deposit->id}: " . $e->getMessage());
             $deposit->update([
                 'status' => PaymentStatus::Failed,
-                'failure_reason' => 'عدم امکان تولید آدرس معتبر: ' . $e->getMessage(),
+                'failure_reason' => __('services.payments.address_generation_failed', ['error' => $e->getMessage()]),
                 'deposit_address' => 'UNAVAILABLE',
             ]);
 
-            throw new \RuntimeException("تولید آدرس والت واریز ناموفق بود: " . $e->getMessage(), 0, $e);
+            throw new \RuntimeException(__('services.payments.address_generation_error', ['error' => $e->getMessage()]), 0, $e);
         }
 
         return $deposit->fresh();
@@ -119,15 +119,15 @@ class PaymentService implements PaymentServiceInterface
         $cleanTxHash = trim($txHash);
 
         if ($cleanTxHash === '') {
-            throw new InvalidArgumentException('کد رهگیری تراکنش (TX Hash) نمی‌تواند خالی باشد.');
+            throw new InvalidArgumentException(__('services.payments.tx_hash_empty'));
         }
 
         if (! preg_match('/^[a-zA-Z0-9_-]{6,128}$/', $cleanTxHash)) {
-            throw new InvalidArgumentException('فرمت شناسه تراکنش نامعتبر است (باید شامل حروف و ارقام معتبر باشد).');
+            throw new InvalidArgumentException(__('services.payments.tx_hash_invalid'));
         }
 
         if (! $deposit->canSubmitTx()) {
-            throw new InvalidWalletTransactionException("امکان ثبت کد رهگیری برای این درخواست با وضعیت «{$deposit->status->label()}» وجود ندارد.");
+            throw new InvalidWalletTransactionException(__('services.payments.status_not_eligible_tx', ['status' => $deposit->status->label()]));
         }
 
         // Prevent duplicate TX Hash usage across the system
@@ -137,7 +137,7 @@ class PaymentService implements PaymentServiceInterface
             ->exists();
 
         if ($duplicate) {
-            throw new InvalidWalletTransactionException('این شناسه تراکنش (TX Hash) قبلاً در سامانه ثبت شده است و امکان استفاده مجدد ندارد.');
+            throw new InvalidWalletTransactionException(__('services.payments.tx_hash_duplicate'));
         }
 
         $deposit->update([
@@ -159,7 +159,7 @@ class PaymentService implements PaymentServiceInterface
         ?User $actor = null
     ): PaymentVerificationResult {
         if (! $deposit->tx_hash) {
-            return PaymentVerificationResult::pending('NoTxHash', 'هنوز کد رهگیری برای این درخواست ثبت نشده است.');
+            return PaymentVerificationResult::pending('NoTxHash', __('services.payments.no_tx_registered'));
         }
 
         if ($deposit->isCompleted()) {
@@ -187,7 +187,7 @@ class PaymentService implements PaymentServiceInterface
         } elseif ($verification->status === 'Rejected') {
             $deposit->update([
                 'status' => PaymentStatus::Failed,
-                'failure_reason' => $verification->failureReason ?? 'تراکنش توسط شبکه یا درگاه صرافی رد شد.',
+                'failure_reason' => $verification->failureReason ?? __('services.payments.rejected_by_network'),
             ]);
 
             AuditLog::create([
@@ -237,7 +237,7 @@ class PaymentService implements PaymentServiceInterface
                 user: $lockedDeposit->user,
                 amount: $coinAmount,
                 referenceId: $referenceId,
-                description: "شارژ آنلاین کیف پول از طریق شبکه ترون ({$actualTrxAmount} TRX با نرخ {$lockedDeposit->trx_to_coin_rate})",
+                description: __('services.payments.desc_wallet_charge', ['trx_amount' => $actualTrxAmount, 'rate' => $lockedDeposit->trx_to_coin_rate]),
                 metadata: [
                     'crypto_deposit_id' => $lockedDeposit->id,
                     'tracking_code' => $lockedDeposit->tracking_code,
@@ -319,7 +319,7 @@ class PaymentService implements PaymentServiceInterface
         ->where('expires_at', '<=', now())
         ->update([
             'status' => PaymentStatus::Expired->value,
-            'failure_reason' => 'مهلت انجام واریز به پایان رسید.',
+            'failure_reason' => __('services.payments.expired_deposit'),
         ]);
     }
 
@@ -328,10 +328,9 @@ class PaymentService implements PaymentServiceInterface
         $clean = trim($amount);
 
         if (! is_numeric($clean)) {
-            throw new InvalidArgumentException('مبلغ تراکنش باید یک مقدار عددی معتبر باشد.');
+            throw new InvalidArgumentException(__('services.payments.amount_must_be_numeric'));
         }
 
         return number_format((float) $clean, self::DECIMAL_SCALE, '.', '');
     }
 }
-

@@ -68,7 +68,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'افزایش موجودی کیف پول',
+                'description' => $description ?? __('services.wallet.desc_credit'),
                 'metadata' => $metadata,
             ]);
 
@@ -77,7 +77,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'افزایش موجودی کیف پول',
+                description: $description ?? __('services.wallet.desc_credit'),
                 metadata: $metadata
             );
 
@@ -113,7 +113,7 @@ class WalletService implements WalletServiceInterface
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: $cleanAmount,
                     currentBalance: $balanceBefore,
-                    message: "موجودی کیف پول شما ({$balanceBefore} کوین) برای خرید شماره ({$cleanAmount} کوین) کافی نمی‌باشد."
+                    message: __('services.wallet.insufficient_balance_purchase', ['balance' => $balanceBefore, 'amount' => $cleanAmount])
                 );
             }
 
@@ -129,7 +129,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'کسر اعتبار جهت تخصیص شماره مجازی',
+                'description' => $description ?? __('services.wallet.desc_charge_number'),
                 'metadata' => $metadata,
             ]);
 
@@ -138,7 +138,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'کسر اعتبار جهت تخصیص شماره مجازی',
+                description: $description ?? __('services.wallet.desc_charge_number'),
                 metadata: $metadata
             );
 
@@ -181,7 +181,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'بازگشت وجه به کیف پول (عدم موفقیت تخصیص شماره)',
+                'description' => $description ?? __('services.wallet.desc_refund_purchase'),
                 'metadata' => $metadata,
             ]);
 
@@ -190,7 +190,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'بازگشت وجه به کیف پول (عدم موفقیت تخصیص شماره)',
+                description: $description ?? __('services.wallet.desc_refund_purchase'),
                 metadata: $metadata
             );
 
@@ -226,7 +226,7 @@ class WalletService implements WalletServiceInterface
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: $cleanAmount,
                     currentBalance: $balanceBefore,
-                    message: "موجودی کیف پول شما ({$balanceBefore} کوین) برای مسدودی درخواست سرشماره ({$cleanAmount} کوین) کافی نمی‌باشد."
+                    message: __('services.wallet.insufficient_balance_request', ['balance' => $balanceBefore, 'amount' => $cleanAmount])
                 );
             }
 
@@ -241,7 +241,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'مسدودی وجه جهت بررسی درخواست سرشماره سازمانی',
+                'description' => $description ?? __('services.wallet.desc_block_request'),
                 'metadata' => $metadata,
             ]);
 
@@ -249,7 +249,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'مسدودی وجه جهت بررسی درخواست سرشماره سازمانی',
+                description: $description ?? __('services.wallet.desc_block_request'),
                 metadata: $metadata
             );
 
@@ -271,7 +271,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'تسویه نهایی وجه مسدود شده درخواست سرشماره سازمانی',
+                description: $description ?? __('services.wallet.desc_settle_request'),
                 metadata: $metadata
             );
         });
@@ -312,7 +312,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'آزادسازی و عودت وجه مسدود شده به کیف پول (رد/لغو درخواست سرشماره)',
+                'description' => $description ?? __('services.wallet.desc_release_request'),
                 'metadata' => $metadata,
             ]);
 
@@ -320,7 +320,7 @@ class WalletService implements WalletServiceInterface
                 user: $user,
                 amount: $cleanAmount,
                 referenceId: $referenceId,
-                description: $description ?? 'آزادسازی و عودت وجه مسدود شده به کیف پول (رد/لغو درخواست سرشماره)',
+                description: $description ?? __('services.wallet.desc_release_request'),
                 metadata: $metadata
             );
 
@@ -339,7 +339,7 @@ class WalletService implements WalletServiceInterface
         $cleanReason = trim($reason);
 
         if ($cleanReason === '') {
-            throw new InvalidWalletTransactionException('ثبت دلیل برای تغییر دستی موجودی توسط مدیر الزامی است.');
+            throw new InvalidWalletTransactionException(__('services.wallet.reason_required_manual_change'));
         }
 
         $ref = $referenceId ?? ('ADM-CR-' . Str::uuid());
@@ -365,7 +365,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $ref,
-                'description' => 'شارژ دستی توسط مدیر: ' . $cleanReason,
+                'description' => __('services.wallet.desc_manual_credit', ['reason' => $cleanReason]),
                 'metadata' => [
                     'admin_id' => $admin->id,
                     'admin_name' => $admin->name,
@@ -413,7 +413,7 @@ class WalletService implements WalletServiceInterface
         $cleanReason = trim($reason);
 
         if ($cleanReason === '') {
-            throw new InvalidWalletTransactionException('ثبت دلیل برای کسر دستی موجودی توسط مدیر الزامی است.');
+            throw new InvalidWalletTransactionException(__('services.wallet.reason_required_manual_debit'));
         }
 
         $ref = $referenceId ?? ('ADM-DB-' . Str::uuid());
@@ -432,7 +432,7 @@ class WalletService implements WalletServiceInterface
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: $cleanAmount,
                     currentBalance: $balanceBefore,
-                    message: "موجودی کاربر ({$balanceBefore} کوین) کمتر از مبلغ درخواستی برای کسر ({$cleanAmount} کوین) است."
+                    message: __('services.wallet.balance_less_than_debit', ['balance' => $balanceBefore, 'amount' => $cleanAmount])
                 );
             }
 
@@ -448,7 +448,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $ref,
-                'description' => 'کسر دستی توسط مدیر: ' . $cleanReason,
+                'description' => __('services.wallet.desc_manual_debit', ['reason' => $cleanReason]),
                 'metadata' => [
                     'admin_id' => $admin->id,
                     'admin_name' => $admin->name,
@@ -492,11 +492,11 @@ class WalletService implements WalletServiceInterface
     ): WalletTransaction {
         $cleanReason = trim($reason);
         if ($cleanReason === '') {
-            throw new InvalidWalletTransactionException('ثبت دلیل برای بازگشت و اصلاح تراکنش الزامی است.');
+            throw new InvalidWalletTransactionException(__('services.wallet.reason_required_reversal'));
         }
 
         if ($originalTransaction->type === WalletTransactionType::Reversal) {
-            throw new InvalidWalletTransactionException('یک تراکنش اصلاحی (Reversal) نمی‌تواند مجدداً اصلاح شود.');
+            throw new InvalidWalletTransactionException(__('services.wallet.reversal_cannot_be_reversed'));
         }
 
         return DB::transaction(function () use ($originalTransaction, $admin, $cleanReason) {
@@ -514,7 +514,7 @@ class WalletService implements WalletServiceInterface
                     throw new InsufficientWalletBalanceException(
                         requiredAmount: $amount,
                         currentBalance: $balanceBefore,
-                        message: "موجودی کاربر جهت لغو تراکنش واریز قبلی کافی نمی‌باشد."
+                        message: __('services.wallet.insufficient_balance_reversal')
                     );
                 }
                 $balanceAfter = bcsub($balanceBefore, $amount, self::DECIMAL_SCALE);
@@ -534,7 +534,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $reversalRef,
-                'description' => "تراکنش معکوس اصلاحی برای شناسه #{$originalTransaction->id}: {$cleanReason}",
+                'description' => __('services.wallet.desc_reversal', ['id' => $originalTransaction->id, 'reason' => $cleanReason]),
                 'metadata' => [
                     'original_transaction_id' => $originalTransaction->id,
                     'original_type' => $originalTransaction->type->value,
@@ -550,7 +550,7 @@ class WalletService implements WalletServiceInterface
                 amount: $amount,
                 isCredit: ! $isOriginalCredit,
                 admin: $admin,
-                reason: "اصلاح تراکنش #{$originalTransaction->id}: {$cleanReason}",
+                reason: __('services.wallet.audit_reversal', ['id' => $originalTransaction->id, 'reason' => $cleanReason]),
                 referenceId: $reversalRef
             );
 
@@ -598,7 +598,7 @@ class WalletService implements WalletServiceInterface
     {
         $cleaned = trim((string) $amount);
         if (! is_numeric($cleaned) || bccomp($cleaned, '0.0000', self::DECIMAL_SCALE) <= 0) {
-            throw new InvalidWalletTransactionException('مبلغ تراکنش باید یک مقدار عددی مثبت و بزرگتر از صفر باشد.');
+            throw new InvalidWalletTransactionException(__('services.wallet.amount_must_be_positive'));
         }
 
         return number_format((float) $cleaned, self::DECIMAL_SCALE, '.', '');

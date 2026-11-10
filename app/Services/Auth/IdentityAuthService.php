@@ -45,9 +45,9 @@ class IdentityAuthService
         $hashToCheck = $identity?->password ?? $user?->password;
 
         if (!$user || !$hashToCheck || !Hash::check($password, $hashToCheck)) {
-            $this->logLoginFailed('username', $username, 'نام کاربری یا کلمه عبور وارد شده نادرست است.');
+            $this->logLoginFailed('username', $username, __('services.auth.identity.login_failed_log_username'));
             throw ValidationException::withMessages([
-                'username' => 'نام کاربری یا کلمه عبور وارد شده صحیح نمی‌باشد.',
+                'username' => __('services.auth.identity.invalid_credentials_username'),
             ]);
         }
 
@@ -81,9 +81,9 @@ class IdentityAuthService
         $hashToCheck = $identity?->password ?? $user?->password;
 
         if (!$user || !$hashToCheck || !Hash::check($password, $hashToCheck)) {
-            $this->logLoginFailed('email', $email, 'ایمیل یا کلمه عبور وارد شده نادرست است.');
+            $this->logLoginFailed('email', $email, __('services.auth.identity.login_failed_log_email'));
             throw ValidationException::withMessages([
-                'email' => 'ایمیل یا کلمه عبور وارد شده صحیح نمی‌باشد.',
+                'email' => __('services.auth.identity.invalid_credentials_email'),
             ]);
         }
 
@@ -100,9 +100,9 @@ class IdentityAuthService
 
         $ldapProfile = $this->ldapService->authenticate($username, $password);
         if (!$ldapProfile) {
-            $this->logLoginFailed('ldap', $username, 'اطلاعات ورود در سرور سازمانی LDAP تایید نشد.');
+            $this->logLoginFailed('ldap', $username, __('services.auth.identity.login_failed_log_ldap'));
             throw ValidationException::withMessages([
-                'ldap_username' => 'نام کاربری یا کلمه عبور در سامانه سازمانی LDAP معتبر نمی‌باشد.',
+                'ldap_username' => __('services.auth.identity.invalid_credentials_ldap'),
             ]);
         }
 
@@ -136,7 +136,7 @@ class IdentityAuthService
             $canAutoCreate = (bool) (int) SystemSetting::get('ldap_auto_create_user', '1');
             if (!$canAutoCreate) {
                 throw ValidationException::withMessages([
-                    'ldap_username' => 'حساب کاربری محلی برای این شناسه LDAP در سامانه وجود ندارد و ایجاد خودکار غیرفعال است.',
+                    'ldap_username' => __('services.auth.identity.ldap_no_local_user'),
                 ]);
             }
 
@@ -157,7 +157,7 @@ class IdentityAuthService
                     'action' => 'user_registered_via_ldap',
                     'entity_type' => User::class,
                     'entity_id' => $user->id,
-                    'description' => "کاربر جدید {$user->name} ({$uid}) از طریق ورود سازمانی LDAP ایجاد شد.",
+                    'description' => __('services.auth.identity.audit_ldap_user_created', ['name' => $user->name, 'uid' => $uid]),
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ]);
@@ -204,7 +204,7 @@ class IdentityAuthService
             $canAutoCreate = (bool) (int) SystemSetting::get('keycloak_auto_create_user', '1');
             if (!$canAutoCreate) {
                 throw ValidationException::withMessages([
-                    'keycloak' => 'حساب کاربری محلی برای این حساب Keycloak یافت نشد.',
+                    'keycloak' => __('services.auth.identity.keycloak_no_local_user'),
                 ]);
             }
 
@@ -225,7 +225,7 @@ class IdentityAuthService
                     'action' => 'user_registered_via_keycloak',
                     'entity_type' => User::class,
                     'entity_id' => $user->id,
-                    'description' => "کاربر جدید {$user->name} از طریق ورود یکپارچه Keycloak ایجاد شد.",
+                    'description' => __('services.auth.identity.audit_keycloak_user_created', ['name' => $user->name]),
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ]);
@@ -245,7 +245,7 @@ class IdentityAuthService
 
         if ($user->password && !empty($currentPassword) && !Hash::check($currentPassword, $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => 'کلمه عبور فعلی حساب کاربری شما نادرست است.',
+                'current_password' => __('services.auth.identity.invalid_current_password'),
             ]);
         }
 
@@ -257,7 +257,7 @@ class IdentityAuthService
 
         if ($existing || User::where('email', $email)->where('id', '!=', $user->id)->exists()) {
             throw ValidationException::withMessages([
-                'email' => 'این آدرس ایمیل قبلاً به حساب کاربری دیگری متصل شده است.',
+                'email' => __('services.auth.identity.email_already_linked'),
             ]);
         }
 
@@ -275,7 +275,7 @@ class IdentityAuthService
         $profile = $this->ldapService->authenticate($ldapUsername, $ldapPassword);
         if (!$profile) {
             throw ValidationException::withMessages([
-                'ldap_username' => 'نام کاربری یا کلمه عبور وارد شده در سرور LDAP معتبر نمی‌باشد.',
+                'ldap_username' => __('services.auth.identity.ldap_invalid_credentials_link'),
             ]);
         }
 
@@ -287,7 +287,7 @@ class IdentityAuthService
 
         if ($existing) {
             throw ValidationException::withMessages([
-                'ldap_username' => 'این حساب کاربری LDAP قبلاً به کاربر دیگری در سامانه متصل شده است.',
+                'ldap_username' => __('services.auth.identity.ldap_already_linked'),
             ]);
         }
 
@@ -307,7 +307,7 @@ class IdentityAuthService
 
         if ($existing) {
             throw ValidationException::withMessages([
-                'keycloak' => 'این حساب کاربری Keycloak به کاربر دیگری متصل می‌باشد.',
+                'keycloak' => __('services.auth.identity.keycloak_already_linked'),
             ]);
         }
 
@@ -322,7 +322,7 @@ class IdentityAuthService
         $identity = $user->getIdentity($provider);
         if (!$identity) {
             throw ValidationException::withMessages([
-                'provider' => 'این شیوه ورود به حساب شما متصل نمی‌باشد.',
+                'provider' => __('services.auth.identity.provider_not_linked'),
             ]);
         }
 
@@ -332,7 +332,7 @@ class IdentityAuthService
 
         if ($totalIdentities <= 1 && !$hasPassword) {
             throw ValidationException::withMessages([
-                'provider' => 'امکان قطع این اتصال وجود ندارد زیرا هیچ شیوه ورود جایگزین یا گذرواژه‌ای برای حساب شما تعریف نشده است.',
+                'provider' => __('services.auth.identity.cannot_unlink_sole_provider'),
             ]);
         }
 
@@ -356,8 +356,8 @@ class IdentityAuthService
         };
 
         if ($user->status === UserStatus::Suspended) {
-            $this->logLoginFailed($provider, $user->username ?? $user->email, 'حساب کاربری به دستور راهبر معلق شده است.');
-            $msg = 'حساب کاربری شما به دستور راهبر سامانه به حالت تعلیق درآمده است.';
+            $this->logLoginFailed($provider, $user->username ?? $user->email, __('services.auth.identity.account_suspended_log'));
+            $msg = __('services.auth.identity.account_suspended_msg');
             throw ValidationException::withMessages([
                 $field => $msg,
                 'login' => $msg,
@@ -365,8 +365,8 @@ class IdentityAuthService
         }
 
         if ($user->status === UserStatus::Inactive) {
-            $this->logLoginFailed($provider, $user->username ?? $user->email, 'حساب کاربری غیرفعال است.');
-            $msg = 'حساب کاربری مورد نظر غیرفعال می‌باشد. لطفاً با راهبر سامانه تماس حاصل فرمایید.';
+            $this->logLoginFailed($provider, $user->username ?? $user->email, __('services.auth.identity.account_inactive_log'));
+            $msg = __('services.auth.identity.account_inactive_msg');
             throw ValidationException::withMessages([
                 $field => $msg,
                 'login' => $msg,
@@ -406,7 +406,7 @@ class IdentityAuthService
                     'action' => 'auth_login_failed',
                     'entity_type' => User::class,
                     'entity_id' => null,
-                    'description' => "تلاش ناموفق ورود با روش {$provider} ({$identifier}). علت: {$reason}",
+                    'description' => __('services.auth.identity.audit_login_failed', ['provider' => $provider, 'identifier' => $identifier, 'reason' => $reason]),
                     'ip_address' => request()->ip(),
                     'user_agent' => request()->userAgent(),
                 ]);

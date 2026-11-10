@@ -32,7 +32,7 @@ class TronGridGateway implements PaymentGatewayInterface
 
     public function getName(): string
     {
-        return 'شبکه مستقیم ترون گرید (TronGrid Direct)';
+        return __('services.gateways.trongrid.name');
     }
 
     public function validateCredentials(array $config): array
@@ -41,13 +41,13 @@ class TronGridGateway implements PaymentGatewayInterface
         if (empty($address)) {
             return [
                 'valid' => false,
-                'message' => 'آدرس والت دریافت ترون وارد نشده است.',
+                'message' => __('services.gateways.trongrid.no_rx_address'),
             ];
         }
 
         return [
             'valid' => true,
-            'message' => 'پیکربندی شبکه ترون گرید معتبر است.',
+            'message' => __('services.gateways.trongrid.network_config_valid'),
             'details' => ['address' => $address],
         ];
     }
@@ -62,7 +62,7 @@ class TronGridGateway implements PaymentGatewayInterface
             'address' => $config['deposit_address'] ?? null,
             'currency' => 'TRX',
             'changed' => false,
-            'message' => 'آدرس والت ترون گرید بررسی شد.',
+            'message' => __('services.gateways.trongrid.rx_address_checked'),
         ];
     }
 
@@ -71,11 +71,11 @@ class TronGridGateway implements PaymentGatewayInterface
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
         if (empty($this->depositAddress)) {
-            throw new \RuntimeException('آدرس والت دریافت ترون (TRX) در تنظیمات درگاه ترون گرید تنظیم نشده است. امکان تولید آدرس ساختگی وجود ندارد.');
+            throw new \RuntimeException(__('services.gateways.trongrid.no_rx_address_configured_runtime'));
         }
 
         if (! str_starts_with($this->depositAddress, 'T') || strlen($this->depositAddress) !== 34) {
-            throw new \RuntimeException('فرمت آدرس والت ترون گرید معتبر نمی‌باشد.');
+            throw new \RuntimeException(__('services.gateways.trongrid.wallet_address_invalid'));
         }
 
         return new PaymentAddressResult(
@@ -109,7 +109,7 @@ class TronGridGateway implements PaymentGatewayInterface
             if (! $txResponse->successful() || empty($txResponse->json('txID'))) {
                 return PaymentVerificationResult::pending(
                     'NotFound',
-                    'تراکنش هنوز در بلاکچین ترون ثبت یا همگام‌سازی نشده است.'
+                    __('services.gateways.trongrid.tx_not_synced')
                 );
             }
 
@@ -127,7 +127,7 @@ class TronGridGateway implements PaymentGatewayInterface
             // Verify status: if receipt exists, check result
             $receiptResult = $infoData['receipt']['result'] ?? null;
             if ($receiptResult !== null && strtoupper((string) $receiptResult) !== 'SUCCESS') {
-                return PaymentVerificationResult::rejected("تراکنش در شبکه ترون با خطا مواجه شد ({$receiptResult}).", $infoData);
+                return PaymentVerificationResult::rejected(__('services.gateways.trongrid.tx_failed_result', ['result' => $receiptResult]), $infoData);
             }
 
             // Extract transfer contract
@@ -142,7 +142,7 @@ class TronGridGateway implements PaymentGatewayInterface
                 // Validate amount
                 if (bccomp($trxAmount, (string) $deposit->requested_amount, 4) < 0) {
                     return PaymentVerificationResult::rejected(
-                        "مبلغ واریز شده ({$trxAmount} TRX) کمتر از مبلغ درخواست ({$deposit->requested_amount} TRX) است.",
+                        __('services.gateways.trongrid.amount_less', ['amount' => $trxAmount, 'requested' => $deposit->requested_amount]),
                         $txData
                     );
                 }
@@ -158,10 +158,10 @@ class TronGridGateway implements PaymentGatewayInterface
                 );
             }
 
-            return PaymentVerificationResult::pending('CheckingContract', 'نوع قرارداد تراکنش ترون در حال ارزیابی است.', $txData);
+            return PaymentVerificationResult::pending('CheckingContract', __('services.gateways.trongrid.contract_checking'), $txData);
         } catch (\Throwable $e) {
             Log::error('TronGrid verifyTransaction error: ' . $e->getMessage());
-            return PaymentVerificationResult::pending('Error', 'خطا در ارتباط با شبکه ترون: ' . $e->getMessage());
+            return PaymentVerificationResult::pending('Error', __('services.gateways.trongrid.connection_error', ['error' => $e->getMessage()]));
         }
     }
 
@@ -170,4 +170,3 @@ class TronGridGateway implements PaymentGatewayInterface
         return [];
     }
 }
-

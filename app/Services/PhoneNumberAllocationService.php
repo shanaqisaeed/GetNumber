@@ -82,11 +82,11 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         $cleanNumber = trim($serviceNumber);
 
         if (! preg_match('/^[0-9]{4,8}$/', $cleanNumber)) {
-            throw new InvalidNumberFormatException('طول سرشماره اختصاصی باید بین ۴ تا ۸ رقم عددی باشد.');
+            throw new InvalidNumberFormatException(__('services.phone_numbers.service_number_length'));
         }
 
         if (trim($displayTitle) === '') {
-            throw new InvalidNumberFormatException('تعیین عنوان نمایشی برای سرشماره اختصاصی الزامی است.');
+            throw new InvalidNumberFormatException(__('services.phone_numbers.service_title_required'));
         }
 
         return DB::transaction(function () use ($user, $cleanNumber, $displayTitle, $actor, $prefix) {
@@ -116,7 +116,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             $phone = PhoneNumber::where('id', $phoneNumber->id)->lockForUpdate()->firstOrFail();
 
             if ($phone->status !== PhoneNumberStatus::Available && $phone->status !== PhoneNumberStatus::Reserved) {
-                throw new NumberAllocationException("خط مورد نظر در وضعیت «{$phone->status->label()}» بوده و قابل رزرو نمی‌باشد.");
+                throw new NumberAllocationException(__('services.phone_numbers.not_available_for_reserve', ['status' => $phone->status->label()]));
             }
 
             $fromStatus = $phone->status;
@@ -251,7 +251,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
 
     /**
      * Checks if there is an available standard number in the pool for allocation.
-     * Respects line type "شماره عادی کاربر" (PhoneNumberType::UserStandard).
+     * Respects line type "Standard user number" (PhoneNumberType::UserStandard).
      */
     public function hasAvailableStandardNumber(): bool
     {
@@ -304,7 +304,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                 ->get();
 
             foreach ($expiredReservations as $res) {
-                $this->releaseNumber($res, null, 'انقضای خودکار مهلت رزرو خط');
+                $this->releaseNumber($res, null, __('services.phone_numbers.auto_expired_reservation'));
                 $count++;
             }
 
@@ -315,7 +315,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                 ->get();
 
             foreach ($expiredAllocations as $alloc) {
-                $this->expireNumber($alloc, null, 'سررسید و انقضای خودکار خط تخصیص‌یافته');
+                $this->expireNumber($alloc, null, __('services.phone_numbers.auto_expired_allocation'));
                 $count++;
             }
 
@@ -354,7 +354,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         $cleaned = preg_replace('/\D/', '', $stripped);
 
         if (strlen((string) $cleaned) !== 9) {
-            throw new InvalidNumberFormatException('شماره استاندارد عادی باید دقیقاً ۹ رقم عددی باشد.');
+            throw new InvalidNumberFormatException(__('services.phone_numbers.standard_number_length'));
         }
 
         return (string) $cleaned;
@@ -378,7 +378,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
 
         if ($phone !== null) {
             if ($phone->type === PhoneNumberType::PlatformService && ! $user->isAdmin()) {
-                throw new NumberAllocationException('سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+                throw new NumberAllocationException(__('services.phone_numbers.platform_numbers_not_allocatable'));
             }
 
             if ($phone->status !== PhoneNumberStatus::Available && $phone->status !== PhoneNumberStatus::Reserved) {
@@ -509,7 +509,7 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
             }
         }
 
-        throw new NumberAllocationException('خطا در تولید شماره یکتا پس از چند تلاش متوالی. لطفاً دوباره تلاش نمایید.');
+        throw new NumberAllocationException(__('services.phone_numbers.unique_number_failed'));
     }
 
     /**

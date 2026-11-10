@@ -24,14 +24,14 @@ class MockPaymentGateway implements PaymentGatewayInterface
 
     public function getName(): string
     {
-        return 'درگاه شبیه‌ساز تست (Sandbox / Mock)';
+        return __('services.gateways.mock.name');
     }
 
     public function validateCredentials(array $config): array
     {
         return [
             'valid' => true,
-            'message' => 'اعتبارسنجی درگاه شبیه‌ساز با موفقیت انجام شد.',
+            'message' => __('services.gateways.mock.validation_success'),
             'details' => ['sandbox' => true],
         ];
     }
@@ -47,7 +47,7 @@ class MockPaymentGateway implements PaymentGatewayInterface
             'address' => $config['deposit_address'],
             'currency' => 'TRX',
             'changed' => false,
-            'message' => 'کیف پول شبیه‌ساز با موفقیت ست شد.',
+            'message' => __('services.gateways.mock.wallet_configured'),
         ];
     }
 
@@ -73,7 +73,7 @@ class MockPaymentGateway implements PaymentGatewayInterface
         // Simulation scenarios based on hash patterns
         if (str_starts_with($cleanTxHash, 'fail_') || str_starts_with($cleanTxHash, 'reject_')) {
             return PaymentVerificationResult::rejected(
-                'تراکنش توسط شبیه‌ساز شبکه به عنوان تراکنش نامعتبر رد شد.',
+                __('services.gateways.mock.rejected_invalid'),
                 ['simulated' => true]
             );
         }
@@ -81,21 +81,21 @@ class MockPaymentGateway implements PaymentGatewayInterface
         if (str_starts_with($cleanTxHash, 'pending_')) {
             return PaymentVerificationResult::pending(
                 'Confirming',
-                'تراکنش در صف انتظار تأیید بلاک‌های شبکه ترون قرار دارد.',
+                __('services.gateways.mock.pending_block'),
                 ['simulated' => true]
             );
         }
 
         if (str_starts_with($cleanTxHash, 'underpaid_')) {
             return PaymentVerificationResult::rejected(
-                'مبلغ واریزشده (0.1000 TRX) کمتر از مبلغ درخواست است.',
+                __('services.gateways.mock.amount_less'),
                 ['simulated' => true, 'actual_amount' => '0.1000']
             );
         }
 
         if (str_starts_with($cleanTxHash, 'wrong_dest_')) {
             return PaymentVerificationResult::rejected(
-                'آدرس واریز تراکنش با آدرس اختصاص‌یافته مطابقت ندارد.',
+                __('services.gateways.mock.address_mismatch'),
                 ['simulated' => true]
             );
         }
@@ -117,4 +117,3 @@ class MockPaymentGateway implements PaymentGatewayInterface
         return $this->config['mock_transfers'] ?? [];
     }
 }
-

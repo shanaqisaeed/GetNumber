@@ -26,7 +26,7 @@ class LedgerService implements LedgerServiceInterface
         string $currency = 'COIN'
     ): JournalEntry {
         if (empty($lines)) {
-            throw new InvalidArgumentException('سند مالی باید حداقل شامل دو سطر حسابداری (بدهکار و بستانکار) باشد.');
+            throw new InvalidArgumentException(__('services.ledger.two_lines_required'));
         }
 
         return DB::transaction(function () use ($description, $lines, $referenceType, $referenceId, $actor, $metadata, $currency) {
@@ -48,12 +48,12 @@ class LedgerService implements LedgerServiceInterface
             foreach ($lines as $line) {
                 $accountCode = $line['account_code'] ?? null;
                 if (! $accountCode) {
-                    throw new InvalidArgumentException('کد سرفصل حسابداری در سطر سند مشخص نشده است.');
+                    throw new InvalidArgumentException(__('services.ledger.account_code_required'));
                 }
 
                 $account = LedgerAccount::findByCode($accountCode);
                 if (! $account) {
-                    throw new InvalidArgumentException("سرفصل حسابداری با کد «{$accountCode}» در سامانه یافت نشد.");
+                    throw new InvalidArgumentException(__('services.ledger.account_not_found', ['code' => $accountCode]));
                 }
 
                 $rawDebit = (string) ($line['debit'] ?? '0.0000');
@@ -84,7 +84,7 @@ class LedgerService implements LedgerServiceInterface
             }
 
             if (bccomp($totalDebit, '0.0000', self::DECIMAL_SCALE) <= 0) {
-                throw new InvalidArgumentException('مبلغ کل سند حسابداری باید بزرگتر از صفر باشد.');
+                throw new InvalidArgumentException(__('services.ledger.total_must_be_positive'));
             }
 
             $journal = JournalEntry::create([
@@ -124,7 +124,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => $cleanAmount,
                 'credit' => '0.0000',
                 'user_id' => null,
-                'description' => "واریز وجه به خزانه پلتفرم (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_deposit', ['user_id' => $user->id]),
             ],
             // Credit User Wallet Liability (User account liability increases)
             [
@@ -170,7 +170,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => '0.0000',
                 'credit' => $cleanAmount,
                 'user_id' => null,
-                'description' => "درآمد فروش شماره مجازی (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_number_sale', ['user_id' => $user->id]),
             ],
         ];
 
@@ -200,7 +200,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => $cleanAmount,
                 'credit' => '0.0000',
                 'user_id' => null,
-                'description' => "استرداد درآمد حاصل از شماره مجازی (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_number_sale_refund', ['user_id' => $user->id]),
             ],
             // Credit User Wallet Liability (User account liability increases)
             [
@@ -246,7 +246,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => '0.0000',
                 'credit' => $cleanAmount,
                 'user_id' => $user->id,
-                'description' => "مسدودی وجه درخواست سرشماره سازمانی (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_org_request_block', ['user_id' => $user->id]),
             ],
         ];
 
@@ -276,7 +276,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => $cleanAmount,
                 'credit' => '0.0000',
                 'user_id' => $user->id,
-                'description' => "تسویه نهایی وجه مسدود شده (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_org_request_settle', ['user_id' => $user->id]),
             ],
             // Credit Number Revenue (Operating Revenue increases)
             [
@@ -284,7 +284,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => '0.0000',
                 'credit' => $cleanAmount,
                 'user_id' => null,
-                'description' => "درآمد واگذاری سرشماره سازمانی (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_org_request_sale', ['user_id' => $user->id]),
             ],
         ];
 
@@ -314,7 +314,7 @@ class LedgerService implements LedgerServiceInterface
                 'debit' => $cleanAmount,
                 'credit' => '0.0000',
                 'user_id' => $user->id,
-                'description' => "آزادسازی وجه مسدودی (کاربر #{$user->id})",
+                'description' => __('services.ledger.desc_org_request_release', ['user_id' => $user->id]),
             ],
             // Credit User Wallet Liability (Returned to user active wallet balance)
             [
@@ -354,14 +354,14 @@ class LedgerService implements LedgerServiceInterface
                     'debit' => $cleanAmount,
                     'credit' => '0.0000',
                     'user_id' => null,
-                    'description' => "تعدیل مثبت دستی توسط مدیر ({$admin->name}): {$reason}",
+                    'description' => __('services.ledger.desc_manual_credit', ['admin' => $admin->name, 'reason' => $reason]),
                 ],
                 [
                     'account_code' => '2010_USER_WALLETS',
                     'debit' => '0.0000',
                     'credit' => $cleanAmount,
                     'user_id' => $user->id,
-                    'description' => "شارژ دستی توسط مدیر: {$reason}",
+                    'description' => __('services.ledger.desc_manual_credit_simple', ['reason' => $reason]),
                 ],
             ];
         } else {
@@ -372,20 +372,20 @@ class LedgerService implements LedgerServiceInterface
                     'debit' => $cleanAmount,
                     'credit' => '0.0000',
                     'user_id' => $user->id,
-                    'description' => "کسر دستی توسط مدیر: {$reason}",
+                    'description' => __('services.ledger.desc_manual_debit_simple', ['reason' => $reason]),
                 ],
                 [
                     'account_code' => '9010_SUSPENSE',
                     'debit' => '0.0000',
                     'credit' => $cleanAmount,
                     'user_id' => null,
-                    'description' => "تعدیل منفی دستی توسط مدیر ({$admin->name}): {$reason}",
+                    'description' => __('services.ledger.desc_manual_debit', ['admin' => $admin->name, 'reason' => $reason]),
                 ],
             ];
         }
 
         return $this->recordJournal(
-            description: "تعدیل حسابداری توسط مدیر: {$reason}",
+            description: __('services.ledger.desc_manual_adjustment', ['reason' => $reason]),
             lines: $lines,
             referenceType: 'AdminAdjustment',
             referenceId: $referenceId,
@@ -439,4 +439,3 @@ class LedgerService implements LedgerServiceInterface
         ];
     }
 }
-

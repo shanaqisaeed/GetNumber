@@ -37,13 +37,13 @@ class SuspiciousBehaviorEngine
 
         if ($repCount >= self::REPETITIVE_BODY_THRESHOLD) {
             $addedRisk += 30;
-            $reasons[] = "ارسال مکرر متن یکسان به بیش از " . self::REPETITIVE_BODY_THRESHOLD . " شماره مقصد در بازه ۱۰ دقیقه";
+            $reasons[] = __('services.security.behavior.repetitive_body', ['threshold' => self::REPETITIVE_BODY_THRESHOLD]);
         }
 
         // 2. High-volume destination surge for non-trusted tiers
         if (! $user->isTrustedTier() && count($destinations) >= 15) {
             $addedRisk += 25;
-            $reasons[] = "حجم بالای مقاصد پیامک در یک درخواست برای حساب فاقد تاییدیه";
+            $reasons[] = __('services.security.behavior.bulk_unverified');
         }
 
         // 3. Check rapid rate limit trip history
@@ -51,7 +51,7 @@ class SuspiciousBehaviorEngine
         $tripsCount = (int) Cache::get($tripsKey, 0);
         if ($tripsCount >= 3) {
             $addedRisk += 20;
-            $reasons[] = "تلاش‌های مکرر و غیرعادی برای دور زدن محدودیت‌های نرخ ارسال";
+            $reasons[] = __('services.security.behavior.bypass_rate_limits');
         }
 
         // Compute new cumulative risk score
@@ -100,4 +100,3 @@ class SuspiciousBehaviorEngine
         ];
     }
 }
-

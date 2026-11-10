@@ -80,7 +80,7 @@ class PhoneNumberNormalizer
         if ($trimmed === '') {
             return [
                 'valid' => false,
-                'error' => 'شماره مقصد الزامی است و نمی‌تواند خالی باشد.',
+                'error' => __('services.phone_numbers.normalizer.dest_required'),
             ];
         }
 
@@ -88,7 +88,7 @@ class PhoneNumberNormalizer
         if (empty($cleanedDigits)) {
             return [
                 'valid' => false,
-                'error' => 'شماره مقصد فاقد ارقام معتبر است.',
+                'error' => __('services.phone_numbers.normalizer.no_valid_digits'),
             ];
         }
 
@@ -120,7 +120,7 @@ class PhoneNumberNormalizer
             $defaultPrefix = PhonePrefix::getDefaultPrefixString();
             return [
                 'valid' => false,
-                'error' => "شماره مقصد باید همیشه به همراه پیش‌شماره کامل سامانه (مانند {$defaultPrefix}...) ارسال شود.",
+                'error' => __('services.phone_numbers.normalizer.prefix_required', ['prefix' => $defaultPrefix]),
             ];
         }
 
@@ -132,7 +132,7 @@ class PhoneNumberNormalizer
         if ($length < 4 || $length > 9) {
             return [
                 'valid' => false,
-                'error' => "طول شماره مقصد با احتساب پیش‌شماره نامعتبر است. طول شماره اصلی باید بین ۴ تا ۹ رقم باشد (طول دریافت شده: {$length} رقم).",
+                'error' => __('services.phone_numbers.normalizer.length_invalid', ['length' => $length]),
             ];
         }
 

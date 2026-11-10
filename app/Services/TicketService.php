@@ -33,7 +33,7 @@ class TicketService implements TicketServiceInterface
         if (! empty($data['phone_number_id'])) {
             $phone = PhoneNumber::findOrFail($data['phone_number_id']);
             if ($phone->user_id !== $user->id && ! $user->isStaff()) {
-                throw new NumberAllocationException('خط انتخاب‌شده متعلق به حساب کاربری شما نمی‌باشد.');
+                throw new NumberAllocationException(__('services.tickets.line_not_owned'));
             }
             $phoneNumberId = $phone->id;
         }
@@ -84,7 +84,7 @@ class TicketService implements TicketServiceInterface
     {
         if ($ticket->isClosed() && ! $author->isStaff()) {
             throw ValidationException::withMessages([
-                'message' => 'این تیکت بسته‌شده است و امکان ارسال پاسخ جدید توسط کاربر وجود ندارد.',
+                'message' => __('services.tickets.ticket_closed'),
             ]);
         }
 
@@ -139,7 +139,7 @@ class TicketService implements TicketServiceInterface
     public function assignTicket(Ticket $ticket, ?User $agent, User $actor): Ticket
     {
         if ($agent && ! $agent->isStaff()) {
-            throw new \InvalidArgumentException('کاربر انتخاب‌شده کارشناس پشتیبانی یا مدیر سامانه نمی‌باشد.');
+            throw new \InvalidArgumentException(__('services.tickets.not_staff_or_admin'));
         }
 
         $ticket->update([

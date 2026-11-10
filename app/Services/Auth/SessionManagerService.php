@@ -40,7 +40,7 @@ class SessionManagerService
                 'platform' => $parsed['platform'],
                 'browser' => $parsed['browser'],
                 'device_type' => $parsed['device_type'], // 'desktop' | 'mobile' | 'tablet'
-                'last_active' => $isCurrent ? 'نشست جاری (هم‌اکنون)' : $lastActivity->diffForHumans(),
+                'last_active' => $isCurrent ? __('services.auth.sessions.current_session') : $lastActivity->diffForHumans(),
                 'last_activity_date' => $lastActivity->format('Y/m/d H:i:s'),
                 'last_activity_timestamp' => (int) $session->last_activity,
             ];
@@ -56,7 +56,7 @@ class SessionManagerService
         if (!empty($user->password)) {
             if (empty($password) || !Hash::check($password, $user->password)) {
                 throw ValidationException::withMessages([
-                    'password' => 'کلمه عبور وارد شده نادرست می‌باشد.',
+                    'password' => __('services.auth.sessions.invalid_password'),
                 ]);
             }
 
@@ -77,7 +77,7 @@ class SessionManagerService
                 'action' => 'other_sessions_terminated',
                 'entity_type' => User::class,
                 'entity_id' => $user->id,
-                'description' => 'خروج موفق از تمامی نشست‌ها روی سایر دستگاه‌ها',
+                'description' => __('services.auth.sessions.audit_logout_others'),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
@@ -92,7 +92,7 @@ class SessionManagerService
     {
         if ($sessionId === $request->session()->getId()) {
             throw ValidationException::withMessages([
-                'session' => 'امکان قطع نشست جاری از این بخش وجود ندارد. لطفاً از دکمه خروج استفاده فرمایید.',
+                'session' => __('services.auth.sessions.cannot_terminate_current'),
             ]);
         }
 
@@ -108,7 +108,7 @@ class SessionManagerService
                     'action' => 'specific_session_terminated',
                     'entity_type' => User::class,
                     'entity_id' => $user->id,
-                    'description' => "قطع نشست با شناسه {$sessionId}",
+                    'description' => __('services.auth.sessions.audit_terminate_session', ['session_id' => $sessionId]),
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                 ]);
@@ -128,41 +128,41 @@ class SessionManagerService
      */
     public function parseUserAgent(string $userAgent): array
     {
-        $platform = 'سیستم‌عامل نامشخص';
-        $browser = 'مرورگر نامشخص';
+        $platform = __('services.auth.sessions.unknown_platform');
+        $browser = __('services.auth.sessions.unknown_browser');
         $deviceType = 'desktop';
 
         // Detect Platform / OS
         if (preg_match('/windows|win32/i', $userAgent)) {
-            $platform = 'ویندوز (Windows)';
+            $platform = __('services.auth.sessions.platforms.windows');
         } elseif (preg_match('/iphone/i', $userAgent)) {
-            $platform = 'آیفون (iOS)';
+            $platform = __('services.auth.sessions.platforms.ios');
             $deviceType = 'mobile';
         } elseif (preg_match('/ipad/i', $userAgent)) {
-            $platform = 'آیپد (iPadOS)';
+            $platform = __('services.auth.sessions.platforms.ipados');
             $deviceType = 'tablet';
         } elseif (preg_match('/android/i', $userAgent)) {
-            $platform = 'اندروید (Android)';
+            $platform = __('services.auth.sessions.platforms.android');
             $deviceType = preg_match('/mobile/i', $userAgent) ? 'mobile' : 'tablet';
         } elseif (preg_match('/macintosh|mac os x/i', $userAgent)) {
-            $platform = 'مک (macOS)';
+            $platform = __('services.auth.sessions.platforms.macos');
         } elseif (preg_match('/linux/i', $userAgent)) {
-            $platform = 'لینوکس (Linux)';
+            $platform = __('services.auth.sessions.platforms.linux');
         }
 
         // Detect Browser
         if (preg_match('/edg/i', $userAgent)) {
-            $browser = 'مایکروسافت اج (Edge)';
+            $browser = __('services.auth.sessions.browsers.edge');
         } elseif (preg_match('/samsungbrowser/i', $userAgent)) {
-            $browser = 'سامسونگ اینترنت (Samsung Internet)';
+            $browser = __('services.auth.sessions.browsers.samsung');
         } elseif (preg_match('/opr|opera/i', $userAgent)) {
-            $browser = 'اپرا (Opera)';
+            $browser = __('services.auth.sessions.browsers.opera');
         } elseif (preg_match('/firefox/i', $userAgent)) {
-            $browser = 'فایرفاکس (Firefox)';
+            $browser = __('services.auth.sessions.browsers.firefox');
         } elseif (preg_match('/chrome|crios/i', $userAgent)) {
-            $browser = 'گوگل کروم (Chrome)';
+            $browser = __('services.auth.sessions.browsers.chrome');
         } elseif (preg_match('/safari/i', $userAgent)) {
-            $browser = 'سافاری (Safari)';
+            $browser = __('services.auth.sessions.browsers.safari');
         }
 
         return [
@@ -172,4 +172,3 @@ class SessionManagerService
         ];
     }
 }
-

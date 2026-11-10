@@ -52,24 +52,24 @@ class NumberRequestService implements NumberRequestServiceInterface
         ?int $phonePrefixId = null
     ): NumberRequest {
         if ($requestedLength < 4 || $requestedLength > 8) {
-            throw new InvalidNumberRequestException('طول سرشماره درخواستی باید بین ۴ تا ۸ رقم باشد.');
+            throw new InvalidNumberRequestException(__('services.number_requests.length_between'));
         }
 
         $cleanTitle = trim($serviceTitle);
         if ($cleanTitle === '') {
-            throw new InvalidNumberRequestException('تعیین عنوان نمایشی سرشماره الزامی است.');
+            throw new InvalidNumberRequestException(__('services.number_requests.title_required'));
         }
 
         $cleanDescription = trim($description);
         if ($cleanDescription === '') {
-            throw new InvalidNumberRequestException('توضیح کاربرد سرشماره سازمانی الزامی است.');
+            throw new InvalidNumberRequestException(__('services.number_requests.description_required'));
         }
 
         $cleanPreferred = null;
         if ($preferredNumber !== null && trim($preferredNumber) !== '') {
             $cleanPreferred = preg_replace('/\D/', '', trim($preferredNumber));
             if (strlen((string) $cleanPreferred) !== $requestedLength) {
-                throw new InvalidNumberRequestException("سرشماره پیشنهادی باید دقیقاً {$requestedLength} رقم عددی باشد.");
+                throw new InvalidNumberRequestException(__('services.number_requests.preferred_length_mismatch', ['length' => $requestedLength]));
             }
         }
 
@@ -85,7 +85,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                 user: $user,
                 amount: $price,
                 referenceId: $holdRef,
-                description: "مسدودی وجه جهت ثبت درخواست سرشماره سازمانی «{$cleanTitle}»",
+                description: __('services.number_requests.desc_block', ['title' => $cleanTitle]),
                 metadata: [
                     'phone_prefix_id' => $phonePrefixId,
                     'requested_length' => $requestedLength,
@@ -129,7 +129,7 @@ class NumberRequestService implements NumberRequestServiceInterface
 
             $applicant = $req->user;
             if (! $applicant) {
-                throw new NumberAllocationException('کاربر متقاضی این سرشماره یافت نشد.');
+                throw new NumberAllocationException(__('services.number_requests.user_not_found'));
             }
 
             /** @var PhoneNumber $phone */
@@ -145,7 +145,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                     user: $applicant,
                     amount: (string) $req->held_amount,
                     referenceId: 'FIN-' . $req->hold_reference_id,
-                    description: "تسویه نهایی وجه مسدود شده جهت واگذاری سرشماره سازمانی «{$req->service_title}»",
+                    description: __('services.number_requests.desc_settle', ['title' => $req->service_title]),
                     metadata: [
                         'request_id' => $req->id,
                         'phone_number_id' => $phone->id,
@@ -171,7 +171,7 @@ class NumberRequestService implements NumberRequestServiceInterface
     ): NumberRequest {
         $cleanReason = trim($reason);
         if ($cleanReason === '') {
-            throw new InvalidNumberRequestException('درج دلیل رد درخواست الزامی است.');
+            throw new InvalidNumberRequestException(__('services.number_requests.reject_reason_required'));
         }
 
         return DB::transaction(function () use ($request, $admin, $cleanReason) {
@@ -188,7 +188,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                     user: $req->user,
                     amount: (string) $req->held_amount,
                     referenceId: 'REL-' . $req->hold_reference_id,
-                    description: "آزادسازی و عودت وجه مسدود شده به دلیل رد درخواست سرشماره سازمانی «{$req->service_title}»",
+                    description: __('services.number_requests.desc_reject_refund', ['title' => $req->service_title]),
                     metadata: [
                         'request_id' => $req->id,
                         'reason' => $cleanReason,
@@ -222,11 +222,11 @@ class NumberRequestService implements NumberRequestServiceInterface
             $req = NumberRequest::where('id', $request->id)->lockForUpdate()->firstOrFail();
 
             if ($req->user_id !== $user->id && ! $user->isAdmin()) {
-                throw new NumberAllocationException('شما دسترسی لازم برای لغو این درخواست را ندارید.');
+                throw new NumberAllocationException(__('services.number_requests.unauthorized_cancel'));
             }
 
             if (! $req->isPending()) {
-                throw new NumberRequestAlreadyReviewedException('امکان لغو درخواستی که در وضعیت انتظار نیست وجود ندارد.');
+                throw new NumberRequestAlreadyReviewedException(__('services.number_requests.cannot_cancel_reviewed'));
             }
 
             // Release held funds immediately if present
@@ -235,7 +235,7 @@ class NumberRequestService implements NumberRequestServiceInterface
                     user: $req->user,
                     amount: (string) $req->held_amount,
                     referenceId: 'CAN-' . $req->hold_reference_id,
-                    description: "آزادسازی و عودت وجه مسدود شده به دلیل انصراف از درخواست سرشماره سازمانی «{$req->service_title}»",
+                    description: __('services.number_requests.desc_cancel_refund', ['title' => $req->service_title]),
                     metadata: [
                         'request_id' => $req->id,
                     ]
@@ -256,12 +256,12 @@ class NumberRequestService implements NumberRequestServiceInterface
         User $admin
     ): PhoneNumber {
         if ($customNumber === null || trim($customNumber) === '') {
-            throw new InvalidNumberFormatException('وارد کردن شماره دستی الزامی است.');
+            throw new InvalidNumberFormatException(__('services.number_requests.custom_number_required'));
         }
 
         $cleanNumber = preg_replace('/\D/', '', trim($customNumber));
         if (strlen((string) $cleanNumber) !== $req->requested_length) {
-            throw new InvalidNumberFormatException("طول شماره دستی باید دقیقاً {$req->requested_length} رقم باشد.");
+            throw new InvalidNumberFormatException(__('services.number_requests.custom_number_length', ['length' => $req->requested_length]));
         }
 
         /** @var PhoneNumber|null $existing */
@@ -299,7 +299,7 @@ class NumberRequestService implements NumberRequestServiceInterface
         User $admin
     ): PhoneNumber {
         if (! $poolNumberId) {
-            throw new InvalidNumberRequestException('انتخاب سرشماره آزاد از استخر الزامی است.');
+            throw new InvalidNumberRequestException(__('services.number_requests.pool_selection_required'));
         }
 
         /** @var PhoneNumber|null $phone */
@@ -310,11 +310,11 @@ class NumberRequestService implements NumberRequestServiceInterface
             ->first();
 
         if (! $phone) {
-            throw new NumberAllocationException('سرشماره انتخابی در وضعیت آزاد قرار ندارد.');
+            throw new NumberAllocationException(__('services.number_requests.pool_number_not_available'));
         }
 
         if (strlen($phone->number) !== $req->requested_length) {
-            throw new InvalidNumberRequestException("طول سرشماره انتخابی با طول درخواستی ({$req->requested_length} رقم) مطابقت ندارد.");
+            throw new InvalidNumberRequestException(__('services.number_requests.pool_number_length_mismatch', ['length' => $req->requested_length]));
         }
 
         $phone->update([
@@ -390,7 +390,7 @@ class NumberRequestService implements NumberRequestServiceInterface
             }
         }
 
-        throw new NumberAllocationException('خطا در تولید سرشماره یکتا پس از چند تلاش متوالی. لطفاً دستی شماره انتخاب نمایید.');
+        throw new NumberAllocationException(__('services.number_requests.unique_generation_failed'));
     }
 
     /**

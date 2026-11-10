@@ -39,7 +39,7 @@ class TronScanGateway implements PaymentGatewayInterface
 
     public function getName(): string
     {
-        return 'کاوشگر ترون اسکن و ترون ویو (TronScan & TronView Direct)';
+        return __('services.gateways.tronscan.name');
     }
 
     public function validateCredentials(array $config): array
@@ -48,20 +48,20 @@ class TronScanGateway implements PaymentGatewayInterface
         if (empty($address)) {
             return [
                 'valid' => false,
-                'message' => 'آدرس والت دریافت ترون (TRX) وارد نشده است.',
+                'message' => __('services.gateways.tronscan.no_rx_address'),
             ];
         }
 
         if (! str_starts_with($address, 'T') || strlen($address) !== 34) {
             return [
                 'valid' => false,
-                'message' => 'فرمت آدرس والت ترون معتبر نیست (باید با حرف T آغاز شده و ۳۴ کاراکتر باشد).',
+                'message' => __('services.gateways.tronscan.rx_address_invalid'),
             ];
         }
 
         return [
             'valid' => true,
-            'message' => 'آدرس والت دریافت در بلاکچین ترون معتبر است.',
+            'message' => __('services.gateways.tronscan.rx_address_verified'),
             'details' => ['address' => $address],
         ];
     }
@@ -76,18 +76,18 @@ class TronScanGateway implements PaymentGatewayInterface
             'address' => $config['deposit_address'] ?? null,
             'currency' => 'TRX',
             'changed' => false,
-            'message' => 'آدرس والت بلاکچین ترون بررسی شد.',
+            'message' => __('services.gateways.tronscan.rx_address_checked'),
         ];
     }
 
     public function generateDepositAddress(CryptoDeposit $deposit): PaymentAddressResult
     {
         if (empty($this->depositAddress)) {
-            throw new RuntimeException('آدرس والت دریافت ترون (TRX) در تنظیمات درگاه ترون اسکن تنظیم نشده است. امکان تولید آدرس ساختگی وجود ندارد.');
+            throw new RuntimeException(__('services.gateways.tronscan.no_rx_address_configured'));
         }
 
         if (! str_starts_with($this->depositAddress, 'T') || strlen($this->depositAddress) !== 34) {
-            throw new RuntimeException('آدرس والت دریافت ترون در تنظیمات معتبر نیست (باید با حرف T آغاز شده و ۳۴ کاراکتر باشد).');
+            throw new RuntimeException(__('services.gateways.tronscan.rx_address_invalid_config'));
         }
 
         return new PaymentAddressResult(
@@ -108,7 +108,7 @@ class TronScanGateway implements PaymentGatewayInterface
         // 1. Strict Hex Hash Validation (64-character hexadecimal)
         if (! preg_match('/^[a-fA-F0-9]{64}$/', $cleanTxHash)) {
             return PaymentVerificationResult::rejected(
-                'فرمت کد رهگیری تراکنش ترون نامعتبر است (باید دقیقاً ۶۴ نویسه هگزادسیمال باشد).'
+                __('services.gateways.tronscan.tx_hash_invalid')
             );
         }
 
@@ -120,7 +120,7 @@ class TronScanGateway implements PaymentGatewayInterface
 
         if ($alreadyClaimed) {
             return PaymentVerificationResult::rejected(
-                'این شناسه تراکنش (TXID) پیش از این برای سفارش دیگری تأیید و مصرف شده است (جلوگیری از دوباره‌خرجی).'
+                __('services.gateways.tronscan.tx_hash_already_used')
             );
         }
 
@@ -145,7 +145,7 @@ class TronScanGateway implements PaymentGatewayInterface
                 $confirmations = (int) ($data['confirmations'] ?? 0);
 
                 if (strtoupper($contractRet) === 'FAILED' || strtoupper($contractRet) === 'REVERT') {
-                    return PaymentVerificationResult::rejected('تراکنش در بلاکچین ترون با شکست مواجه شده است.', $data);
+                    return PaymentVerificationResult::rejected(__('services.gateways.tronscan.tx_failed'), $data);
                 }
 
                 if (strtoupper($contractRet) === 'SUCCESS') {
@@ -164,7 +164,7 @@ class TronScanGateway implements PaymentGatewayInterface
                         $earliestAllowed = $deposit->created_at->subMinutes(10);
                         if ($txTime->lt($earliestAllowed)) {
                             return PaymentVerificationResult::rejected(
-                                'تراکنش ارائه شده قبل از صدور فاکتور واریز انجام شده است و امکان پذیرش تراکنش‌های گذشته وجود ندارد.',
+                                __('services.gateways.tronscan.tx_before_invoice'),
                                 $data
                             );
                         }
@@ -173,7 +173,7 @@ class TronScanGateway implements PaymentGatewayInterface
                     // 4. Verify Destination Address matches platform deposit address
                     if ($deposit->deposit_address && ! empty($destAddress) && strcmp($destAddress, $deposit->deposit_address) !== 0) {
                         return PaymentVerificationResult::rejected(
-                            "آدرس مقصد تراکنش ({$destAddress}) با آدرس تعیین‌شده مطابقت ندارد.",
+                            __('services.gateways.tronscan.dest_mismatch', ['address' => $destAddress]),
                             $data
                         );
                     }
@@ -181,7 +181,7 @@ class TronScanGateway implements PaymentGatewayInterface
                     // 5. Verify Amount
                     if (bccomp($amountTrx, (string) $deposit->requested_amount, 4) < 0) {
                         return PaymentVerificationResult::rejected(
-                            "مبلغ واریزشده ({$amountTrx} TRX) کمتر از مبلغ درخواست ({$deposit->requested_amount} TRX) است.",
+                            __('services.gateways.tronscan.amount_less', ['amount' => $amountTrx, 'requested' => $deposit->requested_amount]),
                             $data
                         );
                     }
@@ -190,7 +190,7 @@ class TronScanGateway implements PaymentGatewayInterface
                     if (! $confirmed || $confirmations < self::REQUIRED_CONFIRMATIONS) {
                         return PaymentVerificationResult::pending(
                             'Confirming',
-                            "تراکنش با موفقیت در بلاک قرار گرفته و در حال تکمیل تأییدیه‌های قطعی شبکه است ({$confirmations}/" . self::REQUIRED_CONFIRMATIONS . " تأیید).",
+                            __('services.gateways.tronscan.confirming_count', ['current' => $confirmations, 'required' => self::REQUIRED_CONFIRMATIONS]),
                             $data
                         );
                     }
@@ -206,13 +206,13 @@ class TronScanGateway implements PaymentGatewayInterface
                     );
                 }
 
-                return PaymentVerificationResult::pending('Confirming', 'تراکنش در حال تأیید روی نودهای شبکه ترون است.', $data);
+                return PaymentVerificationResult::pending('Confirming', __('services.gateways.tronscan.confirming'), $data);
             }
 
-            return PaymentVerificationResult::pending('NotFound', 'تراکنش هنوز در کاوشگر بلاکچین ترون قابل مشاهده نیست.');
+            return PaymentVerificationResult::pending('NotFound', __('services.gateways.tronscan.tx_not_found'));
         } catch (\Throwable $e) {
             Log::error('TronScan verifyTransaction exception: ' . $e->getMessage());
-            return PaymentVerificationResult::pending('Error', 'خطا در استعلام از کاوشگر ترون: ' . $e->getMessage());
+            return PaymentVerificationResult::pending('Error', __('services.gateways.tronscan.query_error', ['error' => $e->getMessage()]));
         }
     }
 

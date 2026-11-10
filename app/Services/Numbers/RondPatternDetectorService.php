@@ -33,8 +33,8 @@ class RondPatternDetectorService
 
         $bestResult = [
             'tier' => self::TIER_REGULAR,
-            'tier_label' => 'عادی',
-            'pattern' => 'شماره عادی بدون الگوی رند',
+            'tier_label' => __('services.numbers.rond.tiers.regular'),
+            'pattern' => __('services.numbers.rond.patterns.regular_none'),
             'is_rond' => false,
         ];
 
@@ -65,8 +65,8 @@ class RondPatternDetectorService
         if ($len < 4) {
             return [
                 'tier' => self::TIER_REGULAR,
-                'tier_label' => 'عادی',
-                'pattern' => 'شماره کوتاه عادی',
+                'tier_label' => __('services.numbers.rond.tiers.regular'),
+                'pattern' => __('services.numbers.rond.patterns.short_regular'),
                 'is_rond' => false,
             ];
         }
@@ -75,8 +75,8 @@ class RondPatternDetectorService
         if (preg_match('/^(\d)\1+$/', $digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => "تماماً یکسان (تکرار رقم {$digits[0]})",
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.all_same_digits', ['digit' => $digits[0]]),
                 'is_rond' => true,
             ];
         }
@@ -85,8 +85,8 @@ class RondPatternDetectorService
         if (preg_match('/^[1-9]0{4,}$/', $digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'مضارب صدگانی / میلیونی (ختم به صفرهای متوالی)',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.multiples_zeros'),
                 'is_rond' => true,
             ];
         }
@@ -95,8 +95,8 @@ class RondPatternDetectorService
         if ($this->isFullySequentialAscending($digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'پله‌ای ترتیبی صعودی کامل',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.consecutive_ascending'),
                 'is_rond' => true,
             ];
         }
@@ -104,8 +104,8 @@ class RondPatternDetectorService
         if ($this->isFullySequentialDescending($digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'پله‌ای ترتیبی نزولی کامل',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.consecutive_descending'),
                 'is_rond' => true,
             ];
         }
@@ -114,8 +114,8 @@ class RondPatternDetectorService
         if ($len === 6 && substr($digits, 0, 3) === substr($digits, 3, 3)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'تکرار سه‌تایی دوباره (ABC-ABC)',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.repeat_three_digits'),
                 'is_rond' => true,
             ];
         }
@@ -124,8 +124,8 @@ class RondPatternDetectorService
         if ($len === 6 && preg_match('/^(\d)\1(\d)\2(\d)\3$/', $digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'جفت‌های سه‌گانه متوالی (AA-BB-CC)',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.consecutive_three_pairs'),
                 'is_rond' => true,
             ];
         }
@@ -134,8 +134,8 @@ class RondPatternDetectorService
         if ($len === 6 && preg_match('/^(\d{2})\1\1$/', $digits)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی',
-                'pattern' => 'تکرار تناوبی دورقمی (AB-AB-AB)',
+                'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                'pattern' => __('services.numbers.rond.patterns.periodic_two_digits'),
                 'is_rond' => true,
             ];
         }
@@ -145,24 +145,24 @@ class RondPatternDetectorService
             if ($len >= 6) {
                 return [
                     'tier' => self::TIER_GOLDEN,
-                    'tier_label' => 'رند طلایی',
-                    'pattern' => 'آینه‌ای کامل دوسویه (تقارن ۶ رقمی)',
+                    'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.mirror_six_digits'),
                     'is_rond' => true,
                 ];
             }
             if ($len === 5) {
                 return [
                     'tier' => self::TIER_SEMI,
-                    'tier_label' => 'نیمه‌رند',
-                    'pattern' => 'آینه‌ای ۵ رقمی (تقارن دوسویه)',
+                    'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.mirror_five_digits'),
                     'is_rond' => true,
                 ];
             }
             if ($len === 4) {
                 return [
                     'tier' => self::TIER_GOLDEN,
-                    'tier_label' => 'رند طلایی',
-                    'pattern' => 'آینه‌ای ۴ رقمی (ABBA)',
+                    'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.mirror_four_digits'),
                     'is_rond' => true,
                 ];
             }
@@ -174,8 +174,8 @@ class RondPatternDetectorService
             if (substr($digits, 0, 2) === substr($digits, 2, 2)) {
                 return [
                     'tier' => self::TIER_GOLDEN,
-                    'tier_label' => 'رند طلایی',
-                    'pattern' => 'تکرار جفت دورقمی (ABAB)',
+                    'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.repeat_pair_abab'),
                     'is_rond' => true,
                 ];
             }
@@ -183,8 +183,8 @@ class RondPatternDetectorService
             if ($digits[0] === $digits[1] && $digits[2] === $digits[3]) {
                 return [
                     'tier' => self::TIER_GOLDEN,
-                    'tier_label' => 'رند طلایی',
-                    'pattern' => 'جفت‌های دوتایی (AABB)',
+                    'tier_label' => __('services.numbers.rond.tiers.golden_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.pairs_aabb'),
                     'is_rond' => true,
                 ];
             }
@@ -192,8 +192,8 @@ class RondPatternDetectorService
             if (preg_match('/^(\d)\1\1\d$/', $digits) || preg_match('/^\d(\d)\1\1$/', $digits)) {
                 return [
                     'tier' => self::TIER_SEMI,
-                    'tier_label' => 'نیمه‌رند',
-                    'pattern' => 'سه رقم یکسان (AAAB یا BAAA)',
+                    'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.three_same_digits'),
                     'is_rond' => true,
                 ];
             }
@@ -201,8 +201,8 @@ class RondPatternDetectorService
             if (str_ends_with($digits, '00')) {
                 return [
                     'tier' => self::TIER_SEMI,
-                    'tier_label' => 'نیمه‌رند',
-                    'pattern' => 'ختم به دو صفر',
+                    'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.ending_two_zeros'),
                     'is_rond' => true,
                 ];
             }
@@ -212,8 +212,8 @@ class RondPatternDetectorService
         if (preg_match('/(\d)\1{3,}/', $digits, $matches)) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند',
-                'pattern' => "تکرار ۴ رقم متوالی یکسان ({$matches[1]})",
+                'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                'pattern' => __('services.numbers.rond.patterns.repeat_four_digits', ['digits' => $matches[1]]),
                 'is_rond' => true,
             ];
         }
@@ -222,8 +222,8 @@ class RondPatternDetectorService
         if (str_ends_with($digits, '000') || str_starts_with($digits, '000')) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند',
-                'pattern' => 'سه صفر ابتدایی یا انتهایی',
+                'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                'pattern' => __('services.numbers.rond.patterns.three_zeros_ends'),
                 'is_rond' => true,
             ];
         }
@@ -232,8 +232,8 @@ class RondPatternDetectorService
         if ($this->hasSequentialSubsegment($digits, 4)) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند',
-                'pattern' => '۴ رقم ترتیبی و پله‌ای',
+                'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                'pattern' => __('services.numbers.rond.patterns.four_consecutive_digits'),
                 'is_rond' => true,
             ];
         }
@@ -244,8 +244,8 @@ class RondPatternDetectorService
             if ($sub === strrev($sub)) {
                 return [
                     'tier' => self::TIER_SEMI,
-                    'tier_label' => 'نیمه‌رند',
-                    'pattern' => 'بخش آینه‌ای ۵ رقمی',
+                    'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                    'pattern' => __('services.numbers.rond.patterns.mirror_part_five_digits'),
                     'is_rond' => true,
                 ];
             }
@@ -255,8 +255,8 @@ class RondPatternDetectorService
         if (preg_match('/(\d)\1.*?(\d)\2/', $digits)) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند',
-                'pattern' => 'جفت‌های دورقمی مجزا',
+                'tier_label' => __('services.numbers.rond.tiers.semi_rond'),
+                'pattern' => __('services.numbers.rond.patterns.separate_two_pairs'),
                 'is_rond' => true,
             ];
         }
@@ -264,8 +264,8 @@ class RondPatternDetectorService
         // 13. Regular
         return [
             'tier' => self::TIER_REGULAR,
-            'tier_label' => 'عادی',
-            'pattern' => 'شماره استاندارد عادی',
+            'tier_label' => __('services.numbers.rond.tiers.regular'),
+            'pattern' => __('services.numbers.rond.patterns.standard_regular'),
             'is_rond' => false,
         ];
     }
@@ -321,4 +321,3 @@ class RondPatternDetectorService
         };
     }
 }
-

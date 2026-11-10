@@ -39,7 +39,7 @@ class LdapAuthService
         if (!extension_loaded('ldap')) {
             return [
                 'success' => false,
-                'message' => 'اکستنشن PHP LDAP بر روی سرور نصب یا فعال نشده است.',
+                'message' => __('services.auth.ldap.extension_not_loaded'),
             ];
         }
 
@@ -48,7 +48,7 @@ class LdapAuthService
         if (empty($config['host'])) {
             return [
                 'success' => false,
-                'message' => 'آدرس سرور LDAP (Host) مشخص نشده است.',
+                'message' => __('services.auth.ldap.host_missing'),
             ];
         }
 
@@ -61,7 +61,7 @@ class LdapAuthService
             if (!$connection) {
                 return [
                     'success' => false,
-                    'message' => "برقراری ارتباط با سرور LDAP در آدرس {$uri} با شکست مواجه شد.",
+                    'message' => __('services.auth.ldap.connection_failed', ['uri' => $uri]),
                 ];
             }
 
@@ -73,7 +73,7 @@ class LdapAuthService
                 if (!@ldap_start_tls($connection)) {
                     return [
                         'success' => false,
-                        'message' => 'شروع اتصال امن StartTLS با سرور LDAP ناموفق بود: ' . ldap_error($connection),
+                        'message' => __('services.auth.ldap.starttls_failed', ['error' => ldap_error($connection)]),
                     ];
                 }
             }
@@ -89,13 +89,13 @@ class LdapAuthService
             if (!$bindResult) {
                 return [
                     'success' => false,
-                    'message' => 'احراز هویت کاربر سرویس (Bind DN) ناموفق بود: ' . ldap_error($connection),
+                    'message' => __('services.auth.ldap.bind_failed', ['error' => ldap_error($connection)]),
                 ];
             }
 
             return [
                 'success' => true,
-                'message' => 'اتصال و احراز هویت اولیه با سرور LDAP با موفقیت برقرار شد.',
+                'message' => __('services.auth.ldap.connection_success'),
                 'details' => [
                     'host' => $config['host'],
                     'port' => $config['port'],
@@ -106,7 +106,7 @@ class LdapAuthService
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'خطای غیرمنتظره در ارتباط با LDAP: ' . $e->getMessage(),
+                'message' => __('services.auth.ldap.unexpected_error', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -207,4 +207,3 @@ class LdapAuthService
         ];
     }
 }
-

@@ -82,7 +82,7 @@ class NumberSearchAndSuggestionService
                 $suggestions[] = [
                     'priority' => 1,
                     'type' => 'same_suffix',
-                    'badge' => "همین ۶ رقم با پیش‌کد {$otherSub}",
+                    'badge' => __('services.numbers.search.badge_same_six_digits', ['sub' => $otherSub]),
                     'number' => $candidate,
                     'sub_prefix' => $otherSub,
                     'suffix' => $cleanSuffix,
@@ -127,7 +127,7 @@ class NumberSearchAndSuggestionService
             $suggestions[] = [
                 'priority' => 2,
                 'type' => 'pool_similar',
-                'badge' => 'شماره آزاد با بیشترین شباهت',
+                'badge' => __('services.numbers.search.badge_highest_similarity'),
                 'number' => $pNum,
                 'sub_prefix' => $pSub,
                 'suffix' => $pSuf,
@@ -158,7 +158,7 @@ class NumberSearchAndSuggestionService
                     $suggestions[] = [
                         'priority' => 2,
                         'type' => 'generated_alternative',
-                        'badge' => "شماره آزاد جایگزین با پیش‌کد {$cleanSub}",
+                        'badge' => __('services.numbers.search.badge_alternative_clean_sub', ['sub' => $cleanSub]),
                         'number' => $varNumber,
                         'sub_prefix' => $cleanSub,
                         'suffix' => $variationSuffix,
@@ -172,7 +172,7 @@ class NumberSearchAndSuggestionService
 
         return [
             'is_available' => false,
-            'message' => "شماره {$fullNumber} در حال حاضر واگذار شده است.",
+            'message' => __('services.numbers.search.message_number_allocated', ['number' => $fullNumber]),
             'number' => $fullNumber,
             'sub_prefix' => $cleanSub,
             'suffix' => $cleanSuffix,
@@ -267,4 +267,3 @@ class NumberSearchAndSuggestionService
         return $results;
     }
 }
-

@@ -44,7 +44,7 @@ class KeycloakAuthService
         if (empty($config['base_url'])) {
             return [
                 'success' => false,
-                'message' => 'آدرس سرور Keycloak مشخص نشده است.',
+                'message' => __('services.auth.keycloak.server_url_missing'),
             ];
         }
 
@@ -55,7 +55,7 @@ class KeycloakAuthService
                 $data = $response->json();
                 return [
                     'success' => true,
-                    'message' => "ارتباط با سرور Keycloak در قلمرو (Realm) '{$config['realm']}' با موفقیت تایید شد.",
+                    'message' => __('services.auth.keycloak.connection_success', ['realm' => $config['realm']]),
                     'details' => [
                         'issuer' => $data['issuer'] ?? $config['base_url'],
                         'authorization_endpoint' => $data['authorization_endpoint'] ?? null,
@@ -67,12 +67,12 @@ class KeycloakAuthService
 
             return [
                 'success' => false,
-                'message' => "پاسخ ناموفق از سرور Keycloak (کد خطا: {$response->status()}). لطفاً قلمرو و آدرس سرور را بررسی فرمایید.",
+                'message' => __('services.auth.keycloak.unsuccessful_response', ['status' => $response->status()]),
             ];
         } catch (\Throwable $e) {
             return [
                 'success' => false,
-                'message' => 'عدم دسترسی به سرور Keycloak: ' . $e->getMessage(),
+                'message' => __('services.auth.keycloak.unreachable', ['error' => $e->getMessage()]),
             ];
         }
     }
@@ -157,4 +157,3 @@ class KeycloakAuthService
         }
     }
 }
-
