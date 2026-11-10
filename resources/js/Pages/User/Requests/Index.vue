@@ -109,8 +109,10 @@ const resetFilter = () => {
 
 // Create Request Modal State
 const isCreateModalOpen = ref(false);
+const createStep = ref<1 | 2 | 3 | 4>(1);
 const availableLengths = [4, 5, 6, 7, 8];
-const termsAccepted = ref(false);
+const politicalTermsAccepted = ref(false);
+const countrySearch = ref('');
 
 const createForm = useForm({
     phone_prefix_id: null as number | null,
@@ -127,6 +129,19 @@ const selectedPrefix = computed(() => {
         return props.active_prefixes.find((p) => p.id === createForm.phone_prefix_id) || props.active_prefixes[0];
     }
     return props.active_prefixes.find((p) => p.is_default) || props.active_prefixes[0];
+});
+
+const filteredPrefixes = computed(() => {
+    if (!props.active_prefixes) return [];
+    if (!countrySearch.value.trim()) return props.active_prefixes;
+    const q = countrySearch.value.trim().toLowerCase();
+    return props.active_prefixes.filter(
+        (p) =>
+            (p.country_name && p.country_name.toLowerCase().includes(q)) ||
+            (p.name && p.name.toLowerCase().includes(q)) ||
+            p.prefix.toLowerCase().includes(q) ||
+            (p.country_code && p.country_code.toLowerCase().includes(q))
+    );
 });
 
 // Detect rondness for preferred number
@@ -172,9 +187,11 @@ const pickPoolNumber = (pNum: string) => {
 };
 
 const openCreateModal = () => {
-    termsAccepted.value = false;
+    createStep.value = 1;
+    politicalTermsAccepted.value = false;
+    countrySearch.value = '';
     createForm.reset();
-    createForm.phone_prefix_id = selectedPrefix.value?.id || null;
+    createForm.phone_prefix_id = (props.active_prefixes?.find((p) => p.is_default) || props.active_prefixes?.[0])?.id || null;
     createForm.requested_length = 4;
     createForm.accepts_incoming_sms = true;
     createForm.clearErrors();
@@ -185,13 +202,48 @@ const closeCreateModal = () => {
     isCreateModalOpen.value = false;
 };
 
+const goToStep2 = () => {
+    if (!createForm.phone_prefix_id && selectedPrefix.value) {
+        createForm.phone_prefix_id = selectedPrefix.value.id;
+    }
+    createStep.value = 2;
+};
+
+const goToStep3 = () => {
+    if (createForm.preferred_number && createForm.preferred_number.length !== createForm.requested_length) {
+        createForm.setError('preferred_number', `طول شماره وارد شده باید دقیقاً ${createForm.requested_length} رقم باشد.`);
+        return;
+    }
+    createForm.clearErrors('preferred_number');
+    createStep.value = 3;
+};
+
+const goToStep4 = () => {
+    createForm.clearErrors();
+    let hasErr = false;
+    if (!createForm.service_title.trim()) {
+        createForm.setError('service_title', 'درج عنوان سرشماره یا نام تجاری الزامی است.');
+        hasErr = true;
+    }
+    if (!createForm.description.trim()) {
+        createForm.setError('description', 'توضیحات و اهداف استفاده از سرشماره را شرح دهید.');
+        hasErr = true;
+    }
+    if (!politicalTermsAccepted.value) {
+        hasErr = true;
+    }
+    if (hasErr) return;
+    createStep.value = 4;
+};
+
 const submitCreate = () => {
-    if (!termsAccepted.value) return;
+    if (!politicalTermsAccepted.value || hasInsufficientBalance.value) return;
     createForm.post(route('requests.store'), {
         preserveScroll: true,
         onSuccess: () => {
             isCreateModalOpen.value = false;
             createForm.reset();
+            createStep.value = 1;
         },
     });
 };
@@ -516,7 +568,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
         </div>
 
-        <!-- 4. Create Request Modal -->
+        <!-- 4. Create Request Modal (4-Step Flow) -->
         <teleport to="body">
             <transition
                 enter-active-class="transition duration-200 ease-out"
@@ -532,41 +584,214 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     @click.self="closeCreateModal"
                 >
                     <div
-                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
                     >
+                        <!-- Modal Top Header -->
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
                             <div class="flex items-center gap-2.5">
                                 <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
-                                    📋
+                                    🏢
                                 </div>
                                 <div>
-                                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت درخواست سرشماره جدید</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">بررسی و تخصیص سرشماره‌های خاص ۴ تا ۸ رقمی</p>
+                                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت درخواست سرشماره سازمانی</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">فرآیند ۴ مرحله‌ای تخصیص و فعال‌سازی سرشماره تجاری</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 @click="closeCreateModal"
-                                class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors"
+                                class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+                                aria-label="بستن"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <form @submit.prevent="submitCreate" class="space-y-4">
-                            <!-- 1. Country & Prefix Selector (مانند شماره عادی) -->
+                        <!-- 4-Step Progress Stepper Indicator -->
+                        <div class="flex items-center justify-between px-1 pt-1 text-[11px] font-bold">
+                            <!-- Step 1 -->
+                            <div
+                                @click="createStep > 1 && (createStep = 1)"
+                                class="flex items-center gap-1.5"
+                                :class="createStep > 1 ? 'cursor-pointer' : ''"
+                            >
+                                <div
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black transition-all"
+                                    :class="createStep === 1
+                                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                                        : (createStep > 1 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
+                                >
+                                    <span v-if="createStep > 1">✓</span>
+                                    <span v-else>۱</span>
+                                </div>
+                                <span :class="createStep === 1 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 1 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
+                                    پیش‌شماره
+                                </span>
+                            </div>
+
+                            <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 1 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
+
+                            <!-- Step 2 -->
+                            <div
+                                @click="createStep > 2 && (createStep = 2)"
+                                class="flex items-center gap-1.5"
+                                :class="createStep > 2 ? 'cursor-pointer' : ''"
+                            >
+                                <div
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black transition-all"
+                                    :class="createStep === 2
+                                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                                        : (createStep > 2 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
+                                >
+                                    <span v-if="createStep > 2">✓</span>
+                                    <span v-else>۲</span>
+                                </div>
+                                <span :class="createStep === 2 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 2 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
+                                    طول و شماره
+                                </span>
+                            </div>
+
+                            <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 2 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
+
+                            <!-- Step 3 -->
+                            <div
+                                @click="createStep > 3 && (createStep = 3)"
+                                class="flex items-center gap-1.5"
+                                :class="createStep > 3 ? 'cursor-pointer' : ''"
+                            >
+                                <div
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black transition-all"
+                                    :class="createStep === 3
+                                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                                        : (createStep > 3 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
+                                >
+                                    <span v-if="createStep > 3">✓</span>
+                                    <span v-else>۳</span>
+                                </div>
+                                <span :class="createStep === 3 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 3 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
+                                    اطلاعات و تعهد
+                                </span>
+                            </div>
+
+                            <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 3 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
+
+                            <!-- Step 4 -->
+                            <div class="flex items-center gap-1.5">
+                                <div
+                                    class="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black transition-all"
+                                    :class="createStep === 4
+                                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                                        : 'bg-slate-100 dark:bg-white/10 text-slate-400'"
+                                >
+                                    <span>۴</span>
+                                </div>
+                                <span :class="createStep === 4 ? 'text-purple-600 dark:text-purple-400 font-black' : 'text-slate-400'">
+                                    پرداخت
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- STEP 1: Country & Prefix Selection             -->
+                        <!-- ============================================== -->
+                        <div v-if="createStep === 1" class="space-y-4">
                             <div>
-                                <label class="form-label">کشور و پیش‌شماره سرشماره سازمانی:</label>
-                                <div class="relative">
-                                    <select
-                                        v-model="createForm.phone_prefix_id"
-                                        :disabled="createForm.processing"
-                                        class="form-select !py-2.5 !text-xs font-bold cursor-pointer"
+                                <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                    مرحله ۱: تعیین کشور و کد پیش‌شماره
+                                </h4>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    لطفاً کشور و کد پیش‌شماره مد نظر برای صدور سرشماره سازمانی را برگزینید:
+                                </p>
+                            </div>
+
+                            <!-- Search Input -->
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    v-model="countrySearch"
+                                    placeholder="جستجوی نام کشور یا پیش‌شماره..."
+                                    class="form-input !py-2 !px-3 !pr-9 !text-xs"
+                                />
+                                <span class="absolute right-3 top-2.5 text-slate-400 text-xs">🔍</span>
+                            </div>
+
+                            <!-- Country Cards Grid -->
+                            <div class="max-h-64 overflow-y-auto space-y-1.5 pr-0.5">
+                                <div
+                                    v-for="p in filteredPrefixes"
+                                    :key="p.id"
+                                    @click="createForm.phone_prefix_id = p.id"
+                                    class="p-3 rounded-2xl border transition-all cursor-pointer flex items-center justify-between"
+                                    :class="createForm.phone_prefix_id === p.id
+                                        ? 'bg-purple-50/80 dark:bg-purple-950/40 border-purple-500 shadow-sm'
+                                        : 'bg-slate-50/70 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10'"
+                                >
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-2xl leading-none">{{ p.flag || '🌐' }}</span>
+                                        <div>
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="font-black text-xs text-slate-900 dark:text-white">
+                                                    {{ p.country_name || p.name }}
+                                                </span>
+                                                <span v-if="p.country_code" class="text-[9px] font-mono px-1 py-0.2 rounded bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                                                    {{ p.country_code }}
+                                                </span>
+                                            </div>
+                                            <span class="text-[11px] font-mono font-bold text-purple-600 dark:text-purple-400" dir="ltr">
+                                                {{ p.prefix }}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div class="w-5 h-5 rounded-full flex items-center justify-center border transition-all"
+                                        :class="createForm.phone_prefix_id === p.id
+                                            ? 'border-purple-600 bg-purple-600 text-white'
+                                            : 'border-slate-300 dark:border-slate-600'"
                                     >
-                                        <option v-for="p in active_prefixes" :key="p.id" :value="p.id">
-                                            {{ p.flag || '🌐' }} {{ p.prefix }} — {{ p.country_name || p.name }}
-                                        </option>
-                                    </select>
+                                        <span v-if="createForm.phone_prefix_id === p.id" class="text-[10px]">✓</span>
+                                    </div>
+                                </div>
+
+                                <div v-if="filteredPrefixes.length === 0" class="text-center py-6 text-xs text-slate-400">
+                                    پیش‌شماره‌ای با این مشخصات یافت نشد.
+                                </div>
+                            </div>
+
+                            <!-- Selected Country Banner & Footer -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
+                                <div class="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                    <span>انتخاب فعلی:</span>
+                                    <span class="text-purple-600 dark:text-purple-400 font-black">
+                                        {{ selectedPrefix?.flag }} {{ selectedPrefix?.country_name || selectedPrefix?.name }} ({{ selectedPrefix?.prefix }})
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="goToStep2"
+                                    :disabled="!selectedPrefix"
+                                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer disabled:opacity-40"
+                                >
+                                    <span>ادامه به انتخاب طول شماره</span>
+                                    <span>←</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- STEP 2: Length & Number Selection              -->
+                        <!-- ============================================== -->
+                        <div v-else-if="createStep === 2" class="space-y-4">
+                            <div class="flex items-center justify-between flex-wrap gap-2">
+                                <div>
+                                    <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                        مرحله ۲: انتخاب طول و شماره سازمانی
+                                    </h4>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                        طول خط مورد نظر (۴ تا ۸ رقم) را مشخص کرده و شماره دلخواه یا پیشنهادی را برگزینید:
+                                    </p>
+                                </div>
+                                <div class="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold border border-purple-500/20">
+                                    {{ selectedPrefix?.flag }} {{ selectedPrefix?.prefix }}
                                 </div>
                             </div>
 
@@ -578,8 +803,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         v-for="l in availableLengths"
                                         :key="l"
                                         type="button"
-                                        @click="createForm.requested_length = l; createForm.preferred_number = '';"
-                                        class="py-2 rounded-2xl text-xs font-mono font-bold transition-all border"
+                                        @click="createForm.requested_length = l; if (createForm.preferred_number && createForm.preferred_number.length !== l) createForm.preferred_number = '';"
+                                        class="py-2.5 rounded-2xl text-xs font-mono font-bold transition-all border cursor-pointer"
                                         :class="[
                                             createForm.requested_length === l
                                                 ? 'bg-purple-600 border-purple-500 text-white shadow-md shadow-purple-600/25'
@@ -592,32 +817,43 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </div>
 
                             <!-- Pool Suggestions for Selected Length -->
-                            <div v-if="poolNumbersForCurrentLength.length > 0" class="p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-1.5">
-                                <span class="text-[11px] font-bold text-purple-700 dark:text-purple-300 block">
-                                    شماره‌های آزاد آماده واگذاری در استخر:
-                                </span>
-                                <div class="flex flex-wrap gap-1.5">
+                            <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-[11px] font-black text-purple-800 dark:text-purple-300">
+                                        شماره‌های آزاد پیشنهادی در استخر (طول {{ createForm.requested_length }} رقمی):
+                                    </span>
+                                    <span class="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                                        {{ poolNumbersForCurrentLength.length }} شماره موجود
+                                    </span>
+                                </div>
+
+                                <div v-if="poolNumbersForCurrentLength.length > 0" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pt-0.5">
                                     <button
                                         v-for="pool in poolNumbersForCurrentLength"
                                         :key="pool.id"
                                         type="button"
                                         @click="pickPoolNumber(pool.number)"
-                                        class="px-2.5 py-1 rounded-xl text-xs font-mono font-bold border transition-all"
+                                        class="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1"
                                         :class="createForm.preferred_number === pool.number
                                             ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
-                                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-purple-400'"
+                                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-purple-400 hover:bg-purple-50/40'"
                                     >
-                                        {{ pool.number }}
-                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[9px] text-amber-500">★</span>
+                                        <span>{{ pool.number }}</span>
+                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[10px] text-amber-500" title="شماره رند">★</span>
                                     </button>
+                                </div>
+                                <div v-else class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed py-1">
+                                    شماره آماده از پیش تعریف‌شده‌ای برای این طول در استخر وجود ندارد؛ می‌توانید شماره دلخواه خود را در کادر زیر وارد فرمایید تا توسط کارشناسان بررسی شود.
                                 </div>
                             </div>
 
-                            <!-- Preferred Number Input with Prefix Pill -->
+                            <!-- Preferred Number Input -->
                             <div>
-                                <label class="form-label">
-                                    شماره درخواستی
-                                    <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(انتخاب از استخر یا تایپ شماره دلخواه)</span>:
+                                <label class="form-label flex items-center justify-between">
+                                    <span>شماره درخواستی (انتخاب از پیشنهادات یا ورود دستی):</span>
+                                    <span class="font-mono text-[10px] text-slate-400 font-bold">
+                                        {{ createForm.preferred_number ? createForm.preferred_number.length : 0 }} / {{ createForm.requested_length }} رقم
+                                    </span>
                                 </label>
                                 <div dir="ltr" class="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                                     <div class="h-10 px-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 font-mono font-black text-xs flex items-center gap-1 text-slate-800 dark:text-slate-200 shrink-0">
@@ -631,45 +867,257 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         :maxlength="createForm.requested_length"
                                         placeholder="مثال: 8888"
                                         dir="ltr"
-                                        :disabled="createForm.processing"
                                         class="w-full h-10 px-3 rounded-xl bg-white dark:bg-slate-900 font-mono font-black text-sm text-center tracking-widest text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-purple-500 outline-none"
                                     />
+                                    <button
+                                        v-if="createForm.preferred_number"
+                                        type="button"
+                                        @click="createForm.preferred_number = ''"
+                                        class="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs"
+                                        title="پاک کردن شماره"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                                <p v-if="createForm.errors.preferred_number" class="text-xs text-rose-500 font-bold mt-1">
+                                    {{ createForm.errors.preferred_number }}
+                                </p>
+                            </div>
+
+                            <!-- Live Price Estimation Box -->
+                            <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs">
+                                <div>
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[11px]">تعرفه برآورد شده:</span>
+                                    <div class="flex items-center gap-2 mt-0.5">
+                                        <span class="font-black text-sm text-purple-600 dark:text-purple-400 font-mono">
+                                            {{ currentPrice }} کوین (TRX)
+                                        </span>
+                                        <span
+                                            class="px-2 py-0.5 rounded-md text-[10px] font-black border"
+                                            :class="currentIsRond
+                                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                                : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600'"
+                                        >
+                                            {{ currentIsRond ? 'الگوی رند' : 'الگوی عادی' }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="text-left text-[11px] text-slate-500 dark:text-slate-400">
+                                    طول: <strong class="text-slate-800 dark:text-slate-200">{{ createForm.requested_length }} رقمی</strong>
                                 </div>
                             </div>
 
-                            <!-- Financial Hold Summary Card -->
-                            <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">
-                                        کشور و پیش‌شماره انتخابی:
+                            <!-- Navigation Buttons -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    @click="createStep = 1"
+                                    class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                                >
+                                    ← مرحله قبل (کشور)
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="goToStep3"
+                                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer"
+                                >
+                                    <span>ادامه به مشخصات خط</span>
+                                    <span>←</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- STEP 3: Details & Non-Political Declaration    -->
+                        <!-- ============================================== -->
+                        <div v-else-if="createStep === 3" class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                    مرحله ۳: اطلاعات هویتی، کاربرد و تعهدنامه
+                                </h4>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    مشخصات بهره‌بردار سرشماره و تعهدنامه عدم وابستگی سیاسی را تکمیل نمایید:
+                                </p>
+                            </div>
+
+                            <!-- Service Title (برای کیه) -->
+                            <div>
+                                <label class="form-label">
+                                    عنوان سرشماره / نام تجاری یا سازمان بهره‌بردار <span class="text-rose-500">*</span>:
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="createForm.service_title"
+                                    placeholder="مثال: شرکت تجارت الکترونیک پارس / سامانه اطلاع‌رسانی"
+                                    required
+                                    class="form-input !py-2.5 !text-xs"
+                                />
+                                <p v-if="createForm.errors.service_title" class="text-xs text-rose-500 font-bold mt-1">
+                                    {{ createForm.errors.service_title }}
+                                </p>
+                            </div>
+
+                            <!-- Description (توضیحش چیه) -->
+                            <div>
+                                <label class="form-label">
+                                    توضیحات و اهداف بهره‌برداری سازمانی <span class="text-rose-500">*</span>:
+                                </label>
+                                <textarea
+                                    v-model="createForm.description"
+                                    rows="2"
+                                    placeholder="اهداف استفاده، نوع پیام‌ها و مخاطبان سرشماره را شرح دهید..."
+                                    required
+                                    class="form-textarea !py-2 !text-xs resize-none"
+                                ></textarea>
+                                <p v-if="createForm.errors.description" class="text-xs text-rose-500 font-bold mt-1">
+                                    {{ createForm.errors.description }}
+                                </p>
+                            </div>
+
+                            <!-- Incoming SMS Option (میخواد پیامک ورودی داشته باشه یا نه) -->
+                            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+                                <label class="flex items-start gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        v-model="createForm.accepts_incoming_sms"
+                                        class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
+                                    />
+                                    <div class="space-y-0.5 select-none">
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                                            قابلیت دریافت پیامک ورودی (خط دوطرفه)
+                                        </span>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                            در صورت فعال بودن، پیامک‌های ارسالی کاربران به این سرشماره دریافت و در سامانه قابل مدیریت خواهد بود.
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Strict Non-Political Agreement Box -->
+                            <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs space-y-2.5">
+                                <div class="flex items-start gap-2 text-amber-800 dark:text-amber-300 font-bold">
+                                    <span class="text-base shrink-0 mt-0.5">⚠️</span>
+                                    <p class="text-[11px] leading-relaxed">
+                                        این سامانه یک بستر کاملاً مستقل و ارائه‌دهنده خدمات فنی-تجاری است. استفاده از سرشماره‌های سازمانی برای هرگونه اهداف حزبی، تشکل‌های سیاسی، تبلیغات جناحی یا مواضع سیاسی اکیداً ممنوع بوده و در صورت احراز، خط فوراً و برای همیشه مسدود خواهد شد.
+                                    </p>
+                                </div>
+
+                                <label class="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-amber-500/20">
+                                    <input
+                                        type="checkbox"
+                                        v-model="politicalTermsAccepted"
+                                        required
+                                        class="mt-0.5 w-4 h-4 rounded border-amber-400 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
+                                    />
+                                    <span class="text-[11px] text-slate-800 dark:text-slate-200 font-bold select-none leading-relaxed">
+                                        اقرار و تأیید می‌نمایم که خط و سازمان ما جزء هیچ حزب یا سازمان سیاسی نیست و در صورت احراز هرگونه فعالیت سیاسی، خط مسدود شده و حق هیچ‌گونه اعتراضی نخواهم داشت.
                                     </span>
-                                    <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                                </label>
+                            </div>
+
+                            <!-- Navigation Buttons -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
+                                <button
+                                    type="button"
+                                    @click="createStep = 2"
+                                    class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
+                                >
+                                    ← مرحله قبل (شماره)
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="goToStep4"
+                                    :disabled="!politicalTermsAccepted || !createForm.service_title.trim() || !createForm.description.trim()"
+                                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer disabled:opacity-40"
+                                >
+                                    <span>ادامه به فاکتور و پرداخت</span>
+                                    <span>←</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ============================================== -->
+                        <!-- STEP 4: Review, Price & Wallet Payment         -->
+                        <!-- ============================================== -->
+                        <div v-else-if="createStep === 4" class="space-y-4">
+                            <div>
+                                <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
+                                    مرحله ۴: فاکتور نهایی و ثبت پرداخت
+                                </h4>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                    مشخصات نهایی سرشماره را بازبینی کرده و با تایید پرداخت، درخواست خود را ثبت فرمایید:
+                                </p>
+                            </div>
+
+                            <!-- Order Summary Card -->
+                            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-white/10 text-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-500 dark:text-slate-400">کشور و پیش‌شماره:</span>
+                                    <span class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                                         <span>{{ selectedPrefix?.flag }}</span>
                                         <span>{{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
-                                        <span dir="ltr" class="font-mono text-purple-600 font-black">({{ selectedPrefix?.prefix }})</span>
+                                        <span dir="ltr" class="font-mono text-purple-600 dark:text-purple-400 font-bold">({{ selectedPrefix?.prefix }})</span>
                                     </span>
                                 </div>
-
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">
-                                        تعرفه خط {{ createForm.requested_length }} رقمی
-                                        <span v-if="currentIsRond" class="text-amber-600 font-bold">(رند)</span>
-                                        <span v-else class="text-slate-500">(عادی)</span>:
-                                    </span>
-                                    <span class="font-mono font-black text-indigo-600 dark:text-indigo-400">
-                                        {{ currentPrice }} کوین (TRX)
+                                    <span class="text-slate-500 dark:text-slate-400">طول سرشماره:</span>
+                                    <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                        {{ createForm.requested_length }} رقم
                                     </span>
                                 </div>
-
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
+                                    <span class="text-slate-500 dark:text-slate-400">شماره برگزیده:</span>
+                                    <span dir="ltr" class="font-mono font-black text-purple-600 dark:text-purple-400">
+                                        {{ createForm.preferred_number ? (selectedPrefix?.prefix + ' - ' + createForm.preferred_number) : 'تخصیص هوشمند توسط کارشناس' }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
+                                    <span class="text-slate-500 dark:text-slate-400">عنوان تجاری:</span>
+                                    <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
+                                        {{ createForm.service_title }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
+                                    <span class="text-slate-500 dark:text-slate-400">پیامک ورودی:</span>
+                                    <span class="font-bold" :class="createForm.accepts_incoming_sms ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'">
+                                        {{ createForm.accepts_incoming_sms ? 'فعال (دوطرفه)' : 'غیرفعال' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Financial Invoice Card -->
+                            <div class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2.5 text-xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600 dark:text-slate-300 font-bold">هزینه قطعی سرشماره:</span>
+                                    <div class="text-left">
+                                        <span class="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
+                                            {{ currentPrice }} کوین (TRX)
+                                        </span>
+                                        <span class="block text-[10px] text-slate-500">
+                                            ({{ currentIsRond ? 'تعرفه خطوط رند' : 'تعرفه خطوط عادی' }})
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-2 border-t border-purple-500/15">
                                     <span class="text-slate-600 dark:text-slate-400">موجودی کیف پول شما:</span>
                                     <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
                                         {{ userBalance.toFixed(2) }} کوین
                                     </span>
                                 </div>
 
-                                <div class="pt-1.5 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-white/60 dark:bg-black/20 p-2 rounded-xl border border-slate-200/40 dark:border-white/5">
-                                    🔒 <strong>سازوکار مالی مسدودی:</strong> با ثبت درخواست، مبلغ <strong class="text-purple-600 dark:text-purple-400">{{ currentPrice }} کوین</strong> در حساب شما مسدود (Hold) می‌گردد. در صورت رد درخواست، وجه بلافاصله و ۱۰۰٪ عودت داده می‌شود.
+                                <div class="flex items-center justify-between pt-1 border-t border-purple-500/15">
+                                    <span class="text-slate-600 dark:text-slate-400">مانده پس از ثبت سفارش:</span>
+                                    <span
+                                        class="font-mono font-bold"
+                                        :class="hasInsufficientBalance ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
+                                    >
+                                        {{ (userBalance - Number(currentPrice)).toFixed(2) }} کوین
+                                    </span>
+                                </div>
+
+                                <div class="pt-1.5 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-white/70 dark:bg-black/30 p-2.5 rounded-xl border border-purple-500/15">
+                                    🔒 <strong>سازوکار مالی مسدودی (Hold):</strong> با کلیک بر روی پرداخت، مبلغ <strong class="text-purple-600 dark:text-purple-400">{{ currentPrice }} TRX</strong> به‌صورت امن در کیف پول شما مسدود می‌شود. در صورت رد درخواست توسط کارشناسان، وجه فوراً و ۱۰۰٪ به موجودی قابل استفاده شما عودت داده می‌شود.
                                 </div>
 
                                 <div v-if="hasInsufficientBalance" class="pt-1 text-rose-600 dark:text-rose-400 font-bold text-[11px] flex items-center justify-between">
@@ -680,90 +1128,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </div>
                             </div>
 
-                            <!-- Service Title (MANDATORY) -->
-                            <div>
-                                <label class="form-label">عنوان سرشماره / نام تجاری <span class="text-rose-500">*</span>:</label>
-                                <input
-                                    type="text"
-                                    v-model="createForm.service_title"
-                                    placeholder="مثال: پیامک اطلاع‌رسانی سفارشات شرکت"
-                                    required
-                                    :disabled="createForm.processing"
-                                    class="form-input !py-2.5 !text-xs"
-                                />
-                            </div>
-
-                            <!-- Description -->
-                            <div>
-                                <label class="form-label">توضیحات و نوع بهره‌برداری سازمانی <span class="text-rose-500">*</span>:</label>
-                                <textarea
-                                    v-model="createForm.description"
-                                    rows="2"
-                                    placeholder="اهداف کاربرد سرشماره را شرح دهید..."
-                                    required
-                                    :disabled="createForm.processing"
-                                    class="form-textarea !py-2 !text-xs resize-none"
-                                ></textarea>
-                            </div>
-
-                            <!-- Incoming SMS Option -->
-                            <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                                <label class="flex items-start gap-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        v-model="createForm.accepts_incoming_sms"
-                                        :disabled="createForm.processing"
-                                        class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
-                                    />
-                                    <div class="space-y-0.5 select-none">
-                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                            قابلیت دریافت پیامک ورودی (خط دوطرفه)
-                                        </span>
-                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            در صورت فعال بودن، پیامک‌های ارسالی مخاطبان به این سرشماره دریافت شده و در صندوق پیامک‌های ورودی پنل قابل مشاهده خواهد بود.
-                                        </p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            <!-- Non-Affiliation Agreement & Terms Box -->
-                            <div class="p-3.5 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/90 dark:border-amber-500/20 text-xs space-y-2.5">
-                                <div class="flex items-start gap-2 text-amber-800 dark:text-amber-200/90">
-                                    <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
-                                    <p class="text-[11px] leading-relaxed">
-                                        این سامانه یک بستر مستقل ارائه خدمات ارتباطی سازمانی بوده و به هیچ حزب، گروه یا سازمان سیاسی یا دولتی وابسته نیست.
-                                    </p>
-                                </div>
-
-                                <label class="flex items-start gap-2.5 cursor-pointer pt-1 border-t border-amber-200/60 dark:border-amber-500/15">
-                                    <input
-                                        type="checkbox"
-                                        v-model="termsAccepted"
-                                        :disabled="createForm.processing"
-                                        required
-                                        class="mt-0.5 w-4 h-4 rounded border-slate-300 dark:border-white/20 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
-                                    />
-                                    <span class="text-[11px] text-slate-800 dark:text-slate-200 font-bold select-none">
-                                        تأیید می‌کنم که خط صرفاً جهت مقاصد قانونی و فنی سازمانی استفاده می‌شود و ضوابط را می‌پذیرم.
-                                    </span>
-                                </label>
-                            </div>
-
-                            <div class="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                            <!-- Final Submit Buttons -->
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
                                 <button
                                     type="button"
-                                    @click="closeCreateModal"
+                                    @click="createStep = 3"
                                     :disabled="createForm.processing"
-                                    class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
+                                    class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
                                 >
-                                    انصراف
+                                    ← مرحله قبل (مشخصات)
                                 </button>
                                 <button
-                                    type="submit"
-                                    :disabled="!termsAccepted || createForm.processing || hasInsufficientBalance"
-                                    class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-purple-600/25"
+                                    type="button"
+                                    @click="submitCreate"
+                                    :disabled="!politicalTermsAccepted || createForm.processing || hasInsufficientBalance"
+                                    class="glass-btn-primary !w-auto !py-2.5 !px-6 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-purple-600/25 cursor-pointer"
                                 >
                                     <svg
                                         v-if="createForm.processing"
@@ -776,11 +1155,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                     </svg>
                                     <span>
-                                        {{ createForm.processing ? 'در حال ثبت درخواست...' : 'ثبت درخواست' }}
+                                        {{ createForm.processing ? 'در حال ثبت و مسدودی وجه...' : 'پرداخت و ثبت نهایی درخواست' }}
                                     </span>
                                 </button>
                             </div>
-                        </form>
+                        </div>
                     </div>
                 </div>
             </transition>

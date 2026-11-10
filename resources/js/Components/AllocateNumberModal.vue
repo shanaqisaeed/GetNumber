@@ -369,7 +369,7 @@ const submitAllocation = () => {
                             <div>
                                 <h3 class="font-black text-base text-slate-900 dark:text-white">دریافت و رزرو خط ۹ رقمی</h3>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    فرآیند ۳ مرحله‌ای: انتخاب پیش‌شماره، جستجوی هوشمند و تحلیل رند
+                                    فرآیند ۳ مرحله‌ای: انتخاب پیش‌شماره، انتخاب شماره و تأیید نهایی
                                 </p>
                             </div>
                         </div>
@@ -440,7 +440,7 @@ const submitAllocation = () => {
                                 <span>۳</span>
                             </div>
                             <span :class="currentStep === 3 ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-400'">
-                                ۳. تحلیل رند و پرداخت
+                                ۳. تأیید نهایی و پرداخت
                             </span>
                         </div>
                     </div>
@@ -806,58 +806,22 @@ const submitAllocation = () => {
                     <div v-else-if="currentStep === 3" class="space-y-4">
                         <form @submit.prevent="submitAllocation" class="space-y-4">
                             <!-- Selected Number Showcase Banner -->
-                            <div class="p-4 rounded-3xl bg-linear-to-br from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/25 text-center space-y-1">
+                            <div class="p-4 rounded-3xl bg-linear-to-br from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/25 text-center space-y-1.5">
                                 <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
                                     شماره اختصاصی ۹ رقمی برگزیده:
                                 </span>
-                                <div dir="ltr" class="text-2xl font-mono font-black text-indigo-600 dark:text-indigo-400 tracking-wider">
+                                <div dir="ltr" class="text-2xl sm:text-3xl font-mono font-black text-indigo-600 dark:text-indigo-400 tracking-wider">
                                     {{ checkResult?.formatted }}
                                 </div>
-                                <div class="text-xs text-slate-600 dark:text-slate-400 pt-0.5">
-                                    کشور: {{ selectedPrefix?.flag }} {{ selectedPrefix?.country_name || selectedPrefix?.name }}
-                                </div>
-                            </div>
-
-                            <!-- IN-DEPTH ROND ANALYSIS CARD ("روند رند بودن چیه") -->
-                            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/90 dark:border-white/10 space-y-3 text-xs">
-                                <div class="flex items-center justify-between pb-2.5 border-b border-slate-200/70 dark:border-white/10">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-lg">{{ rondAnalysisDetails.icon }}</span>
-                                        <span class="font-black text-slate-900 dark:text-white text-xs sm:text-sm">
-                                            تحلیل مخابراتی رند بودن شماره
-                                        </span>
-                                    </div>
+                                <div class="flex items-center justify-center gap-2 flex-wrap text-xs text-slate-600 dark:text-slate-400 pt-0.5">
+                                    <span>کشور: {{ selectedPrefix?.flag }} {{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
+                                    <span>•</span>
                                     <span
-                                        class="px-3 py-1 rounded-full text-xs font-black border"
+                                        class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
                                         :class="rondAnalysisDetails.badgeClass"
                                     >
                                         {{ checkResult?.rond?.tier_label }}
                                     </span>
-                                </div>
-
-                                <!-- Explanation & Pattern Rationale -->
-                                <div class="space-y-2">
-                                    <div class="flex items-start gap-2">
-                                        <span class="font-bold text-slate-700 dark:text-slate-300 shrink-0">نام الگو:</span>
-                                        <span class="font-mono font-black text-indigo-600 dark:text-indigo-400">
-                                            {{ checkResult?.rond?.pattern }}
-                                        </span>
-                                    </div>
-                                    <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-white dark:bg-black/30 p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5">
-                                        {{ rondAnalysisDetails.explanation }}
-                                    </p>
-                                </div>
-
-                                <!-- Business & Marketing Benefits -->
-                                <div class="space-y-1.5 pt-1">
-                                    <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 block">
-                                        مزایای تجاری و کاربری این خط:
-                                    </span>
-                                    <ul class="space-y-1 text-[11px] text-slate-600 dark:text-slate-400 pr-3 list-disc">
-                                        <li v-for="(b, bIdx) in rondAnalysisDetails.benefits" :key="bIdx">
-                                            {{ b }}
-                                        </li>
-                                    </ul>
                                 </div>
                             </div>
 
