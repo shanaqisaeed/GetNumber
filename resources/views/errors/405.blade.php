@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '405')
-@section('title', 'متد درخواست غیرمجاز است')
-@section('message', 'روش فراخوانی این آدرس در پروتکل HTTP توسط سرور برای این مسیر پشتیبانی نمی‌شود.')
+@section('title', __('views.errors.405.title'))
+@section('message', __('views.errors.405.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

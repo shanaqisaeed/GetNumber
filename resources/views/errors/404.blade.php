@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '404')
-@section('title', 'صفحه مورد نظر یافت نشد')
-@section('message', 'آدرس واردشده در سامانه موجود نبوده، حذف شده و یا ممکن است به نشانی دیگری منتقل شده باشد.')
+@section('title', __('views.errors.404.title'))
+@section('message', __('views.errors.404.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

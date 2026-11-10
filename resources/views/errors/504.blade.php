@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '504')
-@section('title', 'مهلت دروازه ارتباطی به پایان رسید')
-@section('message', 'سرور در زمان مقرر پاسخی از دروازه‌های ارتباطی یا زیرساخت بالادستی دریافت ننمود.')
+@section('title', __('views.errors.504.title'))
+@section('message', __('views.errors.504.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

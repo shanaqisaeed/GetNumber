@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '502')
-@section('title', 'خطای دروازه ارتباطی')
-@section('message', 'سرور در حین ارتباط با سرویس‌های بالادستی پاسخ نامعتبری دریافت کرده است.')
+@section('title', __('views.errors.502.title'))
+@section('message', __('views.errors.502.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

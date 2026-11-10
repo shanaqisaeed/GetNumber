@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '401')
-@section('title', 'نیاز به احراز هویت')
-@section('message', 'برای دسترسی به این بخش یا منبع اطلاعاتی، لطفاً ابتدا وارد حساب کاربری خود شوید.')
+@section('title', __('views.errors.401.title'))
+@section('message', __('views.errors.401.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -18,7 +18,7 @@
         <polyline points="10 17 15 12 10 7"/>
         <line x1="15" y1="12" x2="3" y2="12"/>
     </svg>
-    ورود به حساب کاربری
+    {{ __('views.errors.401.login_button') }}
 </a>
 @endsection
 

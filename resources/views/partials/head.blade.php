@@ -24,7 +24,7 @@
 </script>
 
 <!-- Base SEO & Metadata -->
-<meta name="description" content="سامانه جامع مدیریت شماره‌های مجازی، سرشماره‌های اختصاصی سازمانی، هاب پیام‌رسانی امن و وب‌سرویس ارتباطی GetNumber">
+<meta name="description" content="{{ __('views.head.meta_description') }}">
 <link rel="canonical" href="{{ url()->current() }}">
 
 <!-- Dynamic Robots Directive: Strictly Protect Private, Dashboard, and Authenticated Routes -->
@@ -36,16 +36,16 @@
 
 <!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
-<meta property="og:locale" content="fa_IR">
+<meta property="og:locale" content="{{ app()->getLocale() === 'fa' ? 'fa_IR' : 'en_US' }}">
 <meta property="og:url" content="{{ url()->current() }}">
 <meta property="og:site_name" content="{{ config('app.name', 'GetNumber') }}">
-<meta property="og:title" content="{{ config('app.name', 'GetNumber') }} - سامانه مدیریت شماره‌های مجازی و ارتباطات سازمانی">
-<meta property="og:description" content="سامانه جامع مدیریت شماره‌های مجازی، سرشماره‌های اختصاصی سازمانی، هاب پیام‌رسانی امن و وب‌سرویس ارتباطی GetNumber">
+<meta property="og:title" content="{{ config('app.name', 'GetNumber') }} - {{ __('views.head.og_title') }}">
+<meta property="og:description" content="{{ __('views.head.og_description') }}">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ config('app.name', 'GetNumber') }} - سامانه مدیریت شماره‌های مجازی">
-<meta name="twitter:description" content="سامانه جامع مدیریت شماره‌های مجازی، سرشماره‌های اختصاصی سازمانی و پیام‌رسانی امن">
+<meta name="twitter:title" content="{{ config('app.name', 'GetNumber') }} - {{ __('views.head.twitter_title') }}">
+<meta name="twitter:description" content="{{ __('views.head.twitter_description') }}">
 
 <!-- Structured Data (JSON-LD) for Public Pages -->
 @if(!auth()->check() && (request()->is('/') || request()->is('docs*')))
@@ -56,7 +56,7 @@
     'name' => config('app.name', 'GetNumber'),
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'All',
-    'description' => 'Enterprise Virtual Number Management & Internal Messaging Gateway - سامانه مدیریت شماره‌های مجازی و ارتباطات سازمانی',
+    'description' => __('views.head.jsonld_description'),
     'offers' => [
         '@type' => 'Offer',
         'price' => '0',

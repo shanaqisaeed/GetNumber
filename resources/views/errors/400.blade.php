@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '400')
-@section('title', 'درخواست نامعتبر')
-@section('message', 'ساختار یا پارامترهای درخواست ارسالی به سرور نامعتبر بوده و قابل پردازش نمی‌باشد.')
+@section('title', __('views.errors.400.title'))
+@section('message', __('views.errors.400.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

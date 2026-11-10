@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '419')
-@section('title', 'نشست کاربری منقضی شد')
-@section('message', 'به دلیل عدم فعالیت طولانی‌مدت، توکن امنیتی فرم منقضی گردیده است. لطفاً صفحه را تازه‌سازی فرمایید.')
+@section('title', __('views.errors.419.title'))
+@section('message', __('views.errors.419.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -20,7 +20,7 @@
         <polyline points="10 17 15 12 10 7"/>
         <line x1="15" y1="12" x2="3" y2="12"/>
     </svg>
-    ورود مجدد به سامانه
+    {{ __('views.errors.419.relogin_button') }}
 </a>
 @endsection
 

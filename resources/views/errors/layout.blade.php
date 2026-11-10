@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fa" dir="rtl" class="h-full">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() === 'fa' ? 'rtl' : 'ltr' }}" class="h-full">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -196,7 +196,7 @@
     <main class="error-card">
         <div class="status-badge">
             @yield('icon')
-            <span>خطای سیستمی @yield('code')</span>
+            <span>{{ __('views.layout.system_error') }} @yield('code')</span>
         </div>
 
         <h1 class="error-code">@yield('code')</h1>
@@ -209,7 +209,7 @@
                     <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
                     <polyline points="9 22 9 12 15 12 15 22"/>
                 </svg>
-                بازگشت به صفحه اصلی
+                {{ __('views.layout.back_to_home') }}
             </a>
 
             @yield('actions')
@@ -220,7 +220,7 @@
                 <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
-            <span>سامانه امن ارتباطات سازمانی GetNumber &bull; ارتباط محافظت‌شده</span>
+            <span>{{ __('views.layout.footer_security') }}</span>
         </div>
     </main>
 </body>

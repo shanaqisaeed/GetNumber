@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '505')
-@section('title', 'نسخه پروتکل HTTP پشتیبانی نمی‌شود')
-@section('message', 'نسخه پروتکل HTTP ارائه‌شده در درخواست ارسالی توسط وب‌سرور سامانه پشتیبانی نمی‌شود.')
+@section('title', __('views.errors.505.title'))
+@section('message', __('views.errors.505.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

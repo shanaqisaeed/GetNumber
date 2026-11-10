@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '429')
-@section('title', 'تعداد درخواست‌ها بیش از حد مجاز')
-@section('message', 'تعداد درخواست‌های ارسالی شما از سقف نرخ مجاز فراتر رفته است. لطفاً کمی صبر کرده و سپس اقدام فرمایید.')
+@section('title', __('views.errors.429.title'))
+@section('message', __('views.errors.429.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

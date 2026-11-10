@@ -1,8 +1,8 @@
 @extends('errors.layout')
 
 @section('code', '422')
-@section('title', 'داده‌های ارسالی نامعتبر هستند')
-@section('message', 'اطلاعات ارسال‌شده با استانداردهای اعتبارسنجی سرور مطابقت نداشته و قابل پردازش نمی‌باشد.')
+@section('title', __('views.errors.422.title'))
+@section('message', __('views.errors.422.message'))
 
 @section('icon')
 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
