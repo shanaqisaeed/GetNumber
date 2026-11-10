@@ -2,7 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
+import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 
 interface PhoneNumberItem {
     id: number;
@@ -10,6 +10,9 @@ interface PhoneNumberItem {
     formatted_number: string;
     effective_title: string;
     display_title: string | null;
+    rond_tier?: string;
+    rond_tier_label?: string;
+    rond_pattern?: string | null;
     type: string;
     type_label: string;
     type_badge: string;
@@ -32,13 +35,6 @@ interface PaginatedData<T> {
     total: number;
     current_page: number;
     last_page: number;
-}
-
-interface PrefixItem {
-    id: number;
-    prefix: string;
-    name: string;
-    is_default: boolean;
 }
 
 const props = defineProps<{
@@ -294,8 +290,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs" :class="item.type_badge">
                                 {{ item.type_label }}
                             </span>
+                            <span
+                                v-if="item.rond_tier && item.rond_tier !== 'regular'"
+                                class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                                :class="item.rond_tier === 'golden_rond'
+                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                    : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'"
+                            >
+                                {{ item.rond_tier_label }}
+                            </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
-                                {{ item.display_title || 'خط بدون عنوان' }}
+                                {{ item.display_title || 'خط سازمانی' }}
                             </span>
                         </div>
 
@@ -405,6 +410,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         <AllocateNumberModal
             :show="isAllocateModalOpen"
             :default-prefix="default_prefix"
+            :active-prefixes="active_prefixes"
             :remaining-quota="Math.max(0, quota.max - quota.active)"
             :max-quota="quota.max"
             @close="closeAllocateModal"

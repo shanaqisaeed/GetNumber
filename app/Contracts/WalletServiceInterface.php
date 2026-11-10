@@ -48,6 +48,39 @@ interface WalletServiceInterface
     ): WalletTransaction;
 
     /**
+     * Block/hold funds for a service number request.
+     */
+    public function holdForNumberRequest(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction;
+
+    /**
+     * Finalize held funds upon admin approval.
+     */
+    public function finalizeNumberRequestHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): void;
+
+    /**
+     * Release held funds upon admin rejection or user cancellation.
+     */
+    public function releaseNumberRequestHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction;
+
+    /**
      * Admin credits user wallet with an audit reason.
      */
     public function adminCredit(

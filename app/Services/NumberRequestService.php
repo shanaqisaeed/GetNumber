@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\NumberRequestServiceInterface;
 use App\Contracts\PhoneNumberAllocationServiceInterface;
+use App\Contracts\WalletServiceInterface;
 use App\Enums\NumberRequestStatus;
 use App\Enums\PhoneNumberStatus;
 use App\Enums\PhoneNumberType;
@@ -16,8 +17,11 @@ use App\Models\AuditLog;
 use App\Models\NumberRequest;
 use App\Models\PhoneNumber;
 use App\Models\PhoneNumberAudit;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\Numbers\RondPatternDetectorService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class NumberRequestService implements NumberRequestServiceInterface
 {
@@ -26,9 +30,17 @@ class NumberRequestService implements NumberRequestServiceInterface
      */
     protected const MAX_GENERATION_ATTEMPTS = 20;
 
+    protected WalletServiceInterface $walletService;
+    protected RondPatternDetectorService $rondDetector;
+
     public function __construct(
-        protected PhoneNumberAllocationServiceInterface $allocationService
-    ) {}
+        protected PhoneNumberAllocationServiceInterface $allocationService,
+        ?WalletServiceInterface $walletService = null,
+        ?RondPatternDetectorService $rondDetector = null
+    ) {
+        $this->walletService = $walletService ?? app(WalletServiceInterface::class);
+        $this->rondDetector = $rondDetector ?? app(RondPatternDetectorService::class);
+    }
 
     public function createRequest(
         User $user,
@@ -60,15 +72,41 @@ class NumberRequestService implements NumberRequestServiceInterface
             }
         }
 
-        return NumberRequest::create([
-            'user_id' => $user->id,
-            'requested_length' => $requestedLength,
-            'service_title' => $cleanTitle,
-            'description' => $cleanDescription,
-            'preferred_number' => $cleanPreferred,
-            'accepts_incoming_sms' => $acceptsIncomingSms,
-            'status' => NumberRequestStatus::Pending,
-        ]);
+        $rond = $cleanPreferred ? $this->rondDetector->detect($cleanPreferred) : ['is_rond' => false, 'tier' => 'regular'];
+        $isRond = (bool) ($rond['is_rond'] ?? false);
+        $price = SystemSetting::getOrgNumberPrice($requestedLength, $isRond);
+
+        return DB::transaction(function () use ($user, $requestedLength, $cleanTitle, $cleanDescription, $cleanPreferred, $acceptsIncomingSms, $isRond, $rond, $price) {
+            $holdRef = 'HOLD-REQ-' . Str::uuid();
+
+            // Atomically hold/block funds in user's wallet
+            $this->walletService->holdForNumberRequest(
+                user: $user,
+                amount: $price,
+                referenceId: $holdRef,
+                description: "مسدودی وجه جهت ثبت درخواست سرشماره سازمانی «{$cleanTitle}»",
+                metadata: [
+                    'requested_length' => $requestedLength,
+                    'service_title' => $cleanTitle,
+                    'preferred_number' => $cleanPreferred,
+                    'is_rond' => $isRond,
+                ]
+            );
+
+            return NumberRequest::create([
+                'user_id' => $user->id,
+                'requested_length' => $requestedLength,
+                'service_title' => $cleanTitle,
+                'description' => $cleanDescription,
+                'preferred_number' => $cleanPreferred,
+                'accepts_incoming_sms' => $acceptsIncomingSms,
+                'status' => NumberRequestStatus::Pending,
+                'held_amount' => $price,
+                'hold_reference_id' => $holdRef,
+                'is_rond' => $isRond,
+                'rond_tier' => $rond['tier'] ?? 'regular',
+            ]);
+        });
     }
 
     public function approveRequest(
@@ -98,6 +136,20 @@ class NumberRequestService implements NumberRequestServiceInterface
                 default => $this->allocateAutoNumber($req, $applicant, $admin),
             };
 
+            // Finalize held funds if present
+            if ((float) $req->held_amount > 0 && $req->hold_reference_id) {
+                $this->walletService->finalizeNumberRequestHold(
+                    user: $applicant,
+                    amount: (string) $req->held_amount,
+                    referenceId: 'FIN-' . $req->hold_reference_id,
+                    description: "تسویه نهایی وجه مسدود شده جهت واگذاری سرشماره سازمانی «{$req->service_title}»",
+                    metadata: [
+                        'request_id' => $req->id,
+                        'phone_number_id' => $phone->id,
+                    ]
+                );
+            }
+
             $req->update([
                 'status' => NumberRequestStatus::Approved,
                 'allocated_number_id' => $phone->id,
@@ -125,6 +177,20 @@ class NumberRequestService implements NumberRequestServiceInterface
 
             if (! $req->isPending()) {
                 throw new NumberRequestAlreadyReviewedException();
+            }
+
+            // Release held funds immediately if present
+            if ((float) $req->held_amount > 0 && $req->hold_reference_id) {
+                $this->walletService->releaseNumberRequestHold(
+                    user: $req->user,
+                    amount: (string) $req->held_amount,
+                    referenceId: 'REL-' . $req->hold_reference_id,
+                    description: "آزادسازی و عودت وجه مسدود شده به دلیل رد درخواست سرشماره سازمانی «{$req->service_title}»",
+                    metadata: [
+                        'request_id' => $req->id,
+                        'reason' => $cleanReason,
+                    ]
+                );
             }
 
             $req->update([
@@ -158,6 +224,19 @@ class NumberRequestService implements NumberRequestServiceInterface
 
             if (! $req->isPending()) {
                 throw new NumberRequestAlreadyReviewedException('امکان لغو درخواستی که در وضعیت انتظار نیست وجود ندارد.');
+            }
+
+            // Release held funds immediately if present
+            if ((float) $req->held_amount > 0 && $req->hold_reference_id) {
+                $this->walletService->releaseNumberRequestHold(
+                    user: $req->user,
+                    amount: (string) $req->held_amount,
+                    referenceId: 'CAN-' . $req->hold_reference_id,
+                    description: "آزادسازی و عودت وجه مسدود شده به دلیل انصراف از درخواست سرشماره سازمانی «{$req->service_title}»",
+                    metadata: [
+                        'request_id' => $req->id,
+                    ]
+                );
             }
 
             $req->delete();

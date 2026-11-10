@@ -24,6 +24,8 @@ class PhoneNumber extends Model
         'number',
         'type',
         'status',
+        'rond_tier',
+        'rond_pattern',
         'display_title',
         'user_id',
         'allocated_at',
@@ -47,6 +49,24 @@ class PhoneNumber extends Model
             'expires_at' => 'datetime',
             'accepts_incoming_sms' => 'boolean',
         ];
+    }
+
+    public function getRondTierLabelAttribute(): string
+    {
+        return match ($this->rond_tier) {
+            'golden_rond' => 'رند طلایی',
+            'semi_rond' => 'نیمه‌رند',
+            default => 'عادی',
+        };
+    }
+
+    public function getRondBadgeClassesAttribute(): string
+    {
+        return match ($this->rond_tier) {
+            'golden_rond' => 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25',
+            'semi_rond' => 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25',
+            default => 'bg-slate-500/10 text-slate-500 dark:text-slate-400 border border-slate-500/20',
+        };
     }
 
     protected static function booted(): void

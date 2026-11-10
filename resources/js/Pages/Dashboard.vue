@@ -48,6 +48,7 @@ const props = defineProps<{
     recent_numbers: RecentNumber[];
     unread_messages: UnreadSenderSummary[];
     default_prefix: string;
+    active_prefixes?: any[];
     wallet?: WalletInfo;
 }>();
 
@@ -394,6 +395,7 @@ const isAllocateModalOpen = ref(false);
         <AllocateNumberModal
             :show="isAllocateModalOpen"
             :default-prefix="props.default_prefix"
+            :active-prefixes="props.active_prefixes"
             :remaining-quota="props.quota.remaining"
             :max-quota="props.quota.max"
             @close="isAllocateModalOpen = false"

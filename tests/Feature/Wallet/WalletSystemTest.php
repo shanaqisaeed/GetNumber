@@ -398,7 +398,7 @@ class WalletSystemTest extends TestCase
     {
         // Create a number already allocated to another user (clean 9-digit number)
         PhoneNumber::create([
-            'number' => '912345678',
+            'number' => '982514736',
             'phone_prefix_id' => $this->defaultPrefix->id,
             'type' => PhoneNumberType::UserStandard,
             'status' => PhoneNumberStatus::Allocated,
@@ -411,7 +411,7 @@ class WalletSystemTest extends TestCase
 
         // Attempt to allocate the already occupied number
         $response = $this->actingAs($this->user)->post(route('numbers.store'), [
-            'preferred_number' => '+85912345678',
+            'preferred_number' => '+85982514736',
             'display_title' => 'تست خط اشغال‌شده',
         ]);
 

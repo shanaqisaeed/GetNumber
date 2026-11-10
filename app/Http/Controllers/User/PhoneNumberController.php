@@ -9,7 +9,11 @@ use App\Exceptions\NumberAllocationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\AllocatePhoneNumberRequest;
 use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 use App\Models\SystemSetting;
+use App\Services\Numbers\NumberSearchAndSuggestionService;
+use App\Services\Numbers\RondPatternDetectorService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,7 +25,9 @@ class PhoneNumberController extends Controller
 {
     public function __construct(
         protected PhoneNumberAllocationServiceInterface $allocationService,
-        protected WalletServiceInterface $walletService
+        protected WalletServiceInterface $walletService,
+        protected NumberSearchAndSuggestionService $searchService,
+        protected RondPatternDetectorService $rondDetector
     ) {}
 
     /**
@@ -54,6 +60,9 @@ class PhoneNumberController extends Controller
                 'formatted_number' => $phone->formatted_number,
                 'effective_title' => $phone->effective_title,
                 'display_title' => $phone->display_title,
+                'rond_tier' => $phone->rond_tier ?? 'regular',
+                'rond_tier_label' => $phone->rond_tier_label ?? 'عادی',
+                'rond_pattern' => $phone->rond_pattern,
                 'type' => $phone->type->value,
                 'type_label' => $phone->type->label(),
                 'type_badge' => $phone->type->badgeClasses(),
@@ -78,38 +87,120 @@ class PhoneNumberController extends Controller
                 'number_price_coin' => SystemSetting::getNumberPriceCoin(),
             ],
             'default_prefix' => \App\Models\PhonePrefix::getDefaultPrefixString(),
-            'active_prefixes' => \App\Models\PhonePrefix::active()->get(['id', 'prefix', 'name', 'is_default']),
+            'active_prefixes' => \App\Models\PhonePrefix::active()->get([
+                'id',
+                'prefix',
+                'clean_prefix',
+                'name',
+                'country_name',
+                'country_code',
+                'flag',
+                'sub_prefixes',
+                'price_regular',
+                'price_semi_rond',
+                'price_golden_rond',
+                'is_default',
+            ]),
+        ]);
+    }
+
+    /**
+     * Check real-time availability and retrieve suggestions for a 9-digit line.
+     */
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'prefix_id' => ['required', 'integer', 'exists:phone_prefixes,id'],
+            'sub_prefix' => ['required', 'string', 'regex:/^[0-9]{3}$/'],
+            'suffix' => ['required', 'string', 'regex:/^[0-9]{6}$/'],
+        ]);
+
+        $result = $this->searchService->checkAndSuggest(
+            prefixId: (int) $validated['prefix_id'],
+            subPrefix: $validated['sub_prefix'],
+            suffix: $validated['suffix'],
+            user: $request->user()
+        );
+
+        return response()->json($result);
+    }
+
+    /**
+     * Retrieve suggested free numbers from pool for a given prefix and sub-prefix.
+     */
+    public function poolSuggestions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'prefix_id' => ['required', 'integer', 'exists:phone_prefixes,id'],
+            'sub_prefix' => ['nullable', 'string', 'regex:/^[0-9]{3}$/'],
+        ]);
+
+        $suggestions = $this->searchService->getPoolSuggestions(
+            prefixId: (int) $validated['prefix_id'],
+            subPrefix: $validated['sub_prefix'] ?? null,
+            limit: 6
+        );
+
+        return response()->json([
+            'suggestions' => $suggestions,
         ]);
     }
 
     /**
      * Allocate a new standard number for the authenticated user with atomic wallet charging.
      */
-    public function store(AllocatePhoneNumberRequest $request): RedirectResponse|\Illuminate\Http\JsonResponse
+    public function store(AllocatePhoneNumberRequest $request): RedirectResponse|JsonResponse
     {
         $user = $request->user();
-        $numberPrice = SystemSetting::getNumberPriceCoin();
+
+        // 1. Resolve effective prefix
+        $prefix = null;
+        if ($request->filled('phone_prefix_id')) {
+            $prefix = PhonePrefix::active()->find($request->input('phone_prefix_id'));
+        }
+        $effectivePrefix = $prefix ?? PhonePrefix::getDefaultPrefix();
+
+        // 2. Resolve preferred number and calculate dynamic pricing based on rond tier
+        $preferredNumber = $request->validated('preferred_number');
+        $displayTitle = $request->validated('display_title'); // optional/null for 9-digit lines
+
+        if ($preferredNumber !== null && trim($preferredNumber) !== '') {
+            $cleanNumber = preg_replace('/\D/', '', PhonePrefix::stripPrefix($preferredNumber));
+            $rond = $this->rondDetector->detect($cleanNumber);
+            $numberPrice = $effectivePrefix->getPriceForTier($rond['tier']);
+            $rondTier = $rond['tier'];
+            $rondPattern = $rond['pattern'];
+        } else {
+            $numberPrice = (string) ($effectivePrefix->price_regular ?? SystemSetting::getNumberPriceCoin());
+            $rondTier = 'regular';
+            $rondPattern = 'شماره استاندارد سیستمی';
+        }
+
         $purchaseRef = 'PURCHASE-' . Str::uuid();
 
         try {
-            // 1. Atomically charge wallet (verifies balance under lock, throws InsufficientWalletBalanceException if low)
+            // 3. Atomically charge wallet
             $tx = $this->walletService->chargeForNumberPurchase(
                 user: $user,
                 amount: $numberPrice,
                 referenceId: $purchaseRef,
-                description: 'خرید و فعال‌سازی خط سازمانی جدید',
+                description: "خرید و فعال‌سازی خط ۹ رقمی {$effectivePrefix->prefix} ({$numberPrice} کوین)",
                 metadata: [
-                    'preferred_number' => $request->validated('preferred_number'),
-                    'display_title' => $request->validated('display_title'),
+                    'prefix_id' => $effectivePrefix->id,
+                    'preferred_number' => $preferredNumber,
+                    'rond_tier' => $rondTier,
+                    'rond_pattern' => $rondPattern,
                 ]
             );
 
-            // 2. Allocate number
+            // 4. Allocate number
             try {
                 $phone = $this->allocationService->allocateStandardNumberToUser(
                     user: $user,
-                    preferredNumber: $request->validated('preferred_number'),
-                    displayTitle: $request->validated('display_title')
+                    preferredNumber: $preferredNumber,
+                    displayTitle: $displayTitle,
+                    actor: $user,
+                    prefix: $effectivePrefix
                 );
 
                 $tx->update([
@@ -119,7 +210,14 @@ class PhoneNumberController extends Controller
                     ]),
                 ]);
 
-                return back()->with('success', "خط سازمانی جدید با شماره {$phone->formatted_number} با موفقیت خریداری و به حساب شما تخصیص داده شد (کسر {$numberPrice} کوین).");
+                if ($request->wantsJson()) {
+                    return response()->json([
+                        'message' => "خط سازمانی جدید با شماره {$phone->formatted_number} با موفقیت تخصیص یافت.",
+                        'phone' => $phone,
+                    ]);
+                }
+
+                return back()->with('success', "خط جدید با شماره {$phone->formatted_number} با موفقیت خریداری و به حساب شما تخصیص داده شد (کسر {$numberPrice} کوین).");
             } catch (\Throwable $allocationException) {
                 // In case allocation fails, automatically refund coins into the ledger
                 $this->walletService->refund(
@@ -139,10 +237,18 @@ class PhoneNumberController extends Controller
                 ], 422);
             }
 
-            return redirect()->route('wallet.index')->with('error', $e->getMessage() . " برای خرید خط به {$numberPrice} کوین اعتبار نیاز دارید. لطفاً ابتدا کیف پول خود را شارژ فرمایید.");
+            return redirect()->route('wallet.index')->with('error', $e->getMessage() . " برای خرید این خط به {$numberPrice} کوین اعتبار نیاز دارید. لطفاً ابتدا کیف پول خود را شارژ فرمایید.");
         } catch (NumberAllocationException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['message' => 'خطای سیستمی رخ داد.'], 500);
+            }
+
             return back()->with('error', 'خطایی در فرآیند تخصیص خط رخ داد. در صورت کسر وجه، مبلغ بلافاصله به کیف پول مسترد شد.');
         }
     }

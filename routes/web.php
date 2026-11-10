@@ -95,6 +95,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/numbers', [UserPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [UserPhoneNumberController::class, 'store'])->name('numbers.store');
+    Route::post('/numbers/check-availability', [UserPhoneNumberController::class, 'checkAvailability'])->name('numbers.check_availability');
+    Route::get('/numbers/pool-suggestions', [UserPhoneNumberController::class, 'poolSuggestions'])->name('numbers.pool_suggestions');
     Route::patch('/numbers/{number}', [UserPhoneNumberController::class, 'update'])->name('numbers.update');
     Route::delete('/numbers/{number}', [UserPhoneNumberController::class, 'destroy'])->name('numbers.destroy');
 
@@ -247,6 +249,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin System & Authentication Settings Management
     Route::get('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'general'])->name('settings.general');
     Route::post('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'updateGeneral'])->name('settings.general.update');
+    Route::post('/settings/org-pricing', [\App\Http\Controllers\Admin\SettingController::class, 'updateOrgPricing'])->name('settings.org_pricing.update');
 
     Route::get('/settings/auth', [\App\Http\Controllers\Admin\SettingController::class, 'auth'])->name('settings.auth');
     Route::post('/settings/auth', [\App\Http\Controllers\Admin\SettingController::class, 'updateAuth'])->name('settings.auth.update');

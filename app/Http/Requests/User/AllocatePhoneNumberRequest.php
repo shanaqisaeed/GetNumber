@@ -17,8 +17,8 @@ class AllocatePhoneNumberRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Custom number and title are optional and currently handled automatically by allocation service
-            'preferred_number' => ['nullable', 'string', 'regex:/^(\+?85)?[0-9]{9}$/'],
+            'phone_prefix_id' => ['nullable', 'integer', 'exists:phone_prefixes,id'],
+            'preferred_number' => ['nullable', 'string', 'regex:/^(\+?[0-9]{1,4})?[0-9]{9}$/'],
             'display_title' => ['nullable', 'string', 'max:100'],
         ];
     }

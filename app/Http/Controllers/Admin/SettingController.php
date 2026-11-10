@@ -24,7 +24,7 @@ class SettingController extends Controller
         KeycloakAuthService $keycloakService
     ): Response {
         $tab = $request->query('tab', 'general');
-        if (!in_array($tab, ['general', 'auth', 'ldap', 'keycloak'])) {
+        if (!in_array($tab, ['general', 'pricing', 'auth', 'ldap', 'keycloak'])) {
             $tab = 'general';
         }
 
@@ -37,6 +37,18 @@ class SettingController extends Controller
                 'event_notify_login_failed' => (bool) (int) SystemSetting::get('event_notify_login_failed', '1'),
                 'event_notify_user_registered' => (bool) (int) SystemSetting::get('event_notify_user_registered', '1'),
                 'event_notify_security_alert' => (bool) (int) SystemSetting::get('event_notify_security_alert', '1'),
+            ],
+            'orgPricing' => [
+                'org_price_4_regular' => SystemSetting::getOrgNumberPrice(4, false),
+                'org_price_4_rond' => SystemSetting::getOrgNumberPrice(4, true),
+                'org_price_5_regular' => SystemSetting::getOrgNumberPrice(5, false),
+                'org_price_5_rond' => SystemSetting::getOrgNumberPrice(5, true),
+                'org_price_6_regular' => SystemSetting::getOrgNumberPrice(6, false),
+                'org_price_6_rond' => SystemSetting::getOrgNumberPrice(6, true),
+                'org_price_7_regular' => SystemSetting::getOrgNumberPrice(7, false),
+                'org_price_7_rond' => SystemSetting::getOrgNumberPrice(7, true),
+                'org_price_8_regular' => SystemSetting::getOrgNumberPrice(8, false),
+                'org_price_8_rond' => SystemSetting::getOrgNumberPrice(8, true),
             ],
             'authSettings' => [
                 'auth_username_enabled' => (bool) (int) SystemSetting::get('auth_username_enabled', '1'),
@@ -88,6 +100,33 @@ class SettingController extends Controller
         $this->logSettingChange($request, 'تنظیمات عمومی سامانه با موفقیت ذخیره گردید.');
 
         return redirect()->route('admin.settings.general', ['tab' => 'general'])->with('success', 'تنظیمات عمومی سامانه و سقف مجاز خطوط با موفقیت به‌روزرسانی شد.');
+    }
+
+    /**
+     * Update Organizational 4-8 Digit Pricing Matrix.
+     */
+    public function updateOrgPricing(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'org_price_4_regular' => ['required', 'numeric', 'min:0'],
+            'org_price_4_rond' => ['required', 'numeric', 'min:0'],
+            'org_price_5_regular' => ['required', 'numeric', 'min:0'],
+            'org_price_5_rond' => ['required', 'numeric', 'min:0'],
+            'org_price_6_regular' => ['required', 'numeric', 'min:0'],
+            'org_price_6_rond' => ['required', 'numeric', 'min:0'],
+            'org_price_7_regular' => ['required', 'numeric', 'min:0'],
+            'org_price_7_rond' => ['required', 'numeric', 'min:0'],
+            'org_price_8_regular' => ['required', 'numeric', 'min:0'],
+            'org_price_8_rond' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        foreach ($validated as $key => $val) {
+            SystemSetting::set($key, (string) $val);
+        }
+
+        $this->logSettingChange($request, 'تعرفه‌های سرشماره‌های سازمانی (۴ تا ۸ رقمی) به‌روزرسانی شد.');
+
+        return redirect()->route('admin.settings.general', ['tab' => 'pricing'])->with('success', 'جدول تعرفه‌های سرشماره‌های سازمانی با موفقیت به‌روزرسانی گردید.');
     }
 
     /**

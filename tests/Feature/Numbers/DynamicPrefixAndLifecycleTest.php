@@ -29,15 +29,18 @@ class DynamicPrefixAndLifecycleTest extends TestCase
     {
         $user = User::factory()->create();
 
-        // 1. Create a custom active prefix (+98)
-        $prefix98 = PhonePrefix::create([
-            'prefix' => '+98',
-            'clean_prefix' => '98',
-            'name' => 'پیش‌شماره ملی ایران',
-            'country_code' => 'IR',
-            'is_default' => false,
-            'is_active' => true,
-        ]);
+        // 1. Create or retrieve active prefix (+98)
+        $prefix98 = PhonePrefix::firstOrCreate(
+            ['prefix' => '+98'],
+            [
+                'clean_prefix' => '98',
+                'name' => 'پیش‌شماره ملی ایران',
+                'country_code' => 'IR',
+                'is_default' => false,
+                'is_active' => true,
+            ]
+        );
+        $prefix98->update(['is_default' => false, 'is_active' => true]);
 
         // 2. Allocate standard number using +98 prefix
         $phone = $this->allocationService->allocateStandardNumberToUser(

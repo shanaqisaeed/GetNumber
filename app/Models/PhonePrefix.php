@@ -16,7 +16,13 @@ class PhonePrefix extends Model
         'prefix',
         'clean_prefix',
         'name',
+        'country_name',
         'country_code',
+        'flag',
+        'sub_prefixes',
+        'price_regular',
+        'price_semi_rond',
+        'price_golden_rond',
         'is_default',
         'is_active',
     ];
@@ -26,7 +32,37 @@ class PhonePrefix extends Model
         return [
             'is_default' => 'boolean',
             'is_active' => 'boolean',
+            'sub_prefixes' => 'array',
+            'price_regular' => 'decimal:4',
+            'price_semi_rond' => 'decimal:4',
+            'price_golden_rond' => 'decimal:4',
         ];
+    }
+
+    /**
+     * Get array of configured sub-prefixes.
+     *
+     * @return list<string>
+     */
+    public function getSubPrefixesList(): array
+    {
+        if (is_array($this->sub_prefixes)) {
+            return array_values(array_filter(array_map('strval', $this->sub_prefixes)));
+        }
+
+        return [];
+    }
+
+    /**
+     * Resolve price based on rond tier.
+     */
+    public function getPriceForTier(?string $tier): string
+    {
+        return match ($tier) {
+            'golden_rond' => (string) ($this->price_golden_rond ?? '20.0000'),
+            'semi_rond' => (string) ($this->price_semi_rond ?? '5.0000'),
+            default => (string) ($this->price_regular ?? '1.0000'),
+        };
     }
 
     protected static function booted(): void

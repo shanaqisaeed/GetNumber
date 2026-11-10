@@ -26,7 +26,13 @@ class PhonePrefixController extends Controller
                 'prefix' => $p->prefix,
                 'clean_prefix' => $p->clean_prefix,
                 'name' => $p->name,
+                'country_name' => $p->country_name,
                 'country_code' => $p->country_code,
+                'flag' => $p->flag,
+                'sub_prefixes' => $p->sub_prefixes ?? [],
+                'price_regular' => (string) ($p->price_regular ?? '1.0000'),
+                'price_semi_rond' => (string) ($p->price_semi_rond ?? '5.0000'),
+                'price_golden_rond' => (string) ($p->price_golden_rond ?? '20.0000'),
                 'is_default' => (bool) $p->is_default,
                 'is_active' => (bool) $p->is_active,
                 'numbers_count' => (int) $p->phone_numbers_count,
@@ -53,7 +59,13 @@ class PhonePrefixController extends Controller
         $validated = $request->validate([
             'prefix' => ['required', 'string', 'max:10', 'regex:/^\+?[0-9]{1,8}$/', 'unique:phone_prefixes,prefix'],
             'name' => ['required', 'string', 'max:100'],
+            'country_name' => ['nullable', 'string', 'max:100'],
             'country_code' => ['nullable', 'string', 'max:10'],
+            'flag' => ['nullable', 'string', 'max:32'],
+            'sub_prefixes' => ['nullable'],
+            'price_regular' => ['nullable', 'numeric', 'min:0'],
+            'price_semi_rond' => ['nullable', 'numeric', 'min:0'],
+            'price_golden_rond' => ['nullable', 'numeric', 'min:0'],
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
         ], [
@@ -77,11 +89,19 @@ class PhonePrefixController extends Controller
             $isActive = true; // Default prefix must be active
         }
 
+        $subPrefixes = $this->parseSubPrefixes($request->input('sub_prefixes'));
+
         $prefix = PhonePrefix::create([
             'prefix' => $prefixStr,
             'clean_prefix' => $cleanPrefix,
             'name' => trim($validated['name']),
+            'country_name' => ! empty($validated['country_name']) ? trim($validated['country_name']) : trim($validated['name']),
             'country_code' => ! empty($validated['country_code']) ? strtoupper(trim($validated['country_code'])) : 'INTL',
+            'flag' => ! empty($validated['flag']) ? trim($validated['flag']) : '🌐',
+            'sub_prefixes' => $subPrefixes,
+            'price_regular' => $validated['price_regular'] ?? '1.0000',
+            'price_semi_rond' => $validated['price_semi_rond'] ?? '5.0000',
+            'price_golden_rond' => $validated['price_golden_rond'] ?? '20.0000',
             'is_default' => $isDefault,
             'is_active' => $isActive,
         ]);
@@ -108,7 +128,13 @@ class PhonePrefixController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100'],
+            'country_name' => ['nullable', 'string', 'max:100'],
             'country_code' => ['nullable', 'string', 'max:10'],
+            'flag' => ['nullable', 'string', 'max:32'],
+            'sub_prefixes' => ['nullable'],
+            'price_regular' => ['nullable', 'numeric', 'min:0'],
+            'price_semi_rond' => ['nullable', 'numeric', 'min:0'],
+            'price_golden_rond' => ['nullable', 'numeric', 'min:0'],
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
         ], [
@@ -128,9 +154,19 @@ class PhonePrefixController extends Controller
             return back()->with('error', 'پیش‌شماره پیش‌فرض سامانه نمی‌تواند غیرفعال گردد. ابتدا پیش‌شماره پیش‌فرض دیگری برگزینید.');
         }
 
+        $subPrefixes = $request->has('sub_prefixes')
+            ? $this->parseSubPrefixes($request->input('sub_prefixes'))
+            : $prefix->sub_prefixes;
+
         $prefix->update([
             'name' => trim($validated['name']),
+            'country_name' => ! empty($validated['country_name']) ? trim($validated['country_name']) : $prefix->country_name,
             'country_code' => ! empty($validated['country_code']) ? strtoupper(trim($validated['country_code'])) : $prefix->country_code,
+            'flag' => ! empty($validated['flag']) ? trim($validated['flag']) : $prefix->flag,
+            'sub_prefixes' => $subPrefixes,
+            'price_regular' => $validated['price_regular'] ?? $prefix->price_regular,
+            'price_semi_rond' => $validated['price_semi_rond'] ?? $prefix->price_semi_rond,
+            'price_golden_rond' => $validated['price_golden_rond'] ?? $prefix->price_golden_rond,
             'is_default' => $isDefault,
             'is_active' => $isActive,
         ]);
@@ -148,6 +184,24 @@ class PhonePrefixController extends Controller
         );
 
         return back()->with('success', "تنظیمات پیش‌شماره {$prefix->prefix} با موفقیت به‌روزرسانی شد.");
+    }
+
+    /**
+     * Parse sub-prefixes input into array of strings.
+     */
+    protected function parseSubPrefixes(mixed $input): array
+    {
+        if (is_array($input)) {
+            return array_values(array_filter(array_map('trim', $input)));
+        }
+
+        if (is_string($input)) {
+            $parts = preg_split('/[,\s]+/', $input);
+
+            return array_values(array_filter(array_map('trim', $parts ?: [])));
+        }
+
+        return [];
     }
 
     /**

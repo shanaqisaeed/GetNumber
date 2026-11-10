@@ -84,6 +84,9 @@ class PhoneNumberController extends Controller
                 ] : null,
                 'effective_title' => $phone->effective_title,
                 'display_title' => $phone->display_title,
+                'rond_tier' => $phone->rond_tier ?? 'regular',
+                'rond_tier_label' => $phone->rond_tier_label ?? 'عادی',
+                'rond_pattern' => $phone->rond_pattern,
                 'type' => $phone->type->value,
                 'type_label' => $phone->type->label(),
                 'type_badge' => $phone->type->badgeClasses(),
@@ -150,6 +153,8 @@ class PhoneNumberController extends Controller
             'number' => ['required', 'string', 'regex:/^[0-9]{4,11}$/', 'unique:phone_numbers,number'],
             'phone_prefix_id' => ['nullable', 'exists:phone_prefixes,id'],
             'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
+            'rond_tier' => ['nullable', 'string', 'in:regular,semi_rond,golden_rond'],
+            'rond_pattern' => ['nullable', 'string', 'max:100'],
             'display_title' => ['nullable', 'string', 'max:100'],
             'user_id' => ['nullable', 'exists:users,id'],
             'accepts_incoming_sms' => ['nullable', 'boolean'],
@@ -177,11 +182,18 @@ class PhoneNumberController extends Controller
             ? (int) $validated['phone_prefix_id']
             : \App\Models\PhonePrefix::getDefaultPrefix()->id;
 
+        $cleanNumber = trim($validated['number']);
+        $rondInfo = app(\App\Services\Numbers\RondPatternDetectorService::class)->detect($cleanNumber);
+        $finalRondTier = ! empty($validated['rond_tier']) ? $validated['rond_tier'] : $rondInfo['tier'];
+        $finalRondPattern = ! empty($validated['rond_pattern']) ? trim($validated['rond_pattern']) : $rondInfo['pattern'];
+
         $phone = PhoneNumber::create([
             'phone_prefix_id' => $prefixId,
-            'number' => trim($validated['number']),
+            'number' => $cleanNumber,
             'type' => $type,
             'status' => $status,
+            'rond_tier' => $finalRondTier,
+            'rond_pattern' => $finalRondPattern,
             'display_title' => $validated['display_title'] ? trim($validated['display_title']) : null,
             'user_id' => $user?->id,
             'allocated_at' => $status === PhoneNumberStatus::Allocated ? now() : null,
@@ -193,6 +205,7 @@ class PhoneNumberController extends Controller
             'formatted_number' => $phone->formatted_number,
             'type' => $phone->type->value,
             'status' => $phone->status->value,
+            'rond_tier' => $phone->rond_tier,
             'display_title' => $phone->display_title,
             'user_id' => $phone->user_id,
         ]);
@@ -208,6 +221,8 @@ class PhoneNumberController extends Controller
         $validated = $request->validate([
             'display_title' => ['nullable', 'string', 'max:100'],
             'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
+            'rond_tier' => ['nullable', 'string', 'in:regular,semi_rond,golden_rond'],
+            'rond_pattern' => ['nullable', 'string', 'max:100'],
             'phone_prefix_id' => ['nullable', 'exists:phone_prefixes,id'],
             'user_id' => ['nullable', 'exists:users,id'],
             'accepts_incoming_sms' => ['nullable', 'boolean'],
@@ -231,6 +246,7 @@ class PhoneNumberController extends Controller
             'user_id' => $number->user_id,
             'phone_prefix_id' => $number->phone_prefix_id,
             'accepts_incoming_sms' => $number->accepts_incoming_sms,
+            'rond_tier' => $number->rond_tier,
         ];
 
         $updateData = [
@@ -238,6 +254,13 @@ class PhoneNumberController extends Controller
             'type' => $type,
             'accepts_incoming_sms' => $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
         ];
+
+        if ($request->filled('rond_tier')) {
+            $updateData['rond_tier'] = $validated['rond_tier'];
+        }
+        if ($request->filled('rond_pattern')) {
+            $updateData['rond_pattern'] = trim($validated['rond_pattern']);
+        }
 
         if (! empty($validated['phone_prefix_id'])) {
             $updateData['phone_prefix_id'] = (int) $validated['phone_prefix_id'];

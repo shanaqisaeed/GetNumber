@@ -43,9 +43,23 @@ interface KeycloakConfig {
     auto_create_user: boolean;
 }
 
+interface OrgPricing {
+    org_price_4_regular: string | number;
+    org_price_4_rond: string | number;
+    org_price_5_regular: string | number;
+    org_price_5_rond: string | number;
+    org_price_6_regular: string | number;
+    org_price_6_rond: string | number;
+    org_price_7_regular: string | number;
+    org_price_7_rond: string | number;
+    org_price_8_regular: string | number;
+    org_price_8_rond: string | number;
+}
+
 interface Props {
-    initialTab?: 'general' | 'auth' | 'ldap' | 'keycloak';
+    initialTab?: 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak';
     generalSettings: GeneralSettings;
+    orgPricing?: OrgPricing;
     authSettings: AuthSettings;
     ldapSettings: {
         config: LdapConfig;
@@ -63,7 +77,7 @@ const props = withDefaults(defineProps<Props>(), {
     initialTab: 'general',
 });
 
-type TabType = 'general' | 'auth' | 'ldap' | 'keycloak';
+type TabType = 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak';
 const activeTab = ref<TabType>(props.initialTab);
 
 watch(() => props.initialTab, (newTab) => {
@@ -82,6 +96,26 @@ const generalForm = useForm({
 
 const submitGeneral = () => {
     generalForm.post(route('admin.settings.general.update'), {
+        preserveScroll: true,
+    });
+};
+
+// 1.5. Organizational Pricing Matrix Form
+const pricingForm = useForm({
+    org_price_4_regular: props.orgPricing?.org_price_4_regular ?? '100.0000',
+    org_price_4_rond: props.orgPricing?.org_price_4_rond ?? '250.0000',
+    org_price_5_regular: props.orgPricing?.org_price_5_regular ?? '50.0000',
+    org_price_5_rond: props.orgPricing?.org_price_5_rond ?? '120.0000',
+    org_price_6_regular: props.orgPricing?.org_price_6_regular ?? '20.0000',
+    org_price_6_rond: props.orgPricing?.org_price_6_rond ?? '50.0000',
+    org_price_7_regular: props.orgPricing?.org_price_7_regular ?? '10.0000',
+    org_price_7_rond: props.orgPricing?.org_price_7_rond ?? '25.0000',
+    org_price_8_regular: props.orgPricing?.org_price_8_regular ?? '5.0000',
+    org_price_8_rond: props.orgPricing?.org_price_8_rond ?? '12.0000',
+});
+
+const submitPricing = () => {
+    pricingForm.post(route('admin.settings.org_pricing.update'), {
         preserveScroll: true,
     });
 };
@@ -204,7 +238,7 @@ const testKeycloakConnection = async () => {
 
         <div class="max-w-5xl mx-auto space-y-6 pb-12">
             <!-- Navigation Tabs -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 p-1.5 rounded-2xl bg-slate-200/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 gap-1.5">
+            <div class="grid grid-cols-2 sm:grid-cols-5 p-1.5 rounded-2xl bg-slate-200/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 gap-1.5">
                 <button
                     type="button"
                     @click="activeTab = 'general'"
@@ -216,7 +250,21 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span>تنظیمات عمومی و رویدادها</span>
+                    <span>تنظیمات عمومی</span>
+                </button>
+
+                <button
+                    type="button"
+                    @click="activeTab = 'pricing'"
+                    class="py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    :class="activeTab === 'pricing'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>تعرفه سرشماره‌ها</span>
                 </button>
 
                 <button
@@ -381,6 +429,118 @@ const testKeycloakConnection = async () => {
                             class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
                             {{ generalForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات عمومی' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- TAB: ORGANIZATIONAL 4-8 DIGIT PRICING MATRIX -->
+            <div v-show="activeTab === 'pricing'">
+                <form @submit.prevent="submitPricing" class="space-y-6">
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center gap-3">
+                                <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">جدول تعرفه سرشماره‌های سازمانی (۴ تا ۸ رقمی)</h2>
+                            </div>
+                            <span class="text-xs text-slate-500">مجموعاً ۱۰ فیلد تعرفه برای خطوط عادی و رند (بر حسب کوین / TRX)</span>
+                        </div>
+
+                        <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                            این مبالغ در زمان ثبت درخواست سرشماره سازمانی توسط کاربران در کیف پول مسدود (بلوکه) می‌شوند و با تایید مدیریت تسویه، و در صورت رد درخواست بلافاصله آزاد و عودت داده می‌شوند.
+                        </p>
+
+                        <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+                            <table class="w-full text-right text-xs">
+                                <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
+                                    <tr>
+                                        <th class="p-3.5">طول سرشماره</th>
+                                        <th class="p-3.5">تعرفه خط عادی (کوین)</th>
+                                        <th class="p-3.5">تعرفه خط رند / نیمه‌رند (کوین)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <!-- 4 Digits -->
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۴</span>
+                                            <span>سرشماره ۴ رقمی (مانند 1000)</span>
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_4_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_4_rond" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold text-amber-600" required />
+                                        </td>
+                                    </tr>
+
+                                    <!-- 5 Digits -->
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۵</span>
+                                            <span>سرشماره ۵ رقمی</span>
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_5_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_5_rond" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold text-amber-600" required />
+                                        </td>
+                                    </tr>
+
+                                    <!-- 6 Digits -->
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۶</span>
+                                            <span>سرشماره ۶ رقمی</span>
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_6_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_6_rond" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold text-amber-600" required />
+                                        </td>
+                                    </tr>
+
+                                    <!-- 7 Digits -->
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۷</span>
+                                            <span>سرشماره ۷ رقمی</span>
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_7_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_7_rond" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold text-amber-600" required />
+                                        </td>
+                                    </tr>
+
+                                    <!-- 8 Digits -->
+                                    <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۸</span>
+                                            <span>سرشماره ۸ رقمی</span>
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_8_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
+                                        </td>
+                                        <td class="p-3.5">
+                                            <input v-model="pricingForm.org_price_8_rond" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold text-amber-600" required />
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button
+                            type="submit"
+                            :disabled="pricingForm.processing"
+                            class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+                        >
+                            {{ pricingForm.processing ? 'در حال ذخیره...' : 'ذخیره تعرفه‌های سازمانی' }}
                         </button>
                     </div>
                 </form>

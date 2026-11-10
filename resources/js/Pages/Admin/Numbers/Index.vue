@@ -23,6 +23,9 @@ interface PhoneNumberItem {
     } | null;
     effective_title: string;
     display_title: string | null;
+    rond_tier?: string;
+    rond_tier_label?: string;
+    rond_pattern?: string;
     type: string;
     type_label: string;
     type_badge: string;
@@ -137,6 +140,7 @@ const singleForm = useForm({
     display_title: '',
     user_id: '',
     accepts_incoming_sms: true,
+    rond_tier: '',
 });
 
 const openSingleModal = () => {
@@ -247,6 +251,7 @@ const editForm = useForm({
     phone_prefix_id: '',
     user_id: '',
     accepts_incoming_sms: true,
+    rond_tier: '',
 });
 
 let editSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -296,6 +301,7 @@ const openEditModal = (item: PhoneNumberItem) => {
     editForm.user_id = item.user ? String(item.user.id) : '';
     selectedEditUser.value = item.user ? { id: item.user.id, name: item.user.name, username: item.user.username } : null;
     editForm.accepts_incoming_sms = item.accepts_incoming_sms ?? true;
+    editForm.rond_tier = item.rond_tier || 'regular';
     editUserSearchQuery.value = '';
     editUserSearchResults.value = [];
     isEditModalOpen.value = true;
@@ -592,6 +598,20 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <span dir="ltr" class="font-mono font-bold text-sm text-slate-900 dark:text-white inline-block text-left select-all">
                                         {{ item.formatted_number }}
                                     </span>
+                                    <span
+                                        v-if="item.rond_tier === 'golden_rond'"
+                                        class="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap"
+                                        :title="item.rond_pattern || 'رند طلایی'"
+                                    >
+                                        طلایی
+                                    </span>
+                                    <span
+                                        v-else-if="item.rond_tier === 'semi_rond'"
+                                        class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 whitespace-nowrap"
+                                        :title="item.rond_pattern || 'نیمه‌رند'"
+                                    >
+                                        نیمه‌رند
+                                    </span>
                                     <button
                                         @click="copyNumber(item)"
                                         class="text-slate-400 hover:text-indigo-600 p-1 transition-colors cursor-pointer"
@@ -849,6 +869,24 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 {{ p.prefix }} ({{ p.name }})
                             </option>
                         </select>
+                    </div>
+
+                    <div>
+                        <label class="form-label mb-1.5">
+                            سطح رند بودن
+                        </label>
+                        <select
+                            v-model="singleForm.rond_tier"
+                            class="form-select w-full"
+                        >
+                            <option value="">تشخیص خودکار توسط الگوریتم سامانه</option>
+                            <option value="golden_rond">رند طلایی (Golden)</option>
+                            <option value="semi_rond">نیمه رند (Semi-Rond)</option>
+                            <option value="regular">غیر رند / عادی</option>
+                        </select>
+                        <p class="text-[11px] text-slate-400 mt-1">
+                            در صورت خالی گذاشتن، الگوریتم‌های مخابراتی سامانه رند بودن شماره را خودکار تحلیل می‌کنند.
+                        </p>
                     </div>
 
                     <div>
@@ -1147,6 +1185,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <option v-for="p in prefixes" :key="p.id" :value="String(p.id)">
                                 {{ p.prefix }} ({{ p.name }})
                             </option>
+                        </select>
+                    </div>
+
+                    <!-- Rond Tier Selection -->
+                    <div>
+                        <label class="form-label mb-1.5">
+                            سطح رند بودن خط
+                        </label>
+                        <select
+                            v-model="editForm.rond_tier"
+                            class="form-select w-full"
+                        >
+                            <option value="regular">غیر رند / عادی</option>
+                            <option value="semi_rond">نیمه رند (Semi-Rond)</option>
+                            <option value="golden_rond">رند طلایی (Golden)</option>
                         </select>
                     </div>
 

@@ -222,6 +222,120 @@ class LedgerService implements LedgerServiceInterface
         );
     }
 
+    public function recordHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry {
+        $cleanAmount = number_format((float) $amount, self::DECIMAL_SCALE, '.', '');
+
+        $lines = [
+            // Debit User Wallet Liability (User available balance decreases)
+            [
+                'account_code' => '2010_USER_WALLETS',
+                'debit' => $cleanAmount,
+                'credit' => '0.0000',
+                'user_id' => $user->id,
+                'description' => $description,
+            ],
+            // Credit Funds On Hold Liability (Escrow/held funds increases)
+            [
+                'account_code' => '2020_FUNDS_ON_HOLD',
+                'debit' => '0.0000',
+                'credit' => $cleanAmount,
+                'user_id' => $user->id,
+                'description' => "مسدودی وجه درخواست سرشماره سازمانی (کاربر #{$user->id})",
+            ],
+        ];
+
+        return $this->recordJournal(
+            description: $description,
+            lines: $lines,
+            referenceType: 'NumberHold',
+            referenceId: $referenceId,
+            actor: $user,
+            metadata: $metadata
+        );
+    }
+
+    public function recordHoldFinalize(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry {
+        $cleanAmount = number_format((float) $amount, self::DECIMAL_SCALE, '.', '');
+
+        $lines = [
+            // Debit Funds On Hold Liability (Escrow released to revenue)
+            [
+                'account_code' => '2020_FUNDS_ON_HOLD',
+                'debit' => $cleanAmount,
+                'credit' => '0.0000',
+                'user_id' => $user->id,
+                'description' => "تسویه نهایی وجه مسدود شده (کاربر #{$user->id})",
+            ],
+            // Credit Number Revenue (Operating Revenue increases)
+            [
+                'account_code' => '4010_NUMBER_REVENUE',
+                'debit' => '0.0000',
+                'credit' => $cleanAmount,
+                'user_id' => null,
+                'description' => "درآمد واگذاری سرشماره سازمانی (کاربر #{$user->id})",
+            ],
+        ];
+
+        return $this->recordJournal(
+            description: $description,
+            lines: $lines,
+            referenceType: 'NumberHoldFinalize',
+            referenceId: $referenceId,
+            actor: $user,
+            metadata: $metadata
+        );
+    }
+
+    public function recordHoldRelease(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry {
+        $cleanAmount = number_format((float) $amount, self::DECIMAL_SCALE, '.', '');
+
+        $lines = [
+            // Debit Funds On Hold Liability (Escrow decreased)
+            [
+                'account_code' => '2020_FUNDS_ON_HOLD',
+                'debit' => $cleanAmount,
+                'credit' => '0.0000',
+                'user_id' => $user->id,
+                'description' => "آزادسازی وجه مسدودی (کاربر #{$user->id})",
+            ],
+            // Credit User Wallet Liability (Returned to user active wallet balance)
+            [
+                'account_code' => '2010_USER_WALLETS',
+                'debit' => '0.0000',
+                'credit' => $cleanAmount,
+                'user_id' => $user->id,
+                'description' => $description,
+            ],
+        ];
+
+        return $this->recordJournal(
+            description: $description,
+            lines: $lines,
+            referenceType: 'NumberHoldRelease',
+            referenceId: $referenceId,
+            actor: $user,
+            metadata: $metadata
+        );
+    }
+
     public function recordAdminAdjustment(
         User $user,
         string $amount,

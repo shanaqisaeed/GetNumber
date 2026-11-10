@@ -198,6 +198,136 @@ class WalletService implements WalletServiceInterface
         });
     }
 
+    public function holdForNumberRequest(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction {
+        $cleanAmount = $this->sanitizeAmount($amount);
+
+        return DB::transaction(function () use ($user, $cleanAmount, $referenceId, $description, $metadata) {
+            $existing = WalletTransaction::where('reference_id', $referenceId)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            /** @var Wallet $wallet */
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+            if (! $wallet) {
+                $wallet = $user->getOrCreateWallet();
+                $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->firstOrFail();
+            }
+
+            $balanceBefore = (string) $wallet->balance;
+
+            if (bccomp($balanceBefore, $cleanAmount, self::DECIMAL_SCALE) < 0) {
+                throw new InsufficientWalletBalanceException(
+                    requiredAmount: $cleanAmount,
+                    currentBalance: $balanceBefore,
+                    message: "موجودی کیف پول شما ({$balanceBefore} کوین) برای مسدودی درخواست سرشماره ({$cleanAmount} کوین) کافی نمی‌باشد."
+                );
+            }
+
+            $balanceAfter = bcsub($balanceBefore, $cleanAmount, self::DECIMAL_SCALE);
+            $wallet->update(['balance' => $balanceAfter]);
+
+            $tx = WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'user_id' => $user->id,
+                'type' => WalletTransactionType::Hold,
+                'amount' => $cleanAmount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+                'description' => $description ?? 'مسدودی وجه جهت بررسی درخواست سرشماره سازمانی',
+                'metadata' => $metadata,
+            ]);
+
+            $this->ledgerService->recordHold(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'مسدودی وجه جهت بررسی درخواست سرشماره سازمانی',
+                metadata: $metadata
+            );
+
+            return $tx;
+        });
+    }
+
+    public function finalizeNumberRequestHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): void {
+        $cleanAmount = $this->sanitizeAmount($amount);
+
+        DB::transaction(function () use ($user, $cleanAmount, $referenceId, $description, $metadata) {
+            $this->ledgerService->recordHoldFinalize(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'تسویه نهایی وجه مسدود شده درخواست سرشماره سازمانی',
+                metadata: $metadata
+            );
+        });
+    }
+
+    public function releaseNumberRequestHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction {
+        $cleanAmount = $this->sanitizeAmount($amount);
+
+        return DB::transaction(function () use ($user, $cleanAmount, $referenceId, $description, $metadata) {
+            $existing = WalletTransaction::where('reference_id', $referenceId)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            /** @var Wallet $wallet */
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+            if (! $wallet) {
+                $wallet = $user->getOrCreateWallet();
+                $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->firstOrFail();
+            }
+
+            $balanceBefore = (string) $wallet->balance;
+            $balanceAfter = bcadd($balanceBefore, $cleanAmount, self::DECIMAL_SCALE);
+
+            $wallet->update(['balance' => $balanceAfter]);
+
+            $tx = WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'user_id' => $user->id,
+                'type' => WalletTransactionType::HoldRelease,
+                'amount' => $cleanAmount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+                'description' => $description ?? 'آزادسازی و عودت وجه مسدود شده به کیف پول (رد/لغو درخواست سرشماره)',
+                'metadata' => $metadata,
+            ]);
+
+            $this->ledgerService->recordHoldRelease(
+                user: $user,
+                amount: $cleanAmount,
+                referenceId: $referenceId,
+                description: $description ?? 'آزادسازی و عودت وجه مسدود شده به کیف پول (رد/لغو درخواست سرشماره)',
+                metadata: $metadata
+            );
+
+            return $tx;
+        });
+    }
+
     public function adminCredit(
         User $user,
         string $amount,

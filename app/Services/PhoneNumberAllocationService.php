@@ -14,6 +14,7 @@ use App\Models\PhoneNumber;
 use App\Models\PhoneNumberAudit;
 use App\Models\PhonePrefix;
 use App\Models\User;
+use App\Services\Numbers\RondPatternDetectorService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -28,6 +29,13 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
      * Maximum attempts to resolve collision when generating random numbers.
      */
     protected const MAX_GENERATION_ATTEMPTS = 15;
+
+    protected RondPatternDetectorService $rondDetector;
+
+    public function __construct(?RondPatternDetectorService $rondDetector = null)
+    {
+        $this->rondDetector = $rondDetector ?? app(RondPatternDetectorService::class);
+    }
 
     public function allocateStandardNumberToUser(
         User $user,
@@ -366,6 +374,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
         /** @var PhoneNumber|null $phone */
         $phone = PhoneNumber::where('number', $number)->lockForUpdate()->first();
 
+        $rond = $this->rondDetector->detect($number);
+
         if ($phone !== null) {
             if ($phone->type === PhoneNumberType::PlatformService && ! $user->isAdmin()) {
                 throw new NumberAllocationException('سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
@@ -381,6 +391,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                 'user_id' => $user->id,
                 'type' => $type,
                 'status' => PhoneNumberStatus::Allocated,
+                'rond_tier' => ($phone->rond_tier && $phone->rond_tier !== 'regular') ? $phone->rond_tier : $rond['tier'],
+                'rond_pattern' => $phone->rond_pattern ?? $rond['pattern'],
                 'allocated_at' => now(),
                 'display_title' => $displayTitle,
                 'reserved_until' => null,
@@ -392,6 +404,8 @@ class PhoneNumberAllocationService implements PhoneNumberAllocationServiceInterf
                 'number' => $number,
                 'type' => $type,
                 'status' => PhoneNumberStatus::Allocated,
+                'rond_tier' => $rond['tier'],
+                'rond_pattern' => $rond['pattern'],
                 'user_id' => $user->id,
                 'allocated_at' => now(),
                 'display_title' => $displayTitle,

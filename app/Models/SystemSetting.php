@@ -105,5 +105,48 @@ class SystemSetting extends Model
     {
         return (bool) (int) self::get("event_notify_{$eventKey}", '1');
     }
+
+    /**
+     * Get tariff for 4-8 digit organizational service number.
+     */
+    public static function getOrgNumberPrice(int $length, bool $isRond): string
+    {
+        $clampedLength = max(4, min(8, $length));
+        $typeKey = $isRond ? 'rond' : 'regular';
+        $settingKey = "org_price_{$clampedLength}_{$typeKey}";
+
+        $fallbackDefaults = [
+            'org_price_4_regular' => '100.0000',
+            'org_price_4_rond' => '250.0000',
+            'org_price_5_regular' => '50.0000',
+            'org_price_5_rond' => '120.0000',
+            'org_price_6_regular' => '20.0000',
+            'org_price_6_rond' => '50.0000',
+            'org_price_7_regular' => '10.0000',
+            'org_price_7_rond' => '25.0000',
+            'org_price_8_regular' => '5.0000',
+            'org_price_8_rond' => '12.0000',
+        ];
+
+        return (string) self::get($settingKey, $fallbackDefaults[$settingKey] ?? '10.0000');
+    }
+
+    /**
+     * Get entire 10-field matrix for organizational service numbers.
+     *
+     * @return array<int, array{regular: string, rond: string}>
+     */
+    public static function getAllOrgPricing(): array
+    {
+        $matrix = [];
+        for ($len = 4; $len <= 8; $len++) {
+            $matrix[$len] = [
+                'regular' => self::getOrgNumberPrice($len, false),
+                'rond' => self::getOrgNumberPrice($len, true),
+            ];
+        }
+
+        return $matrix;
+    }
 }
 

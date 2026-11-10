@@ -52,6 +52,10 @@ class NumberRequestController extends Controller
                 'service_title' => $req->service_title,
                 'description' => $req->description,
                 'preferred_number' => $req->preferred_number,
+                'is_rond' => (bool) $req->is_rond,
+                'rond_tier' => $req->rond_tier ?? 'regular',
+                'held_amount' => (string) ($req->held_amount ?? '0.0000'),
+                'hold_reference_id' => $req->hold_reference_id,
                 'accepts_incoming_sms' => (bool) $req->accepts_incoming_sms,
                 'status' => $req->status->value,
                 'status_label' => $req->status->label(),
@@ -74,10 +78,28 @@ class NumberRequestController extends Controller
             'rejected' => NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Rejected)->count(),
         ];
 
+        $availablePoolNumbers = \App\Models\PhoneNumber::select('id', 'number', 'rond_tier', 'rond_pattern')
+            ->where('status', \App\Enums\PhoneNumberStatus::Available)
+            ->where('type', \App\Enums\PhoneNumberType::UserService)
+            ->orderBy('number')
+            ->get()
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'number' => $p->number,
+                'length' => strlen($p->number),
+                'rond_tier' => $p->rond_tier ?? 'regular',
+                'rond_pattern' => $p->rond_pattern,
+            ]);
+
         return Inertia::render('User/Requests/Index', [
             'requests' => $requests,
             'filters' => $request->only(['search', 'status']),
             'stats' => $stats,
+            'org_tariffs' => \App\Models\SystemSetting::getAllOrgPricing(),
+            'wallet' => [
+                'balance' => (string) $user->getOrCreateWallet()->balance,
+            ],
+            'available_pool_numbers' => $availablePoolNumbers,
         ]);
     }
 

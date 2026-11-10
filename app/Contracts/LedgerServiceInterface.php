@@ -61,6 +61,45 @@ interface LedgerServiceInterface
     ): JournalEntry;
 
     /**
+     * Record hold journal entry:
+     * Debit: 2010_USER_WALLETS (Liability - for user)
+     * Credit: 2020_FUNDS_ON_HOLD (Liability +)
+     */
+    public function recordHold(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry;
+
+    /**
+     * Record hold finalization journal entry (on admin approval):
+     * Debit: 2020_FUNDS_ON_HOLD (Liability -)
+     * Credit: 4010_NUMBER_REVENUE (Revenue +)
+     */
+    public function recordHoldFinalize(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry;
+
+    /**
+     * Record hold release journal entry (on admin rejection or cancel):
+     * Debit: 2020_FUNDS_ON_HOLD (Liability -)
+     * Credit: 2010_USER_WALLETS (Liability + for user)
+     */
+    public function recordHoldRelease(
+        User $user,
+        string $amount,
+        string $referenceId,
+        string $description,
+        array $metadata = []
+    ): JournalEntry;
+
+    /**
      * Record admin adjustment journal entry (Credit or Debit to user wallet vs 9010_SUSPENSE).
      */
     public function recordAdminAdjustment(

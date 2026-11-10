@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref } from 'vue';
 
 interface PrefixItem {
     id: number;
     prefix: string;
     clean_prefix: string;
     name: string;
-    country_code: string;
+    country_name?: string;
+    country_code?: string;
+    flag?: string;
+    sub_prefixes?: string[];
+    price_regular: string | number;
+    price_semi_rond: string | number;
+    price_golden_rond: string | number;
     is_default: boolean;
     is_active: boolean;
     numbers_count: number;
@@ -38,7 +44,13 @@ const isCreateModalOpen = ref(false);
 const createForm = useForm({
     prefix: '',
     name: '',
-    country_code: 'INTL',
+    country_name: '',
+    country_code: 'IR',
+    flag: '🇮🇷',
+    sub_prefixes: '912, 910, 918, 935',
+    price_regular: '1.0000',
+    price_semi_rond: '5.0000',
+    price_golden_rond: '20.0000',
     is_default: false,
     is_active: true,
 });
@@ -46,6 +58,12 @@ const createForm = useForm({
 const openCreateModal = () => {
     createForm.reset();
     createForm.clearErrors();
+    createForm.country_code = 'IR';
+    createForm.flag = '🇮🇷';
+    createForm.sub_prefixes = '912, 910, 918, 935';
+    createForm.price_regular = '1.0000';
+    createForm.price_semi_rond = '5.0000';
+    createForm.price_golden_rond = '20.0000';
     isCreateModalOpen.value = true;
 };
 
@@ -64,7 +82,13 @@ const isEditModalOpen = ref(false);
 const editingPrefix = ref<PrefixItem | null>(null);
 const editForm = useForm({
     name: '',
+    country_name: '',
     country_code: '',
+    flag: '',
+    sub_prefixes: '',
+    price_regular: '1.0000',
+    price_semi_rond: '5.0000',
+    price_golden_rond: '20.0000',
     is_default: false,
     is_active: true,
 });
@@ -74,7 +98,13 @@ const openEditModal = (prefix: PrefixItem) => {
     editForm.reset();
     editForm.clearErrors();
     editForm.name = prefix.name;
-    editForm.country_code = prefix.country_code;
+    editForm.country_name = prefix.country_name || prefix.name;
+    editForm.country_code = prefix.country_code || 'INTL';
+    editForm.flag = prefix.flag || '🌐';
+    editForm.sub_prefixes = Array.isArray(prefix.sub_prefixes) ? prefix.sub_prefixes.join(', ') : '';
+    editForm.price_regular = String(prefix.price_regular || '1.0000');
+    editForm.price_semi_rond = String(prefix.price_semi_rond || '5.0000');
+    editForm.price_golden_rond = String(prefix.price_golden_rond || '20.0000');
     editForm.is_default = prefix.is_default;
     editForm.is_active = prefix.is_active;
     isEditModalOpen.value = true;
@@ -95,60 +125,51 @@ const submitEdit = () => {
 const toggleStatus = (prefix: PrefixItem) => {
     router.patch(route('admin.prefixes.update', prefix.id), {
         name: prefix.name,
+        country_name: prefix.country_name,
         country_code: prefix.country_code,
+        flag: prefix.flag,
+        price_regular: prefix.price_regular,
+        price_semi_rond: prefix.price_semi_rond,
+        price_golden_rond: prefix.price_golden_rond,
         is_default: prefix.is_default,
         is_active: !prefix.is_active,
     }, {
         preserveScroll: true,
-        onSuccess: () => showToast(`وضعیت پیش‌شماره ${prefix.prefix} به‌روزرسانی شد.`),
+        onSuccess: () => showToast(`وضعیت پیش‌شماره ${prefix.prefix} تغییر یافت.`),
     });
 };
 
-// Set As Default
+// Quick Set As Default
 const setAsDefault = (prefix: PrefixItem) => {
-    if (prefix.is_default) return;
     router.patch(route('admin.prefixes.update', prefix.id), {
         name: prefix.name,
+        country_name: prefix.country_name,
         country_code: prefix.country_code,
+        flag: prefix.flag,
+        price_regular: prefix.price_regular,
+        price_semi_rond: prefix.price_semi_rond,
+        price_golden_rond: prefix.price_golden_rond,
         is_default: true,
         is_active: true,
     }, {
         preserveScroll: true,
-        onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} به عنوان پیش‌فرض سامانه تعیین شد.`),
+        onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} به عنوان پیش‌فرض سامانه برگزیده شد.`),
     });
 };
 
 // Delete Prefix
 const deletePrefix = (prefix: PrefixItem) => {
-    if (prefix.is_default) {
-        alert('امکان حذف پیش‌شماره پیش‌فرض سامانه وجود ندارد.');
-        return;
-    }
-    if (prefix.numbers_count > 0) {
-        alert(`این پیش‌شماره دارای ${prefix.numbers_count} خط سازمانی فعال بوده و امکان حذف آن وجود ندارد.`);
-        return;
-    }
-    if (confirm(`آیا از حذف پیش‌شماره ${prefix.prefix} (${prefix.name}) اطمینان دارید؟`)) {
+    if (confirm(`آیا از حذف پیش‌شماره ${prefix.prefix} اطمینان کامل دارید؟`)) {
         router.delete(route('admin.prefixes.destroy', prefix.id), {
             preserveScroll: true,
-            onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} با موفقیت حذف شد.`),
+            onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} با موفقیت حذف گردید.`),
         });
     }
 };
-
-const handleKeydown = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') {
-        isCreateModalOpen.value = false;
-        isEditModalOpen.value = false;
-    }
-};
-
-onMounted(() => window.addEventListener('keydown', handleKeydown));
-onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
-    <Head title="مدیریت پیش‌شماره‌های سازمانی" />
+    <Head title="مدیریت پیش‌شماره‌ها و تعرفه خطوط" />
 
     <AdminLayout>
         <div class="space-y-6">
@@ -167,10 +188,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                        <span>مدیریت پیش‌شماره‌های سامانه</span>
+                        <span>مدیریت پیش‌شماره‌ها، کشورها و تعرفه‌های رند</span>
                     </h1>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        پیکربندی پیش‌شماره‌های مجاز، تعیین پیش‌شماره پیش‌فرض خطوط و نظارت بر اتصالات شماره‌ها.
+                        تعیین کشور، کد دو حرفی ISO، پرچم، پیش‌کدهای معتبر و قیمت‌گذاری سه‌سطحی (عادی، نیمه‌رند و طلایی) برای هر پیش‌شماره.
                     </p>
                 </div>
 
@@ -225,26 +246,55 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <table class="w-full text-right text-xs">
                         <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
                             <tr>
+                                <th class="p-3.5">کشور و پرچم</th>
                                 <th class="p-3.5">پیش‌شماره</th>
-                                <th class="p-3.5">عنوان / نام</th>
-                                <th class="p-3.5">کد کشور</th>
-                                <th class="p-3.5">تعداد خطوط متصل</th>
-                                <th class="p-3.5">وضعیت فعالیت</th>
-                                <th class="p-3.5">پیش‌فرض سامانه</th>
+                                <th class="p-3.5">پیش‌کدها</th>
+                                <th class="p-3.5">تعرفه‌ها (عادی / نیمه‌رند / طلایی)</th>
+                                <th class="p-3.5">خطوط متصل</th>
+                                <th class="p-3.5">وضعیت</th>
+                                <th class="p-3.5">پیش‌فرض</th>
                                 <th class="p-3.5 text-center">عملیات</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800/70">
                             <tr v-for="prefix in prefixes" :key="prefix.id" class="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                                <td class="p-3.5 font-medium text-slate-900 dark:text-white">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xl">{{ prefix.flag || '🌐' }}</span>
+                                        <div>
+                                            <span class="font-black block">{{ prefix.country_name || prefix.name }}</span>
+                                            <span class="text-[10px] text-slate-400 font-mono">{{ prefix.country_code }}</span>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td class="p-3.5 font-mono font-bold text-slate-900 dark:text-white" dir="ltr">
                                     <span class="text-rose-600 dark:text-rose-400 text-sm font-black">{{ prefix.prefix }}</span>
-                                    <span class="text-[10px] text-slate-400 mr-1">({{ prefix.clean_prefix }})</span>
                                 </td>
-                                <td class="p-3.5 font-medium text-slate-800 dark:text-slate-200">
-                                    {{ prefix.name }}
+                                <td class="p-3.5">
+                                    <div class="flex flex-wrap gap-1 max-w-xs">
+                                        <span
+                                            v-for="sub in (prefix.sub_prefixes || [])"
+                                            :key="sub"
+                                            class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-[10px] font-mono text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10"
+                                        >
+                                            {{ sub }}
+                                        </span>
+                                    </div>
                                 </td>
-                                <td class="p-3.5 font-mono text-slate-600 dark:text-slate-400">
-                                    {{ prefix.country_code }}
+                                <td class="p-3.5 font-mono">
+                                    <div class="flex items-center gap-1.5 text-[11px]">
+                                        <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" title="عادی">
+                                            {{ prefix.price_regular }}
+                                        </span>
+                                        <span>/</span>
+                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-bold" title="نیمه‌رند">
+                                            {{ prefix.price_semi_rond }}
+                                        </span>
+                                        <span>/</span>
+                                        <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 font-black" title="طلایی">
+                                            {{ prefix.price_golden_rond }}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="p-3.5">
                                     <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -274,7 +324,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         @click="setAsDefault(prefix)"
                                         class="text-[11px] font-bold text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
                                     >
-                                        تعیین به عنوان پیش‌فرض
+                                        تعیین پیش‌فرض
                                     </button>
                                 </td>
                                 <td class="p-3.5 text-center">
@@ -310,57 +360,118 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
             <!-- Create Modal -->
             <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isCreateModalOpen = false">
-                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
+                <div class="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">افزودن پیش‌شماره سازمانی جدید</h3>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">افزودن پیش‌شماره و کشور جدید</h3>
                         <button type="button" @click="isCreateModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
                     </div>
 
                     <form @submit.prevent="submitCreate" class="space-y-3.5 text-xs overflow-y-auto flex-1">
-                        <div>
-                            <label class="form-label mb-1">پیش‌شماره (با علامت +)</label>
-                            <input
-                                v-model="createForm.prefix"
-                                type="text"
-                                dir="ltr"
-                                placeholder="+98 یا +85"
-                                class="form-input w-full font-mono text-left"
-                                required
-                            />
-                            <p v-if="createForm.errors.prefix" class="text-rose-500 text-[11px] mt-1">{{ createForm.errors.prefix }}</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label mb-1">پیش‌شماره بین‌المللی</label>
+                                <input
+                                    v-model="createForm.prefix"
+                                    type="text"
+                                    dir="ltr"
+                                    placeholder="+98"
+                                    class="form-input w-full font-mono text-left"
+                                    required
+                                />
+                                <p v-if="createForm.errors.prefix" class="text-rose-500 text-[11px] mt-1">{{ createForm.errors.prefix }}</p>
+                            </div>
+                            <div>
+                                <label class="form-label mb-1">نام کشور</label>
+                                <input
+                                    v-model="createForm.country_name"
+                                    type="text"
+                                    placeholder="ایران"
+                                    class="form-input w-full"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label mb-1">کد دو حرفی کشور (ISO)</label>
+                                <input
+                                    v-model="createForm.country_code"
+                                    type="text"
+                                    dir="ltr"
+                                    maxlength="4"
+                                    placeholder="IR"
+                                    class="form-input w-full font-mono uppercase text-left"
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label mb-1">پرچم (ایموجی)</label>
+                                <input
+                                    v-model="createForm.flag"
+                                    type="text"
+                                    placeholder="🇮🇷"
+                                    class="form-input w-full text-center text-base"
+                                />
+                            </div>
                         </div>
 
                         <div>
-                            <label class="form-label mb-1">عنوان / نام پیش‌شماره</label>
+                            <label class="form-label mb-1">پیش‌کدهای ۳ رقمی مجاز (با کاما جدا کنید)</label>
                             <input
-                                v-model="createForm.name"
-                                type="text"
-                                placeholder="مانند: پیش‌شماره ایران یا پیش‌شماره بین‌المللی"
-                                class="form-input w-full"
-                                required
-                            />
-                            <p v-if="createForm.errors.name" class="text-rose-500 text-[11px] mt-1">{{ createForm.errors.name }}</p>
-                        </div>
-
-                        <div>
-                            <label class="form-label mb-1">کد کشور (اختیاری)</label>
-                            <input
-                                v-model="createForm.country_code"
+                                v-model="createForm.sub_prefixes"
                                 type="text"
                                 dir="ltr"
-                                placeholder="IR یا INTL"
+                                placeholder="912, 910, 918, 935"
                                 class="form-input w-full font-mono text-left"
                             />
+                            <p class="text-[11px] text-slate-500 mt-1">پیش‌کدهایی که کاربر می‌تواند در مرحله دوم مدال ثبت شماره انتخاب کند.</p>
+                        </div>
+
+                        <!-- 3-Tier Rond Pricing for 9-digit lines -->
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">تعرفه خطوط ۹ رقمی (بر حسب کوین/TRX):</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="text-[11px] text-slate-500 block mb-1">عادی</label>
+                                    <input
+                                        v-model="createForm.price_regular"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">نیمه‌رند</label>
+                                    <input
+                                        v-model="createForm.price_semi_rond"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">طلایی</label>
+                                    <input
+                                        v-model="createForm.price_golden_rond"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="createForm.is_active" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن پیش‌شماره</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="createForm.is_default" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">تعیین به عنوان پیش‌فرض</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">پیش‌فرض سامانه</span>
                             </label>
                         </div>
 
@@ -377,10 +488,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 :disabled="createForm.processing"
                                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-sm disabled:opacity-50 cursor-pointer"
                             >
-                                <svg v-if="createForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
                                 <span>{{ createForm.processing ? 'در حال ثبت...' : 'ذخیره پیش‌شماره' }}</span>
                             </button>
                         </div>
@@ -390,42 +497,99 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
             <!-- Edit Modal -->
             <div v-if="isEditModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isEditModalOpen = false">
-                <div class="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
+                <div class="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش پیش‌شماره {{ editingPrefix?.prefix }}</h3>
                         <button type="button" @click="isEditModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
                     </div>
 
                     <form @submit.prevent="submitEdit" class="space-y-3.5 text-xs overflow-y-auto flex-1">
-                        <div>
-                            <label class="form-label mb-1">عنوان / نام پیش‌شماره</label>
-                            <input
-                                v-model="editForm.name"
-                                type="text"
-                                class="form-input w-full"
-                                required
-                            />
-                            <p v-if="editForm.errors.name" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.name }}</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label mb-1">نام کشور</label>
+                                <input
+                                    v-model="editForm.country_name"
+                                    type="text"
+                                    class="form-input w-full"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label mb-1">کد دو حرفی کشور (ISO)</label>
+                                <input
+                                    v-model="editForm.country_code"
+                                    type="text"
+                                    dir="ltr"
+                                    maxlength="4"
+                                    class="form-input w-full font-mono uppercase text-left"
+                                />
+                            </div>
                         </div>
 
                         <div>
-                            <label class="form-label mb-1">کد کشور</label>
+                            <label class="form-label mb-1">پرچم (ایموجی)</label>
                             <input
-                                v-model="editForm.country_code"
+                                v-model="editForm.flag"
+                                type="text"
+                                class="form-input w-full text-center text-base"
+                            />
+                        </div>
+
+                        <div>
+                            <label class="form-label mb-1">پیش‌کدهای ۳ رقمی مجاز (با کاما جدا کنید)</label>
+                            <input
+                                v-model="editForm.sub_prefixes"
                                 type="text"
                                 dir="ltr"
                                 class="form-input w-full font-mono text-left"
                             />
                         </div>
 
+                        <!-- 3-Tier Rond Pricing for 9-digit lines -->
+                        <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
+                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">تعرفه خطوط ۹ رقمی (کوین/TRX):</span>
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="text-[11px] text-slate-500 block mb-1">عادی</label>
+                                    <input
+                                        v-model="editForm.price_regular"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">نیمه‌رند</label>
+                                    <input
+                                        v-model="editForm.price_semi_rond"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">طلایی</label>
+                                    <input
+                                        v-model="editForm.price_golden_rond"
+                                        type="number"
+                                        step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="editForm.is_active" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن پیش‌شماره</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="editForm.is_default" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">تعیین به عنوان پیش‌فرض</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">پیش‌فرض سامانه</span>
                             </label>
                         </div>
 
@@ -442,10 +606,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 :disabled="editForm.processing"
                                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-sm disabled:opacity-50 cursor-pointer"
                             >
-                                <svg v-if="editForm.processing" class="animate-spin -ml-1 mr-1 h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
                                 <span>{{ editForm.processing ? 'در حال ثبت...' : 'به‌روزرسانی تنظیمات' }}</span>
                             </button>
                         </div>

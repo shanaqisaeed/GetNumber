@@ -23,6 +23,10 @@ class NumberRequest extends Model
         'preferred_number',
         'accepts_incoming_sms',
         'status',
+        'held_amount',
+        'hold_reference_id',
+        'is_rond',
+        'rond_tier',
         'rejection_reason',
         'allocated_number_id',
         'reviewed_by',
@@ -36,6 +40,8 @@ class NumberRequest extends Model
         'status' => NumberRequestStatus::class,
         'requested_length' => 'integer',
         'accepts_incoming_sms' => 'boolean',
+        'held_amount' => 'decimal:4',
+        'is_rond' => 'boolean',
         'reviewed_at' => 'datetime',
     ];
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 interface AllocatedNumber {
     id: number;
@@ -15,6 +15,10 @@ interface NumberRequestItem {
     service_title: string;
     description: string;
     preferred_number: string | null;
+    is_rond?: boolean;
+    rond_tier?: string;
+    held_amount?: string;
+    hold_reference_id?: string;
     accepts_incoming_sms: boolean;
     status: 'pending' | 'approved' | 'rejected';
     status_label: string;
@@ -30,6 +34,14 @@ interface PaginationLink {
     url: string | null;
     label: string;
     active: boolean;
+}
+
+interface PoolNumberItem {
+    id: number;
+    number: string;
+    length: number;
+    rond_tier: string;
+    rond_pattern?: string;
 }
 
 const props = defineProps<{
@@ -50,6 +62,9 @@ const props = defineProps<{
         approved: number;
         rejected: number;
     };
+    org_tariffs?: Record<number, { regular: string; rond: string }>;
+    wallet?: { balance: string };
+    available_pool_numbers?: PoolNumberItem[];
 }>();
 
 // Filter states
@@ -85,6 +100,48 @@ const createForm = useForm({
     preferred_number: '',
     accepts_incoming_sms: true,
 });
+
+// Detect rondness for preferred number
+const isNumberRond = (num: string): boolean => {
+    if (!num || num.length < 4) return false;
+    // All identical: 1111, 77777
+    if (/^(\d)\1+$/.test(num)) return true;
+    // Multiples of thousands: 1000, 50000
+    if (/^[1-9]0{3,}$/.test(num)) return true;
+    // Pairs: 1122, 1212
+    if (num.length === 4 && (num.slice(0, 2) === num.slice(2, 4) || (num[0] === num[1] && num[2] === num[3]))) return true;
+    // Sequential: 1234, 4321
+    if (num === '1234' || num === '2345' || num === '3456' || num === '4321' || num === '5432' || num === '6543') return true;
+    // Mirror: 1221, 12321
+    if (num === num.split('').reverse().join('')) return true;
+    return false;
+};
+
+const currentIsRond = computed(() => {
+    if (!createForm.preferred_number) return false;
+    return isNumberRond(createForm.preferred_number);
+});
+
+const currentPrice = computed(() => {
+    const len = createForm.requested_length;
+    const tariffs = props.org_tariffs;
+    if (tariffs && tariffs[len]) {
+        return currentIsRond.value ? tariffs[len].rond : tariffs[len].regular;
+    }
+    return currentIsRond.value ? '250.0000' : '100.0000';
+});
+
+const userBalance = computed(() => Number(props.wallet?.balance || 0));
+const hasInsufficientBalance = computed(() => userBalance.value < Number(currentPrice.value));
+
+const poolNumbersForCurrentLength = computed(() => {
+    if (!props.available_pool_numbers) return [];
+    return props.available_pool_numbers.filter((p) => p.length === createForm.requested_length);
+});
+
+const pickPoolNumber = (pNum: string) => {
+    createForm.preferred_number = pNum;
+};
 
 const openCreateModal = () => {
     termsAccepted.value = false;
@@ -306,6 +363,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             >
                                 {{ req.accepts_incoming_sms ? 'دوطرفه (دریافت فعال)' : 'یک‌طرفه (صرفاً ارسال)' }}
                             </span>
+                            <span
+                                v-if="req.held_amount && Number(req.held_amount) > 0"
+                                class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 shrink-0"
+                            >
+                                وجه مسدود: {{ req.held_amount }} کوین
+                            </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
                                 {{ req.service_title }}
                             </span>
@@ -461,13 +524,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <form @submit.prevent="submitCreate" class="space-y-4">
                             <!-- Length Chips -->
                             <div>
-                                <label class="form-label">طول شماره درخواستی:</label>
+                                <label class="form-label">طول سرشماره درخواستی:</label>
                                 <div class="grid grid-cols-5 gap-1.5">
                                     <button
                                         v-for="l in availableLengths"
                                         :key="l"
                                         type="button"
-                                        @click="createForm.requested_length = l"
+                                        @click="createForm.requested_length = l; createForm.preferred_number = '';"
                                         class="py-2 rounded-2xl text-xs font-mono font-bold transition-all border"
                                         :class="[
                                             createForm.requested_length === l
@@ -480,45 +543,100 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </div>
                             </div>
 
-                            <!-- Service Title -->
+                            <!-- Pool Suggestions for Selected Length -->
+                            <div v-if="poolNumbersForCurrentLength.length > 0" class="p-3 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-1.5">
+                                <span class="text-[11px] font-bold text-purple-700 dark:text-purple-300 block">
+                                    شماره‌های آزاد آماده واگذاری در استخر:
+                                </span>
+                                <div class="flex flex-wrap gap-1.5">
+                                    <button
+                                        v-for="pool in poolNumbersForCurrentLength"
+                                        :key="pool.id"
+                                        type="button"
+                                        @click="pickPoolNumber(pool.number)"
+                                        class="px-2.5 py-1 rounded-xl text-xs font-mono font-bold border transition-all"
+                                        :class="createForm.preferred_number === pool.number
+                                            ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
+                                            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-purple-400'"
+                                    >
+                                        {{ pool.number }}
+                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[9px] text-amber-500">★</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Preferred Number Input -->
                             <div>
-                                <label class="form-label">عنوان سرویس / کاربرد:</label>
+                                <label class="form-label">
+                                    شماره درخواستی
+                                    <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(انتخاب از استخر یا تایپ شماره دلخواه)</span>:
+                                </label>
+                                <input
+                                    type="text"
+                                    v-model="createForm.preferred_number"
+                                    :maxlength="createForm.requested_length"
+                                    placeholder="مثال: 8888"
+                                    dir="ltr"
+                                    :disabled="createForm.processing"
+                                    class="form-input !py-2.5 !text-xs !font-mono text-center font-black tracking-widest"
+                                />
+                            </div>
+
+                            <!-- Financial Hold Summary Card -->
+                            <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 text-xs space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">
+                                        تعرفه خط {{ createForm.requested_length }} رقمی
+                                        <span v-if="currentIsRond" class="text-amber-600 font-bold">(رند)</span>
+                                        <span v-else class="text-slate-500">(عادی)</span>:
+                                    </span>
+                                    <span class="font-mono font-black text-indigo-600 dark:text-indigo-400">
+                                        {{ currentPrice }} کوین (TRX)
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
+                                    <span class="text-slate-600 dark:text-slate-400">موجودی کیف پول شما:</span>
+                                    <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
+                                        {{ userBalance.toFixed(2) }} کوین
+                                    </span>
+                                </div>
+
+                                <div class="pt-1.5 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-white/60 dark:bg-black/20 p-2 rounded-xl border border-slate-200/40 dark:border-white/5">
+                                    🔒 <strong>سازوکار مالی مسدودی:</strong> با ثبت درخواست، مبلغ <strong class="text-purple-600 dark:text-purple-400">{{ currentPrice }} کوین</strong> در حساب شما مسدود (Hold) می‌گردد. در صورت رد درخواست، وجه بلافاصله و ۱۰۰٪ عودت داده می‌شود.
+                                </div>
+
+                                <div v-if="hasInsufficientBalance" class="pt-1 text-rose-600 dark:text-rose-400 font-bold text-[11px] flex items-center justify-between">
+                                    <span>⚠️ موجودی کیف پول شما برای این سفارش کافی نمی‌باشد.</span>
+                                    <Link :href="route('profile.edit')" class="underline hover:text-rose-700">
+                                        شارژ حساب ←
+                                    </Link>
+                                </div>
+                            </div>
+
+                            <!-- Service Title (MANDATORY) -->
+                            <div>
+                                <label class="form-label">عنوان سرشماره / نام تجاری <span class="text-rose-500">*</span>:</label>
                                 <input
                                     type="text"
                                     v-model="createForm.service_title"
-                                    placeholder="مثال: پیامک اطلاع‌رسانی سفارشات"
+                                    placeholder="مثال: پیامک اطلاع‌رسانی سفارشات شرکت"
                                     required
                                     :disabled="createForm.processing"
                                     class="form-input !py-2.5 !text-xs"
                                 />
                             </div>
 
-                            <!-- Preferred Number (Optional) -->
-                            <div>
-                                <label class="form-label">
-                                    شماره پیشنهادی
-                                    <span class="text-slate-400 dark:text-slate-500 text-[10px] font-normal">(اختیاری)</span>:
-                                </label>
-                                <input
-                                    type="text"
-                                    v-model="createForm.preferred_number"
-                                    placeholder="مثال: 8888"
-                                    dir="ltr"
-                                    :disabled="createForm.processing"
-                                    class="form-input !py-2.5 !text-xs !font-mono text-left"
-                                />
-                            </div>
-
                             <!-- Description -->
                             <div>
-                                <label class="form-label">توضیحات و نوع بهره‌برداری:</label>
+                                <label class="form-label">توضیحات و نوع بهره‌برداری سازمانی <span class="text-rose-500">*</span>:</label>
                                 <textarea
                                     v-model="createForm.description"
-                                    rows="3"
-                                    placeholder="اهداف کاربرد خط را مختصر شرح دهید..."
+                                    rows="2"
+                                    placeholder="اهداف کاربرد سرشماره را شرح دهید..."
                                     required
                                     :disabled="createForm.processing"
-                                    class="form-textarea !py-2.5 !text-xs resize-none"
+                                    class="form-textarea !py-2 !text-xs resize-none"
                                 ></textarea>
                             </div>
 
@@ -578,7 +696,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </button>
                                 <button
                                     type="submit"
-                                    :disabled="!termsAccepted || createForm.processing"
+                                    :disabled="!termsAccepted || createForm.processing || hasInsufficientBalance"
                                     class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-purple-600/25"
                                 >
                                     <svg

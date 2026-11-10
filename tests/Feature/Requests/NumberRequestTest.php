@@ -33,6 +33,7 @@ class NumberRequestTest extends TestCase
     public function test_user_can_submit_valid_number_request(): void
     {
         $user = User::factory()->create();
+        app(\App\Contracts\WalletServiceInterface::class)->deposit($user, '1000.00000000', 'TEST-FUNDS');
 
         $response = $this->actingAs($user)->post('/requests', [
             'requested_length' => 5,
