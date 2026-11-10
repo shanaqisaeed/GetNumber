@@ -54,4 +54,3 @@ interface PaymentServiceInterface
      */
     public function expireStaleDeposits(): int;
 }
-

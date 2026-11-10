@@ -69,7 +69,7 @@ class MessageController extends Controller
                 if ($peerRecord) {
                     if (! $peerRecord->accepts_incoming_sms) {
                         $canReply = false;
-                        $canReplyReason = 'این سرشماره تجاری صرفاً یک‌طرفه بوده و امکان دریافت پیامک یا پاسخ را ندارد.';
+                        $canReplyReason = __('controllers.user.messages.one_way_prefix_notice');
                     } else {
                         $check = $peerRecord->canReceiveMessagesFrom($currentNumber, $user);
                         if (! $check['allowed']) {
@@ -168,17 +168,17 @@ class MessageController extends Controller
             'destinations' => ['required'],
             'body' => ['required', 'string', 'max:2000'],
         ], [
-            'from_number_id.required' => 'انتخاب خط فرستنده الزامی است.',
-            'destinations.required' => 'حداقل یک شماره مقصد الزامی است.',
-            'body.required' => 'متن پیامک نمی‌تواند خالی باشد.',
-            'body.max' => 'متن پیامک حداکثر ۲۰۰۰ کاراکتر می‌باشد.',
+            'from_number_id.required' => __('controllers.user.messages.val_from_required'),
+            'destinations.required' => __('controllers.user.messages.val_destinations_required'),
+            'body.required' => __('controllers.user.messages.val_body_required'),
+            'body.max' => __('controllers.user.messages.val_body_max'),
         ]);
 
         /** @var PhoneNumber $fromNumber */
         $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
 
         if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('controllers.user.messages.access_denied_not_owner'));
         }
 
         // Parse destinations (accepts array or comma/newline delimited string)
@@ -227,21 +227,21 @@ class MessageController extends Controller
                 'client_message_id' => $request->input('client_message_id'),
                 'created_message' => $createdMessage,
                 'message' => $result['sent_count'] > 0
-                    ? "پیامک با موفقیت به {$result['sent_count']} مقصد ارسال گردید."
-                    : 'ارسال پیامک با خطا مواجه شد.',
+                    ? __('controllers.user.messages.sent_success_count', ['count' => $result['sent_count']])
+                    : __('controllers.user.messages.send_failed'),
             ]);
         }
 
         if ($result['sent_count'] > 0) {
-            $flash = "پیامک با موفقیت به {$result['sent_count']} مقصد ارسال گردید.";
+            $flash = __('controllers.user.messages.sent_success_count', ['count' => $result['sent_count']]);
             if ($result['failed_count'] > 0) {
-                $flash .= " ({$result['failed_count']} شماره به دلیل عدم پذیرش پیامک ناموفق بود)";
+                $flash .= __('controllers.user.messages.failed_destinations_notice', ['count' => $result['failed_count']]);
             }
             return back()->with('success', $flash);
         }
 
-        $failedReason = $result['results'][0]['reason'] ?? 'خط مقصد آماده دریافت پیامک نمی‌باشد.';
-        return back()->with('error', "ارسال پیامک ناموفق بود: {$failedReason}");
+        $failedReason = $result['results'][0]['reason'] ?? __('controllers.user.messages.dest_not_ready');
+        return back()->with('error', __('controllers.user.messages.send_failed_reason', ['reason' => $failedReason]));
     }
 
     /**
@@ -262,7 +262,7 @@ class MessageController extends Controller
         $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
 
         if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط نبوده و مجاز به ارسال پیامک از طریق آن نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('controllers.user.messages.access_denied_not_owner'));
         }
 
         $rawDest = $validated['destinations'];
@@ -281,7 +281,7 @@ class MessageController extends Controller
             'total_count' => $batch->total_count,
             'status' => $batch->status,
             'status_url' => route('messages.batch.status', $batch->batch_id),
-            'message' => "بسته ارسال انبوه با موفقیت در صف پردازش پس‌زمینه قرار گرفت (شناسه: {$batch->batch_id}).",
+            'message' => __('controllers.user.messages.bulk_enqueued', ['batch_id' => $batch->batch_id]),
         ], 202);
     }
 
@@ -345,13 +345,13 @@ class MessageController extends Controller
         }
 
         if (! $phoneNumberId) {
-            return response()->json(['success' => false, 'message' => 'شماره خط نامشخص است.'], 400);
+            return response()->json(['success' => false, 'message' => __('controllers.user.messages.number_unknown')], 400);
         }
 
         /** @var PhoneNumber|null $phoneNumber */
         $phoneNumber = PhoneNumber::where('id', $phoneNumberId)->first();
         if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id)) {
-            return response()->json(['success' => false, 'message' => 'دسترسی غیرمجاز.'], 403);
+            return response()->json(['success' => false, 'message' => __('controllers.user.messages.unauthorized')], 403);
         }
 
         $resyncData = $this->messageService->resyncMessages(
@@ -382,7 +382,7 @@ class MessageController extends Controller
         $phoneNumber = PhoneNumber::findOrFail($phoneNumberId);
 
         if (! $user->isAdmin() && $phoneNumber->user_id !== $user->id) {
-            throw new AccessDeniedHttpException('عدم دسترسی به این خط.');
+            throw new AccessDeniedHttpException(__('controllers.user.messages.line_access_denied'));
         }
 
         $messages = $this->messageService->getConversationMessages($phoneNumber, $peerNumber, $afterId, $beforeId);
@@ -426,13 +426,13 @@ class MessageController extends Controller
         }
 
         if (! $phoneNumberId) {
-            return response()->json(['success' => false, 'message' => 'شماره خط نامشخص است.']);
+            return response()->json(['success' => false, 'message' => __('controllers.user.messages.number_unknown')]);
         }
 
         /** @var PhoneNumber|null $phoneNumber */
         $phoneNumber = PhoneNumber::where('id', $phoneNumberId)->first();
         if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id)) {
-            return response()->json(['success' => false, 'message' => 'دسترسی غیرمجاز.']);
+            return response()->json(['success' => false, 'message' => __('controllers.user.messages.unauthorized')]);
         }
 
         // Fast Delta Detection: check cached latest message ID (avoids database polling query)
@@ -538,7 +538,7 @@ class MessageController extends Controller
     public function show(Request $request, Message $message): JsonResponse
     {
         if (! $request->user()->isAdmin() && $message->phoneNumber->user_id !== $request->user()->id) {
-            abort(403, 'شما اجازه دسترسی به این پیام را ندارید.');
+            abort(403, __('controllers.user.messages.message_access_denied'));
         }
 
         return response()->json([

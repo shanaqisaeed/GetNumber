@@ -29,4 +29,3 @@ enum CryptoNetwork: string
         return $this === self::Tron || $this === self::Trc20;
     }
 }
-

@@ -69,10 +69,10 @@ class PhonePrefixController extends Controller
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
         ], [
-            'prefix.required' => 'وارد کردن پیش‌شماره الزامی است.',
-            'prefix.regex' => 'قالب پیش‌شماره باید شامل علامت + و ارقام معتبر باشد (مانند +98 یا +85).',
-            'prefix.unique' => 'این پیش‌شماره پیش‌تر در سامانه تعریف شده است.',
-            'name.required' => 'نام یا عنوان پیش‌شماره الزامی است.',
+            'prefix.required' => __('controllers.admin.phone_prefixes.val_prefix_required'),
+            'prefix.regex' => __('controllers.admin.phone_prefixes.val_prefix_regex'),
+            'prefix.unique' => __('controllers.admin.phone_prefixes.val_prefix_unique'),
+            'name.required' => __('controllers.admin.phone_prefixes.val_name_required'),
         ]);
 
         $prefixStr = trim($validated['prefix']);
@@ -118,7 +118,7 @@ class PhonePrefixController extends Controller
             ]
         );
 
-        return back()->with('success', "پیش‌شماره سازمانی {$prefix->prefix} با موفقیت ثبت شد.");
+        return back()->with('success', __('controllers.admin.phone_prefixes.created_flash', ['prefix' => $prefix->prefix]));
     }
 
     /**
@@ -138,7 +138,7 @@ class PhonePrefixController extends Controller
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
         ], [
-            'name.required' => 'نام یا عنوان پیش‌شماره الزامی است.',
+            'name.required' => __('controllers.admin.phone_prefixes.val_name_required'),
         ]);
 
         $isDefault = (bool) ($validated['is_default'] ?? $prefix->is_default);
@@ -151,7 +151,7 @@ class PhonePrefixController extends Controller
 
         // Cannot deactivate default prefix
         if (! $isActive && $prefix->is_default) {
-            return back()->with('error', 'پیش‌شماره پیش‌فرض سامانه نمی‌تواند غیرفعال گردد. ابتدا پیش‌شماره پیش‌فرض دیگری برگزینید.');
+            return back()->with('error', __('controllers.admin.phone_prefixes.cannot_deactivate_default'));
         }
 
         $subPrefixes = $request->has('sub_prefixes')
@@ -183,7 +183,7 @@ class PhonePrefixController extends Controller
             ]
         );
 
-        return back()->with('success', "تنظیمات پیش‌شماره {$prefix->prefix} با موفقیت به‌روزرسانی شد.");
+        return back()->with('success', __('controllers.admin.phone_prefixes.updated_flash', ['prefix' => $prefix->prefix]));
     }
 
     /**
@@ -210,11 +210,11 @@ class PhonePrefixController extends Controller
     public function destroy(Request $request, PhonePrefix $prefix): RedirectResponse
     {
         if ($prefix->is_default) {
-            return back()->with('error', 'امکان حذف پیش‌شماره پیش‌فرض سامانه وجود ندارد.');
+            return back()->with('error', __('controllers.admin.phone_prefixes.cannot_delete_default'));
         }
 
         if ($prefix->phoneNumbers()->exists()) {
-            return back()->with('error', "این پیش‌شماره به {$prefix->phoneNumbers()->count()} خط سازمانی متصل است و امکان حذف آن وجود ندارد.");
+            return back()->with('error', __('controllers.admin.phone_prefixes.has_lines_connected', ['count' => $prefix->phoneNumbers()->count()]));
         }
 
         $prefixStr = $prefix->prefix;
@@ -231,6 +231,6 @@ class PhonePrefixController extends Controller
 
         $prefix->delete();
 
-        return back()->with('success', "پیش‌شماره {$prefixStr} با موفقیت از سامانه حذف گردید.");
+        return back()->with('success', __('controllers.admin.phone_prefixes.deleted_flash', ['prefix' => $prefixStr]));
     }
 }

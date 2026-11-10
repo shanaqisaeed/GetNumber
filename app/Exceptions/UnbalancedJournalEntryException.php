@@ -20,4 +20,3 @@ class UnbalancedJournalEntryException extends RuntimeException
         parent::__construct($msg);
     }
 }
-

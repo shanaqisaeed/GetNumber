@@ -21,7 +21,7 @@ class UserIdentityController extends Controller
     public function linkEmail(Request $request): RedirectResponse
     {
         if (!SystemSetting::isAuthProviderEnabled('email')) {
-            return back()->withErrors(['email' => 'امکان اتصال نشانی ایمیل در تنظیمات عمومی سامانه غیرفعال شده است.']);
+            return back()->withErrors(['email' => __('controllers.user.identities.email_disabled')]);
         }
 
         $request->validate([
@@ -29,11 +29,11 @@ class UserIdentityController extends Controller
             'email_password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'current_password' => [$request->user()->password ? 'required' : 'nullable', 'string'],
         ], [
-            'email.required' => 'ورود نشانی ایمیل الزامی است.',
-            'email.email' => 'قالب نشانی ایمیل وارد شده معتبر نمی‌باشد.',
-            'email_password.min' => 'کلمه عبور اختصاصی ایمیل باید حداقل ۸ کاراکتر باشد.',
-            'email_password.confirmed' => 'تکرار کلمه عبور اختصاصی ایمیل مطابقت ندارد.',
-            'current_password.required' => 'ورود گذرواژه فعلی حساب جهت اتصال ایمیل الزامی است.',
+            'email.required' => __('controllers.user.identities.val_email_required'),
+            'email.email' => __('controllers.user.identities.val_email_invalid'),
+            'email_password.min' => __('controllers.user.identities.val_email_pass_min'),
+            'email_password.confirmed' => __('controllers.user.identities.val_email_pass_confirmed'),
+            'current_password.required' => __('controllers.user.identities.val_current_pass_required'),
         ]);
 
         try {
@@ -44,7 +44,7 @@ class UserIdentityController extends Controller
                 $request->input('email_password')
             );
 
-            return back()->with('success', 'نشانی پست الکترونیک با موفقیت به حساب شما متصل گردید.');
+            return back()->with('success', __('controllers.user.identities.email_linked'));
         } catch (ValidationException $e) {
             return back()->withErrors($e->validator->errors())->withInput();
         }
@@ -56,7 +56,7 @@ class UserIdentityController extends Controller
     public function updatePassword(Request $request, string $provider): RedirectResponse
     {
         if (!in_array($provider, ['username', 'email'], true)) {
-            return back()->withErrors(['provider' => 'تنظیم گذرواژه اختصاصی فقط برای ورود با نام کاربری و ایمیل مجاز است.']);
+            return back()->withErrors(['provider' => __('controllers.user.identities.password_provider_restricted')]);
         }
 
         $user = $request->user();
@@ -68,7 +68,7 @@ class UserIdentityController extends Controller
         }
 
         if (!$identity) {
-            return back()->withErrors(['provider' => 'این شیوه ورود در حساب شما فعال نمی‌باشد.']);
+            return back()->withErrors(['provider' => __('controllers.user.identities.provider_not_active')]);
         }
 
         $needsCurrentPassword = !empty($identity->password) || !empty($user->password);
@@ -77,10 +77,10 @@ class UserIdentityController extends Controller
             'current_password' => [$needsCurrentPassword ? 'required' : 'nullable', 'string'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ], [
-            'current_password.required' => 'ورود کلمه عبور فعلی الزامی است.',
-            'password.required' => 'تعیین کلمه عبور جدید الزامی است.',
-            'password.min' => 'کلمه عبور جدید باید حداقل ۸ کاراکتر باشد.',
-            'password.confirmed' => 'تکرار کلمه عبور جدید با مقدار آن مطابقت ندارد.',
+            'current_password.required' => __('controllers.user.identities.val_pass_current_required'),
+            'password.required' => __('controllers.user.identities.val_pass_new_required'),
+            'password.min' => __('controllers.user.identities.val_pass_new_min'),
+            'password.confirmed' => __('controllers.user.identities.val_pass_new_confirmed'),
         ]);
 
         if ($needsCurrentPassword) {
@@ -93,7 +93,7 @@ class UserIdentityController extends Controller
 
             if (!$verified) {
                 throw ValidationException::withMessages([
-                    'current_password' => 'کلمه عبور فعلی وارد شده نادرست است.',
+                    'current_password' => __('controllers.user.identities.val_pass_current_incorrect'),
                 ]);
             }
         }
@@ -110,7 +110,7 @@ class UserIdentityController extends Controller
             ]);
         }
 
-        return back()->with('success', "کلمه عبور ورود برای «{$identity->providerLabel()}» با موفقیت ثبت گردید.");
+        return back()->with('success', __('controllers.user.identities.password_updated', ['provider' => $identity->providerLabel()]));
     }
 
     /**
@@ -119,15 +119,15 @@ class UserIdentityController extends Controller
     public function linkLdap(Request $request): RedirectResponse
     {
         if (!SystemSetting::isAuthProviderEnabled('ldap')) {
-            return back()->withErrors(['ldap_username' => 'امکان اتصال حساب سازمانی LDAP در تنظیمات عمومی سامانه غیرفعال شده است.']);
+            return back()->withErrors(['ldap_username' => __('controllers.user.identities.ldap_disabled')]);
         }
 
         $request->validate([
             'ldap_username' => ['required', 'string'],
             'ldap_password' => ['required', 'string'],
         ], [
-            'ldap_username.required' => 'ورود نام کاربری سازمانی LDAP الزامی است.',
-            'ldap_password.required' => 'ورود گذرواژه سازمانی LDAP الزامی است.',
+            'ldap_username.required' => __('controllers.user.identities.val_ldap_user_required'),
+            'ldap_password.required' => __('controllers.user.identities.val_ldap_pass_required'),
         ]);
 
         try {
@@ -137,7 +137,7 @@ class UserIdentityController extends Controller
                 $request->input('ldap_password')
             );
 
-            return back()->with('success', 'حساب کاربری سازمانی LDAP با موفقیت به حساب شما متصل گردید.');
+            return back()->with('success', __('controllers.user.identities.ldap_linked'));
         } catch (ValidationException $e) {
             return back()->withErrors($e->validator->errors())->withInput();
         }
@@ -151,7 +151,7 @@ class UserIdentityController extends Controller
         try {
             $this->identityService->unlinkProvider($request->user(), $provider);
 
-            return back()->with('success', "اتصال شیوه ورود '{$provider}' با موفقیت از حساب کاربری شما قطع گردید.");
+            return back()->with('success', __('controllers.user.identities.provider_unlinked', ['provider' => $provider]));
         } catch (ValidationException $e) {
             return back()->withErrors($e->validator->errors());
         }

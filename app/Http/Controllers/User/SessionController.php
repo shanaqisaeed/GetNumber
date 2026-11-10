@@ -37,7 +37,7 @@ class SessionController extends Controller
             $request->validate([
                 'password' => ['required', 'string'],
             ], [
-                'password.required' => 'ورود کلمه عبور فعلی جهت تایید هویت الزامی است.',
+                'password.required' => __('controllers.user.sessions.val_password_required'),
             ]);
         }
 
@@ -49,7 +49,7 @@ class SessionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'تمام نشست‌های فعال روی سایر دستگاه‌ها با موفقیت لغو و خارج شدند.',
+            'message' => __('controllers.user.sessions.all_sessions_revoked'),
             'sessions' => $this->sessionService->getSessions($user, $request),
         ]);
     }
@@ -65,9 +65,8 @@ class SessionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'نشست دستگاه مورد نظر با موفقیت لغو گردید.',
+            'message' => __('controllers.user.sessions.session_revoked'),
             'sessions' => $this->sessionService->getSessions($user, $request),
         ]);
     }
 }
-

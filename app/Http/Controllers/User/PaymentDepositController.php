@@ -37,9 +37,9 @@ class PaymentDepositController extends Controller
             'amount' => ['required', 'numeric', 'gte:1'],
             'network' => ['nullable', 'string', 'in:TRON,TRC20'],
         ], [
-            'amount.required' => 'وارد کردن مبلغ افزایش اعتبار الزامی است.',
-            'amount.numeric' => 'مبلغ باید به صورت عدد باشد.',
-            'amount.gte' => 'حداقل مبلغ افزایش اعتبار ۱ واحد (TRX) است.',
+            'amount.required' => __('controllers.user.payments.val_amount_required'),
+            'amount.numeric' => __('controllers.user.payments.val_amount_numeric'),
+            'amount.gte' => __('controllers.user.payments.val_amount_gte'),
         ]);
 
         try {
@@ -51,9 +51,9 @@ class PaymentDepositController extends Controller
             );
 
             return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
-                ->with('success', 'فاکتور افزایش اعتبار با موفقیت ایجاد شد.');
+                ->with('success', __('controllers.user.payments.invoice_created'));
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage() ?: 'خطا در ایجاد درخواست پرداخت.');
+            return back()->with('error', $e->getMessage() ?: __('controllers.user.payments.create_invoice_failed'));
         }
     }
 
@@ -108,8 +108,8 @@ class PaymentDepositController extends Controller
         $validated = $request->validate([
             'tx_hash' => ['required', 'string', 'max:128'],
         ], [
-            'tx_hash.required' => 'وارد کردن شناسه تراکنش (TX Hash) الزامی است.',
-            'tx_hash.max' => 'شناسه تراکنش نامعتبر است.',
+            'tx_hash.required' => __('controllers.user.payments.val_tx_hash_required'),
+            'tx_hash.max' => __('controllers.user.payments.val_tx_hash_max'),
         ]);
 
         try {
@@ -127,13 +127,13 @@ class PaymentDepositController extends Controller
             if ($updated->isCompleted()) {
                 $coinInt = (int) round((float) $updated->coin_amount);
                 return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
-                    ->with('success', "تراکنش با موفقیت تأیید شد و حساب شما به میزان {$coinInt} واحد اعتبار شارژ گردید.");
+                    ->with('success', __('controllers.user.payments.tx_verified', ['amount' => $coinInt]));
             }
 
             return redirect()->route('wallet.deposit.show', $deposit->tracking_code)
-                ->with('success', 'کد رهگیری تراکنش با موفقیت ثبت شد و در فرآیند استعلام و اعتبارسنجی شبکه قرار گرفت.');
+                ->with('success', __('controllers.user.payments.tx_registered'));
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage() ?: 'خطا در ثبت شناسه تراکنش.');
+            return back()->with('error', $e->getMessage() ?: __('controllers.user.payments.tx_submit_failed'));
         }
     }
 

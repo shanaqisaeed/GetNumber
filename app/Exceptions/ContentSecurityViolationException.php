@@ -19,4 +19,3 @@ class ContentSecurityViolationException extends RuntimeException
         return $this->details;
     }
 }
-

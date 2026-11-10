@@ -20,7 +20,7 @@ class PingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'ارتباط با وب‌سرویس سامانه مدیریت شماره‌های مجازی با موفقیت برقرار است.',
+            'message' => __('controllers.api.v1_ping.message'),
             'data' => [
                 'user' => [
                     'id' => $user->id,

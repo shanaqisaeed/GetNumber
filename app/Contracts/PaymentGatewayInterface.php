@@ -49,4 +49,3 @@ interface PaymentGatewayInterface
      */
     public function getRecentDeposits(?string $currency = null): array;
 }
-

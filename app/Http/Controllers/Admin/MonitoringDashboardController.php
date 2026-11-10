@@ -60,7 +60,7 @@ class MonitoringDashboardController extends Controller
             return response()->json(['success' => true]);
         }
 
-        return back()->with('success', 'خطای مورد نظر به عنوان برطرف‌شده ثبت گردید.');
+        return back()->with('success', __('controllers.admin.monitoring.resolved'));
     }
 
     /**
@@ -120,4 +120,3 @@ class MonitoringDashboardController extends Controller
         ];
     }
 }
-

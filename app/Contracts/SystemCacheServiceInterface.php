@@ -93,4 +93,3 @@ interface SystemCacheServiceInterface
 
     public function getUserDashboardStats(User $user): array;
 }
-

@@ -66,7 +66,7 @@ class PhoneNumberController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'فهرست خطوط سازمانی با موفقیت دریافت شد.',
+            'message' => __('controllers.api.v1_numbers.numbers_list_fetched'),
             'count' => $numbers->count(),
             'data' => $numbers,
         ]);
@@ -84,7 +84,7 @@ class PhoneNumberController extends Controller
         if (! $user->isAdmin() || ! ($token->can('*') || $token->can('numbers:manage'))) {
             return response()->json([
                 'success' => false,
-                'message' => 'دسترسی غیرمجاز. تنها کلیدهای راهبر با دسترسی کامل مجاز به تخصیص خط هستند.',
+                'message' => __('controllers.api.v1_numbers.unauthorized_allocate'),
                 'code' => 'FORBIDDEN_ADMIN_ACTION',
             ], 403);
         }
@@ -99,7 +99,7 @@ class PhoneNumberController extends Controller
         if (! $phoneNumber) {
             return response()->json([
                 'success' => false,
-                'message' => 'شماره مورد نظر در سامانه یافت نشد.',
+                'message' => __('controllers.api.v1_numbers.not_found'),
                 'code' => 'NUMBER_NOT_FOUND',
             ], 404);
         }
@@ -117,14 +117,14 @@ class PhoneNumberController extends Controller
             $allocated = $this->allocationService->allocateServiceNumberToUser(
                 user: $targetUser,
                 serviceNumber: $phoneNumber->number,
-                displayTitle: $validated['display_title'] ?? 'سرشماره سازمانی',
+                displayTitle: $validated['display_title'] ?? __('controllers.api.v1_numbers.default_title'),
                 actor: $user
             );
         }
 
         return response()->json([
             'success' => true,
-            'message' => "شماره {$allocated->formatted_number} با موفقیت به کاربر {$targetUser->name} تخصیص یافت.",
+            'message' => __('controllers.api.v1_numbers.allocated_success', ['number' => $allocated->formatted_number, 'user' => $targetUser->name]),
             'data' => [
                 'id' => $allocated->id,
                 'number' => $allocated->number,

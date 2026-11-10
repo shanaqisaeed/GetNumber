@@ -65,9 +65,9 @@ class ApiTokenController extends Controller
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'expires_days' => ['nullable', 'integer', 'in:30,60,90,180,365'],
         ], [
-            'name.required' => 'تعیین عنوان یا نام سیستم متصل الزامی است.',
-            'name.min' => 'عنوان کلید دسترسی باید حداقل ۲ کاراکتر باشد.',
-            'name.max' => 'عنوان کلید دسترسی نباید بیش از ۱۰۰ کاراکتر باشد.',
+            'name.required' => __('controllers.user.api_tokens.val_name_required'),
+            'name.min' => __('controllers.user.api_tokens.val_name_min'),
+            'name.max' => __('controllers.user.api_tokens.val_name_max'),
         ]);
 
         $expiresAt = ! empty($validated['expires_days'])
@@ -82,7 +82,7 @@ class ApiTokenController extends Controller
         );
 
         return back()
-            ->with('success', "کلید دسترسی «{$result['token']->name}» با موفقیت صادر گردید.")
+            ->with('success', __('controllers.user.api_tokens.token_created', ['name' => $result['token']->name]))
             ->with('plain_text_token', $result['plain_text_token']);
     }
 
@@ -98,7 +98,7 @@ class ApiTokenController extends Controller
         $result = $this->tokenService->rotateToken($token);
 
         return back()
-            ->with('success', "کلید دسترسی «{$token->name}» با موفقیت تعویض شد و کلید قبلی منقضی گردید.")
+            ->with('success', __('controllers.user.api_tokens.token_rotated', ['name' => $token->name]))
             ->with('plain_text_token', $result['plain_text_token']);
     }
 
@@ -113,7 +113,7 @@ class ApiTokenController extends Controller
 
         $this->tokenService->revokeToken($token);
 
-        return back()->with('success', "کلید دسترسی «{$token->name}» با موفقیت باطل شد و دسترسی‌های آن مسدود گردید.");
+        return back()->with('success', __('controllers.user.api_tokens.token_revoked', ['name' => $token->name]));
     }
 
     /**
@@ -127,6 +127,6 @@ class ApiTokenController extends Controller
 
         $this->tokenService->deleteToken($token);
 
-        return back()->with('success', "کلید دسترسی «{$token->name}» با موفقیت حذف گردید.");
+        return back()->with('success', __('controllers.user.api_tokens.token_deleted', ['name' => $token->name]));
     }
 }

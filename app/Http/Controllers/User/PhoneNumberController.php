@@ -61,7 +61,7 @@ class PhoneNumberController extends Controller
                 'effective_title' => $phone->effective_title,
                 'display_title' => $phone->display_title,
                 'rond_tier' => $phone->rond_tier ?? 'regular',
-                'rond_tier_label' => $phone->rond_tier_label ?? 'عادی',
+                'rond_tier_label' => $phone->rond_tier_label ?? __('controllers.user.phone_numbers.rond_default'),
                 'rond_pattern' => $phone->rond_pattern,
                 'type' => $phone->type->value,
                 'type_label' => $phone->type->label(),
@@ -175,7 +175,7 @@ class PhoneNumberController extends Controller
         } else {
             $numberPrice = (string) ($effectivePrefix->price_regular ?? SystemSetting::getNumberPriceCoin());
             $rondTier = 'regular';
-            $rondPattern = 'شماره استاندارد سیستمی';
+            $rondPattern = __('controllers.user.phone_numbers.standard_pattern');
         }
 
         $purchaseRef = 'PURCHASE-' . Str::uuid();
@@ -186,7 +186,7 @@ class PhoneNumberController extends Controller
                 user: $user,
                 amount: $numberPrice,
                 referenceId: $purchaseRef,
-                description: "خرید و فعال‌سازی خط ۹ رقمی {$effectivePrefix->prefix} ({$numberPrice} کوین)",
+                description: __('controllers.user.phone_numbers.ledger_desc_purchase', ['prefix' => $effectivePrefix->prefix, 'price' => $numberPrice]),
                 metadata: [
                     'prefix_id' => $effectivePrefix->id,
                     'preferred_number' => $preferredNumber,
@@ -214,19 +214,19 @@ class PhoneNumberController extends Controller
 
                 if ($request->wantsJson()) {
                     return response()->json([
-                        'message' => "خط سازمانی جدید با شماره {$phone->formatted_number} با موفقیت تخصیص یافت.",
+                        'message' => __('controllers.user.phone_numbers.allocated_api_msg', ['number' => $phone->formatted_number]),
                         'phone' => $phone,
                     ]);
                 }
 
-                return back()->with('success', "خط جدید با شماره {$phone->formatted_number} با موفقیت خریداری و به حساب شما تخصیص داده شد (کسر {$numberPrice} کوین).");
+                return back()->with('success', __('controllers.user.phone_numbers.allocated_flash_msg', ['number' => $phone->formatted_number, 'price' => $numberPrice]));
             } catch (\Throwable $allocationException) {
                 // In case allocation fails, automatically refund coins into the ledger
                 $this->walletService->refund(
                     user: $user,
                     amount: $numberPrice,
                     referenceId: 'REFUND-' . $purchaseRef,
-                    description: 'استرداد خودکار وجه به علت خطا در تخصیص شماره'
+                    description: __('controllers.user.phone_numbers.refund_ledger_desc')
                 );
 
                 throw $allocationException;
@@ -239,7 +239,7 @@ class PhoneNumberController extends Controller
                 ], 422);
             }
 
-            return redirect()->route('wallet.index')->with('error', $e->getMessage() . " برای خرید این خط به {$numberPrice} کوین اعتبار نیاز دارید. لطفاً ابتدا کیف پول خود را شارژ فرمایید.");
+            return redirect()->route('wallet.index')->with('error', $e->getMessage() . __('controllers.user.phone_numbers.insufficient_balance_hint', ['price' => $numberPrice]));
         } catch (NumberAllocationException $e) {
             if ($request->wantsJson()) {
                 return response()->json(['message' => $e->getMessage()], 422);
@@ -248,10 +248,10 @@ class PhoneNumberController extends Controller
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
             if ($request->wantsJson()) {
-                return response()->json(['message' => 'خطای سیستمی رخ داد.'], 500);
+                return response()->json(['message' => __('controllers.user.phone_numbers.system_error')], 500);
             }
 
-            return back()->with('error', 'خطایی در فرآیند تخصیص خط رخ داد. در صورت کسر وجه، مبلغ بلافاصله به کیف پول مسترد شد.');
+            return back()->with('error', __('controllers.user.phone_numbers.allocation_failed_refunded'));
         }
     }
 
@@ -265,14 +265,14 @@ class PhoneNumberController extends Controller
         $validated = $request->validate([
             'display_title' => ['nullable', 'string', 'max:100'],
         ], [
-            'display_title.max' => 'عنوان نمایشی نباید بیش از ۱۰۰ کاراکتر باشد.',
+            'display_title.max' => __('controllers.user.phone_numbers.val_title_max'),
         ]);
 
         $number->update([
             'display_title' => $validated['display_title'] ? trim($validated['display_title']) : null,
         ]);
 
-        return back()->with('success', 'عنوان نمایشی شماره با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', __('controllers.user.phone_numbers.title_updated'));
     }
 
     /**
@@ -286,12 +286,12 @@ class PhoneNumberController extends Controller
             $this->allocationService->releaseNumber(
                 phoneNumber: $number,
                 actor: $request->user(),
-                reason: 'آزادسازی توسط کاربر سازمانی'
+                reason: __('controllers.user.phone_numbers.release_reason')
             );
 
-            return back()->with('success', "خط سازمانی با شماره {$number->formatted_number} با موفقیت آزاد شد و به استخر شماره‌ها بازگشت.");
+            return back()->with('success', __('controllers.user.phone_numbers.released_success', ['number' => $number->formatted_number]));
         } catch (\Throwable $e) {
-            return back()->with('error', 'خطا در فرآیند آزادسازی خط. لطفاً بعداً تلاش فرمایید.');
+            return back()->with('error', __('controllers.user.phone_numbers.release_failed'));
         }
     }
 }

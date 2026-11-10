@@ -14,4 +14,3 @@ class InsufficientWalletBalanceException extends RuntimeException
         parent::__construct($message ?? __('exceptions.insufficient_wallet_balance'));
     }
 }
-

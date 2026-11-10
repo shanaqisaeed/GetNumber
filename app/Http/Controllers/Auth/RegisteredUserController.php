@@ -26,7 +26,7 @@ class RegisteredUserController extends Controller
     public function create(): Response|RedirectResponse
     {
         if (!SystemSetting::isRegistrationAllowed()) {
-            return redirect()->route('login')->with('error', 'امکان ثبت‌نام مستقیم کاربر جدید در سامانه در حال حاضر غیرفعال است.');
+            return redirect()->route('login')->with('error', __('controllers.auth.registration_disabled'));
         }
 
         return Inertia::render('Auth/Register', [
@@ -49,14 +49,14 @@ class RegisteredUserController extends Controller
     public function store(Request $request): RedirectResponse
     {
         if (!SystemSetting::isRegistrationAllowed()) {
-            return redirect()->route('login')->with('error', 'ثبت‌نام مستقیم غیرفعال می‌باشد.');
+            return redirect()->route('login')->with('error', __('controllers.auth.direct_registration_disabled'));
         }
 
         $regType = $request->input('registration_type', 'username');
 
         if ($regType === 'email') {
             if (!SystemSetting::isAuthProviderEnabled('email')) {
-                return back()->withErrors(['email' => 'ثبت‌نام و ورود با ایمیل در حال حاضر غیرفعال است.']);
+                return back()->withErrors(['email' => __('controllers.auth.email_registration_disabled')]);
             }
 
             $validated = $request->validate([
@@ -64,12 +64,12 @@ class RegisteredUserController extends Controller
                 'email' => ['required', 'string', 'email', 'max:255', 'unique:'.User::class.',email'],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
             ], [
-                'name.required' => 'ورود عنوان سازمانی / نام متقاضی الزامی است.',
-                'email.required' => 'ورود نشانی پست الکترونیک (ایمیل) الزامی است.',
-                'email.email' => 'فرمت نشانی ایمیل وارد شده معتبر نمی‌باشد.',
-                'email.unique' => 'این نشانی ایمیل قبلاً در سامانه ثبت شده است.',
-                'password.required' => 'ورود کلمه عبور الزامی است.',
-                'password.confirmed' => 'تکرار کلمه عبور با مقدار کلمه عبور مطابقت ندارد.',
+                'name.required' => __('controllers.auth.val_name_required'),
+                'email.required' => __('controllers.auth.val_email_required'),
+                'email.email' => __('controllers.auth.val_email_invalid'),
+                'email.unique' => __('controllers.auth.val_email_unique'),
+                'password.required' => __('controllers.auth.val_password_required'),
+                'password.confirmed' => __('controllers.auth.val_password_confirmed'),
             ]);
 
             $cleanEmail = strtolower($validated['email']);
@@ -91,7 +91,7 @@ class RegisteredUserController extends Controller
             $user->linkIdentity('username', $uniqueUsername, $cleanEmail, ['registered_with' => 'email'], null);
         } else {
             if (!SystemSetting::isAuthProviderEnabled('username')) {
-                return back()->withErrors(['username' => 'ثبت‌نام با شناسه کاربری در حال حاضر غیرفعال است.']);
+                return back()->withErrors(['username' => __('controllers.auth.username_registration_disabled')]);
             }
 
             $validated = $request->validate([
@@ -99,14 +99,14 @@ class RegisteredUserController extends Controller
                 'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', 'unique:'.User::class.',username'],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
             ], [
-                'name.required' => 'ورود عنوان سازمانی / نام متقاضی الزامی است.',
-                'username.required' => 'ورود شناسه کاربری الزامی است.',
-                'username.min' => 'شناسه کاربری باید حداقل ۳ نویسه باشد.',
-                'username.max' => 'شناسه کاربری نمی‌تواند بیش از ۵۰ نویسه باشد.',
-                'username.alpha_dash' => 'شناسه کاربری فقط می‌تواند شامل حروف انگلیسی، ارقام، خط تیره (-) و زیرخط (_) باشد.',
-                'username.unique' => 'این شناسه کاربری قبلاً در سامانه ثبت شده است.',
-                'password.required' => 'ورود کلمه عبور الزامی است.',
-                'password.confirmed' => 'تکرار کلمه عبور با مقدار کلمه عبور مطابقت ندارد.',
+                'name.required' => __('controllers.auth.val_name_required'),
+                'username.required' => __('controllers.auth.val_username_required'),
+                'username.min' => __('controllers.auth.val_username_min'),
+                'username.max' => __('controllers.auth.val_username_max'),
+                'username.alpha_dash' => __('controllers.auth.val_username_alpha_dash'),
+                'username.unique' => __('controllers.auth.val_username_unique'),
+                'password.required' => __('controllers.auth.val_password_required'),
+                'password.confirmed' => __('controllers.auth.val_password_confirmed'),
             ]);
 
             $cleanUsername = strtolower($validated['username']);
@@ -129,7 +129,7 @@ class RegisteredUserController extends Controller
                     'action' => 'user_registered',
                     'entity_type' => User::class,
                     'entity_id' => $user->id,
-                    'description' => "کاربر جدید {$user->name} ({$user->username}) ثبت‌نام نمود.",
+                    'description' => __('controllers.auth.audit_user_registered', ['name' => $user->name, 'username' => $user->username]),
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->userAgent(),
                 ]);

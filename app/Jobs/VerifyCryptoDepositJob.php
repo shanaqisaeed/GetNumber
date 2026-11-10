@@ -75,4 +75,3 @@ class VerifyCryptoDepositJob implements ShouldQueue
         $this->release(1800);
     }
 }
-

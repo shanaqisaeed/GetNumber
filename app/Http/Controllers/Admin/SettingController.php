@@ -31,8 +31,8 @@ class SettingController extends Controller
         return Inertia::render('Admin/Settings/General', [
             'initialTab' => $tab,
             'generalSettings' => [
-                'app_name' => SystemSetting::get('app_name', 'سامانه جامع مدیریت شماره‌ها و ارتباطات'),
-                'app_description' => SystemSetting::get('app_description', 'هسته مرکزی مدیریت خطوط مجازی، درگاه پیامک و احراز هویت سازمانی'),
+                'app_name' => SystemSetting::get('app_name', __('controllers.admin.settings.default_app_name')),
+                'app_description' => SystemSetting::get('app_description', __('controllers.admin.settings.default_app_description')),
                 'default_locale' => SystemSetting::getDefaultLocale(),
                 'max_lines_per_user' => (int) SystemSetting::get('max_lines_per_user', '10'),
                 'event_notify_login_failed' => (bool) (int) SystemSetting::get('event_notify_login_failed', '1'),
@@ -85,26 +85,26 @@ class SettingController extends Controller
             'event_notify_user_registered' => ['boolean'],
             'event_notify_security_alert' => ['boolean'],
         ], [
-            'app_name.required' => 'ورود عنوان سامانه الزامی است.',
-            'default_locale.in' => 'زبان انتخابی باید فارسی (fa) یا انگلیسی (en) باشد.',
-            'max_lines_per_user.min' => 'سقف مجاز خطوط باید حداقل ۱ خط باشد.',
-            'max_lines_per_user.max' => 'سقف مجاز خطوط نمی‌تواند بیش از ۱۰۰۰ خط باشد.',
+            'app_name.required' => __('controllers.admin.settings.val_app_name_required'),
+            'default_locale.in' => __('controllers.admin.settings.val_default_locale_in'),
+            'max_lines_per_user.min' => __('controllers.admin.settings.val_max_lines_min'),
+            'max_lines_per_user.max' => __('controllers.admin.settings.val_max_lines_max'),
         ]);
 
         $maxLines = $validated['max_lines_per_user'] ?? (int) SystemSetting::get('max_lines_per_user', '10');
         $defaultLocale = !empty($validated['default_locale']) ? $validated['default_locale'] : SystemSetting::getDefaultLocale();
 
-        SystemSetting::set('app_name', $validated['app_name'], 'عنوان اصلی و نام رسمی سامانه');
-        SystemSetting::set('app_description', $validated['app_description'] ?? '', 'شرح مختصر سامانه در صفحات عمومی');
-        SystemSetting::set('default_locale', $defaultLocale, 'زبان پیش‌فرض سامانه و جهت متن');
-        SystemSetting::set('max_lines_per_user', (string) $maxLines, 'حداکثر سقف مجاز تخصیص خطوط برای هر حساب کاربری');
-        SystemSetting::set('event_notify_login_failed', $request->boolean('event_notify_login_failed') ? '1' : '0', 'ثبت و گزارش رویداد تلاش‌های ناموفق ورود در لاگ امنیتی');
-        SystemSetting::set('event_notify_user_registered', $request->boolean('event_notify_user_registered') ? '1' : '0', 'ثبت رویداد ثبت‌نام کاربران جدید در گزارش‌های سامانه');
-        SystemSetting::set('event_notify_security_alert', $request->boolean('event_notify_security_alert') ? '1' : '0', 'ارسال هشدار و ثبت رویداد مخاطرات امنیتی');
+        SystemSetting::set('app_name', $validated['app_name'], __('controllers.admin.settings.desc_app_name'));
+        SystemSetting::set('app_description', $validated['app_description'] ?? '', __('controllers.admin.settings.desc_app_description'));
+        SystemSetting::set('default_locale', $defaultLocale, __('controllers.admin.settings.desc_default_locale'));
+        SystemSetting::set('max_lines_per_user', (string) $maxLines, __('controllers.admin.settings.desc_max_lines'));
+        SystemSetting::set('event_notify_login_failed', $request->boolean('event_notify_login_failed') ? '1' : '0', __('controllers.admin.settings.desc_event_login_failed'));
+        SystemSetting::set('event_notify_user_registered', $request->boolean('event_notify_user_registered') ? '1' : '0', __('controllers.admin.settings.desc_event_user_registered'));
+        SystemSetting::set('event_notify_security_alert', $request->boolean('event_notify_security_alert') ? '1' : '0', __('controllers.admin.settings.desc_event_security_alert'));
 
-        $this->logSettingChange($request, 'تنظیمات عمومی سامانه با موفقیت ذخیره گردید.');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_general_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'general'])->with('success', 'تنظیمات عمومی سامانه و سقف مجاز خطوط با موفقیت به‌روزرسانی شد.');
+        return redirect()->route('admin.settings.general', ['tab' => 'general'])->with('success', __('controllers.admin.settings.general_updated'));
     }
 
     /**
@@ -129,9 +129,9 @@ class SettingController extends Controller
             SystemSetting::set($key, (string) $val);
         }
 
-        $this->logSettingChange($request, 'تعرفه‌های سرشماره‌های سازمانی (۴ تا ۸ رقمی) به‌روزرسانی شد.');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_pricing_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'pricing'])->with('success', 'جدول تعرفه‌های سرشماره‌های سازمانی با موفقیت به‌روزرسانی گردید.');
+        return redirect()->route('admin.settings.general', ['tab' => 'pricing'])->with('success', __('controllers.admin.settings.pricing_updated'));
     }
 
     /**
@@ -155,19 +155,19 @@ class SettingController extends Controller
 
         if (!$username && !$email && !$ldap && !$keycloak) {
             return back()->withErrors([
-                'auth_username_enabled' => 'حداقل یکی از روش‌های احراز هویت باید در سامانه فعال باقی بماند تا امکان ورود مسدود نشود.',
+                'auth_username_enabled' => __('controllers.admin.settings.auth_methods_all_disabled'),
             ]);
         }
 
-        SystemSetting::set('auth_username_enabled', $username ? '1' : '0', 'امکان ورود با شناسه کاربری و گذرواژه');
-        SystemSetting::set('auth_email_enabled', $email ? '1' : '0', 'امکان ورود با پست الکترونیک (ایمیل) و گذرواژه');
-        SystemSetting::set('auth_ldap_enabled', $ldap ? '1' : '0', 'فعال بودن ورود سازمانی از طریق سرویس دایرکتوری LDAP');
-        SystemSetting::set('auth_keycloak_enabled', $keycloak ? '1' : '0', 'فعال بودن ورود یکپارچه SSO از طریق سرور Keycloak');
-        SystemSetting::set('allow_user_registration', $allowReg ? '1' : '0', 'امکان ثبت‌نام مستقیم کاربر جدید در سامانه');
+        SystemSetting::set('auth_username_enabled', $username ? '1' : '0', __('controllers.admin.settings.desc_auth_username'));
+        SystemSetting::set('auth_email_enabled', $email ? '1' : '0', __('controllers.admin.settings.desc_auth_email'));
+        SystemSetting::set('auth_ldap_enabled', $ldap ? '1' : '0', __('controllers.admin.settings.desc_auth_ldap'));
+        SystemSetting::set('auth_keycloak_enabled', $keycloak ? '1' : '0', __('controllers.admin.settings.desc_auth_keycloak'));
+        SystemSetting::set('allow_user_registration', $allowReg ? '1' : '0', __('controllers.admin.settings.desc_allow_registration'));
 
-        $this->logSettingChange($request, 'پیکربندی وضعیت فعال‌بودن روش‌های احراز هویت تغییر یافت.');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_auth_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'auth'])->with('success', 'وضعیت فعال‌بودن روش‌های احراز هویت با موفقیت به‌روزرسانی شد.');
+        return redirect()->route('admin.settings.general', ['tab' => 'auth'])->with('success', __('controllers.admin.settings.auth_updated'));
     }
 
     /**
@@ -196,28 +196,28 @@ class SettingController extends Controller
             'name_attribute' => ['required', 'string', 'max:50'],
             'auto_create_user' => ['boolean'],
         ], [
-            'host.required' => 'ورود آدرس هاست LDAP الزامی است.',
-            'port.required' => 'ورود پورت اتصال الزامی است.',
-            'base_dn.required' => 'ورود شاخه ریشه Base DN الزامی است.',
+            'host.required' => __('controllers.admin.settings.val_ldap_host_required'),
+            'port.required' => __('controllers.admin.settings.val_ldap_port_required'),
+            'base_dn.required' => __('controllers.admin.settings.val_ldap_base_dn_required'),
         ]);
 
-        SystemSetting::set('ldap_host', $validated['host'], 'آدرس سرور دایرکتوری LDAP');
-        SystemSetting::set('ldap_port', (string) $validated['port'], 'پورت اتصال به سرور LDAP');
-        SystemSetting::set('ldap_encryption', $validated['encryption'], 'نوع رمزنگاری ارتباط با سرور LDAP');
-        SystemSetting::set('ldap_base_dn', $validated['base_dn'], 'شاخه ریشه جستجو در دایرکتوری (Base DN)');
-        SystemSetting::set('ldap_bind_dn', $validated['bind_dn'] ?? '', 'شناسه کاربری سرویس جهت اتصال (Bind DN)');
+        SystemSetting::set('ldap_host', $validated['host'], __('controllers.admin.settings.desc_ldap_host'));
+        SystemSetting::set('ldap_port', (string) $validated['port'], __('controllers.admin.settings.desc_ldap_port'));
+        SystemSetting::set('ldap_encryption', $validated['encryption'], __('controllers.admin.settings.desc_ldap_encryption'));
+        SystemSetting::set('ldap_base_dn', $validated['base_dn'], __('controllers.admin.settings.desc_ldap_base_dn'));
+        SystemSetting::set('ldap_bind_dn', $validated['bind_dn'] ?? '', __('controllers.admin.settings.desc_ldap_bind_dn'));
         if ($request->filled('bind_password')) {
-            SystemSetting::set('ldap_bind_password', $validated['bind_password'], 'رمز عبور کاربر سرویس LDAP');
+            SystemSetting::set('ldap_bind_password', $validated['bind_password'], __('controllers.admin.settings.desc_ldap_bind_password'));
         }
-        SystemSetting::set('ldap_search_filter', $validated['search_filter'], 'فیلتر جستجوی کاربر در LDAP');
-        SystemSetting::set('ldap_uid_attribute', $validated['uid_attribute'], 'ویژگی شناسه کاربری در LDAP');
-        SystemSetting::set('ldap_email_attribute', $validated['email_attribute'], 'ویژگی ایمیل کاربر در LDAP');
-        SystemSetting::set('ldap_name_attribute', $validated['name_attribute'], 'ویژگی نام کامل کاربر در LDAP');
-        SystemSetting::set('ldap_auto_create_user', $request->boolean('auto_create_user') ? '1' : '0', 'ایجاد خودکار حساب کاربری در اولین ورود موفق LDAP');
+        SystemSetting::set('ldap_search_filter', $validated['search_filter'], __('controllers.admin.settings.desc_ldap_search_filter'));
+        SystemSetting::set('ldap_uid_attribute', $validated['uid_attribute'], __('controllers.admin.settings.desc_ldap_uid_attribute'));
+        SystemSetting::set('ldap_email_attribute', $validated['email_attribute'], __('controllers.admin.settings.desc_ldap_email_attribute'));
+        SystemSetting::set('ldap_name_attribute', $validated['name_attribute'], __('controllers.admin.settings.desc_ldap_name_attribute'));
+        SystemSetting::set('ldap_auto_create_user', $request->boolean('auto_create_user') ? '1' : '0', __('controllers.admin.settings.desc_ldap_auto_create'));
 
-        $this->logSettingChange($request, 'تنظیمات سرور سازمانی LDAP به‌روزرسانی شد.');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_ldap_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'ldap'])->with('success', 'تنظیمات اتصال به سرویس LDAP با موفقیت ذخیره گردید.');
+        return redirect()->route('admin.settings.general', ['tab' => 'ldap'])->with('success', __('controllers.admin.settings.ldap_updated'));
     }
 
     /**
@@ -249,23 +249,23 @@ class SettingController extends Controller
             'client_secret' => ['nullable', 'string', 'max:255'],
             'auto_create_user' => ['boolean'],
         ], [
-            'base_url.required' => 'ورود آدرس پایه سرور Keycloak الزامی است.',
-            'base_url.url' => 'آدرس سرور Keycloak باید یک نشانی اینترنتی معتبر (URL) باشد.',
-            'realm.required' => 'ورود نام قلمرو (Realm) الزامی است.',
-            'client_id.required' => 'ورود شناسه کلاینت (Client ID) الزامی است.',
+            'base_url.required' => __('controllers.admin.settings.val_keycloak_url_required'),
+            'base_url.url' => __('controllers.admin.settings.val_keycloak_url_invalid'),
+            'realm.required' => __('controllers.admin.settings.val_keycloak_realm_required'),
+            'client_id.required' => __('controllers.admin.settings.val_keycloak_client_id_required'),
         ]);
 
-        SystemSetting::set('keycloak_base_url', rtrim($validated['base_url'], '/'), 'آدرس پایه سرور Keycloak');
-        SystemSetting::set('keycloak_realm', $validated['realm'], 'نام قلمرو (Realm) در Keycloak');
-        SystemSetting::set('keycloak_client_id', $validated['client_id'], 'شناسه کلاینت ثبت شده در Keycloak (Client ID)');
+        SystemSetting::set('keycloak_base_url', rtrim($validated['base_url'], '/'), __('controllers.admin.settings.desc_keycloak_base_url'));
+        SystemSetting::set('keycloak_realm', $validated['realm'], __('controllers.admin.settings.desc_keycloak_realm'));
+        SystemSetting::set('keycloak_client_id', $validated['client_id'], __('controllers.admin.settings.desc_keycloak_client_id'));
         if ($request->filled('client_secret')) {
-            SystemSetting::set('keycloak_client_secret', $validated['client_secret'], 'کلید محرمانه کلاینت در Keycloak');
+            SystemSetting::set('keycloak_client_secret', $validated['client_secret'], __('controllers.admin.settings.desc_keycloak_client_secret'));
         }
-        SystemSetting::set('keycloak_auto_create_user', $request->boolean('auto_create_user') ? '1' : '0', 'ایجاد خودکار حساب کاربری در اولین ورود موفق Keycloak');
+        SystemSetting::set('keycloak_auto_create_user', $request->boolean('auto_create_user') ? '1' : '0', __('controllers.admin.settings.desc_keycloak_auto_create'));
 
-        $this->logSettingChange($request, 'تنظیمات سرور یکپارچه هویت Keycloak به‌روزرسانی شد.');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_keycloak_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'keycloak'])->with('success', 'تنظیمات احراز هویت یکپارچه Keycloak با موفقیت ذخیره گردید.');
+        return redirect()->route('admin.settings.general', ['tab' => 'keycloak'])->with('success', __('controllers.admin.settings.keycloak_updated'));
     }
 
     /**

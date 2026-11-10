@@ -125,7 +125,7 @@ class MessageController extends Controller
 
         $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
 
-        $adminNotice = "این پیام از سمت راهبر سیستم ارسال شده:\n";
+        $adminNotice = __('controllers.admin.messages.admin_notice_prefix');
         $body = trim($validated['body']);
         if (! str_starts_with($body, $adminNotice)) {
             $body = $adminNotice . $body;
@@ -143,8 +143,8 @@ class MessageController extends Controller
         return response()->json([
             'success' => $isSuccess,
             'message' => $isSuccess
-                ? 'پیامک با موفقیت از طرف راهبر سیستم ارسال شد.'
-                : ($result['results'][0]['reason'] ?? 'خطا در ارسال پیامک مدیریت'),
+                ? __('controllers.admin.messages.sent_success')
+                : ($result['results'][0]['reason'] ?? __('controllers.admin.messages.send_failed_default')),
             'sent_count' => $result['sent_count'] ?? 0,
             'failed_count' => $result['failed_count'] ?? 0,
             'results' => $result['results'] ?? [],
@@ -233,6 +233,6 @@ class MessageController extends Controller
 
         $this->messageService->deleteMessage($message);
 
-        return back()->with('success', 'پیام مورد نظر با موفقیت از بایگانی سیستم حذف گردید.');
+        return back()->with('success', __('controllers.admin.messages.deleted'));
     }
 }

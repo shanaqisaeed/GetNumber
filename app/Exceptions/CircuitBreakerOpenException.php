@@ -14,4 +14,3 @@ class CircuitBreakerOpenException extends RuntimeException
         parent::__construct($message ?? __('exceptions.circuit_breaker_open'));
     }
 }
-

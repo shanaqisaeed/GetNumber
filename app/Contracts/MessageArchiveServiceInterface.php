@@ -27,4 +27,3 @@ interface MessageArchiveServiceInterface
      */
     public function searchArchived(int $phoneNumberId, ?string $peerNumber = null, int $perPage = 25): LengthAwarePaginator;
 }
-

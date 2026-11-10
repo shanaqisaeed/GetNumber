@@ -147,12 +147,12 @@ class UserController extends Controller
             'role' => ['required', Rule::enum(UserRole::class)],
             'status' => ['required', Rule::enum(UserStatus::class)],
         ], [
-            'name.required' => 'ورود عنوان یا نام کاربر الزامی است.',
-            'username.required' => 'ورود شناسه کاربری الزامی است.',
-            'username.unique' => 'این شناسه کاربری قبلاً در سامانه ثبت شده است.',
-            'password.required' => 'تعیین کلمه عبور اولیه الزامی است.',
-            'role.required' => 'تعیین نقش کاربری الزامی است.',
-            'status.required' => 'تعیین وضعیت حساب کاربری الزامی است.',
+            'name.required' => __('controllers.admin.users.val_name_required'),
+            'username.required' => __('controllers.admin.users.val_username_required'),
+            'username.unique' => __('controllers.admin.users.val_username_unique'),
+            'password.required' => __('controllers.admin.users.val_password_required'),
+            'role.required' => __('controllers.admin.users.val_role_required'),
+            'status.required' => __('controllers.admin.users.val_status_required'),
         ]);
 
         $newUser = User::create([
@@ -170,7 +170,7 @@ class UserController extends Controller
             'status' => $newUser->status->value,
         ]);
 
-        return redirect()->route('admin.users.index')->with('success', 'حساب کاربری جدید با موفقیت ایجاد گردید.');
+        return redirect()->route('admin.users.index')->with('success', __('controllers.admin.users.created'));
     }
 
     /**
@@ -179,7 +179,7 @@ class UserController extends Controller
     public function updateStatus(Request $request, User $user): RedirectResponse
     {
         if ($user->id === $request->user()->id) {
-            return back()->with('error', 'امکان تغییر وضعیت حساب کاربری شخصی توسط خود کاربر مجاز نمی‌باشد.');
+            return back()->with('error', __('controllers.admin.users.self_status_forbidden'));
         }
 
         $validated = $request->validate([
@@ -198,7 +198,7 @@ class UserController extends Controller
             'to_status' => $validated['status'],
         ]);
 
-        return back()->with('success', 'وضعیت حساب کاربری با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', __('controllers.admin.users.status_updated'));
     }
 
     /**
@@ -220,21 +220,21 @@ class UserController extends Controller
             'status' => ['required', Rule::enum(UserStatus::class)],
             'password' => ['nullable', 'string', 'min:6'],
         ], [
-            'name.required' => 'ورود عنوان یا نام کاربر الزامی است.',
-            'username.required' => 'ورود شناسه کاربری الزامی است.',
-            'username.unique' => 'این شناسه کاربری قبلاً در سامانه ثبت شده است.',
-            'username.alpha_dash' => 'شناسه کاربری فقط می‌تواند شامل حروف انگلیسی، اعداد، خط تیره و زیرخط باشد.',
-            'role.required' => 'تعیین نقش کاربری الزامی است.',
-            'status.required' => 'تعیین وضعیت حساب کاربری الزامی است.',
-            'password.min' => 'کلمه عبور جدید باید حداقل ۶ کاراکتر باشد.',
+            'name.required' => __('controllers.admin.users.val_name_required'),
+            'username.required' => __('controllers.admin.users.val_username_required'),
+            'username.unique' => __('controllers.admin.users.val_username_unique'),
+            'username.alpha_dash' => __('controllers.admin.users.val_username_alpha_dash'),
+            'role.required' => __('controllers.admin.users.val_role_required'),
+            'status.required' => __('controllers.admin.users.val_status_required'),
+            'password.min' => __('controllers.admin.users.val_password_min'),
         ]);
 
         if ($user->id === $request->user()->id) {
             if ($validated['role'] !== UserRole::Admin->value) {
-                return back()->with('error', 'امکان حذف نقش راهبری حساب شخصی توسط خود کاربر مجاز نمی‌باشد.');
+                return back()->with('error', __('controllers.admin.users.self_role_demote_forbidden'));
             }
             if ($validated['status'] !== UserStatus::Active->value) {
-                return back()->with('error', 'امکان غیرفعال‌سازی یا تعلیق حساب کاربری شخصی توسط خود کاربر مجاز نمی‌باشد.');
+                return back()->with('error', __('controllers.admin.users.self_suspend_forbidden'));
             }
         }
 
@@ -269,7 +269,7 @@ class UserController extends Controller
             ],
         ]);
 
-        return back()->with('success', "مشخصات حساب کاربری «{$user->username}» با موفقیت به‌روزرسانی شد.");
+        return back()->with('success', __('controllers.admin.users.updated', ['username' => $user->username]));
     }
 
     /**
@@ -350,7 +350,7 @@ class UserController extends Controller
 
         if ($action === 'credit') {
             if (bccomp($amount, '0.0001', 4) < 0) {
-                return back()->with('error', 'مبلغ افزایش اعتبار باید حداقل ۰.۰۰۰۱ واحد باشد.');
+                return back()->with('error', __('controllers.admin.users.wallet_credit_min'));
             }
             $walletService->adminCredit(
                 $user,
@@ -358,10 +358,10 @@ class UserController extends Controller
                 $admin,
                 $reason
             );
-            $msg = "مبلغ {$amount} واحد اعتبار با موفقیت به حساب کاربری «{$user->name}» افزوده شد.";
+            $msg = __('controllers.admin.users.wallet_credited', ['amount' => $amount, 'user' => $user->name]);
         } elseif ($action === 'debit') {
             if (bccomp($amount, '0.0001', 4) < 0) {
-                return back()->with('error', 'مبلغ کسر اعتبار باید حداقل ۰.۰۰۰۱ واحد باشد.');
+                return back()->with('error', __('controllers.admin.users.wallet_debit_min'));
             }
             try {
                 $walletService->adminDebit(
@@ -370,9 +370,9 @@ class UserController extends Controller
                     $admin,
                     $reason
                 );
-                $msg = "مبلغ {$amount} واحد اعتبار با موفقیت از حساب کاربری «{$user->name}» کسر شد.";
+                $msg = __('controllers.admin.users.wallet_debited', ['amount' => $amount, 'user' => $user->name]);
             } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
-                return back()->with('error', 'موجودی کاربر برای کسر این میزان اعتبار کافی نمی‌باشد.');
+                return back()->with('error', __('controllers.admin.users.wallet_insufficient'));
             }
         } else { // 'set'
             $wallet = $user->getOrCreateWallet();
@@ -384,7 +384,7 @@ class UserController extends Controller
                     $user,
                     $diff,
                     $admin,
-                    "تنظیم موجودی به {$amount}: " . $reason
+                    __('controllers.admin.users.ledger_adjust_reason', ['amount' => $amount, 'reason' => $reason])
                 );
             } elseif (bccomp($diff, '0', 4) < 0) {
                 $debitAmount = bcmul($diff, '-1', 4);
@@ -393,13 +393,13 @@ class UserController extends Controller
                         $user,
                         $debitAmount,
                         $admin,
-                        "تنظیم موجودی به {$amount}: " . $reason
+                        __('controllers.admin.users.ledger_adjust_reason', ['amount' => $amount, 'reason' => $reason])
                     );
                 } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
-                    return back()->with('error', 'امکان تنظیم موجودی به مقدار منفی وجود ندارد.');
+                    return back()->with('error', __('controllers.admin.users.wallet_set_negative'));
                 }
             }
-            $msg = "موجودی حساب کاربری «{$user->name}» با موفقیت روی {$amount} واحد اعتبار تنظیم شد.";
+            $msg = __('controllers.admin.users.wallet_set', ['user' => $user->name, 'amount' => $amount]);
         }
 
         AuditLog::create([
@@ -419,4 +419,3 @@ class UserController extends Controller
         return back()->with('success', $msg);
     }
 }
-

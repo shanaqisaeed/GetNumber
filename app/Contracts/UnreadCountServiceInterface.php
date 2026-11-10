@@ -38,4 +38,3 @@ interface UnreadCountServiceInterface
      */
     public function getUnreadSummaryForUser(User $user): array;
 }
-

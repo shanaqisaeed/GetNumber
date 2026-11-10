@@ -82,25 +82,25 @@ class AuditLogController extends Controller
         $stats = app(\App\Contracts\SystemCacheServiceInterface::class)->getAuditLogsStats();
 
         $actionOptions = [
-            ['value' => '', 'label' => 'همه رخدادها'],
-            ['value' => 'user_*', 'label' => 'عملیات کاربران (ایجاد، ویرایش، تعلیق)'],
-            ['value' => 'number_*', 'label' => 'مدیریت خطوط (تولید، تخصیص، آزادسازی)'],
-            ['value' => 'token_*', 'label' => 'کلیدهای وب‌سرویس (صدور، تعویض، ابطال)'],
-            ['value' => 'request_*', 'label' => 'درخواست‌های سرشماره (تأیید و رد)'],
-            ['value' => 'message_*', 'label' => 'عملیات پیام‌ها'],
-            ['value' => 'user_created', 'label' => 'ایجاد کاربر جدید'],
-            ['value' => 'user_status_changed', 'label' => 'تغییر وضعیت حساب کاربر'],
-            ['value' => 'user_updated', 'label' => 'ویرایش مشخصات کاربر'],
-            ['value' => 'number_created', 'label' => 'تولید/ثبت خط جدید'],
-            ['value' => 'number_assigned', 'label' => 'تخصیص خط به کاربر'],
-            ['value' => 'number_released', 'label' => 'آزادسازی خط'],
-            ['value' => 'number_status_changed', 'label' => 'تغییر وضعیت خط'],
-            ['value' => 'request_approved', 'label' => 'تأیید درخواست سرشماره'],
-            ['value' => 'request_rejected', 'label' => 'رد درخواست سرشماره'],
-            ['value' => 'token_created', 'label' => 'صدور کلید وب‌سرویس'],
-            ['value' => 'token_rotated', 'label' => 'تعویض کلید وب‌سرویس'],
-            ['value' => 'token_revoked', 'label' => 'ابطال کلید وب‌سرویس'],
-            ['value' => 'message_deleted', 'label' => 'حذف پیام از سامانه'],
+            ['value' => '', 'label' => __('controllers.admin.audit_logs.filter_all')],
+            ['value' => 'user_*', 'label' => __('controllers.admin.audit_logs.filter_users')],
+            ['value' => 'number_*', 'label' => __('controllers.admin.audit_logs.filter_numbers')],
+            ['value' => 'token_*', 'label' => __('controllers.admin.audit_logs.filter_tokens')],
+            ['value' => 'request_*', 'label' => __('controllers.admin.audit_logs.filter_requests')],
+            ['value' => 'message_*', 'label' => __('controllers.admin.audit_logs.filter_messages')],
+            ['value' => 'user_created', 'label' => __('controllers.admin.audit_logs.act_user_created')],
+            ['value' => 'user_status_changed', 'label' => __('controllers.admin.audit_logs.act_user_status_changed')],
+            ['value' => 'user_updated', 'label' => __('controllers.admin.audit_logs.act_user_updated')],
+            ['value' => 'number_created', 'label' => __('controllers.admin.audit_logs.act_number_created')],
+            ['value' => 'number_assigned', 'label' => __('controllers.admin.audit_logs.act_number_assigned')],
+            ['value' => 'number_released', 'label' => __('controllers.admin.audit_logs.act_number_released')],
+            ['value' => 'number_status_changed', 'label' => __('controllers.admin.audit_logs.act_number_status_changed')],
+            ['value' => 'request_approved', 'label' => __('controllers.admin.audit_logs.act_request_approved')],
+            ['value' => 'request_rejected', 'label' => __('controllers.admin.audit_logs.act_request_rejected')],
+            ['value' => 'token_created', 'label' => __('controllers.admin.audit_logs.act_token_created')],
+            ['value' => 'token_rotated', 'label' => __('controllers.admin.audit_logs.act_token_rotated')],
+            ['value' => 'token_revoked', 'label' => __('controllers.admin.audit_logs.act_token_revoked')],
+            ['value' => 'message_deleted', 'label' => __('controllers.admin.audit_logs.act_message_deleted')],
         ];
 
         return Inertia::render('Admin/AuditLogs/Index', [
@@ -145,11 +145,11 @@ class AuditLogController extends Controller
         }
 
         return match ($type) {
-            'App\Models\PhoneNumber' => 'خط سازمانی',
-            'App\Models\User' => 'کاربر سامانه',
-            'App\Models\NumberRequest' => 'درخواست سرشماره',
-            'App\Models\ApiToken' => 'کلید وب‌سرویس',
-            'App\Models\Message' => 'پیامک',
+            'App\Models\PhoneNumber' => __('controllers.admin.audit_logs.ent_phone_number'),
+            'App\Models\User' => __('controllers.admin.audit_logs.ent_user'),
+            'App\Models\NumberRequest' => __('controllers.admin.audit_logs.ent_number_request'),
+            'App\Models\ApiToken' => __('controllers.admin.audit_logs.ent_api_token'),
+            'App\Models\Message' => __('controllers.admin.audit_logs.ent_message'),
             default => class_basename($type),
         };
     }

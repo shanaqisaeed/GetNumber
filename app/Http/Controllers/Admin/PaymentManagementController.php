@@ -151,23 +151,23 @@ class PaymentManagementController extends Controller
     public function verify(Request $request, CryptoDeposit $deposit): RedirectResponse
     {
         if (! $deposit->tx_hash) {
-            return back()->with('error', 'ابتدا باید شناسه تراکنش (TX Hash) ثبت شده باشد.');
+            return back()->with('error', __('controllers.admin.payments.tx_hash_required_first'));
         }
 
         try {
             $result = $this->paymentService->verifyDeposit($deposit, $request->user());
 
             if ($result->isVerified) {
-                return back()->with('success', 'تراکنش با موفقیت از طریق شبکه استعلام و تأیید گردید و کیف پول کاربر شارژ شد.');
+                return back()->with('success', __('controllers.admin.payments.verify_success'));
             }
 
             if ($result->status === 'Rejected') {
-                return back()->with('error', 'استعلام انجام شد و تراکنش رد شد: ' . ($result->failureReason ?? 'نامعتبر'));
+                return back()->with('error', __('controllers.admin.payments.verify_rejected', ['reason' => $result->failureReason ?? __('controllers.admin.payments.reason_invalid')]));
             }
 
-            return back()->with('info', 'استعلام انجام شد؛ تراکنش همچنان در صف تأیید شبکه است: ' . ($result->failureReason ?? 'در انتظار بلاک'));
+            return back()->with('info', __('controllers.admin.payments.verify_pending', ['reason' => $result->failureReason ?? __('controllers.admin.payments.reason_awaiting_block')]));
         } catch (\Throwable $e) {
-            return back()->with('error', 'خطا در فرآیند استعلام: ' . $e->getMessage());
+            return back()->with('error', __('controllers.admin.payments.verify_error', ['message' => $e->getMessage()]));
         }
     }
 
@@ -180,11 +180,11 @@ class PaymentManagementController extends Controller
             'reason' => ['required', 'string', 'max:255'],
             'tx_hash' => ['nullable', 'string', 'max:128'],
         ], [
-            'reason.required' => 'ثبت دلیل تأیید دستی الزامی است.',
+            'reason.required' => __('controllers.admin.payments.val_reason_required_manual'),
         ]);
 
         if ($deposit->isCompleted()) {
-            return back()->with('error', 'این تراکنش قبلاً تأیید و شارژ شده است.');
+            return back()->with('error', __('controllers.admin.payments.already_completed'));
         }
 
         $admin = $request->user();
@@ -220,9 +220,9 @@ class PaymentManagementController extends Controller
                 'ip_address' => $request->ip() ?? '127.0.0.1',
             ]);
 
-            return back()->with('success', 'تراکنش با موفقیت به صورت دستی تأیید و اعتبار به کیف پول کاربر منظور گردید.');
+            return back()->with('success', __('controllers.admin.payments.manual_approved_success'));
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage() ?: 'خطا در ثبت دستی تراکنش.');
+            return back()->with('error', $e->getMessage() ?: __('controllers.admin.payments.manual_approve_error'));
         }
     }
 
@@ -234,11 +234,11 @@ class PaymentManagementController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:255'],
         ], [
-            'reason.required' => 'ثبت دلیل رد تراکنش الزامی است.',
+            'reason.required' => __('controllers.admin.payments.val_reason_required_reject'),
         ]);
 
         if ($deposit->isCompleted()) {
-            return back()->with('error', 'تراکنش‌های تکمیل‌شده و شارژشده قابل رد کردن نمی‌باشند.');
+            return back()->with('error', __('controllers.admin.payments.cannot_reject_completed'));
         }
 
         $admin = $request->user();
@@ -270,9 +270,9 @@ class PaymentManagementController extends Controller
                 'ip_address' => $request->ip() ?? '127.0.0.1',
             ]);
 
-            return back()->with('success', 'تراکنش با موفقیت به عنوان ناموفق/فیک رد شد.');
+            return back()->with('success', __('controllers.admin.payments.manual_rejected_success'));
         } catch (\Throwable $e) {
-            return back()->with('error', $e->getMessage() ?: 'خطا در ثبت رد تراکنش.');
+            return back()->with('error', $e->getMessage() ?: __('controllers.admin.payments.manual_reject_error'));
         }
     }
 
@@ -334,7 +334,7 @@ class PaymentManagementController extends Controller
                 $valResult = $adapter->validateCredentials($mergedConfig);
 
                 if (! ($valResult['valid'] ?? false)) {
-                    $validationError = $valResult['message'] ?? 'توکن وارد شده معتبر نمی‌باشد.';
+                    $validationError = $valResult['message'] ?? __('controllers.admin.payments.token_invalid');
                     if (empty($mergedConfig['deposit_address_override'])) {
                         $validated['is_active'] = false;
                     }
@@ -346,7 +346,7 @@ class PaymentManagementController extends Controller
                     }
                 }
             } catch (\Throwable $e) {
-                $validationError = 'خطا در اتصال به وب‌سرویس صرافی: ' . $e->getMessage();
+                $validationError = __('controllers.admin.payments.exchange_connection_error', ['message' => $e->getMessage()]);
                 if (empty($mergedConfig['deposit_address_override'])) {
                     $validated['is_active'] = false;
                 }
@@ -374,10 +374,10 @@ class PaymentManagementController extends Controller
         ]);
 
         if ($validationError) {
-            return back()->with('error', "تنظیمات درگاه ذخیره شد، اما اعتبارسنجی توکن صرافی رد گردید: {$validationError}");
+            return back()->with('error', __('controllers.admin.payments.gateway_saved_validation_failed', ['error' => $validationError]));
         }
 
-        return back()->with('success', "تنظیمات درگاه «{$gateway->name}» با موفقیت ذخیره و همگام‌سازی شد.");
+        return back()->with('success', __('controllers.admin.payments.gateway_saved_success', ['name' => $gateway->name]));
     }
 
     /**
@@ -394,21 +394,20 @@ class PaymentManagementController extends Controller
 
             $valResult = $adapter->validateCredentials($config);
             if (! ($valResult['valid'] ?? false)) {
-                $errMsg = $valResult['message'] ?? 'توکن درگاه نامعتبر است.';
-                return back()->with('error', "اعتبارسنجی توکن درگاه ناموفق بود: {$errMsg}");
+                $errMsg = $valResult['message'] ?? __('controllers.admin.payments.gateway_token_invalid');
+                return back()->with('error', __('controllers.admin.payments.gateway_validation_failed', ['error' => $errMsg]));
             }
 
             $syncResult = $adapter->syncWallets($config);
             $gateway->update(['config' => $config]);
 
             if ($syncResult['success'] ?? false) {
-                return back()->with('success', $syncResult['message'] ?? 'کیف‌پول TRX با موفقیت استعلام و همگام گردید.');
+                return back()->with('success', $syncResult['message'] ?? __('controllers.admin.payments.wallet_synced_success'));
             }
 
-            return back()->with('error', $syncResult['message'] ?? 'خطا در دریافت آدرس کیف‌پول TRX.');
+            return back()->with('error', $syncResult['message'] ?? __('controllers.admin.payments.wallet_sync_failed'));
         } catch (\Throwable $e) {
-            return back()->with('error', 'خطا در فرآیند همگام‌سازی درگاه: ' . $e->getMessage());
+            return back()->with('error', __('controllers.admin.payments.gateway_sync_error', ['message' => $e->getMessage()]));
         }
     }
 }
-

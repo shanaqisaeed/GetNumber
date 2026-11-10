@@ -76,13 +76,13 @@ class ApiTokenController extends Controller
         ];
 
         $availableAbilities = [
-            '*' => 'حداکثر دسترسی‌ها (دسترسی نامحدود به تمامی وب‌سرویس‌ها و اختیارات کامل راهبری)',
-            'numbers:read' => 'مشاهده و استعلام اطلاعات خطوط',
-            'numbers:manage' => 'مدیریت، تخصیص، ویرایش و آزادسازی خطوط سازمانی',
-            'messages:read' => 'مشاهده و استعلام پیام‌های دریافتی',
-            'messages:write' => 'ثبت و ارسال پیام‌ها به وب‌سرویس',
-            'service-numbers:manage' => 'مدیریت و تأیید سرشماره‌های اختصاصی',
-            'users:manage' => 'مدیریت و استعلام کاربران سامانه',
+            '*' => __('controllers.admin.api_tokens.ability_all'),
+            'numbers:read' => __('controllers.admin.api_tokens.ability_numbers_read'),
+            'numbers:manage' => __('controllers.admin.api_tokens.ability_numbers_manage'),
+            'messages:read' => __('controllers.admin.api_tokens.ability_messages_read'),
+            'messages:write' => __('controllers.admin.api_tokens.ability_messages_write'),
+            'service-numbers:manage' => __('controllers.admin.api_tokens.ability_service_numbers_manage'),
+            'users:manage' => __('controllers.admin.api_tokens.ability_users_manage'),
         ];
 
         return Inertia::render('Admin/ApiTokens/Index', [
@@ -106,10 +106,10 @@ class ApiTokenController extends Controller
             'abilities' => ['nullable', 'array'],
             'abilities.*' => ['string', 'max:50'],
         ], [
-            'name.required' => 'تعیین عنوان یا نام سیستم متصل الزامی است.',
-            'name.min' => 'عنوان کلید دسترسی باید حداقل ۲ کاراکتر باشد.',
-            'name.max' => 'عنوان کلید دسترسی نباید بیش از ۱۰۰ کاراکتر باشد.',
-            'user_id.exists' => 'کاربر انتخاب‌شده در سامانه یافت نشد.',
+            'name.required' => __('controllers.admin.api_tokens.val_name_required'),
+            'name.min' => __('controllers.admin.api_tokens.val_name_min'),
+            'name.max' => __('controllers.admin.api_tokens.val_name_max'),
+            'user_id.exists' => __('controllers.admin.api_tokens.val_user_exists'),
         ]);
 
         $targetUser = ! empty($validated['user_id'])
@@ -138,8 +138,8 @@ class ApiTokenController extends Controller
         );
 
         $ownerNotice = $targetUser->id === $request->user()->id
-            ? 'حساب راهبری شما (حداکثر دسترسی‌ها)'
-            : "کاربر «{$targetUser->name}»";
+            ? __('controllers.admin.api_tokens.admin_account_notice')
+            : __('controllers.admin.api_tokens.user_account_notice', ['name' => $targetUser->name]);
 
         AuditLog::record('token_created', $result['token'], $request->user(), [
             'name' => $result['token']->name,
@@ -149,7 +149,7 @@ class ApiTokenController extends Controller
         ]);
 
         return back()
-            ->with('success', "کلید دسترسی «{$result['token']->name}» برای {$ownerNotice} با موفقیت صادر گردید.")
+            ->with('success', __('controllers.admin.api_tokens.created', ['name' => $result['token']->name, 'owner' => $ownerNotice]))
             ->with('plain_text_token', $result['plain_text_token']);
     }
 
@@ -167,7 +167,7 @@ class ApiTokenController extends Controller
         ]);
 
         return back()
-            ->with('success', "کلید دسترسی «{$token->name}» متعلق به کاربر {$token->user?->name} با موفقیت تعویض شد.")
+            ->with('success', __('controllers.admin.api_tokens.rotated', ['name' => $token->name, 'user' => $token->user?->name]))
             ->with('plain_text_token', $result['plain_text_token']);
     }
 
@@ -184,7 +184,7 @@ class ApiTokenController extends Controller
             'owner_id' => $token->user_id,
         ]);
 
-        return back()->with('success', "کلید دسترسی «{$token->name}» متعلق به کاربر {$token->user?->name} باطل شد.");
+        return back()->with('success', __('controllers.admin.api_tokens.revoked', ['name' => $token->name, 'user' => $token->user?->name]));
     }
 
     /**
@@ -205,6 +205,6 @@ class ApiTokenController extends Controller
             'action' => 'deleted',
         ]);
 
-        return back()->with('success', "کلید دسترسی «{$tokenName}» با موفقیت از سامانه حذف گردید.");
+        return back()->with('success', __('controllers.admin.api_tokens.deleted', ['name' => $tokenName]));
     }
 }

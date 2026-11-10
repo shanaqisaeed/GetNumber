@@ -80,10 +80,10 @@ class DashboardController extends Controller
 
         // 9. System Health Status
         $systemHealth = [
-            'database' => 'آنلاین (اتصال پایگاه داده فعال)',
-            'queue' => 'فعال (پردازش همگام / Sync)',
-            'polling' => 'عملیاتی (مانیتورینگ زنده ۴ ثانیه‌ای)',
-            'security' => 'فعال (رمزنگاری SHA-256 و ایزولاسیون کامل)',
+            'database' => __('controllers.admin.dashboard.db_online'),
+            'queue' => __('controllers.admin.dashboard.queue_sync'),
+            'polling' => __('controllers.admin.dashboard.monitoring_operational'),
+            'security' => __('controllers.admin.dashboard.security_active'),
         ];
 
         return Inertia::render('Admin/Dashboard', [

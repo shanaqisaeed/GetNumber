@@ -227,10 +227,10 @@ class TicketController extends Controller
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:5120', 'mimes:jpg,jpeg,png,pdf,zip,txt'],
         ], [
-            'message.required' => 'متن پاسخ کارشناس الزامی است.',
-            'attachments.max' => 'حداکثر ۵ فایل پیوست مجاز است.',
-            'attachments.*.max' => 'حجم فایل نباید بیش از ۵ مگابایت باشد.',
-            'attachments.*.mimes' => 'فرمت مجاز فایل‌های پیوست: JPG, PNG, PDF, ZIP, TXT.',
+            'message.required' => __('controllers.admin.tickets.val_message_required'),
+            'attachments.max' => __('controllers.admin.tickets.val_attachments_max'),
+            'attachments.*.max' => __('controllers.admin.tickets.val_attachments_file_max'),
+            'attachments.*.mimes' => __('controllers.admin.tickets.val_attachments_mimes'),
         ]);
 
         $attachments = $request->file('attachments', []);
@@ -242,7 +242,7 @@ class TicketController extends Controller
             attachments: is_array($attachments) ? $attachments : [$attachments]
         );
 
-        return back()->with('success', 'پاسخ کارشناس پشتیبانی با موفقیت در تیکت ثبت و ارسال گردید.');
+        return back()->with('success', __('controllers.admin.tickets.reply_sent'));
     }
 
     /**
@@ -260,7 +260,7 @@ class TicketController extends Controller
             actor: $request->user()
         );
 
-        return back()->with('success', 'وضعیت تیکت با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', __('controllers.admin.tickets.status_updated'));
     }
 
     /**
@@ -282,7 +282,7 @@ class TicketController extends Controller
             actor: $request->user()
         );
 
-        $msg = $agent ? "تیکت با موفقیت به کارشناس «{$agent->name}» واگذار شد." : 'تیکت از کارشناس تخصیص‌یافته خارج گردید.';
+        $msg = $agent ? __('controllers.admin.tickets.assigned_to_agent', ['agent' => $agent->name]) : __('controllers.admin.tickets.unassigned');
 
         return back()->with('success', $msg);
     }
@@ -293,11 +293,11 @@ class TicketController extends Controller
     public function downloadAttachment(Ticket $ticket, TicketAttachment $attachment): StreamedResponse
     {
         if ($attachment->ticketMessage->ticket_id !== $ticket->id) {
-            abort(404, 'فایل پیوست در این تیکت یافت نشد.');
+            abort(404, __('controllers.admin.tickets.attachment_not_found_ticket'));
         }
 
         if (! Storage::disk('local')->exists($attachment->file_path)) {
-            abort(404, 'فایل مورد نظر در سرور موجود نمی‌باشد.');
+            abort(404, __('controllers.admin.tickets.attachment_not_found_server'));
         }
 
         return Storage::disk('local')->download(

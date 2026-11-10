@@ -133,15 +133,15 @@ class TicketController extends Controller
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:5120', 'mimes:jpg,jpeg,png,pdf,zip,txt'],
         ], [
-            'subject.required' => 'وارد نمودن موضوع تیکت الزامی است.',
-            'subject.min' => 'موضوع تیکت باید حداقل ۵ کاراکتر باشد.',
-            'department.required' => 'انتخاب دپارتمان پشتیبانی الزامی است.',
-            'priority.required' => 'تعیین سطح اولویت تیکت الزامی است.',
-            'message.required' => 'شرح پیام تیکت الزامی است.',
-            'message.min' => 'متن پیام باید حداقل ۱۰ کاراکتر باشد.',
-            'attachments.max' => 'حداکثر ۵ فایل پیوست مجاز است.',
-            'attachments.*.max' => 'حجم هر فایل پیوست نباید بیش از ۵ مگابایت باشد.',
-            'attachments.*.mimes' => 'فرمت مجاز فایل‌های پیوست: JPG, PNG, PDF, ZIP, TXT می‌باشد.',
+            'subject.required' => __('controllers.user.tickets.val_subject_required'),
+            'subject.min' => __('controllers.user.tickets.val_subject_min'),
+            'department.required' => __('controllers.user.tickets.val_department_required'),
+            'priority.required' => __('controllers.user.tickets.val_priority_required'),
+            'message.required' => __('controllers.user.tickets.val_message_required'),
+            'message.min' => __('controllers.user.tickets.val_message_min'),
+            'attachments.max' => __('controllers.user.tickets.val_attachments_max'),
+            'attachments.*.max' => __('controllers.user.tickets.val_attachments_file_max'),
+            'attachments.*.mimes' => __('controllers.user.tickets.val_attachments_mimes'),
         ]);
 
         $attachments = $request->file('attachments', []);
@@ -153,7 +153,7 @@ class TicketController extends Controller
         );
 
         return redirect()->route('tickets.show', $ticket)
-            ->with('success', "تیکت پشتیبانی شماره «{$ticket->ticket_number}» با موفقیت ثبت گردید.");
+            ->with('success', __('controllers.user.tickets.created'));
     }
 
     /**
@@ -231,10 +231,10 @@ class TicketController extends Controller
             'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'max:5120', 'mimes:jpg,jpeg,png,pdf,zip,txt'],
         ], [
-            'message.required' => 'متن پاسخ الزامی است.',
-            'attachments.max' => 'حداکثر ۵ فایل پیوست مجاز است.',
-            'attachments.*.max' => 'حجم هر فایل پیوست نباید بیش از ۵ مگابایت باشد.',
-            'attachments.*.mimes' => 'فرمت‌های مجاز فایل پیوست: JPG, PNG, PDF, ZIP, TXT.',
+            'message.required' => __('controllers.user.tickets.val_reply_required'),
+            'attachments.max' => __('controllers.user.tickets.val_attachments_max'),
+            'attachments.*.max' => __('controllers.user.tickets.val_attachments_file_max'),
+            'attachments.*.mimes' => __('controllers.user.tickets.val_attachments_mimes'),
         ]);
 
         $attachments = $request->file('attachments', []);
@@ -246,7 +246,7 @@ class TicketController extends Controller
             attachments: is_array($attachments) ? $attachments : [$attachments]
         );
 
-        return back()->with('success', 'پاسخ شما با موفقیت ارسال گردید.');
+        return back()->with('success', __('controllers.user.tickets.reply_sent'));
     }
 
     /**
@@ -258,7 +258,7 @@ class TicketController extends Controller
 
         $this->ticketService->closeTicket($ticket, request()->user());
 
-        return back()->with('success', 'تیکت با موفقیت بسته‌شد.');
+        return back()->with('success', __('controllers.user.tickets.closed'));
     }
 
     /**
@@ -269,11 +269,11 @@ class TicketController extends Controller
         $this->authorize('downloadAttachment', $ticket);
 
         if ($attachment->ticketMessage->ticket_id !== $ticket->id) {
-            abort(404, 'فایل پیوست در این تیکت یافت نشد.');
+            abort(404, __('controllers.user.tickets.attachment_not_found_ticket'));
         }
 
         if (! Storage::disk('local')->exists($attachment->file_path)) {
-            abort(404, 'فایل مورد نظر در سرور موجود نمی‌باشد.');
+            abort(404, __('controllers.user.tickets.attachment_not_found_server'));
         }
 
         return Storage::disk('local')->download(

@@ -11,4 +11,3 @@ class InvalidWalletTransactionException extends RuntimeException
         parent::__construct($message ?? __('exceptions.invalid_wallet_transaction'));
     }
 }
-

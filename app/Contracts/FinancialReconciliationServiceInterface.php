@@ -20,4 +20,3 @@ interface FinancialReconciliationServiceInterface
      */
     public function reconcileGlobal(bool $autoFix = false): array;
 }
-

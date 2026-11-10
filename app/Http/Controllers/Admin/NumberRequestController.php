@@ -137,7 +137,10 @@ class NumberRequestController extends Controller
 
             return back()->with(
                 'success',
-                "درخواست سرشماره «{$updated->service_title}» با موفقیت تأیید و خط سازمانی {$updated->allocatedNumber?->number} به کاربر اختصاص یافت."
+                __('controllers.admin.number_requests.approved_flash', [
+                    'title' => $updated->service_title,
+                    'number' => $updated->allocatedNumber?->number,
+                ])
             );
         } catch (NumberAllocationException $e) {
             return back()->withErrors([
@@ -146,9 +149,10 @@ class NumberRequestController extends Controller
                 'general' => $e->getMessage(),
             ])->with('error', $e->getMessage());
         } catch (\Throwable $e) {
+            $err = __('controllers.admin.number_requests.approve_failed', ['message' => $e->getMessage()]);
             return back()->withErrors([
-                'general' => 'خطا در فرآیند تأیید درخواست. لطفاً مجدداً اقدام فرمایید.',
-            ])->with('error', 'خطا در فرآیند تأیید درخواست. لطفاً مجدداً اقدام فرمایید.');
+                'general' => $err,
+            ])->with('error', $err);
         }
     }
 
@@ -166,16 +170,17 @@ class NumberRequestController extends Controller
                 reason: (string) $request->input('reason')
             );
 
-            return back()->with('success', "درخواست سرشماره «{$numberRequest->service_title}» با درج دلیل عدم تأیید، رد گردید.");
+            return back()->with('success', __('controllers.admin.number_requests.rejected_flash', ['title' => $numberRequest->service_title]));
         } catch (NumberAllocationException $e) {
             return back()->withErrors([
                 'reason' => $e->getMessage(),
                 'general' => $e->getMessage(),
             ])->with('error', $e->getMessage());
         } catch (\Throwable $e) {
+            $err = __('controllers.admin.number_requests.reject_failed', ['message' => $e->getMessage()]);
             return back()->withErrors([
-                'general' => 'خطا در فرآیند رد درخواست.',
-            ])->with('error', 'خطا در فرآیند رد درخواست.');
+                'general' => $err,
+            ])->with('error', $err);
         }
     }
 }

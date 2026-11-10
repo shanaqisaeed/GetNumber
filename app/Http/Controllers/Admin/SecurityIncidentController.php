@@ -93,11 +93,11 @@ class SecurityIncidentController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'رخداد امنیتی با موفقیت بررسی و رفع گردید.',
+                'message' => __('controllers.admin.security.incident_resolved'),
             ]);
         }
 
-        return back()->with('success', 'رخداد امنیتی با موفقیت بررسی و بسته شد.');
+        return back()->with('success', __('controllers.admin.security.incident_resolved'));
     }
 
     /**
@@ -137,11 +137,10 @@ class SecurityIncidentController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => "سطح اعتبار کاربر با موفقیت به {$validated['trust_tier']} تغییر یافت.",
+                'message' => __('controllers.admin.security.tier_updated', ['tier' => $validated['trust_tier']]),
             ]);
         }
 
-        return back()->with('success', "سطح اعتبار کاربر به {$validated['trust_tier']} به‌روزرسانی شد.");
+        return back()->with('success', __('controllers.admin.security.tier_updated', ['tier' => $validated['trust_tier']]));
     }
 }
-

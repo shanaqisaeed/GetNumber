@@ -103,7 +103,7 @@ class TwoFactorChallengeController extends Controller
             ]);
 
             throw ValidationException::withMessages([
-                'code' => 'کد تایید دو مرحله‌ای یا کد بازیابی وارد شده صحیح نمی‌باشد.',
+                'code' => __('controllers.auth.two_factor_invalid_code'),
             ]);
         }
 
@@ -120,4 +120,3 @@ class TwoFactorChallengeController extends Controller
         return redirect()->intended(route('dashboard', absolute: false));
     }
 }
-

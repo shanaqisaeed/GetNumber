@@ -116,4 +116,3 @@ interface WalletServiceInterface
      */
     public function reconcile(User $user): bool;
 }
-

@@ -16,4 +16,3 @@ class TierLimitExceededException extends RuntimeException
         parent::__construct($message ?? __('exceptions.tier_limit_exceeded'));
     }
 }
-

@@ -15,4 +15,3 @@ interface BlockchainWatcherServiceInterface
      */
     public function progressPendingConfirmations(int $limit = 50): array;
 }
-

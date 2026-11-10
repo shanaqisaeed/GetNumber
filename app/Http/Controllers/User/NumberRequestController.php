@@ -136,11 +136,11 @@ class NumberRequestController extends Controller
                 phonePrefixId: $request->filled('phone_prefix_id') ? (int) $request->input('phone_prefix_id') : null
             );
 
-            return back()->with('success', "درخواست سرشماره سازمانی «{$newRequest->service_title}» با موفقیت ثبت شد و در صف بررسی مدیریت قرار گرفت.");
+            return back()->with('success', __('controllers.user.number_requests.submitted', ['title' => $newRequest->service_title]));
         } catch (NumberAllocationException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
-            return back()->with('error', 'خطایی در ثبت درخواست رخ داد. لطفاً مجدداً اقدام فرمایید.');
+            return back()->with('error', __('controllers.user.number_requests.submit_error'));
         }
     }
 
@@ -154,11 +154,11 @@ class NumberRequestController extends Controller
         try {
             $this->requestService->cancelRequest($numberRequest, $request->user());
 
-            return back()->with('success', 'درخواست سرشماره سازمانی با موفقیت لغو و حذف گردید.');
+            return back()->with('success', __('controllers.user.number_requests.cancelled'));
         } catch (NumberAllocationException $e) {
             return back()->with('error', $e->getMessage());
         } catch (\Throwable $e) {
-            return back()->with('error', 'خطا در لغو درخواست. لطفاً بعداً تلاش فرمایید.');
+            return back()->with('error', __('controllers.user.number_requests.cancel_error'));
         }
     }
 }

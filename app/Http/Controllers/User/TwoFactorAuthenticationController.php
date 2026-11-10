@@ -60,7 +60,7 @@ class TwoFactorAuthenticationController extends Controller
             'secret' => $secret,
             'qr_code_url' => $qrCodeUrl,
             'recovery_codes' => $recoveryCodes,
-            'message' => 'کلید امنیتی تولید گردید. لطفاً کد ۶ رقمی برنامه احراز هویت را جهت فعال‌سازی نهایی وارد فرمایید.',
+            'message' => __('controllers.user.two_factor.secret_generated'),
         ]);
     }
 
@@ -74,20 +74,20 @@ class TwoFactorAuthenticationController extends Controller
 
         if (empty($user->two_factor_secret)) {
             throw ValidationException::withMessages([
-                'code' => 'فرآیند فعال‌سازی احراز هویت آغاز نشده است.',
+                'code' => __('controllers.user.two_factor.setup_not_initiated'),
             ]);
         }
 
         $validated = $request->validate([
             'code' => ['required', 'string', 'size:6'],
         ], [
-            'code.required' => 'ورود کد ۶ رقمی الزامی است.',
-            'code.size' => 'کد تایید باید دقیقاً ۶ رقم باشد.',
+            'code.required' => __('controllers.user.two_factor.val_code_required'),
+            'code.size' => __('controllers.user.two_factor.val_code_size'),
         ]);
 
         if (! $this->totp->verifyCode($user->two_factor_secret, $validated['code'])) {
             throw ValidationException::withMessages([
-                'code' => 'کد ۶ رقمی وارد شده نامعتبر یا منقضی شده است.',
+                'code' => __('controllers.user.two_factor.val_code_invalid'),
             ]);
         }
 
@@ -105,7 +105,7 @@ class TwoFactorAuthenticationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'احراز هویت دومرحله‌ای با موفقیت فعال و تایید گردید.',
+            'message' => __('controllers.user.two_factor.enabled'),
             'recovery_codes' => $user->two_factor_recovery_codes,
         ]);
     }
@@ -121,12 +121,12 @@ class TwoFactorAuthenticationController extends Controller
         $validated = $request->validate([
             'password' => ['required', 'string'],
         ], [
-            'password.required' => 'ورود کلمه عبور فعلی الزامی است.',
+            'password.required' => __('controllers.user.two_factor.val_password_required'),
         ]);
 
         if (! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'password' => 'کلمه عبور وارد شده نادرست است.',
+                'password' => __('controllers.user.two_factor.val_password_incorrect'),
             ]);
         }
 
@@ -146,7 +146,7 @@ class TwoFactorAuthenticationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'احراز هویت دومرحله‌ای با موفقیت غیرفعال گردید.',
+            'message' => __('controllers.user.two_factor.disabled'),
         ]);
     }
 
@@ -160,19 +160,19 @@ class TwoFactorAuthenticationController extends Controller
 
         if (! $user->hasTwoFactorEnabled()) {
             throw ValidationException::withMessages([
-                'password' => 'احراز هویت دومرحله‌ای فعال نمی‌باشد.',
+                'password' => __('controllers.user.two_factor.not_enabled'),
             ]);
         }
 
         $validated = $request->validate([
             'password' => ['required', 'string'],
         ], [
-            'password.required' => 'ورود کلمه عبور فعلی الزامی است.',
+            'password.required' => __('controllers.user.two_factor.val_password_required'),
         ]);
 
         if (! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'password' => 'کلمه عبور وارد شده نادرست است.',
+                'password' => __('controllers.user.two_factor.val_password_incorrect'),
             ]);
         }
 
@@ -192,7 +192,7 @@ class TwoFactorAuthenticationController extends Controller
         return response()->json([
             'success' => true,
             'recovery_codes' => $newCodes,
-            'message' => 'کدهای بازیابی جدید با موفقیت صادر گردیدند.',
+            'message' => __('controllers.user.two_factor.recovery_codes_regenerated'),
         ]);
     }
 
@@ -207,12 +207,12 @@ class TwoFactorAuthenticationController extends Controller
         $validated = $request->validate([
             'password' => ['required', 'string'],
         ], [
-            'password.required' => 'ورود کلمه عبور فعلی جهت تایید هویت الزامی است.',
+            'password.required' => __('controllers.user.two_factor.val_password_required'),
         ]);
 
         if (! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
-                'password' => 'کلمه عبور وارد شده صحیح نمی‌باشد.',
+                'password' => __('controllers.user.two_factor.val_password_incorrect'),
             ]);
         }
 
@@ -228,8 +228,7 @@ class TwoFactorAuthenticationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'تمام نشست‌های فعال روی سایر دستگاه‌ها با موفقیت لغو و خارج شدند.',
+            'message' => __('controllers.user.two_factor.other_sessions_cleared'),
         ]);
     }
 }
-

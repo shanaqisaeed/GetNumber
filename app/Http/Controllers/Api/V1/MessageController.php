@@ -27,7 +27,7 @@ class MessageController extends Controller
         if (! $token->can('*') && ! $token->can('messages:write') && ! $token->can('messages:send')) {
             return response()->json([
                 'success' => false,
-                'message' => 'کلید ارتباطی فاقد مجوز ثبت یا ارسال پیام (messages:write یا messages:send) می‌باشد.',
+                'message' => __('controllers.api.v1_messages.unauthorized_write'),
                 'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
             ], 403);
         }
@@ -36,10 +36,10 @@ class MessageController extends Controller
         if (! $request->filled('destination_number') && ! $request->filled('destinations') && ! $request->filled('to')) {
             return response()->json([
                 'success' => false,
-                'message' => 'شماره مقصد (destination_number) الزامی است.',
+                'message' => __('controllers.api.v1_messages.dest_required'),
                 'code' => 'VALIDATION_ERROR',
                 'errors' => [
-                    'destination_number' => ['شماره مقصد الزامی است.'],
+                    'destination_number' => [__('controllers.api.v1_messages.dest_required')],
                 ],
             ], 422);
         }
@@ -48,10 +48,10 @@ class MessageController extends Controller
         if (! $request->filled('sender') && ! $request->filled('from_number') && ! $request->filled('from') && ! $request->filled('from_number_id')) {
             return response()->json([
                 'success' => false,
-                'message' => 'شناسه فرستنده الزامی است.',
+                'message' => __('controllers.api.v1_messages.sender_required'),
                 'code' => 'VALIDATION_ERROR',
                 'errors' => [
-                    'sender' => ['شناسه فرستنده الزامی است.'],
+                    'sender' => [__('controllers.api.v1_messages.sender_required')],
                 ],
             ], 422);
         }
@@ -60,10 +60,10 @@ class MessageController extends Controller
         if (! $request->filled('body') && ! $request->filled('message') && ! $request->filled('text')) {
             return response()->json([
                 'success' => false,
-                'message' => 'متن پیام الزامی است.',
+                'message' => __('controllers.api.v1_messages.body_required'),
                 'code' => 'VALIDATION_ERROR',
                 'errors' => [
-                    'body' => ['متن پیام الزامی است.'],
+                    'body' => [__('controllers.api.v1_messages.body_required')],
                 ],
             ], 422);
         }
@@ -72,10 +72,10 @@ class MessageController extends Controller
         if (mb_strlen($bodyValue) > 5000) {
             return response()->json([
                 'success' => false,
-                'message' => 'متن پیام نمی‌تواند بیش از ۵۰۰۰ کاراکتر باشد.',
+                'message' => __('controllers.api.v1_messages.body_max'),
                 'code' => 'VALIDATION_ERROR',
                 'errors' => [
-                    'body' => ['متن پیام نمی‌تواند بیش از ۵۰۰۰ کاراکتر باشد.'],
+                    'body' => [__('controllers.api.v1_messages.body_max')],
                 ],
             ], 422);
         }
@@ -102,8 +102,8 @@ class MessageController extends Controller
             return response()->json([
                 'success' => $sentCount > 0,
                 'message' => $isDuplicate
-                    ? 'پیام‌های این بسته پیش‌تر در سامانه ثبت شده‌اند (درخواست تکراری / Idempotent).'
-                    : ($sentCount > 0 ? "تعداد {$sentCount} پیام با موفقیت ارسال گردید." : 'ارسال پیام به تمامی مقاصد ناموفق بود.'),
+                    ? __('controllers.api.v1_messages.batch_idempotent')
+                    : ($sentCount > 0 ? __('controllers.api.v1_messages.batch_sent_count', ['count' => $sentCount]) : __('controllers.api.v1_messages.batch_all_failed')),
                 'data' => [
                     'sender' => $result['sender'] ?? null,
                     'total' => $result['total'] ?? 0,
@@ -123,8 +123,8 @@ class MessageController extends Controller
         return response()->json([
             'success' => true,
             'message' => $isDuplicate
-                ? 'پیام پیش‌تر در سامانه ثبت شده است (درخواست تکراری / Idempotent).'
-                : ($isOutbound ? 'پیام خروجی با موفقیت در سامانه ثبت گردید.' : 'پیام ورودی با موفقیت در سامانه ثبت گردید.'),
+                ? __('controllers.api.v1_messages.single_idempotent')
+                : ($isOutbound ? __('controllers.api.v1_messages.outbound_registered') : __('controllers.api.v1_messages.inbound_registered')),
             'data' => [
                 'id' => $message->id,
                 'destination_number' => $message->destination_number,
@@ -154,7 +154,7 @@ class MessageController extends Controller
         if (! $token->can('*') && ! $token->can('messages:read')) {
             return response()->json([
                 'success' => false,
-                'message' => 'کلید ارتباطی فاقد مجوز مشاهده پیام‌ها (messages:read) می‌باشد.',
+                'message' => __('controllers.api.v1_messages.unauthorized_read'),
                 'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
             ], 403);
         }
@@ -167,7 +167,7 @@ class MessageController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'فهرست پیام‌ها با موفقیت دریافت شد.',
+            'message' => __('controllers.api.v1_messages.messages_list_fetched'),
             'pagination' => [
                 'current_page' => $messages->currentPage(),
                 'last_page' => $messages->lastPage(),
@@ -190,7 +190,7 @@ class MessageController extends Controller
         if (! $token->can('*') && ! $token->can('messages:read')) {
             return response()->json([
                 'success' => false,
-                'message' => 'کلید ارتباطی فاقد مجوز استعلام پیام‌ها می‌باشد.',
+                'message' => __('controllers.api.v1_messages.unauthorized_query'),
                 'code' => 'INSUFFICIENT_TOKEN_ABILITIES',
             ], 403);
         }
@@ -261,7 +261,7 @@ class MessageController extends Controller
         }
 
         if (! $phoneNumberId) {
-            return response()->json(['success' => false, 'message' => 'شماره خط نامشخص است.'], 400);
+            return response()->json(['success' => false, 'message' => __('controllers.api.v1_messages.number_unknown')], 400);
         }
 
         $resyncData = $this->messageService->resyncMessages(

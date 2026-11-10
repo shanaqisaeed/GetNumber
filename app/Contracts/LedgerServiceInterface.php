@@ -122,4 +122,3 @@ interface LedgerServiceInterface
      */
     public function checkGlobalBalance(): array;
 }
-

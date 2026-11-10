@@ -25,9 +25,9 @@ class KeycloakAuthController extends Controller
     {
         if (!SystemSetting::isAuthProviderEnabled('keycloak')) {
             if (Auth::check()) {
-                return redirect()->route('profile.edit')->with('error', 'امکان اتصال با Keycloak در تنظیمات عمومی سامانه غیرفعال شده است.');
+                return redirect()->route('profile.edit')->with('error', __('controllers.auth.keycloak_disabled_profile'));
             }
-            return redirect()->route('login')->with('error', 'ورود با Keycloak در حال حاضر فعال نمی‌باشد.');
+            return redirect()->route('login')->with('error', __('controllers.auth.keycloak_disabled_login'));
         }
 
         $action = Auth::check() ? 'link' : 'login';
@@ -42,12 +42,12 @@ class KeycloakAuthController extends Controller
     public function callback(Request $request): RedirectResponse
     {
         if (!SystemSetting::isAuthProviderEnabled('keycloak')) {
-            return redirect()->route('login')->with('error', 'ورود با Keycloak غیرفعال است.');
+            return redirect()->route('login')->with('error', __('controllers.auth.keycloak_disabled_general'));
         }
 
         $code = $request->query('code');
         if (empty($code)) {
-            $error = $request->query('error_description') ?: 'مجوز ورود از طریق سامانه Keycloak رد شد.';
+            $error = $request->query('error_description') ?: __('controllers.auth.keycloak_rejected');
             return redirect()->route('login')->with('error', $error);
         }
 
@@ -64,7 +64,7 @@ class KeycloakAuthController extends Controller
 
         $profile = $this->keycloakService->handleCallback($code);
         if (!$profile) {
-            return redirect()->route('login')->with('error', 'ارتباط با سرور Keycloak یا استخراج اطلاعات کاربری ناموفق بود.');
+            return redirect()->route('login')->with('error', __('controllers.auth.keycloak_fetch_failed'));
         }
 
         $action = $stateData['action'] ?? (Auth::check() ? 'link' : 'login');
@@ -74,7 +74,7 @@ class KeycloakAuthController extends Controller
             try {
                 $this->identityService->linkKeycloak(Auth::user(), $profile);
                 return redirect()->route('profile.edit', ['tab' => 'identities'])
-                    ->with('success', 'حساب کاربری Keycloak با موفقیت به حساب شما متصل گردید.');
+                    ->with('success', __('controllers.auth.keycloak_linked'));
             } catch (ValidationException $e) {
                 return redirect()->route('profile.edit', ['tab' => 'identities'])
                     ->with('error', $e->validator->errors()->first());
@@ -98,4 +98,3 @@ class KeycloakAuthController extends Controller
         }
     }
 }
-

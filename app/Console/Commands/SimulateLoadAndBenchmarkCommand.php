@@ -171,4 +171,3 @@ class SimulateLoadAndBenchmarkCommand extends Command
         return self::SUCCESS;
     }
 }
-

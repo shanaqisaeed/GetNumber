@@ -40,7 +40,7 @@ class WebPushController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'اعلان‌های مرورگر با موفقیت فعال شدند.',
+            'message' => __('controllers.api.webpush.subscribed'),
             'id' => $subscription->id,
         ]);
     }
@@ -58,7 +58,7 @@ class WebPushController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'اشتراک اعلان مرورگر لغو شد.',
+            'message' => __('controllers.api.webpush.unsubscribed'),
         ]);
     }
 
@@ -72,4 +72,3 @@ class WebPushController extends Controller
         return response()->json($result);
     }
 }
-

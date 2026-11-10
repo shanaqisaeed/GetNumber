@@ -45,4 +45,3 @@ enum PaymentStatus: string
         return $this === self::TxSubmitted || $this === self::Verifying;
     }
 }
-

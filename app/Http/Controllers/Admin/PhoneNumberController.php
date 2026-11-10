@@ -85,7 +85,7 @@ class PhoneNumberController extends Controller
                 'effective_title' => $phone->effective_title,
                 'display_title' => $phone->display_title,
                 'rond_tier' => $phone->rond_tier ?? 'regular',
-                'rond_tier_label' => $phone->rond_tier_label ?? 'عادی',
+                'rond_tier_label' => $phone->rond_tier_label ?? __('controllers.user.phone_numbers.rond_default'),
                 'rond_pattern' => $phone->rond_pattern,
                 'type' => $phone->type->value,
                 'type_label' => $phone->type->label(),
@@ -130,10 +130,10 @@ class PhoneNumberController extends Controller
                 'digits' => ['required', 'integer', 'min:4', 'max:11'],
                 'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
             ], [
-                'count.required' => 'تعیین تعداد خطوط الزامی است.',
-                'digits.required' => 'تعیین طول ارقام شماره الزامی است.',
-                'digits.min' => 'حداقل طول مجاز ارقام ۴ رقم می‌باشد.',
-                'digits.max' => 'حداکثر طول مجاز ارقام ۱۱ رقم می‌باشد.',
+                'count.required' => __('controllers.admin.phone_numbers.val_count_required'),
+                'digits.required' => __('controllers.admin.phone_numbers.val_length_required'),
+                'digits.min' => __('controllers.admin.phone_numbers.val_digits_min'),
+                'digits.max' => __('controllers.admin.phone_numbers.val_digits_max'),
             ]);
 
             $type = PhoneNumberType::from($validated['type']);
@@ -145,7 +145,7 @@ class PhoneNumberController extends Controller
                 digits: $digits
             );
 
-            return back()->with('success', "تعداد {$generatedCount} خط سازمانی با طول {$digits} رقم با موفقیت در استخر شماره‌های آزاد سامانه تولید و ثبت گردید.");
+            return back()->with('success', __('controllers.admin.phone_numbers.batch_generated_flash', ['count' => $generatedCount, 'digits' => $digits]));
         }
 
         // Single number creation
@@ -159,9 +159,9 @@ class PhoneNumberController extends Controller
             'user_id' => ['nullable', 'exists:users,id'],
             'accepts_incoming_sms' => ['nullable', 'boolean'],
         ], [
-            'number.required' => 'وارد نمودن مقدار عددی شماره الزامی است.',
-            'number.regex' => 'قالب شماره باید بین ۴ تا ۱۱ رقم عددی باشد.',
-            'number.unique' => 'این شماره قبلاً در سامانه ثبت شده است.',
+            'number.required' => __('controllers.admin.phone_numbers.val_number_required'),
+            'number.regex' => __('controllers.admin.phone_numbers.val_number_regex'),
+            'number.unique' => __('controllers.admin.phone_numbers.val_number_unique'),
         ]);
 
         $type = PhoneNumberType::from($validated['type']);
@@ -169,7 +169,7 @@ class PhoneNumberController extends Controller
 
         // Platform service numbers cannot belong to regular users
         if ($type === PhoneNumberType::PlatformService && $user && ! $user->isAdmin()) {
-            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+            return back()->with('error', __('controllers.admin.phone_numbers.platform_service_cannot_allocate'));
         }
 
         $status = $user ? PhoneNumberStatus::Allocated : PhoneNumberStatus::Available;
@@ -210,7 +210,7 @@ class PhoneNumberController extends Controller
             'user_id' => $phone->user_id,
         ]);
 
-        return back()->with('success', "خط سازمانی {$phone->formatted_number} با موفقیت در سامانه ثبت گردید.");
+        return back()->with('success', __('controllers.admin.phone_numbers.number_created', ['number' => $phone->formatted_number]));
     }
 
     /**
@@ -227,9 +227,9 @@ class PhoneNumberController extends Controller
             'user_id' => ['nullable', 'exists:users,id'],
             'accepts_incoming_sms' => ['nullable', 'boolean'],
         ], [
-            'display_title.max' => 'عنوان نمایشی نباید بیش از ۱۰۰ کاراکتر باشد.',
-            'type.required' => 'تعیین نوع خط الزامی است.',
-            'type.in' => 'نوع خط انتخاب شده نامعتبر است.',
+            'display_title.max' => __('controllers.user.phone_numbers.val_title_max'),
+            'type.required' => __('controllers.admin.phone_numbers.val_type_required'),
+            'type.in' => __('controllers.admin.phone_numbers.val_type_in'),
         ]);
 
         $type = PhoneNumberType::from($validated['type']);
@@ -237,7 +237,7 @@ class PhoneNumberController extends Controller
         $user = $newUserId ? User::find($newUserId) : null;
 
         if ($type === PhoneNumberType::PlatformService && $user && ! $user->isAdmin()) {
-            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+            return back()->with('error', __('controllers.admin.phone_numbers.platform_service_cannot_allocate'));
         }
 
         $oldValues = [
@@ -287,7 +287,7 @@ class PhoneNumberController extends Controller
             'new' => $updateData,
         ]);
 
-        return back()->with('success', "اطلاعات خط سازمانی {$number->fresh()->formatted_number} با موفقیت ویرایش و ذخیره شد.");
+        return back()->with('success', __('controllers.admin.phone_numbers.number_updated', ['number' => $number->fresh()->formatted_number]));
     }
 
     /**
@@ -305,7 +305,7 @@ class PhoneNumberController extends Controller
 
         $number->delete();
 
-        return back()->with('success', "خط سازمانی {$formatted} با موفقیت از سیستم حذف گردید.");
+        return back()->with('success', __('controllers.admin.phone_numbers.number_deleted', ['number' => $formatted]));
     }
 
     /**
@@ -324,10 +324,10 @@ class PhoneNumberController extends Controller
             phoneNumber: $number,
             newStatus: $newStatus,
             actor: $request->user(),
-            reason: $validated['reason'] ?? 'تغییر وضعیت توسط راهبر سامانه'
+            reason: $validated['reason'] ?? __('controllers.admin.phone_numbers.status_reason_admin')
         );
 
-        return back()->with('success', "وضعیت خط سازمانی {$number->formatted_number} با موفقیت به «{$newStatus->label()}» تغییر یافت.");
+        return back()->with('success', __('controllers.admin.phone_numbers.status_updated', ['number' => $number->formatted_number, 'status' => $newStatus->label()]));
     }
 
     /**
@@ -343,7 +343,7 @@ class PhoneNumberController extends Controller
         $targetUser = User::findOrFail($validated['user_id']);
 
         if ($number->type === PhoneNumberType::PlatformService && ! $targetUser->isAdmin()) {
-            return back()->with('error', 'سرشماره‌های اختصاصی سامانه قابل تخصیص به کاربران عادی نمی‌باشند.');
+            return back()->with('error', __('controllers.admin.phone_numbers.platform_service_cannot_allocate'));
         }
 
         $title = ! empty($validated['display_title'])
@@ -362,12 +362,12 @@ class PhoneNumberController extends Controller
                 $this->allocationService->allocateServiceNumberToUser(
                     user: $targetUser,
                     serviceNumber: $number->number,
-                    displayTitle: $title ?: 'سرشماره سازمانی',
+                    displayTitle: $title ?: __('controllers.api.v1_numbers.default_title'),
                     actor: $request->user()
                 );
             }
 
-            return back()->with('success', "خط سازمانی {$number->formatted_number} با موفقیت به کاربر {$targetUser->name} تخصیص یافت.");
+            return back()->with('success', __('controllers.admin.phone_numbers.allocated_flash', ['number' => $number->formatted_number, 'user' => $targetUser->name]));
         } catch (NumberAllocationException $e) {
             return back()->with('error', $e->getMessage());
         }
@@ -381,9 +381,9 @@ class PhoneNumberController extends Controller
         $this->allocationService->releaseNumber(
             phoneNumber: $number,
             actor: $request->user(),
-            reason: 'آزادسازی توسط راهبر ارشد سامانه'
+            reason: __('controllers.admin.phone_numbers.release_reason_admin')
         );
 
-        return back()->with('success', "خط سازمانی {$number->formatted_number} با موفقیت آزاد شده و به استخر شماره‌ها بازگشت.");
+        return back()->with('success', __('controllers.admin.phone_numbers.released_flash', ['number' => $number->formatted_number]));
     }
 }
