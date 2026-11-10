@@ -149,6 +149,11 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Multi-Provider User Identity Linking
+    Route::post('/profile/identities/email', [\App\Http\Controllers\User\UserIdentityController::class, 'linkEmail'])->name('profile.identities.email');
+    Route::post('/profile/identities/ldap', [\App\Http\Controllers\User\UserIdentityController::class, 'linkLdap'])->name('profile.identities.ldap');
+    Route::delete('/profile/identities/{provider}', [\App\Http\Controllers\User\UserIdentityController::class, 'unlink'])->name('profile.identities.unlink');
+
     // Two-Factor Authentication & Account Security Management
     Route::get('/two-factor/status', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'status'])->name('two-factor.status');
     Route::post('/two-factor/enable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'store'])->name('two-factor.enable');
@@ -234,6 +239,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/payments/{deposit}/verify', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'verify'])->name('payments.verify');
     Route::post('/payments/{deposit}/complete-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'completeManually'])->name('payments.complete-manually');
     Route::post('/payments/{deposit}/reject-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'rejectManually'])->name('payments.reject-manually');
+
+    // Admin System & Authentication Settings Management
+    Route::get('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'general'])->name('settings.general');
+    Route::post('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'updateGeneral'])->name('settings.general.update');
+
+    Route::get('/settings/auth', [\App\Http\Controllers\Admin\SettingController::class, 'auth'])->name('settings.auth');
+    Route::post('/settings/auth', [\App\Http\Controllers\Admin\SettingController::class, 'updateAuth'])->name('settings.auth.update');
+
+    Route::get('/settings/ldap', [\App\Http\Controllers\Admin\SettingController::class, 'ldap'])->name('settings.ldap');
+    Route::post('/settings/ldap', [\App\Http\Controllers\Admin\SettingController::class, 'updateLdap'])->name('settings.ldap.update');
+    Route::post('/settings/ldap/test', [\App\Http\Controllers\Admin\SettingController::class, 'testLdap'])->name('settings.ldap.test');
+
+    Route::get('/settings/keycloak', [\App\Http\Controllers\Admin\SettingController::class, 'keycloak'])->name('settings.keycloak');
+    Route::post('/settings/keycloak', [\App\Http\Controllers\Admin\SettingController::class, 'updateKeycloak'])->name('settings.keycloak.update');
+    Route::post('/settings/keycloak/test', [\App\Http\Controllers\Admin\SettingController::class, 'testKeycloak'])->name('settings.keycloak.test');
 });
 
 require __DIR__.'/auth.php';

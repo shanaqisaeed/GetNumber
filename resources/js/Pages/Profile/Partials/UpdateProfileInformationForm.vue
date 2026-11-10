@@ -89,6 +89,24 @@ const form = useForm({
                 </p>
             </div>
 
+            <!-- Email Display -->
+            <div class="space-y-1.5">
+                <div class="flex items-center justify-between">
+                    <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
+                        نشانی پست الکترونیک (ایمیل)
+                    </label>
+                    <span v-if="user.email" class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">تایید شده</span>
+                </div>
+                <input
+                    type="text"
+                    :value="user.email || 'هنوز نشانی ایمیل به حساب شما متصل نشده است'"
+                    disabled
+                    readonly
+                    dir="ltr"
+                    class="w-full px-3.5 py-2.5 text-xs text-right font-mono rounded-2xl border border-slate-200/80 dark:border-white/5 bg-slate-100/80 dark:bg-slate-900/80 text-slate-500 dark:text-slate-400 cursor-not-allowed select-none outline-none"
+                />
+            </div>
+
             <!-- Action Button & Feedback -->
             <div class="pt-2 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-white/10">
                 <button

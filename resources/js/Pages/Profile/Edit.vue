@@ -5,12 +5,13 @@ import UpdatePasswordForm from './Partials/UpdatePasswordForm.vue';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm.vue';
 import TwoFactorAuthenticationForm from './Partials/TwoFactorAuthenticationForm.vue';
 import LogoutOtherBrowserSessionsForm from './Partials/LogoutOtherBrowserSessionsForm.vue';
+import ConnectedIdentitiesForm from './Partials/ConnectedIdentitiesForm.vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
 interface Props {
     status?: string;
-    initialTab?: 'info' | 'password' | 'two_factor' | 'account' | 'security' | 'danger';
+    initialTab?: 'info' | 'password' | 'two_factor' | 'identities' | 'account' | 'security' | 'danger';
     wallet?: { balance: string };
     pendingDeposit?: {
         tracking_code: string;
@@ -24,12 +25,37 @@ interface Props {
         status_badge: string;
         created_at: string;
     } | null;
+    identities?: Array<{
+        id: number;
+        provider: string;
+        provider_label: string;
+        provider_id: string;
+        provider_email: string | null;
+        linked_at: string | null;
+    }>;
+    authSettings?: {
+        username_enabled: boolean;
+        email_enabled: boolean;
+        ldap_enabled: boolean;
+        keycloak_enabled: boolean;
+    };
+    hasPassword?: boolean;
+    keycloakLinkUrl?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     initialTab: 'info',
     wallet: () => ({ balance: '0' }),
     pendingDeposit: null,
+    identities: () => [],
+    authSettings: () => ({
+        username_enabled: true,
+        email_enabled: true,
+        ldap_enabled: false,
+        keycloak_enabled: false,
+    }),
+    hasPassword: true,
+    keycloakLinkUrl: '',
 });
 
 const page = usePage();
@@ -41,11 +67,12 @@ const userCredit = computed(() => {
     return Math.floor(raw);
 });
 
-// Tab navigation state (4 tabs: info, password, two_factor, account)
-type TabType = 'info' | 'password' | 'two_factor' | 'account';
+// Tab navigation state (5 tabs: info, password, two_factor, identities, account)
+type TabType = 'info' | 'password' | 'two_factor' | 'identities' | 'account';
 
 const resolveTab = (tab?: string): TabType => {
     if (tab === 'two_factor') return 'two_factor';
+    if (tab === 'identities' || tab === 'connections') return 'identities';
     if (tab === 'security' || tab === 'password') return 'password';
     if (tab === 'danger' || tab === 'account') return 'account';
     return 'info';
@@ -322,8 +349,8 @@ const submitRecharge = () => {
                 </form>
             </div>
 
-            <!-- 4. Profile Management Tabs (4 tabs: Info, Password, 2FA, Account & Sessions) -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold gap-1">
+            <!-- 4. Profile Management Tabs (5 tabs: Info, Password, 2FA, Identities, Account) -->
+            <div class="grid grid-cols-2 sm:grid-cols-5 p-1 rounded-2xl bg-slate-200/80 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 text-xs font-bold gap-1">
                 <button
                     type="button"
                     @click="activeTab = 'info'"
@@ -342,7 +369,7 @@ const submitRecharge = () => {
                         ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
-                    <span>تغییر گذرواژه</span>
+                    <span>گذرواژه</span>
                 </button>
                 <button
                     type="button"
@@ -352,7 +379,17 @@ const submitRecharge = () => {
                         ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
-                    <span>ورود دومرحله‌ای</span>
+                    <span>دو مرحله‌ای</span>
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'identities'"
+                    class="py-2.5 rounded-xl transition-all flex items-center justify-center gap-1 cursor-pointer text-center"
+                    :class="activeTab === 'identities'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                >
+                    <span>اتصال حساب‌ها</span>
                 </button>
                 <button
                     type="button"
@@ -362,7 +399,7 @@ const submitRecharge = () => {
                         ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
                 >
-                    <span>نشست‌ها و پایان حساب</span>
+                    <span>نشست‌ها</span>
                 </button>
             </div>
 
@@ -381,6 +418,16 @@ const submitRecharge = () => {
                 <!-- Two-Factor Authentication Dedicated Tab -->
                 <div v-show="activeTab === 'two_factor'">
                     <TwoFactorAuthenticationForm />
+                </div>
+
+                <!-- Multi-Provider Connected Identities Tab -->
+                <div v-show="activeTab === 'identities'">
+                    <ConnectedIdentitiesForm
+                        :identities="identities"
+                        :authSettings="authSettings"
+                        :hasPassword="hasPassword"
+                        :keycloakLinkUrl="keycloakLinkUrl"
+                    />
                 </div>
 
                 <!-- Sessions & Account Closure Tab -->

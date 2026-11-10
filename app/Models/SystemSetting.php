@@ -57,5 +57,53 @@ class SystemSetting extends Model
     {
         return (string) self::get('number_price_coin', '1.0000');
     }
+
+    /**
+     * Check if a given authentication provider is enabled in system settings.
+     */
+    public static function isAuthProviderEnabled(string $provider): bool
+    {
+        return (bool) (int) self::get("auth_{$provider}_enabled", in_array($provider, ['username', 'email']) ? '1' : '0');
+    }
+
+    /**
+     * Get array of all currently enabled authentication providers.
+     *
+     * @return list<string>
+     */
+    public static function getEnabledAuthProviders(): array
+    {
+        $providers = ['username', 'email', 'ldap', 'keycloak'];
+        $enabled = [];
+
+        foreach ($providers as $provider) {
+            if (self::isAuthProviderEnabled($provider)) {
+                $enabled[] = $provider;
+            }
+        }
+
+        // Guarantee at least username is enabled as a safeguard
+        if (empty($enabled)) {
+            $enabled[] = 'username';
+        }
+
+        return $enabled;
+    }
+
+    /**
+     * Check if public registration is enabled.
+     */
+    public static function isRegistrationAllowed(): bool
+    {
+        return (bool) (int) self::get('allow_user_registration', '1');
+    }
+
+    /**
+     * Check if specific event logging/notification is enabled.
+     */
+    public static function isEventNotificationEnabled(string $eventKey): bool
+    {
+        return (bool) (int) self::get("event_notify_{$eventKey}", '1');
+    }
 }
 

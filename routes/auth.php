@@ -2,9 +2,17 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\KeycloakAuthController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Route;
+
+// Keycloak OpenID Connect SSO routes (accessible for both login and profile linking)
+Route::get('auth/keycloak/redirect', [KeycloakAuthController::class, 'redirect'])
+    ->name('auth.keycloak.redirect');
+
+Route::get('auth/keycloak/callback', [KeycloakAuthController::class, 'callback'])
+    ->name('auth.keycloak.callback');
 
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])

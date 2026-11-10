@@ -77,6 +77,22 @@ class ProfileController extends Controller
             ];
         }
 
+        $identities = $user->identities()->get()->map(fn ($id) => [
+            'id' => $id->id,
+            'provider' => $id->provider,
+            'provider_label' => $id->providerLabel(),
+            'provider_id' => $id->provider_id,
+            'provider_email' => $id->provider_email,
+            'linked_at' => $id->linked_at ? $id->linked_at->format('Y/m/d H:i') : null,
+        ]);
+
+        $authSettings = [
+            'username_enabled' => \App\Models\SystemSetting::isAuthProviderEnabled('username'),
+            'email_enabled' => \App\Models\SystemSetting::isAuthProviderEnabled('email'),
+            'ldap_enabled' => \App\Models\SystemSetting::isAuthProviderEnabled('ldap'),
+            'keycloak_enabled' => \App\Models\SystemSetting::isAuthProviderEnabled('keycloak'),
+        ];
+
         return Inertia::render('Profile/Edit', [
             'status' => session('status'),
             'initialTab' => $request->query('tab', 'info'),
@@ -87,6 +103,10 @@ class ProfileController extends Controller
             'transactions' => $transactions,
             'activeGateways' => $activeGateways,
             'pendingDeposit' => $pendingDepositData,
+            'identities' => $identities,
+            'authSettings' => $authSettings,
+            'hasPassword' => !empty($user->password),
+            'keycloakLinkUrl' => route('auth.keycloak.redirect'),
         ]);
     }
 

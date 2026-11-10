@@ -22,6 +22,7 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'username',
+        'email',
         'password',
         'role',
         'status',
@@ -232,5 +233,52 @@ class User extends Authenticatable
     public function isRestrictedTier(): bool
     {
         return $this->trust_tier === 'restricted';
+    }
+
+    /**
+     * Connected external / multi-provider authentication identities.
+     */
+    public function identities(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(UserIdentity::class);
+    }
+
+    /**
+     * Check if a specific auth identity provider is linked to this user.
+     */
+    public function hasIdentity(string $provider): bool
+    {
+        return $this->identities()->where('provider', $provider)->exists();
+    }
+
+    /**
+     * Get the identity record for a specific provider.
+     */
+    public function getIdentity(string $provider): ?UserIdentity
+    {
+        return $this->identities()->where('provider', $provider)->first();
+    }
+
+    /**
+     * Link a new or existing identity provider to this user.
+     */
+    public function linkIdentity(string $provider, string $providerId, ?string $email = null, array $data = []): UserIdentity
+    {
+        return $this->identities()->updateOrCreate(
+            ['provider' => $provider, 'provider_id' => $providerId],
+            [
+                'provider_email' => $email,
+                'provider_data' => $data,
+                'linked_at' => now(),
+            ]
+        );
+    }
+
+    /**
+     * Unlink an identity provider from this user.
+     */
+    public function unlinkIdentity(string $provider): bool
+    {
+        return (bool) $this->identities()->where('provider', $provider)->delete();
     }
 }

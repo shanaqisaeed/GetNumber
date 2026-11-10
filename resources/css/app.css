@@ -164,28 +164,27 @@ html:not(.dark) .orb-3 {
     100% { transform: translate(-35px, 60px) scale(0.96); }
 }
 
-/* Responsive Mobile Container on Desktop */
+/* Responsive Auth Container matching desktop viewport */
 .app-container {
     position: relative;
     z-index: 10;
     width: 100%;
-    max-width: 440px;
-    height: 100vh;
-    height: 100dvh;
+    max-width: 720px;
+    min-height: auto;
+    height: auto;
     background: var(--app-bg);
     backdrop-filter: blur(35px) saturate(190%);
     -webkit-backdrop-filter: blur(35px) saturate(190%);
     border: 1px solid var(--glass-border);
     border-top: 1px solid var(--glass-border-specular);
-    border-radius: 36px;
+    border-radius: 32px;
     box-shadow:
         0 25px 70px -15px rgba(0, 0, 0, 0.65),
         0 0 35px -5px rgba(99, 102, 241, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.2);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-    margin: 16px auto;
+    margin: 24px auto;
     transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

@@ -12,18 +12,7 @@ const user = computed(() => page.props.auth?.user);
 
 const isMobileSidebarOpen = ref(false);
 
-const { showLocalNotification, sendTestPush } = useWebNotifications();
-const isTestingPush = ref(false);
-
-const triggerTestPush = async () => {
-    isTestingPush.value = true;
-    const res = await sendTestPush();
-    if (!res.success) {
-        showLocalNotification('سامانه GetNumber (تست پیش‌زمینه)');
-    }
-    isTestingPush.value = false;
-    alert(res.message + "\n\nاکنون می‌توانید مرورگر یا تب را ببندید تا دریافت آن را در حالت بسته تست نمایید.");
-};
+const { showLocalNotification } = useWebNotifications();
 
 useRealtimeMessages({
     userId: user.value?.id,
@@ -36,6 +25,10 @@ useRealtimeMessages({
         }
     },
 });
+
+const isSettingsSubmenuOpen = ref(
+    Boolean(typeof window !== 'undefined' && (window as any).route && (window as any).route().current('admin.settings.*'))
+);
 
 const adminNavigation = [
     {
@@ -111,17 +104,49 @@ const adminNavigation = [
         icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
     },
 ];
+
+const settingsSubMenu = [
+    {
+        name: 'تنظیمات عمومی',
+        href: route('admin.settings.general'),
+        active: route().current('admin.settings.general'),
+        icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
+    },
+    {
+        name: 'روش‌های احراز هویت',
+        href: route('admin.settings.auth'),
+        active: route().current('admin.settings.auth'),
+        icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z',
+    },
+    {
+        name: 'تنظیمات LDAP',
+        href: route('admin.settings.ldap'),
+        active: route().current('admin.settings.ldap'),
+        icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01',
+    },
+    {
+        name: 'تنظیمات Keycloak',
+        href: route('admin.settings.keycloak'),
+        active: route().current('admin.settings.keycloak'),
+        icon: 'M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z',
+    },
+];
+
+const isAnySettingsActive = computed(() => {
+    return typeof window !== 'undefined' && (window as any).route && (window as any).route().current('admin.settings.*');
+});
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-900/5 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row transition-colors duration-300">
+    <!-- Viewport bounded container: fixed desktop sidebar with dedicated scrolling main area -->
+    <div class="h-screen max-h-screen w-full bg-slate-900/5 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col md:flex-row overflow-hidden transition-colors duration-300">
         <!-- Automatic Notification Permission Request Modal -->
         <NotificationPermissionModal />
 
-        <!-- Admin Desktop Sidebar -->
-        <aside class="hidden md:flex flex-col w-72 bg-slate-900 text-slate-200 border-l border-slate-800 shrink-0">
+        <!-- Admin Desktop Sidebar (Fixed Width w-72, Stays Fixed While Main Scrolls) -->
+        <aside class="hidden md:flex flex-col w-72 h-screen max-h-screen sticky top-0 shrink-0 bg-slate-900 text-slate-200 border-l border-slate-800 select-none z-20">
             <!-- Brand & Admin Badge -->
-            <div class="h-20 flex flex-col justify-center px-6 border-b border-slate-800">
+            <div class="h-20 flex flex-col justify-center px-6 border-b border-slate-800 shrink-0">
                 <div class="flex items-center gap-3">
                     <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-900/40">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -138,8 +163,8 @@ const adminNavigation = [
                 </div>
             </div>
 
-            <!-- Admin Navigation -->
-            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto">
+            <!-- Admin Navigation (Internal Smooth Scrollable) -->
+            <nav class="flex-1 p-4 space-y-1.5 overflow-y-auto overscroll-contain">
                 <Link
                     v-for="item in adminNavigation"
                     :key="item.name"
@@ -156,10 +181,60 @@ const adminNavigation = [
                     </svg>
                     <span>{{ item.name }}</span>
                 </Link>
+
+                <!-- Dedicated Settings Collapsible / Submenu Section -->
+                <div class="pt-2">
+                    <button
+                        type="button"
+                        @click="isSettingsSubmenuOpen = !isSettingsSubmenuOpen"
+                        class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer"
+                        :class="[
+                            isAnySettingsActive
+                                ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                        ]"
+                    >
+                        <div class="flex items-center gap-3">
+                            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            <span>تنظیمات سامانه</span>
+                        </div>
+                        <svg
+                            class="w-4 h-4 transition-transform duration-200"
+                            :class="{ 'rotate-180': isSettingsSubmenuOpen }"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <!-- Submenu Items -->
+                    <div v-show="isSettingsSubmenuOpen" class="pr-6 pt-1 space-y-1">
+                        <Link
+                            v-for="subItem in settingsSubMenu"
+                            :key="subItem.name"
+                            :href="subItem.href"
+                            class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                            :class="[
+                                subItem.active
+                                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                                    : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                            ]"
+                        >
+                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="subItem.icon" />
+                            </svg>
+                            <span>{{ subItem.name }}</span>
+                        </Link>
+                    </div>
+                </div>
             </nav>
 
             <!-- Bottom Return to User Area / Profile -->
-            <div class="p-4 border-t border-slate-800 space-y-2">
+            <div class="p-4 border-t border-slate-800 space-y-2 shrink-0">
                 <Link
                     :href="route('dashboard')"
                     class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -184,7 +259,7 @@ const adminNavigation = [
                         :href="route('logout')"
                         method="post"
                         as="button"
-                        class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition-colors"
+                        class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer"
                         title="خروج از سامانه"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -223,7 +298,7 @@ const adminNavigation = [
                     <button
                         type="button"
                         @click="isMobileSidebarOpen = false"
-                        class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                        class="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
                         aria-label="بستن منوی مدیریت"
                     >
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -251,6 +326,56 @@ const adminNavigation = [
                         </svg>
                         <span>{{ item.name }}</span>
                     </Link>
+
+                    <!-- Mobile Settings Submenu -->
+                    <div class="pt-2">
+                        <button
+                            type="button"
+                            @click="isSettingsSubmenuOpen = !isSettingsSubmenuOpen"
+                            class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all"
+                            :class="[
+                                isAnySettingsActive
+                                    ? 'bg-amber-500/15 text-amber-400 font-bold border border-amber-500/30'
+                                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                            ]"
+                        >
+                            <div class="flex items-center gap-3">
+                                <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <span>تنظیمات سامانه</span>
+                            </div>
+                            <svg
+                                class="w-4 h-4 transition-transform duration-200"
+                                :class="{ 'rotate-180': isSettingsSubmenuOpen }"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        <div v-show="isSettingsSubmenuOpen" class="pr-6 pt-1 space-y-1">
+                            <Link
+                                v-for="subItem in settingsSubMenu"
+                                :key="subItem.name"
+                                :href="subItem.href"
+                                @click="isMobileSidebarOpen = false"
+                                class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                                :class="[
+                                    subItem.active
+                                        ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                                        : 'text-slate-400 hover:bg-slate-800/80 hover:text-white'
+                                ]"
+                            >
+                                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="subItem.icon" />
+                                </svg>
+                                <span>{{ subItem.name }}</span>
+                            </Link>
+                        </div>
+                    </div>
                 </nav>
 
                 <!-- Bottom Controls in Mobile Drawer -->
@@ -280,7 +405,7 @@ const adminNavigation = [
                             :href="route('logout')"
                             method="post"
                             as="button"
-                            class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition-colors"
+                            class="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-700 transition-colors cursor-pointer"
                             title="خروج از سامانه"
                         >
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -292,15 +417,15 @@ const adminNavigation = [
             </div>
         </div>
 
-        <!-- Main Content Area -->
-        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-            <!-- Top Admin Header (Responsive min-height, never clips on mobile) -->
-            <header class="min-h-16 h-auto bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sticky top-0 z-30 transition-colors">
+        <!-- Main Content Area: Takes Remaining Width, Independent Scroll Area -->
+        <div class="flex-1 flex flex-col min-w-0 h-screen max-h-screen overflow-hidden">
+            <!-- Top Admin Header -->
+            <header class="min-h-16 shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3 sticky top-0 z-30 transition-colors">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <button
                         type="button"
                         @click="isMobileSidebarOpen = true"
-                        class="md:hidden p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
+                        class="md:hidden p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
                         aria-label="باز کردن منوی مدیریت"
                     >
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -313,25 +438,12 @@ const adminNavigation = [
                 </div>
 
                 <div class="flex items-center gap-2 sm:gap-3 shrink-0">
-                    <button
-                        type="button"
-                        @click="triggerTestPush"
-                        :disabled="isTestingPush"
-                        class="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-sm border border-slate-200 dark:border-slate-700 disabled:opacity-50"
-                        title="ارسال اعلان تست به مرورگر (حتی هنگام بسته بودن مرورگر)"
-                    >
-                        <span v-if="isTestingPush" class="w-3.5 h-3.5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                        <svg v-else class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                        </svg>
-                        <span class="hidden sm:inline">تست اعلان مرورگر</span>
-                    </button>
                     <ThemeSwitcher />
                 </div>
             </header>
 
-            <!-- Admin Body -->
-            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <!-- Admin Body (Smooth Independent Scrolling) -->
+            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 overscroll-contain">
                 <div class="max-w-7xl mx-auto w-full space-y-5">
                     <!-- Global Admin Breadcrumb Navigation -->
                     <div class="pb-1">

@@ -4,22 +4,34 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Models\SystemSetting;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
-     * Display the login view.
+     * Display the login view with active authentication providers.
      */
     public function create(): Response
     {
+        $enabledProviders = SystemSetting::getEnabledAuthProviders();
+
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
+            'enabledProviders' => $enabledProviders,
+            'authMethods' => [
+                'username' => in_array('username', $enabledProviders),
+                'email' => in_array('email', $enabledProviders),
+                'ldap' => in_array('ldap', $enabledProviders),
+                'keycloak' => in_array('keycloak', $enabledProviders),
+            ],
+            'keycloakLoginUrl' => in_array('keycloak', $enabledProviders)
+                ? route('auth.keycloak.redirect')
+                : null,
         ]);
     }
 

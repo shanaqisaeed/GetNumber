@@ -29,11 +29,27 @@ class UserFactory extends Factory
         return [
             'name' => fake()->name(),
             'username' => fake()->unique()->userName(),
+            'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
             'role' => UserRole::User,
             'status' => UserStatus::Active,
             'remember_token' => Str::random(10),
         ];
+    }
+
+    /**
+     * Configure the factory.
+     */
+    public function configure(): static
+    {
+        return $this->afterCreating(function (User $user) {
+            if (!empty($user->username)) {
+                $user->linkIdentity('username', strtolower($user->username));
+            }
+            if (!empty($user->email)) {
+                $user->linkIdentity('email', strtolower($user->email), strtolower($user->email));
+            }
+        });
     }
 
     /**

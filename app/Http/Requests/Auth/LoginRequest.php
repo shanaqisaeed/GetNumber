@@ -2,13 +2,13 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Enums\UserStatus;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\Auth\IdentityAuthService;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -30,11 +30,28 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'username' => ['required', 'string'],
-            'password' => ['required', 'string'],
-            'remember' => ['boolean'],
-        ];
+        $authType = $this->input('auth_type', 'username');
+
+        return match ($authType) {
+            'email' => [
+                'auth_type' => ['required', 'string', 'in:username,email,ldap'],
+                'email' => ['required', 'string', 'email'],
+                'password' => ['required', 'string'],
+                'remember' => ['boolean'],
+            ],
+            'ldap' => [
+                'auth_type' => ['required', 'string', 'in:username,email,ldap'],
+                'ldap_username' => ['required', 'string'],
+                'ldap_password' => ['required', 'string'],
+                'remember' => ['boolean'],
+            ],
+            default => [
+                'auth_type' => ['nullable', 'string', 'in:username,email,ldap'],
+                'username' => ['required', 'string'],
+                'password' => ['required', 'string'],
+                'remember' => ['boolean'],
+            ],
+        };
     }
 
     /**
@@ -45,8 +62,12 @@ class LoginRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'username.required' => 'ورود نام کاربری الزامی است.',
+            'username.required' => 'ورود شناسه کاربری الزامی است.',
+            'email.required' => 'ورود نشانی پست الکترونیک (ایمیل) الزامی است.',
+            'email.email' => 'فرمت نشانی ایمیل وارد شده معتبر نمی‌باشد.',
             'password.required' => 'ورود کلمه عبور الزامی است.',
+            'ldap_username.required' => 'ورود شناسه کاربری سازمانی LDAP الزامی است.',
+            'ldap_password.required' => 'ورود گذرواژه سازمانی LDAP الزامی است.',
         ];
     }
 
@@ -59,32 +80,44 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $username = $this->string('username')->trim()->toString();
-        $user = User::where('username', $username)->first();
+        $authType = $this->input('auth_type', 'username');
 
-        if (! $user || ! Hash::check($this->string('password')->toString(), $user->password)) {
+        // Verify provider is enabled in general settings
+        if (!SystemSetting::isAuthProviderEnabled($authType)) {
             RateLimiter::hit($this->throttleKey(), 60);
+            $field = match ($authType) {
+                'email' => 'email',
+                'ldap' => 'ldap_username',
+                default => 'username',
+            };
 
             throw ValidationException::withMessages([
-                'username' => 'نام کاربری یا کلمه عبور وارد شده صحیح نمی‌باشد.',
+                $field => 'ورود از طریق این شیوه در حال حاضر توسط راهبر ارشد سامانه غیرفعال شده است.',
             ]);
         }
 
-        // Check user account status
-        if ($user->status === UserStatus::Suspended) {
+        /** @var IdentityAuthService $identityService */
+        $identityService = app(IdentityAuthService::class);
+
+        try {
+            /** @var User $user */
+            $user = match ($authType) {
+                'email' => $identityService->authenticateEmail(
+                    $this->string('email')->trim()->toString(),
+                    $this->string('password')->toString()
+                ),
+                'ldap' => $identityService->authenticateLdap(
+                    $this->string('ldap_username')->trim()->toString(),
+                    $this->string('ldap_password')->toString()
+                ),
+                default => $identityService->authenticateUsername(
+                    $this->string('username')->trim()->toString(),
+                    $this->string('password')->toString()
+                ),
+            };
+        } catch (ValidationException $e) {
             RateLimiter::hit($this->throttleKey(), 60);
-
-            throw ValidationException::withMessages([
-                'username' => 'حساب کاربری شما به دستور راهبر سامانه به حالت تعلیق درآمده است.',
-            ]);
-        }
-
-        if ($user->status === UserStatus::Inactive) {
-            RateLimiter::hit($this->throttleKey(), 60);
-
-            throw ValidationException::withMessages([
-                'username' => 'حساب کاربری مورد نظر غیرفعال می‌باشد. لطفاً با راهبر سامانه تماس حاصل فرمایید.',
-            ]);
+            throw $e;
         }
 
         if ($user->hasTwoFactorEnabled()) {
@@ -113,9 +146,15 @@ class LoginRequest extends FormRequest
         event(new Lockout($this));
 
         $seconds = RateLimiter::availableIn($this->throttleKey());
+        $authType = $this->input('auth_type', 'username');
+        $field = match ($authType) {
+            'email' => 'email',
+            'ldap' => 'ldap_username',
+            default => 'username',
+        };
 
         throw ValidationException::withMessages([
-            'username' => "تعداد تلاش‌های ناموفق بیش از حد مجاز است. لطفاً پس از {$seconds} ثانیه مجدداً تلاش فرمایید.",
+            $field => "تعداد تلاش‌های ناموفق بیش از حد مجاز است. لطفاً پس از {$seconds} ثانیه مجدداً تلاش فرمایید.",
         ]);
     }
 
@@ -124,6 +163,11 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('username')).'|'.$this->ip());
+        $identifier = $this->string('username')->toString()
+            ?: $this->string('email')->toString()
+            ?: $this->string('ldap_username')->toString()
+            ?: 'unknown';
+
+        return Str::transliterate(Str::lower($identifier) . '|' . $this->ip());
     }
 }

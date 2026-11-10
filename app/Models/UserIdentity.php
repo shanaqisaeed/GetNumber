@@ -1,0 +1,52 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class UserIdentity extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'user_id',
+        'provider',
+        'provider_id',
+        'provider_email',
+        'provider_data',
+        'linked_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'provider_data' => 'array',
+            'linked_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * The user who owns this identity.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Human-readable provider label in formal Persian.
+     */
+    public function providerLabel(): string
+    {
+        return match ($this->provider) {
+            'username' => 'شناسه کاربری و گذرواژه',
+            'email' => 'پست الکترونیک (ایمیل)',
+            'ldap' => 'سامانه سازمانی LDAP / اکتیو دایرکتوری',
+            'keycloak' => 'ورود یکپارچه Keycloak SSO',
+            default => $this->provider,
+        };
+    }
+}
+

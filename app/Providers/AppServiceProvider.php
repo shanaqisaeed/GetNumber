@@ -80,6 +80,10 @@ class AppServiceProvider extends ServiceProvider
             \App\Contracts\SystemCacheServiceInterface::class,
             \App\Services\Cache\SystemCacheService::class
         );
+
+        $this->app->singleton(\App\Services\Auth\LdapAuthService::class);
+        $this->app->singleton(\App\Services\Auth\KeycloakAuthService::class);
+        $this->app->singleton(\App\Services\Auth\IdentityAuthService::class);
     }
 
     /**
