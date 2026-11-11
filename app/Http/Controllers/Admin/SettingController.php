@@ -24,7 +24,7 @@ class SettingController extends Controller
         KeycloakAuthService $keycloakService
     ): Response {
         $tab = $request->query('tab', 'general');
-        if (!in_array($tab, ['general', 'pricing', 'auth', 'ldap', 'keycloak'])) {
+        if (!in_array($tab, ['general', 'pricing', 'auth', 'ldap', 'keycloak', 'smtp'])) {
             $tab = 'general';
         }
 
@@ -67,6 +67,17 @@ class SettingController extends Controller
                 'config' => $keycloakService->getConfig(),
                 'callbackUrl' => route('auth.keycloak.callback'),
                 'isEnabled' => (bool) (int) SystemSetting::get('auth_keycloak_enabled', '0'),
+            ],
+            'smtpSettings' => [
+                'mail_mailer' => SystemSetting::get('mail_mailer', 'smtp'),
+                'mail_host' => SystemSetting::get('mail_host', '127.0.0.1'),
+                'mail_port' => (int) SystemSetting::get('mail_port', 587),
+                'mail_username' => SystemSetting::get('mail_username', ''),
+                'mail_password' => SystemSetting::get('mail_password', ''),
+                'mail_encryption' => SystemSetting::get('mail_encryption', 'tls'),
+                'mail_from_address' => SystemSetting::get('mail_from_address', 'noreply@getnumber.local'),
+                'mail_from_name' => SystemSetting::get('mail_from_name', 'GetNumber'),
+                'require_email_verification' => (bool) (int) SystemSetting::get('require_email_verification', '1'),
             ],
         ]);
     }
@@ -274,6 +285,51 @@ class SettingController extends Controller
     public function testKeycloak(KeycloakAuthService $keycloakService): JsonResponse
     {
         $result = $keycloakService->testConnection();
+        return response()->json($result);
+    }
+
+    /**
+     * Update SMTP Mail Settings.
+     */
+    public function updateSmtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'mail_host' => ['required', 'string', 'max:255'],
+            'mail_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'mail_username' => ['nullable', 'string', 'max:255'],
+            'mail_password' => ['nullable', 'string', 'max:255'],
+            'mail_encryption' => ['required', 'string', 'in:tls,ssl,none'],
+            'mail_from_address' => ['required', 'email', 'max:255'],
+            'mail_from_name' => ['required', 'string', 'max:255'],
+            'require_email_verification' => ['boolean'],
+        ]);
+
+        SystemSetting::set('mail_mailer', 'smtp');
+        SystemSetting::set('mail_host', $validated['mail_host'], __('controllers.admin.settings.desc_mail_host'));
+        SystemSetting::set('mail_port', (string) $validated['mail_port'], __('controllers.admin.settings.desc_mail_port'));
+        SystemSetting::set('mail_encryption', $validated['mail_encryption'], __('controllers.admin.settings.desc_mail_encryption'));
+        SystemSetting::set('mail_username', $validated['mail_username'] ?? '', __('controllers.admin.settings.desc_mail_username'));
+        if ($request->filled('mail_password')) {
+            SystemSetting::set('mail_password', $validated['mail_password'], __('controllers.admin.settings.desc_mail_password'));
+        }
+        SystemSetting::set('mail_from_address', $validated['mail_from_address'], __('controllers.admin.settings.desc_mail_from_address'));
+        SystemSetting::set('mail_from_name', $validated['mail_from_name'], __('controllers.admin.settings.desc_mail_from_name'));
+        SystemSetting::set('require_email_verification', $request->boolean('require_email_verification') ? '1' : '0', __('controllers.admin.settings.desc_require_email_verification'));
+
+        \App\Services\Mail\MailConfigService::applySettings();
+
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_smtp_updated'));
+
+        return redirect()->route('admin.settings.general', ['tab' => 'smtp'])->with('success', __('controllers.admin.settings.smtp_updated'));
+    }
+
+    /**
+     * Test connection to SMTP server.
+     */
+    public function testSmtp(Request $request): JsonResponse
+    {
+        $recipient = $request->input('recipient', $request->user()?->email);
+        $result = \App\Services\Mail\MailConfigService::testConnection($recipient);
         return response()->json($result);
     }
 

@@ -3,6 +3,7 @@ export interface User {
     name: string;
     username: string;
     email?: string | null;
+    email_verified?: boolean;
     role: 'admin' | 'user';
     status: 'active' | 'suspended' | 'inactive';
     is_admin?: boolean;

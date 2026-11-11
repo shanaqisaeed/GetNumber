@@ -91,7 +91,14 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        \App\Services\Mail\MailConfigService::applySettings();
+
         Vite::prefetch(concurrency: 3);
+
+        \Illuminate\Support\Facades\Event::listen(
+            \Illuminate\Auth\Events\Registered::class,
+            \Illuminate\Auth\Listeners\SendEmailVerificationNotification::class
+        );
 
         \Illuminate\Support\Facades\Event::listen(
             \App\Events\MessageReceived::class,

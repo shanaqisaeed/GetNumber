@@ -58,8 +58,20 @@ interface OrgPricing {
     org_price_8_rond: string | number;
 }
 
+interface SmtpSettings {
+    mail_mailer: string;
+    mail_host: string;
+    mail_port: number;
+    mail_username: string;
+    mail_password?: string;
+    mail_encryption: 'tls' | 'ssl' | 'none';
+    mail_from_address: string;
+    mail_from_name: string;
+    require_email_verification: boolean;
+}
+
 interface Props {
-    initialTab?: 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak';
+    initialTab?: 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak' | 'smtp';
     generalSettings: GeneralSettings;
     orgPricing?: OrgPricing;
     authSettings: AuthSettings;
@@ -73,13 +85,14 @@ interface Props {
         callbackUrl: string;
         isEnabled: boolean;
     };
+    smtpSettings?: SmtpSettings;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     initialTab: 'general',
 });
 
-type TabType = 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak';
+type TabType = 'general' | 'pricing' | 'auth' | 'ldap' | 'keycloak' | 'smtp';
 const activeTab = ref<TabType>(props.initialTab);
 
 watch(() => props.initialTab, (newTab) => {
@@ -219,6 +232,51 @@ const testKeycloakConnection = async () => {
         testingKeycloak.value = false;
     }
 };
+
+// 5. SMTP & Email Form & Testing
+const smtpForm = useForm({
+    mail_host: props.smtpSettings?.mail_host || '127.0.0.1',
+    mail_port: props.smtpSettings?.mail_port || 587,
+    mail_encryption: props.smtpSettings?.mail_encryption || 'tls',
+    mail_username: props.smtpSettings?.mail_username || '',
+    mail_password: '',
+    mail_from_address: props.smtpSettings?.mail_from_address || 'noreply@getnumber.local',
+    mail_from_name: props.smtpSettings?.mail_from_name || 'GetNumber',
+    require_email_verification: props.smtpSettings?.require_email_verification ?? true,
+});
+
+const submitSmtp = () => {
+    smtpForm.post(route('admin.settings.smtp.update'), {
+        preserveScroll: true,
+    });
+};
+
+const testingSmtp = ref(false);
+const testRecipient = ref('');
+const smtpTestResult = ref<{ success: boolean; message?: string; error?: string } | null>(null);
+
+const testSmtpConnection = async () => {
+    testingSmtp.value = true;
+    smtpTestResult.value = null;
+    try {
+        const res = await fetch(route('admin.settings.smtp.test'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            },
+            body: JSON.stringify({
+                recipient: testRecipient.value || undefined,
+            }),
+        });
+        smtpTestResult.value = await res.json();
+    } catch {
+        smtpTestResult.value = { success: false, error: __('admin.settings.smtp_test_failed', { error: 'Network Error' }) };
+    } finally {
+        testingSmtp.value = false;
+    }
+};
 </script>
 
 <template>
@@ -241,7 +299,7 @@ const testKeycloakConnection = async () => {
 
         <div class="max-w-5xl mx-auto space-y-6 pb-12">
             <!-- Navigation Tabs -->
-            <div class="grid grid-cols-2 sm:grid-cols-5 p-1.5 rounded-2xl bg-slate-200/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 gap-1.5">
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 p-1.5 rounded-2xl bg-slate-200/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 gap-1.5">
                 <button
                     type="button"
                     @click="activeTab = 'general'"
@@ -310,6 +368,20 @@ const testKeycloakConnection = async () => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
                     <span>{{ __('admin.settings.tab_keycloak') }}</span>
+                </button>
+
+                <button
+                    type="button"
+                    @click="activeTab = 'smtp'"
+                    class="py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    :class="activeTab === 'smtp'
+                        ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>{{ __('admin.settings.tab_smtp') }}</span>
                 </button>
             </div>
 
@@ -986,6 +1058,174 @@ const testKeycloakConnection = async () => {
                             class="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
                             {{ keycloakForm.processing ? __('admin.settings.saving') : __('admin.settings.save_keycloak') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- TAB 6: SMTP MAIL SERVER & NOTIFICATIONS -->
+            <div v-show="activeTab === 'smtp'">
+                <form @submit.prevent="submitSmtp" class="space-y-6">
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                        <div class="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                            <div>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.smtp_heading') }}</h2>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.smtp_subheading') }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label for="smtp_host" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_host_label') }}</label>
+                                <input
+                                    id="smtp_host"
+                                    type="text"
+                                    v-model="smtpForm.mail_host"
+                                    placeholder="smtp.example.com"
+                                    dir="ltr"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_host" />
+                            </div>
+
+                            <div>
+                                <label for="smtp_port" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_port_label') }}</label>
+                                <input
+                                    id="smtp_port"
+                                    type="number"
+                                    v-model="smtpForm.mail_port"
+                                    placeholder="587"
+                                    dir="ltr"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_port" />
+                            </div>
+
+                            <div>
+                                <label for="smtp_encryption" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_encryption_label') }}</label>
+                                <select
+                                    id="smtp_encryption"
+                                    v-model="smtpForm.mail_encryption"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
+                                >
+                                    <option value="tls">TLS (STARTTLS - Port 587)</option>
+                                    <option value="ssl">SSL (SMTPS - Port 465)</option>
+                                    <option value="none">None (Plain - Port 25)</option>
+                                </select>
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_encryption" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="smtp_username" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_username_label') }}</label>
+                                <input
+                                    id="smtp_username"
+                                    type="text"
+                                    v-model="smtpForm.mail_username"
+                                    placeholder="user@example.com"
+                                    dir="ltr"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_username" />
+                            </div>
+
+                            <div>
+                                <label for="smtp_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_password_label') }}</label>
+                                <input
+                                    id="smtp_password"
+                                    type="password"
+                                    v-model="smtpForm.mail_password"
+                                    :placeholder="__('admin.settings.leave_blank_if_unchanged')"
+                                    dir="ltr"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_password" />
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <div>
+                                <label for="smtp_from_address" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_from_address_label') }}</label>
+                                <input
+                                    id="smtp_from_address"
+                                    type="email"
+                                    v-model="smtpForm.mail_from_address"
+                                    placeholder="noreply@domain.com"
+                                    dir="ltr"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_from_address" />
+                            </div>
+
+                            <div>
+                                <label for="smtp_from_name" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.smtp_from_name_label') }}</label>
+                                <input
+                                    id="smtp_from_name"
+                                    type="text"
+                                    v-model="smtpForm.mail_from_name"
+                                    placeholder="GetNumber Support"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
+                                    required
+                                />
+                                <InputError class="mt-1" :message="smtpForm.errors.mail_from_name" />
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    v-model="smtpForm.require_email_verification"
+                                    class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                                />
+                                <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                    {{ __('admin.settings.desc_require_email_verification') }}
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Actions & Test Result -->
+                    <div class="flex items-center justify-between gap-4 flex-wrap p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <input
+                                type="email"
+                                v-model="testRecipient"
+                                :placeholder="__('admin.settings.smtp_test_email_placeholder')"
+                                dir="ltr"
+                                class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white font-mono w-60"
+                            />
+
+                            <button
+                                type="button"
+                                @click="testSmtpConnection"
+                                :disabled="testingSmtp"
+                                class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-700 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                            >
+                                <svg v-if="testingSmtp" class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                </svg>
+                                <span>{{ testingSmtp ? __('admin.settings.testing_conn') : __('admin.settings.smtp_test_btn') }}</span>
+                            </button>
+
+                            <span v-if="smtpTestResult" class="text-xs font-bold flex items-center gap-1.5" :class="smtpTestResult.success ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'">
+                                <span>{{ smtpTestResult.success ? '✓' : '✕' }}</span>
+                                <span>{{ smtpTestResult.success ? __('admin.settings.smtp_test_success') : (smtpTestResult.error || smtpTestResult.message) }}</span>
+                            </span>
+                        </div>
+
+                        <button
+                            type="submit"
+                            :disabled="smtpForm.processing"
+                            class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-500/20 transition-all cursor-pointer"
+                        >
+                            {{ smtpForm.processing ? __('admin.settings.saving') : __('admin.settings.save_settings_btn') }}
                         </button>
                     </div>
                 </form>

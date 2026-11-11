@@ -236,6 +236,15 @@ return [
         ],
     ],
     'auth' => [
+        'verify_email' => [
+            'head_title' => 'Verify Email Address',
+            'title' => 'Email Verification Required',
+            'desc' => 'To activate your account and access platform services, please verify your email address via the link we sent.',
+            'link_sent' => 'A fresh verification link has been sent to your email address.',
+            'resend_btn' => 'Resend Verification Email',
+            'logout_btn' => 'Log Out',
+            'back_to_home' => 'Back to Home',
+        ],
         'confirm_password' => [
             'head_title' => 'Confirm Password',
             'title' => 'Security Verification',

@@ -16,7 +16,7 @@ Route::get('/', function () {
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
     ]);
-});
+})->name('welcome');
 
 // Public Locale Switcher
 Route::post('/locale/{locale}', [\App\Http\Controllers\LocaleController::class, 'update'])->name('locale.update');
@@ -269,6 +269,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/settings/keycloak', [\App\Http\Controllers\Admin\SettingController::class, 'keycloak'])->name('settings.keycloak');
     Route::post('/settings/keycloak', [\App\Http\Controllers\Admin\SettingController::class, 'updateKeycloak'])->name('settings.keycloak.update');
     Route::post('/settings/keycloak/test', [\App\Http\Controllers\Admin\SettingController::class, 'testKeycloak'])->name('settings.keycloak.test');
+
+    Route::post('/settings/smtp', [\App\Http\Controllers\Admin\SettingController::class, 'updateSmtp'])->name('settings.smtp.update');
+    Route::post('/settings/smtp/test', [\App\Http\Controllers\Admin\SettingController::class, 'testSmtp'])->name('settings.smtp.test');
 });
 
 require __DIR__.'/auth.php';

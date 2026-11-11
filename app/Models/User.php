@@ -5,11 +5,12 @@ namespace App\Models;
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -23,6 +24,7 @@ class User extends Authenticatable
         'name',
         'username',
         'email',
+        'email_verified_at',
         'password',
         'role',
         'status',
@@ -55,6 +57,7 @@ class User extends Authenticatable
         return [
             'role' => UserRole::class,
             'status' => UserStatus::class,
+            'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
@@ -130,6 +133,46 @@ class User extends Authenticatable
     public function isSuspended(): bool
     {
         return $this->status === UserStatus::Suspended;
+    }
+
+    /**
+     * Mark the given user's email as verified and sync identity.
+     */
+    public function markEmailAsVerified(): bool
+    {
+        $result = $this->forceFill([
+            'email_verified_at' => $this->freshTimestamp(),
+        ])->save();
+
+        if ($result && $this->email) {
+            $this->identities()->where('provider', 'email')->update([
+                'verified_at' => now(),
+            ]);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Determine if this user requires email verification to access platform services.
+     */
+    public function needsEmailVerification(): bool
+    {
+        if ($this->isAdmin()) {
+            return false;
+        }
+
+        // If email verification is disabled in system settings, no verification is required
+        if (! (bool) (int) SystemSetting::get('require_email_verification', '1')) {
+            return false;
+        }
+
+        // Only users with an email address need verification
+        if (empty($this->email)) {
+            return false;
+        }
+
+        return ! $this->hasVerifiedEmail();
     }
 
     /**

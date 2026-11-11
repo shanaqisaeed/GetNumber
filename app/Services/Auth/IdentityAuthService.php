@@ -261,8 +261,16 @@ class IdentityAuthService
             ]);
         }
 
-        $user->email = $email;
-        $user->save();
+        if ($user->email !== $email) {
+            $user->email = $email;
+            $user->email_verified_at = null;
+            $user->save();
+
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Throwable) {
+            }
+        }
 
         return $user->linkIdentity('email', $email, $email, [], $emailPassword ?: $user->password);
     }

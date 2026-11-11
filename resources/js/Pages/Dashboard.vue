@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AllocateNumberModal from '@/Components/AllocateNumberModal.vue';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { __ } from '@/Composables/useTrans';
 
@@ -99,6 +99,9 @@ const props = defineProps<{
     security_overview?: SecurityOverview;
 }>();
 
+const page = usePage();
+const currentUser = computed(() => page.props.auth?.user);
+
 // Toast notification state
 const toastMessage = ref<string | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -111,8 +114,9 @@ const showToast = (msg?: string) => {
     }, 2800);
 };
 
-const copyToClipboard = async (text: string, label?: string) => {
-    const finalLabel = label || __('dashboard.copied_number');
+const copiedId = ref<number | null>(null);
+
+const copyToClipboard = async (text: string, id?: number) => {
     try {
         if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
@@ -124,9 +128,13 @@ const copyToClipboard = async (text: string, label?: string) => {
             document.execCommand('copy');
             document.body.removeChild(input);
         }
-        showToast(finalLabel);
+        if (id !== undefined) {
+            copiedId.value = id;
+            setTimeout(() => { copiedId.value = null; }, 2000);
+        }
+        showToast(__('dashboard.copied_number'));
     } catch {
-        showToast(finalLabel);
+        showToast(__('dashboard.copied_number'));
     }
 };
 
@@ -138,236 +146,12 @@ const creditBalance = computed(() => Math.floor(Number(props.wallet?.balance || 
 const baseLinePrice = computed(() => Math.floor(Number(props.wallet?.number_price_coin || 1)));
 const recentTransactions = computed(() => props.wallet?.recent_transactions || []);
 
-// Active activity tab ('lines' | 'transactions')
-const activeActivityTab = ref<'lines' | 'transactions'>('lines');
-
-// Feature Hub Category Filter
-type FeatureCategory = 'all' | 'telecom' | 'finance_api' | 'security_support';
-const selectedCategory = ref<FeatureCategory>('all');
-
-interface FeatureCardItem {
-    id: string;
-    category: Exclude<FeatureCategory, 'all'>;
-    title: string;
-    subtitle: string;
-    description: string;
-    badgeText: string;
-    badgeClass: string;
-    iconBgClass: string;
-    borderHoverClass: string;
-    highlights: string[];
-    primaryAction: {
-        label: string;
-        href?: string;
-        onClick?: () => void;
-        external?: boolean;
-    };
-    secondaryAction?: {
-        label: string;
-        href: string;
-        external?: boolean;
-    };
-}
-
-const userAreaFeatures = computed<FeatureCardItem[]>(() => [
-    {
-        id: 'standard-lines',
-        category: 'telecom',
-        title: __('dashboard.features.numbers.title'),
-        subtitle: __('dashboard.features.numbers.subtitle'),
-        description: __('dashboard.features.numbers.desc'),
-        badgeText: __('dashboard.features.numbers.badge', { count: props.stats.standard_numbers ?? props.stats.active_numbers }),
-        badgeClass: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30',
-        iconBgClass: 'from-indigo-600 to-blue-600 shadow-indigo-500/25',
-        borderHoverClass: 'hover:border-indigo-500/45',
-        highlights: [
-            __('dashboard.features.numbers.h1'),
-            __('dashboard.features.numbers.h2'),
-            __('dashboard.features.numbers.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.numbers.btn'),
-            href: route('numbers.index'),
-        },
-        secondaryAction: undefined,
-    },
-    {
-        id: 'commercial-shortcodes',
-        category: 'telecom',
-        title: __('dashboard.features.requests.title'),
-        subtitle: __('dashboard.features.requests.subtitle'),
-        description: __('dashboard.features.requests.desc'),
-        badgeText: (props.stats.pending_requests || 0) > 0
-            ? __('dashboard.features.requests.pending_badge', { count: props.stats.pending_requests })
-            : __('dashboard.features.requests.active_badge', { count: props.stats.service_numbers ?? 0 }),
-        badgeClass: (props.stats.pending_requests || 0) > 0
-            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-            : 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30',
-        iconBgClass: 'from-purple-600 to-fuchsia-600 shadow-purple-500/25',
-        borderHoverClass: 'hover:border-purple-500/45',
-        highlights: [
-            __('dashboard.features.requests.h1'),
-            __('dashboard.features.requests.h2'),
-            __('dashboard.features.requests.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.requests.btn'),
-            href: route('requests.index'),
-        },
-    },
-    {
-        id: 'realtime-messenger',
-        category: 'telecom',
-        title: __('dashboard.features.messages.title'),
-        subtitle: __('dashboard.features.messages.subtitle'),
-        description: __('dashboard.features.messages.desc'),
-        badgeText: (props.stats.unread_messages || 0) > 0
-            ? __('dashboard.features.messages.unread_badge', { count: props.stats.unread_messages })
-            : __('dashboard.features.messages.total_badge', { count: props.stats.total_messages }),
-        badgeClass: (props.stats.unread_messages || 0) > 0
-            ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse'
-            : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
-        iconBgClass: 'from-emerald-600 to-teal-600 shadow-emerald-500/25',
-        borderHoverClass: 'hover:border-emerald-500/45',
-        highlights: [
-            __('dashboard.features.messages.h1'),
-            __('dashboard.features.messages.h2'),
-            __('dashboard.features.messages.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.messages.btn'),
-            href: route('messages.index'),
-        },
-    },
-    {
-        id: 'crypto-wallet',
-        category: 'finance_api',
-        title: __('dashboard.features.wallet.title'),
-        subtitle: __('dashboard.features.wallet.subtitle'),
-        description: __('dashboard.features.wallet.desc'),
-        badgeText: __('dashboard.features.wallet.badge', { count: creditBalance.value }),
-        badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
-        iconBgClass: 'from-amber-500 to-orange-600 shadow-amber-500/25',
-        borderHoverClass: 'hover:border-amber-500/45',
-        highlights: [
-            __('dashboard.features.wallet.h1'),
-            __('dashboard.features.wallet.h2'),
-            __('dashboard.features.wallet.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.wallet.btn1'),
-            href: route('profile.edit', { tab: 'wallet' }),
-        },
-        secondaryAction: {
-            label: __('dashboard.features.wallet.btn2'),
-            href: route('wallet.transactions'),
-        },
-    },
-    {
-        id: 'developer-api',
-        category: 'finance_api',
-        title: __('dashboard.features.api.title'),
-        subtitle: __('dashboard.features.api.subtitle'),
-        description: __('dashboard.features.api.desc'),
-        badgeText: __('dashboard.features.api.badge', { count: props.stats.active_tokens ?? 0 }),
-        badgeClass: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30',
-        iconBgClass: 'from-cyan-600 to-sky-600 shadow-cyan-500/25',
-        borderHoverClass: 'hover:border-cyan-500/45',
-        highlights: [
-            __('dashboard.features.api.h1'),
-            __('dashboard.features.api.h2'),
-            __('dashboard.features.api.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.api.btn1'),
-            href: route('api-tokens.index'),
-        },
-        secondaryAction: {
-            label: __('dashboard.features.api.btn2'),
-            href: route('api.docs'),
-        },
-    },
-    {
-        id: 'support-tickets',
-        category: 'security_support',
-        title: __('dashboard.features.tickets.title'),
-        subtitle: __('dashboard.features.tickets.subtitle'),
-        description: __('dashboard.features.tickets.desc'),
-        badgeText: (props.stats.answered_tickets || 0) > 0
-            ? __('dashboard.features.tickets.answered_badge', { count: props.stats.answered_tickets })
-            : __('dashboard.features.tickets.open_badge', { count: props.stats.open_tickets ?? 0 }),
-        badgeClass: (props.stats.answered_tickets || 0) > 0
-            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-            : 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border-violet-500/30',
-        iconBgClass: 'from-violet-600 to-indigo-600 shadow-violet-500/25',
-        borderHoverClass: 'hover:border-violet-500/45',
-        highlights: [
-            __('dashboard.features.tickets.h1'),
-            __('dashboard.features.tickets.h2'),
-            __('dashboard.features.tickets.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.tickets.btn1'),
-            href: route('tickets.index'),
-        },
-        secondaryAction: {
-            label: __('dashboard.features.tickets.btn2'),
-            href: route('tickets.create'),
-        },
-    },
-    {
-        id: 'security-2fa',
-        category: 'security_support',
-        title: __('dashboard.features.security.title'),
-        subtitle: __('dashboard.features.security.subtitle'),
-        description: __('dashboard.features.security.desc'),
-        badgeText: props.security_overview?.two_factor_enabled
-            ? __('dashboard.features.security.badge_active')
-            : __('dashboard.features.security.badge_inactive'),
-        badgeClass: props.security_overview?.two_factor_enabled
-            ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-            : 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30',
-        iconBgClass: 'from-rose-600 to-pink-600 shadow-rose-500/25',
-        borderHoverClass: 'hover:border-rose-500/45',
-        highlights: [
-            __('dashboard.features.security.h1'),
-            __('dashboard.features.security.h2'),
-            __('dashboard.features.security.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.security.btn'),
-            href: route('profile.edit', { tab: 'security' }),
-        },
-    },
-    {
-        id: 'identities-sessions',
-        category: 'security_support',
-        title: __('dashboard.features.identities.title'),
-        subtitle: __('dashboard.features.identities.subtitle'),
-        description: __('dashboard.features.identities.desc'),
-        badgeText: __('dashboard.features.identities.badge', { count: props.security_overview?.connected_identities_count ?? 1 }),
-        badgeClass: 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30',
-        iconBgClass: 'from-sky-600 to-blue-600 shadow-sky-500/25',
-        borderHoverClass: 'hover:border-sky-500/45',
-        highlights: [
-            __('dashboard.features.identities.h1'),
-            __('dashboard.features.identities.h2'),
-            __('dashboard.features.identities.h3'),
-        ],
-        primaryAction: {
-            label: __('dashboard.features.identities.btn1'),
-            href: route('profile.edit', { tab: 'identities' }),
-        },
-        secondaryAction: {
-            label: __('dashboard.features.identities.btn2'),
-            href: route('profile.edit', { tab: 'sessions' }),
-        },
-    },
-]);
-
-const filteredFeatures = computed(() => {
-    if (selectedCategory.value === 'all') return userAreaFeatures.value;
-    return userAreaFeatures.value.filter((f) => f.category === selectedCategory.value);
+// Dynamic Greeting based on current hour
+const greetingText = computed(() => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return __('dashboard.greeting_morning');
+    if (hour >= 12 && hour < 17) return __('dashboard.greeting_afternoon');
+    return __('dashboard.greeting_evening');
 });
 </script>
 
@@ -399,39 +183,89 @@ const filteredFeatures = computed(() => {
             </transition>
         </teleport>
 
-        <div class="space-y-4">
+        <div class="space-y-6">
             <!-- ========================================================================= -->
-            <!-- 0. LIVE ACTIONABLE ALERTS (Pending Deposit / Answered Tickets)            -->
+            <!-- 1. MODERN COMMAND HEADER HERO                                             -->
             <!-- ========================================================================= -->
-            <div v-if="props.wallet?.pending_deposit" class="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/35 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm">
-                <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-amber-500/25 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
-                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div class="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-indigo-900/80 via-slate-900 to-slate-950 border border-indigo-500/20 text-white shadow-xl relative overflow-hidden">
+                <!-- Background decorative elements -->
+                <div class="absolute -end-16 -top-16 w-64 h-64 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none"></div>
+                <div class="absolute -start-16 -bottom-16 w-64 h-64 rounded-full bg-purple-500/10 blur-3xl pointer-events-none"></div>
+
+                <div class="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-3">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                            <span>{{ __('dashboard.header_badge') }}</span>
+                        </div>
+                        <h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                            {{ greetingText }}، {{ currentUser?.name || __('dashboard.dear_user') }}
+                        </h1>
+                        <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl leading-relaxed">
+                            {{ __('dashboard.hero_lead') }}
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                        <button
+                            type="button"
+                            @click="isAllocateModalOpen = true"
+                            class="px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 flex items-center gap-2 transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>{{ __('dashboard.get_new_number_btn') }}</span>
+                        </button>
+
+                        <Link
+                            :href="route('wallet.deposit.create')"
+                            class="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 border border-white/15 text-white text-xs font-bold backdrop-blur-md flex items-center gap-2 transition-all cursor-pointer"
+                        >
+                            <svg class="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{{ __('dashboard.charge_wallet_btn') }}</span>
+                            <span class="px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 font-mono text-[11px] font-bold">{{ creditBalance }} TRX</span>
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- 2. ACTIONABLE NOTIFICATION BANNERS                                        -->
+            <!-- ========================================================================= -->
+            <div v-if="props.wallet?.pending_deposit" class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex items-center justify-between gap-4 shadow-sm">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/30">
+                        <svg class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                     </div>
                     <div class="min-w-0">
-                        <div class="flex items-center gap-1.5">
+                        <div class="flex items-center gap-2">
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">{{ __('dashboard.pending_invoice_title') }}</span>
-                            <span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300">
                                 {{ props.wallet.pending_deposit.status_label }}
                             </span>
                         </div>
-                        <p class="text-[11px] text-slate-600 dark:text-slate-300 font-mono truncate mt-0.5" dir="ltr">
+                        <p class="text-xs text-slate-600 dark:text-slate-400 font-mono truncate mt-0.5" dir="ltr">
                             #{{ props.wallet.pending_deposit.tracking_code }} • {{ props.wallet.pending_deposit.coin_amount }} {{ props.wallet.pending_deposit.currency }}
                         </p>
                     </div>
                 </div>
                 <Link
                     :href="route('wallet.deposit.show', props.wallet.pending_deposit.tracking_code)"
-                    class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-black transition-all shrink-0 shadow-sm"
-                >{{ __('dashboard.continue_payment') }}</Link>
+                    class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black transition-all shrink-0 shadow-sm"
+                >
+                    {{ __('dashboard.continue_payment') }}
+                </Link>
             </div>
 
-            <div v-if="(props.stats.answered_tickets || 0) > 0" class="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 backdrop-blur-md flex items-center justify-between gap-3 shadow-sm">
-                <div class="flex items-center gap-2.5 min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <div v-if="(props.stats.answered_tickets || 0) > 0" class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 backdrop-blur-md flex items-center justify-between gap-4 shadow-sm">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
                     </div>
@@ -439,638 +273,495 @@ const filteredFeatures = computed(() => {
                         <span class="text-xs font-black text-slate-900 dark:text-white block truncate">
                             {{ __('dashboard.answered_tickets', { count: props.stats.answered_tickets }) }}
                         </span>
-                        <span class="text-[11px] text-slate-600 dark:text-slate-300 block truncate">
+                        <span class="text-xs text-slate-600 dark:text-slate-400 block truncate">
                             {{ __('dashboard.answered_tickets_desc') }}
                         </span>
                     </div>
                 </div>
                 <Link
                     :href="route('tickets.index', { status: 'answered' })"
-                    class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-black transition-all shrink-0 shadow-sm"
-                >{{ __('dashboard.view_reply') }}</Link>
+                    class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all shrink-0 shadow-sm"
+                >
+                    {{ __('dashboard.view_reply') }}
+                </Link>
             </div>
 
             <!-- ========================================================================= -->
-            <!-- 1. UNIFIED COMMAND HERO: WALLET CREDIT & LINE QUOTA CENTER                -->
+            <!-- 3. FOUR KPI METRIC TILES                                                  -->
             <!-- ========================================================================= -->
-            <div class="dash-wallet-card !p-4 sm:!p-5 !mb-0 space-y-4">
-                <!-- Top Status & Security Posture Bar -->
-                <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-200/80 dark:border-white/10">
-                    <div class="flex items-center gap-2">
-                        <span class="status-dot-pulse"></span>
-                        <span class="text-xs font-extrabold text-slate-800 dark:text-slate-100">{{ __('dashboard.header_badge') }}</span>
-                    </div>
-
-                    <div class="flex items-center gap-1.5">
-                        <Link
-                            :href="route('profile.edit', { tab: 'security' })"
-                            class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border transition-all flex items-center gap-1"
-                            :class="props.security_overview?.two_factor_enabled
-                                ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-amber-500/15 border-amber-500/35 text-amber-700 dark:text-amber-400 hover:bg-amber-500/25'"
-                            :title="props.security_overview?.two_factor_enabled ? __('dashboard.two_factor_active_tooltip') : __('dashboard.two_factor_inactive_tooltip')"
-                        >
-                            <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <!-- Tile 1: Active Lines & Quota -->
+                <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-indigo-500/40 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 block">{{ __('dashboard.active_numbers_title') }}</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-2xl font-black font-mono text-slate-900 dark:text-white">{{ props.quota.active }}</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 font-bold">/ {{ props.quota.max }} {{ __('dashboard.quota_lines') }}</span>
+                            </div>
+                        </div>
+                        <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
-                            <span>{{ props.security_overview?.two_factor_enabled ? __('dashboard.two_factor_secure') : __('dashboard.two_factor_enable') }}</span>
-                        </Link>
-
-                        <span class="wallet-chip">{{ __('dashboard.account_active') }}</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+                        <div class="flex justify-between text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">
+                            <span>{{ __('dashboard.quota_used') }}</span>
+                            <span>{{ props.quota.percentage }}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div class="h-full bg-indigo-500 rounded-full transition-all duration-500" :style="{ width: `${props.quota.percentage}%` }"></div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Wallet Balance & Quick Recharge Section -->
-                <div class="p-3.5 rounded-2xl bg-white/75 dark:bg-slate-950/55 border border-slate-200/80 dark:border-white/10 space-y-3">
-                    <div class="flex items-start justify-between gap-2">
+                <!-- Tile 2: Wallet Balance -->
+                <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-amber-500/40 transition-colors">
+                    <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">{{ __('dashboard.wallet_balance_label') }}</span>
-                            <div class="wallet-amount !mt-1">
-                                <span>{{ creditBalance }}</span>
-                                <span class="wallet-currency text-xs font-extrabold">{{ __('dashboard.currency_trx') }}</span>
+                            <span class="text-xs font-bold text-slate-400 block">{{ __('dashboard.wallet_balance_label') }}</span>
+                            <div class="flex items-baseline gap-1.5 mt-1">
+                                <span class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400">{{ creditBalance }}</span>
+                                <span class="text-xs font-extrabold text-slate-500 dark:text-slate-400">TRX</span>
                             </div>
                         </div>
-
-                        <div class="text-left space-y-1">
-                            <span class="px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold block">
-                                {{ __('dashboard.regular_line_from', { price: baseLinePrice }) }}
-                            </span>
-                            <span class="px-2 py-0.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-700 dark:text-purple-300 text-[10px] font-bold block">
-                                {{ __('dashboard.base_prefix') }} <b class="font-mono" dir="ltr">{{ props.default_prefix }}</b>
-                            </span>
+                        <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
                         </div>
                     </div>
-
-                    <div class="grid grid-cols-2 gap-2 pt-1">
-                        <Link
-                            :href="route('profile.edit', { tab: 'wallet' })"
-                            class="wallet-btn-topup !py-2.5 !text-xs"
-                        >
-                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span>{{ __('dashboard.quick_recharge') }}</span>
-                        </Link>
-
-                        <Link
-                            :href="route('wallet.transactions')"
-                            class="wallet-btn-history !py-2.5 !text-xs gap-1.5"
-                        >
-                            <svg class="w-4 h-4 text-indigo-500 dark:text-indigo-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            <span>{{ __('dashboard.financial_ledger') }}</span>
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('dashboard.regular_line_from', { price: baseLinePrice }) }}</span>
+                        <Link :href="route('wallet.deposit.create')" class="text-amber-600 dark:text-amber-400 font-bold hover:underline">
+                            + {{ __('dashboard.charge_wallet_btn') }}
                         </Link>
                     </div>
                 </div>
 
-                <!-- Integrated Line Quota & Instant Allocation Section -->
-                <div class="p-3.5 rounded-2xl bg-white/75 dark:bg-slate-950/55 border border-slate-200/80 dark:border-white/10 space-y-3">
-                    <div class="flex items-center justify-between gap-2">
+                <!-- Tile 3: Messages Traffic -->
+                <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-emerald-500/40 transition-colors">
+                    <div class="flex items-center justify-between">
                         <div>
-                            <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400 block">{{ __('dashboard.capacity_label') }}</span>
-                            <div class="flex items-baseline gap-1.5 mt-0.5">
-                                <span class="text-lg font-black font-mono text-slate-900 dark:text-white">{{ props.quota.active }}</span>
-                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{{ __('dashboard.of_max_quota', { max: props.quota.max }) }}</span>
+                            <span class="text-xs font-bold text-slate-400 block">{{ __('dashboard.total_sms_title') }}</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-2xl font-black font-mono text-slate-900 dark:text-white">{{ props.stats.total_messages }}</span>
+                                <span v-if="props.stats.unread_messages > 0" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 animate-pulse">
+                                    {{ props.stats.unread_messages }} {{ __('dashboard.unread_badge') }}
+                                </span>
                             </div>
                         </div>
-
-                        <span
-                            class="px-2.5 py-1 rounded-xl text-[10px] font-extrabold border"
-                            :class="props.quota.remaining > 0
-                                ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-700 dark:text-emerald-400'
-                                : 'bg-rose-500/15 border-rose-500/35 text-rose-700 dark:text-rose-400'"
-                        >
-                            {{ props.quota.remaining > 0 ? __('dashboard.free_capacity', { count: props.quota.remaining }) : __('dashboard.quota_full') }}
+                        <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+                        <span class="text-emerald-600 dark:text-emerald-400 font-bold">
+                            {{ props.stats.today_messages ?? 0 }} {{ __('dashboard.today_received') }}
                         </span>
+                        <Link :href="route('messages.index')" class="text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium">
+                            {{ __('dashboard.view_inbox') }} →
+                        </Link>
                     </div>
+                </div>
 
-                    <!-- Progress Meter with Light/Dark Support -->
-                    <div>
-                        <div class="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1.5">
-                            <span>{{ __('dashboard.utilization_rate', { rate: props.quota.percentage }) }}</span>
-                            <span>{{ __('dashboard.lines_summary', { standard: props.stats.standard_numbers ?? props.quota.active, service: props.stats.service_numbers ?? 0 }) }}</span>
+                <!-- Tile 4: Service Numbers & API Tokens -->
+                <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col justify-between hover:border-purple-500/40 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-xs font-bold text-slate-400 block">{{ __('dashboard.corporate_numbers_title') }}</span>
+                            <div class="flex items-baseline gap-2 mt-1">
+                                <span class="text-2xl font-black font-mono text-purple-600 dark:text-purple-400">{{ props.stats.service_numbers ?? 0 }}</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400 font-bold">({{ props.stats.active_tokens ?? 0 }} {{ __('dashboard.active_tokens') }})</span>
+                            </div>
                         </div>
-                        <div class="h-2 w-full rounded-full bg-slate-200/90 dark:bg-slate-800/80 overflow-hidden p-0.5 border border-slate-300/70 dark:border-white/10">
-                            <div
-                                class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 shadow-sm"
-                                :style="{ width: `${Math.max(4, props.quota.percentage)}%` }"
-                            ></div>
-                        </div>
-                    </div>
-
-                    <!-- Line Allocation Quick Actions -->
-                    <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button
-                            type="button"
-                            @click="isAllocateModalOpen = true"
-                            :disabled="props.quota.remaining <= 0"
-                            class="wallet-btn-topup !py-2.5 !text-xs disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                                <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5"></line>
-                            </svg>
-                            <span>{{ __('dashboard.reserve_9digit') }}</span>
-                        </button>
-
-                        <Link
-                            :href="route('requests.index')"
-                            class="wallet-btn-history !py-2.5 !text-xs gap-1.5"
-                        >
-                            <svg class="w-4 h-4 text-purple-500 dark:text-purple-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                             </svg>
-                            <span>{{ __('dashboard.request_commercial') }}</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
+                        <span v-if="props.stats.pending_requests > 0" class="text-amber-600 dark:text-amber-400 font-bold">
+                            {{ props.stats.pending_requests }} {{ __('dashboard.pending_shortcodes') }}
+                        </span>
+                        <span v-else class="text-slate-500 dark:text-slate-400">
+                            {{ __('dashboard.corporate_ready') }}
+                        </span>
+                        <Link :href="route('requests.index')" class="text-purple-600 dark:text-purple-400 font-bold hover:underline">
+                            {{ __('dashboard.requests_link') }} →
                         </Link>
                     </div>
                 </div>
             </div>
 
             <!-- ========================================================================= -->
-            <!-- 2. FOUR LIVE OPERATIONAL METRIC CARDS (2x2 GRID)                          -->
+            <!-- 4. BALANCED 2-COLUMN MAIN LAYOUT (8 cols main + 4 cols sidebar)          -->
             <!-- ========================================================================= -->
-            <div class="dash-stats-grid !mb-0">
-                <!-- Active Numbers -->
-                <Link :href="route('numbers.index')" class="stat-card group flex flex-col justify-between">
-                    <div class="flex items-center justify-between">
-                        <div class="stat-icon-wrapper !mb-0 bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 group-hover:scale-105 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                                <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"></line>
-                            </svg>
-                        </div>
-                        <span class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full">{{ __('dashboard.my_numbers_link') }}</span>
-                    </div>
-                    <div class="mt-2.5">
-                        <div class="stat-val text-slate-900 dark:text-white">
-                            {{ props.stats.active_numbers }} <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400">{{ __('dashboard.active_numbers_unit') }}</span>
-                        </div>
-                        <div class="stat-label font-semibold">
-                            {{ __('dashboard.standard_and_service', { standard: props.stats.standard_numbers ?? props.stats.active_numbers, service: props.stats.service_numbers ?? 0 }) }}
-                        </div>
-                    </div>
-                </Link>
-
-                <!-- Total & Today SMS Traffic -->
-                <Link :href="route('messages.index')" class="stat-card group flex flex-col justify-between">
-                    <div class="flex items-center justify-between">
-                        <div class="stat-icon-wrapper !mb-0 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 group-hover:scale-105 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
-                            </svg>
-                        </div>
-                        <span class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                            {{ __('dashboard.today_label', { count: props.stats.today_messages ?? 0 }) }}
-                        </span>
-                    </div>
-                    <div class="mt-2.5">
-                        <div class="stat-val text-slate-900 dark:text-white">
-                            {{ props.stats.total_messages }} <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">{{ __('dashboard.total_messages_unit') }}</span>
-                        </div>
-                        <div class="stat-label font-semibold">
-                            {{ __('dashboard.inbound_outbound', { inbound: props.stats.inbound_messages ?? props.stats.total_messages, outbound: props.stats.outbound_messages ?? 0 }) }}
-                        </div>
-                    </div>
-                </Link>
-
-                <!-- Unread Messages -->
-                <Link :href="route('messages.index')" class="stat-card group flex flex-col justify-between">
-                    <div class="flex items-center justify-between">
-                        <div class="stat-icon-wrapper !mb-0 bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 group-hover:scale-105 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                        <span
-                            class="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                            :class="props.stats.unread_messages > 0
-                                ? 'bg-rose-500 text-white animate-pulse'
-                                : 'bg-slate-500/10 text-slate-500 dark:text-slate-400'"
-                        >
-                            {{ props.stats.unread_messages > 0 ? __('dashboard.new_messages_badge') : __('dashboard.up_to_date_badge') }}
-                        </span>
-                    </div>
-                    <div class="mt-2.5">
-                        <div class="stat-val text-slate-900 dark:text-white">
-                            {{ props.stats.unread_messages }} <span class="text-xs font-bold text-rose-600 dark:text-rose-400">{{ __('dashboard.unread_unit') }}</span>
-                        </div>
-                        <div class="stat-label font-semibold">
-                            {{ props.stats.unread_messages > 0 ? __('dashboard.awaiting_review') : __('dashboard.all_read') }}
-                        </div>
-                    </div>
-                </Link>
-
-                <!-- Pending Requests & API / Support -->
-                <Link :href="route('requests.index')" class="stat-card group flex flex-col justify-between">
-                    <div class="flex items-center justify-between">
-                        <div class="stat-icon-wrapper !mb-0 bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 group-hover:scale-105 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
-                                <polyline points="12 6 12 12 16 14" stroke-width="2"></polyline>
-                            </svg>
-                        </div>
-                        <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
-                            {{ __('dashboard.approved_count', { count: props.stats.approved_requests ?? 0 }) }}
-                        </span>
-                    </div>
-                    <div class="mt-2.5">
-                        <div class="stat-val text-slate-900 dark:text-white">
-                            {{ props.stats.pending_requests }} <span class="text-xs font-bold text-amber-600 dark:text-amber-400">{{ __('dashboard.pending_requests_unit') }}</span>
-                        </div>
-                        <div class="stat-label font-semibold">
-                            {{ __('dashboard.tokens_and_tickets', { tokens: props.stats.active_tokens ?? 0, tickets: props.stats.open_tickets ?? 0 }) }}
-                        </div>
-                    </div>
-                </Link>
-            </div>
-
-            <!-- ========================================================================= -->
-            <!-- 3. UNREAD INBOUND MESSAGES STREAM (If Any)                                -->
-            <!-- ========================================================================= -->
-            <div v-if="props.unread_messages.length > 0" class="glass-card !p-4 border-rose-500/30 space-y-3">
-                <div class="flex items-center justify-between">
-                    <span class="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
-                        <span>{{ __('dashboard.unread_inbox_title') }}</span>
-                        <span class="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded-full">
-                            {{ __('dashboard.messages_count', { count: props.stats.unread_messages }) }}
-                        </span>
-                    </span>
-                    <Link :href="route('messages.index')" class="section-link">{{ __('dashboard.open_inbox') }}</Link>
-                </div>
-
-                <div class="space-y-2">
-                    <div
-                        v-for="item in props.unread_messages"
-                        :key="item.sender + '_' + item.phone_number_id"
-                        class="p-3 rounded-2xl bg-white/80 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 hover:border-rose-500/40 transition-all flex items-center justify-between gap-2.5"
-                    >
-                        <div class="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25 flex items-center justify-center shrink-0">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="font-extrabold text-xs text-slate-900 dark:text-white font-mono truncate" dir="ltr">
-                                    {{ item.sender }}
-                                </span>
-                                <span class="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-full border border-rose-500/30 shrink-0">
-                                    {{ __('dashboard.new_messages_count', { count: item.count }) }}
-                                </span>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <!-- MAIN COLUMN: Active Numbers & Recent Inbound SMS (8 cols) -->
+                <div class="lg:col-span-8 space-y-6">
+                    <!-- Section: My Active Numbers -->
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('dashboard.my_active_numbers_heading') }}</h2>
                             </div>
-                            <div class="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-0.5 truncate">
-                                <span>{{ __('dashboard.dest_line') }} <b class="font-mono text-slate-700 dark:text-slate-300" dir="ltr">{{ item.destination_number }}</b></span>
-                                <span>•</span>
-                                <span class="text-rose-500 dark:text-rose-400 font-semibold">{{ item.received_at }}</span>
-                            </div>
-                        </div>
-
-                        <Link
-                            :href="route('messages.index', { phone_number_id: item.phone_number_id, peer: item.sender })"
-                            class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shrink-0 shadow-sm transition-all"
-                        >{{ __('dashboard.view_action') }}</Link>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========================================================================= -->
-            <!-- 4. USER AREA FEATURES SHOWCASE & QUICK ACCESS HUB                         -->
-            <!-- ========================================================================= -->
-            <div class="glass-card !p-4 sm:!p-5 space-y-4">
-                <!-- Section Header -->
-                <div class="flex items-start justify-between gap-2">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            <Link
+                                :href="route('numbers.index')"
+                                class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                            >
+                                <span>{{ __('dashboard.view_all_lines') }}</span>
+                                <svg class="w-3.5 h-3.5 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <polyline points="12 5 19 12 12 19"></polyline>
                                 </svg>
-                            </div>
-                            <h2 class="text-sm font-black text-slate-900 dark:text-white">
-                                {{ __('dashboard.modules_title') }}
-                            </h2>
+                            </Link>
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                            {{ __('dashboard.modules_subtitle') }}
-                        </p>
-                    </div>
-                    <span class="px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-black shrink-0">
-                        {{ __('dashboard.active_modules_count', { count: userAreaFeatures.length }) }}
-                    </span>
-                </div>
 
-                <!-- Category Filter Pills -->
-                <div class="grid grid-cols-4 gap-1.5 p-1.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10 text-[11px] font-bold">
-                    <button
-                        type="button"
-                        @click="selectedCategory = 'all'"
-                        class="py-2 px-1.5 rounded-xl transition-all text-center truncate cursor-pointer"
-                        :class="selectedCategory === 'all'
-                            ? 'bg-indigo-600 text-white shadow-sm font-black'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                    >{{ __('dashboard.filter_all') }}</button>
-                    <button
-                        type="button"
-                        @click="selectedCategory = 'telecom'"
-                        class="py-2 px-1.5 rounded-xl transition-all text-center truncate cursor-pointer"
-                        :class="selectedCategory === 'telecom'
-                            ? 'bg-indigo-600 text-white shadow-sm font-black'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                    >{{ __('dashboard.filter_numbers_messages') }}</button>
-                    <button
-                        type="button"
-                        @click="selectedCategory = 'finance_api'"
-                        class="py-2 px-1.5 rounded-xl transition-all text-center truncate cursor-pointer"
-                        :class="selectedCategory === 'finance_api'
-                            ? 'bg-indigo-600 text-white shadow-sm font-black'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                    >{{ __('dashboard.filter_finance_api') }}</button>
-                    <button
-                        type="button"
-                        @click="selectedCategory = 'security_support'"
-                        class="py-2 px-1.5 rounded-xl transition-all text-center truncate cursor-pointer"
-                        :class="selectedCategory === 'security_support'
-                            ? 'bg-indigo-600 text-white shadow-sm font-black'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                    >{{ __('dashboard.filter_security_tickets') }}</button>
-                </div>
+                        <!-- Has numbers -->
+                        <div v-if="props.recent_numbers && props.recent_numbers.length > 0" class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <div
+                                v-for="num in props.recent_numbers"
+                                :key="num.id"
+                                class="p-4 rounded-2xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between hover:border-indigo-500/40 transition-all group"
+                            >
+                                <div>
+                                    <div class="flex items-center justify-between gap-2 mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-lg leading-none">{{ num.prefix_flag || '📱' }}</span>
+                                            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                                                {{ num.type_label }}
+                                            </span>
+                                            <span v-if="num.rond_tier && num.rond_tier !== 'regular'" class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                                                {{ num.rond_tier_label || num.rond_tier }}
+                                            </span>
+                                        </div>
 
-                <!-- Feature Cards List -->
-                <div class="space-y-3">
-                    <div
-                        v-for="feature in filteredFeatures"
-                        :key="feature.id"
-                        class="p-3.5 rounded-2xl bg-white/85 dark:bg-slate-950/55 border border-slate-200/90 dark:border-white/10 transition-all space-y-2.5"
-                        :class="feature.borderHoverClass"
-                    >
-                        <!-- Card Top Row: Icon, Title/Subtitle, Live Status Badge -->
-                        <div class="flex items-start justify-between gap-2.5">
-                            <div class="flex items-center gap-2.5 min-w-0">
-                                <div
-                                    class="w-10 h-10 rounded-2xl bg-gradient-to-tr text-white flex items-center justify-center shrink-0 shadow-md"
-                                    :class="feature.iconBgClass"
-                                >
-                                    <!-- 1. Standard Lines Icon -->
-                                    <svg v-if="feature.id === 'standard-lines'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                                        <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5"></line>
-                                    </svg>
-                                    <!-- 2. Commercial Shortcodes Icon -->
-                                    <svg v-else-if="feature.id === 'commercial-shortcodes'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                    </svg>
-                                    <!-- 3. Realtime Messenger Icon -->
-                                    <svg v-else-if="feature.id === 'realtime-messenger'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                                    </svg>
-                                    <!-- 4. Crypto Wallet Icon -->
-                                    <svg v-else-if="feature.id === 'crypto-wallet'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                                    </svg>
-                                    <!-- 5. Developer API Icon -->
-                                    <svg v-else-if="feature.id === 'developer-api'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                    </svg>
-                                    <!-- 6. Support Tickets Icon -->
-                                    <svg v-else-if="feature.id === 'support-tickets'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                                    </svg>
-                                    <!-- 7. Security 2FA Icon -->
-                                    <svg v-else-if="feature.id === 'security-2fa'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                    <!-- 8. Identities & Sessions Icon -->
-                                    <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                                    </svg>
-                                </div>
+                                        <span v-if="num.accepts_incoming_sms" class="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold" :title="__('dashboard.two_way_sms')">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                            {{ __('dashboard.two_way_badge') }}
+                                        </span>
+                                    </div>
 
-                                <div class="min-w-0">
-                                    <h3 class="text-xs font-black text-slate-900 dark:text-white truncate">
-                                        {{ feature.title }}
-                                    </h3>
-                                    <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400 truncate mt-0.5">
-                                        {{ feature.subtitle }}
+                                    <!-- Phone Number Display & Copy -->
+                                    <div class="flex items-center justify-between gap-2 my-2">
+                                        <div class="font-mono font-black text-lg text-slate-900 dark:text-white tracking-wider" dir="ltr">
+                                            {{ num.formatted_number || num.number }}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="copyToClipboard(num.number, num.id)"
+                                            class="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-indigo-500 text-slate-500 dark:text-slate-400 hover:text-indigo-600 flex items-center justify-center transition-colors cursor-pointer"
+                                            :title="__('dashboard.copy_number')"
+                                        >
+                                            <svg v-if="copiedId === num.id" class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <polyline points="20 6 9 17 4 12" stroke-width="2.5"></polyline>
+                                            </svg>
+                                            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" stroke-width="2"></rect>
+                                                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke-width="2"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+
+                                    <p v-if="num.display_title" class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                        {{ num.display_title }}
                                     </p>
                                 </div>
-                            </div>
 
-                            <span
-                                class="px-2 py-0.5 rounded-full text-[10px] font-extrabold border shrink-0"
-                                :class="feature.badgeClass"
-                            >
-                                {{ feature.badgeText }}
-                            </span>
+                                <div class="mt-3 pt-2.5 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between text-[11px]">
+                                    <span class="text-slate-400">{{ num.allocated_ago }}</span>
+                                    <Link
+                                        :href="route('messages.index', { phone_number_id: num.id })"
+                                        class="text-indigo-600 dark:text-indigo-400 font-bold hover:underline inline-flex items-center gap-1"
+                                    >
+                                        <span>{{ __('dashboard.open_chat') }}</span>
+                                        <svg class="w-3 h-3 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                                            <polyline points="12 5 19 12 12 19"></polyline>
+                                        </svg>
+                                    </Link>
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Description -->
-                        <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                            {{ feature.description }}
-                        </p>
+                        <!-- Empty state when no numbers -->
+                        <div v-else class="mt-6 p-8 text-center rounded-2xl bg-slate-50/50 dark:bg-slate-800/30 border border-dashed border-slate-200 dark:border-slate-800">
+                            <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                                <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('dashboard.no_lines_yet_title') }}</h3>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+                                {{ __('dashboard.no_lines_yet_desc') }}
+                            </p>
+                            <button
+                                type="button"
+                                @click="isAllocateModalOpen = true"
+                                class="mt-4 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md shadow-indigo-500/20 inline-flex items-center gap-2 cursor-pointer"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                <span>{{ __('dashboard.get_first_line_btn') }}</span>
+                            </button>
+                        </div>
+                    </div>
 
-                        <!-- Highlights Chips & Direct Action Links -->
-                        <div class="pt-2 border-t border-slate-200/70 dark:border-white/10 flex items-center justify-between gap-2 flex-wrap">
-                            <div class="flex items-center gap-1 flex-wrap">
+                    <!-- Section: Recent Inbound Messages -->
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('dashboard.recent_inbox_heading') }}</h2>
+                            </div>
+                            <Link
+                                :href="route('messages.index')"
+                                class="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1"
+                            >
+                                <span>{{ __('dashboard.view_all_messages') }}</span>
+                                <svg class="w-3.5 h-3.5 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    <polyline points="12 5 19 12 12 19"></polyline>
+                                </svg>
+                            </Link>
+                        </div>
+
+                        <!-- Has Messages -->
+                        <div v-if="props.unread_messages && props.unread_messages.length > 0" class="mt-4 divide-y divide-slate-100 dark:divide-slate-800/80">
+                            <Link
+                                v-for="(msg, idx) in props.unread_messages"
+                                :key="idx"
+                                :href="route('messages.index', { phone_number_id: msg.phone_number_id, search: msg.sender })"
+                                class="py-3 px-2 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl transition-colors group"
+                            >
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 font-bold font-mono text-xs">
+                                        SMS
+                                    </div>
+                                    <div class="min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-black font-mono text-slate-900 dark:text-white" dir="ltr">{{ msg.sender }}</span>
+                                            <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                                                {{ msg.count }} {{ __('dashboard.unread_count_badge') }}
+                                            </span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                            {{ __('dashboard.sent_to_line') }}: <span class="font-mono font-bold" dir="ltr">{{ msg.destination_number }}</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div class="text-end shrink-0">
+                                    <span class="text-[10px] text-slate-400 block">{{ msg.received_at }}</span>
+                                    <span class="text-xs font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline">
+                                        {{ __('dashboard.reply_btn') }} →
+                                    </span>
+                                </div>
+                            </Link>
+                        </div>
+
+                        <!-- Empty state when no messages -->
+                        <div v-else class="mt-4 py-8 text-center text-xs text-slate-500 dark:text-slate-400">
+                            <svg class="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                            <span>{{ __('dashboard.no_messages_state') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SIDEBAR COLUMN: Financial Activity & Shortcuts & Security (4 cols) -->
+                <div class="lg:col-span-4 space-y-6">
+                    <!-- Widget: Recent Transactions -->
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('dashboard.recent_transactions_heading') }}</h2>
+                            </div>
+                            <Link
+                                :href="route('wallet.transactions')"
+                                class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                            >
+                                {{ __('dashboard.view_all_transactions') }}
+                            </Link>
+                        </div>
+
+                        <div v-if="recentTransactions.length > 0" class="mt-4 space-y-3">
+                            <div
+                                v-for="tx in recentTransactions"
+                                :key="tx.id"
+                                class="p-3 rounded-2xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3"
+                            >
+                                <div class="min-w-0">
+                                    <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">
+                                        {{ tx.description || tx.type_label }}
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 font-medium block mt-0.5">
+                                        {{ tx.created_ago }}
+                                    </span>
+                                </div>
                                 <span
-                                    v-for="tag in feature.highlights"
-                                    :key="tag"
-                                    class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-[10px] font-semibold text-slate-600 dark:text-slate-300"
+                                    class="text-xs font-mono font-black shrink-0 px-2.5 py-1 rounded-xl"
+                                    :class="tx.is_credit ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'"
+                                    dir="ltr"
                                 >
-                                    {{ tag }}
+                                    {{ tx.is_credit ? '+' : '-' }}{{ tx.amount }} TRX
+                                </span>
+                            </div>
+                        </div>
+
+                        <div v-else class="mt-4 py-6 text-center text-xs text-slate-400">
+                            {{ __('dashboard.no_transactions_yet') }}
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
+                            <Link
+                                :href="route('wallet.deposit.create')"
+                                class="w-full py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                            >
+                                <span>+ {{ __('dashboard.charge_wallet_btn') }}</span>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <!-- Widget: Quick Operational Shortcuts -->
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center gap-2 pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
+                            <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('dashboard.quick_shortcuts_heading') }}</h2>
+                        </div>
+
+                        <div class="mt-4 space-y-2">
+                            <button
+                                type="button"
+                                @click="isAllocateModalOpen = true"
+                                class="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-start flex items-center justify-between transition-colors cursor-pointer group"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">{{ __('dashboard.action_new_line_title') }}</span>
+                                        <span class="text-[10px] text-slate-400 block">{{ __('dashboard.action_new_line_desc') }}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 font-bold">→</span>
+                            </button>
+
+                            <Link
+                                :href="route('requests.index')"
+                                class="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-start flex items-center justify-between transition-colors group"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">{{ __('dashboard.action_corporate_title') }}</span>
+                                        <span class="text-[10px] text-slate-400 block">{{ __('dashboard.action_corporate_desc') }}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-400 group-hover:text-purple-600 dark:group-hover:text-purple-400 font-bold">→</span>
+                            </Link>
+
+                            <Link
+                                :href="route('api-tokens.index')"
+                                class="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-start flex items-center justify-between transition-colors group"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">{{ __('dashboard.action_api_title') }}</span>
+                                        <span class="text-[10px] text-slate-400 block">{{ __('dashboard.action_api_desc') }}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-400 group-hover:text-sky-600 dark:group-hover:text-sky-400 font-bold">→</span>
+                            </Link>
+
+                            <Link
+                                :href="route('tickets.create')"
+                                class="w-full p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/60 dark:hover:bg-slate-800 text-start flex items-center justify-between transition-colors group"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <div class="w-9 h-9 rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">{{ __('dashboard.action_ticket_title') }}</span>
+                                        <span class="text-[10px] text-slate-400 block">{{ __('dashboard.action_ticket_desc') }}</span>
+                                    </div>
+                                </div>
+                                <span class="text-xs text-slate-400 group-hover:text-violet-600 dark:group-hover:text-violet-400 font-bold">→</span>
+                            </Link>
+                        </div>
+                    </div>
+
+                    <!-- Widget: Security Health -->
+                    <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm">
+                        <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
+                            <div class="flex items-center gap-2">
+                                <span class="w-3 h-3 rounded-full bg-rose-500"></span>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('dashboard.security_health_heading') }}</h2>
+                            </div>
+                            <Link
+                                :href="route('profile.edit', { tab: 'security' })"
+                                class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            >
+                                {{ __('dashboard.settings_btn') }}
+                            </Link>
+                        </div>
+
+                        <div class="mt-4 space-y-3 text-xs">
+                            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('dashboard.two_factor_auth') }}</span>
+                                <span
+                                    class="px-2 py-0.5 rounded-md font-bold text-[10px]"
+                                    :class="props.security_overview?.two_factor_enabled ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'"
+                                >
+                                    {{ props.security_overview?.two_factor_enabled ? __('dashboard.two_factor_active') : __('dashboard.two_factor_inactive') }}
                                 </span>
                             </div>
 
-                            <div class="flex items-center gap-1.5 mr-auto">
-                                <button
-                                    v-if="feature.id === 'standard-lines' && props.quota.remaining > 0"
-                                    type="button"
-                                    @click="isAllocateModalOpen = true"
-                                    class="px-2.5 py-1.5 rounded-xl bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 text-[11px] font-extrabold transition-all cursor-pointer"
-                                >{{ __('dashboard.instant_reserve') }}</button>
+                            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('dashboard.connected_identities') }}</span>
+                                <span class="font-mono font-bold text-slate-900 dark:text-white">
+                                    {{ props.security_overview?.connected_identities_count ?? 1 }} {{ __('dashboard.identities_unit') }}
+                                </span>
+                            </div>
 
-                                <Link
-                                    v-if="feature.secondaryAction"
-                                    :href="feature.secondaryAction.href"
-                                    class="px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-slate-200 text-[11px] font-bold transition-all"
-                                >
-                                    {{ feature.secondaryAction.label }}
-                                </Link>
-
-                                <Link
-                                    v-if="feature.primaryAction.href"
-                                    :href="feature.primaryAction.href"
-                                    class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-extrabold transition-all flex items-center gap-1 shadow-xs"
-                                >
-                                    <span>{{ feature.primaryAction.label }}</span>
-                                    <svg class="w-3 h-3 rtl:rotate-0 ltr:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7" />
-                                    </svg>
-                                </Link>
+                            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('dashboard.account_tier') }}</span>
+                                <span class="uppercase font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                    {{ props.security_overview?.trust_tier || 'standard' }}
+                                </span>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ========================================================================= -->
-            <!-- 5. RECENT ACTIVE LINES & RECENT FINANCIAL TRANSACTIONS                    -->
-            <!-- ========================================================================= -->
-            <div class="glass-card !p-4 sm:!p-5 space-y-3.5">
-                <!-- Segmented Switcher Header -->
-                <div class="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80 dark:border-white/10">
-                    <div class="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10">
-                        <button
-                            type="button"
-                            @click="activeActivityTab = 'lines'"
-                            class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer"
-                            :class="activeActivityTab === 'lines'
-                                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                        >
-                            {{ __('dashboard.recent_active_numbers', { count: props.stats.active_numbers }) }}
-                        </button>
-                        <button
-                            type="button"
-                            @click="activeActivityTab = 'transactions'"
-                            class="px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer"
-                            :class="activeActivityTab === 'transactions'
-                                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xs'
-                                : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'"
-                        >
-                            {{ __('dashboard.recent_transactions', { count: recentTransactions.length }) }}
-                        </button>
-                    </div>
-
-                    <Link
-                        :href="activeActivityTab === 'lines' ? route('numbers.index') : route('wallet.transactions')"
-                        class="section-link shrink-0"
-                    >{{ __('dashboard.view_all') }}</Link>
-                </div>
-
-                <!-- TAB A: Recent Allocated Lines -->
-                <div v-if="activeActivityTab === 'lines'">
-                    <div v-if="props.recent_numbers.length > 0" class="space-y-2.5">
-                        <div
-                            v-for="phone in props.recent_numbers"
-                            :key="phone.id"
-                            class="p-3 rounded-2xl bg-white/85 dark:bg-slate-950/55 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all flex items-center justify-between gap-2.5"
-                        >
-                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/20 flex items-center justify-center shrink-0">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                                    <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2.5"></line>
-                                </svg>
-                            </div>
-
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center justify-between gap-2">
-                                    <span dir="ltr" class="font-mono text-sm font-black text-slate-900 dark:text-white tracking-wider truncate">
-                                        {{ phone.formatted_number }}
-                                    </span>
-                                    <span
-                                        v-if="phone.rond_tier && phone.rond_tier !== 'regular'"
-                                        class="px-2 py-0.5 rounded-full text-[9px] font-extrabold border shrink-0"
-                                        :class="phone.rond_tier === 'golden_rond'
-                                            ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                                            : 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30'"
-                                    >
-                                        {{ phone.rond_tier_label }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                                    <span class="status-dot-pulse !w-1.5 !h-1.5"></span>
-                                    <span class="font-bold text-slate-700 dark:text-slate-300 truncate">{{ phone.display_title || phone.type_label }}</span>
-                                    <span>•</span>
-                                    <span>{{ phone.allocated_ago }}</span>
-                                </div>
-                            </div>
-
-                            <div class="flex items-center gap-1.5 shrink-0">
-                                <button
-                                    type="button"
-                                    @click="copyToClipboard(phone.number)"
-                                    class="btn-copy-code"
-                                    :title="__('dashboard.copy_number_title')"
-                                >{{ __('dashboard.copy_label') }}</button>
-                                <Link
-                                    :href="route('messages.index', { phone_number_id: phone.id })"
-                                    class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-all"
-                                    :title="__('dashboard.view_line_messages')"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                </Link>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Empty State for Lines -->
-                    <div v-else class="p-6 rounded-2xl bg-white/60 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 text-center space-y-3">
-                        <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                                <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"></line>
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-xs font-extrabold text-slate-900 dark:text-white">{{ __('dashboard.no_numbers_title') }}</h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                                {{ __('dashboard.no_numbers_desc') }}
-                            </p>
-                        </div>
-                        <button
-                            type="button"
-                            @click="isAllocateModalOpen = true"
-                            class="glass-btn-primary !w-auto !px-5 !py-2.5 !text-xs mx-auto"
-                        >{{ __('dashboard.get_first_number') }}</button>
-                    </div>
-                </div>
-
-                <!-- TAB B: Recent Wallet Transactions -->
-                <div v-else>
-                    <div v-if="recentTransactions.length > 0" class="space-y-2.5">
-                        <div
-                            v-for="tx in recentTransactions"
-                            :key="tx.id"
-                            class="p-3 rounded-2xl bg-white/85 dark:bg-slate-950/55 border border-slate-200/90 dark:border-white/10 flex items-center justify-between gap-2.5"
-                        >
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="tx.badge_classes">
-                                        {{ tx.type_label }}
-                                    </span>
-                                    <span class="text-[10px] text-slate-400 font-mono">{{ tx.created_ago }}</span>
-                                </div>
-                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate mt-1">
-                                    {{ tx.description }}
-                                </p>
-                            </div>
-
-                            <div class="text-left shrink-0 font-mono text-sm font-black" :class="tx.is_credit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'">
-                                {{ tx.is_credit ? '+' : '-' }}{{ tx.amount }} <span class="text-[10px] font-sans">{{ __('dashboard.unit_label') }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-else class="p-6 rounded-2xl bg-white/60 dark:bg-slate-950/40 border border-slate-200/80 dark:border-white/10 text-center space-y-3">
-                        <p class="text-xs font-extrabold text-slate-900 dark:text-white">{{ __('dashboard.no_transactions_title') }}</p>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                            {{ __('dashboard.no_transactions_desc') }}
-                        </p>
-                        <Link
-                            :href="route('profile.edit', { tab: 'wallet' })"
-                            class="glass-btn-primary !w-auto !px-5 !py-2 !text-xs inline-flex mx-auto"
-                        >{{ __('dashboard.recharge_account') }}</Link>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Unified Number Allocation Modal -->
+        <!-- Allocation Modal -->
         <AllocateNumberModal
             :show="isAllocateModalOpen"
             :default-prefix="props.default_prefix"
@@ -1078,7 +769,7 @@ const filteredFeatures = computed(() => {
             :remaining-quota="props.quota.remaining"
             :max-quota="props.quota.max"
             @close="isAllocateModalOpen = false"
-            @success="showToast"
+            @success="() => { isAllocateModalOpen = false; showToast(); }"
         />
     </UserLayout>
 </template>

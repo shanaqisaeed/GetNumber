@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import { useTheme } from '@/Composables/useTheme';
 import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -39,6 +40,8 @@ const isMobileMenuOpen = ref(false);
 
                 <!-- Desktop Navigation Actions (hidden on mobile) -->
                 <div class="hidden md:flex items-center gap-3">
+                    <LanguageSwitcher buttonClass="!h-9 !rounded-xl !px-2.5" />
+
                     <button
                         type="button"
                         class="app-theme-toggle-btn"
@@ -106,8 +109,10 @@ const isMobileMenuOpen = ref(false);
                     </template>
                 </div>
 
-                <!-- Mobile Actions (Theme Toggle + Hamburger Menu Button) -->
+                <!-- Mobile Actions (Language + Theme Toggle + Hamburger Menu Button) -->
                 <div class="flex md:hidden items-center gap-2">
+                    <LanguageSwitcher buttonClass="!h-9 !rounded-xl !px-2" />
+
                     <button
                         type="button"
                         class="app-theme-toggle-btn !w-9 !h-9"

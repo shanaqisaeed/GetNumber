@@ -27,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
             EnsureAccountIsActive::class,
+            \App\Http\Middleware\EnsureUserEmailIsVerified::class,
         ]);
 
         $middleware->api(append: [
@@ -39,6 +40,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => EnsureUserIsAdmin::class,
             'staff' => \App\Http\Middleware\EnsureUserIsStaff::class,
             'active' => EnsureAccountIsActive::class,
+            'verified' => \App\Http\Middleware\EnsureUserEmailIsVerified::class,
             'auth.api_token' => \App\Http\Middleware\AuthenticateApiToken::class,
         ]);
     })

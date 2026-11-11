@@ -14,4 +14,7 @@ return [
         'admin_only' => 'Unauthorized access. This area is reserved exclusively for system administrators.',
         'staff_only' => 'Unauthorized access. This area is restricted to support staff and administrators.',
     ],
+    'auth' => [
+        'email_not_verified' => 'Your email address is not verified. Please verify your email to access platform services.',
+    ],
 ];
