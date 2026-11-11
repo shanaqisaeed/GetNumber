@@ -75,7 +75,7 @@ const pollBatchProgress = async (batchId: string) => {
             if (!data.is_finished) {
                 setTimeout(() => pollBatchProgress(batchId), 1500);
             } else {
-                emit('toast', `ارسال بسته انبوه با موفقیت انجام شد (${data.success_count} موفق، ${data.failed_count} ناموفق)`);
+                emit('toast', __('user.messages.bulk_success', { success: data.success_count, failed: data.failed_count }));
                 emit('sent', { isBatch: true, batchId });
             }
         }
@@ -89,11 +89,11 @@ const submitSend = async () => {
         addRecipientChip(recipientInput.value);
     }
     if (recipientChips.value.length === 0) {
-        emit('toast', 'لطفاً حداقل یک شماره مقصد وارد کنید');
+        emit('toast', __('user.messages.enter_recipient'));
         return;
     }
     if (!messageText.value.trim() || !props.selectedLineId) {
-        emit('toast', 'متن پیام نمی‌تواند خالی باشد');
+        emit('toast', __('user.messages.enter_body'));
         return;
     }
 
@@ -133,7 +133,7 @@ const submitSend = async () => {
                 };
                 pollBatchProgress(data.batch_id);
             } else {
-                emit('toast', 'پیامک با موفقیت ارسال شد');
+                emit('toast', __('user.messages.sent_success'));
                 emit('sent', {
                     isBatch: false,
                     destinations: recipientChips.value,
@@ -143,16 +143,16 @@ const submitSend = async () => {
         } else {
             sendFeedback.value = {
                 success: false,
-                message: data.message || 'خطا در ارسال پیامک',
+                message: data.message || __('user.messages.send_error'),
             };
-            emit('toast', data.message || 'خطا در ارسال');
+            emit('toast', data.message || __('user.messages.send_error'));
         }
     } catch {
         sendFeedback.value = {
             success: false,
-            message: 'خطا در ارتباط با سرور',
+            message: __('user.messages.server_error'),
         };
-        emit('toast', 'خطای شبکه در ارسال پیام');
+        emit('toast', __('user.messages.network_error'));
     } finally {
         if (!activeBatch.value) {
             isSending.value = false;
@@ -170,22 +170,22 @@ const submitSend = async () => {
                     type="button"
                     @click="emit('close')"
                     class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white flex items-center justify-center shrink-0 transition-colors"
-                    title="بازگشت"
+                    :title="__('user.messages.back')"
                 >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
-                <span class="text-xs font-black text-slate-900 dark:text-white">ارسال پیامک جدید و انبوه</span>
+                <span class="text-xs font-black text-slate-900 dark:text-white">{{ __('user.messages.bulk_title') }}</span>
             </div>
         </div>
 
         <!-- Recipient Field ("To:") -->
         <div class="glass-card !p-3.5 space-y-2 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
             <div class="flex items-center justify-between">
-                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">گیرنده (شماره مقصد):</label>
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ __('user.messages.recipient_label') }}</label>
                 <span v-if="recipientChips.length > 0" class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
-                    {{ recipientChips.length }} گیرنده انتخابی
+                    {{ __('user.messages.recipient_count', { count: recipientChips.length }) }}
                 </span>
             </div>
 
@@ -205,7 +205,7 @@ const submitSend = async () => {
                     @keydown="onRecipientKeyDown"
                     @blur="addRecipientChip(recipientInput)"
                     type="text"
-                    placeholder="شماره مقصد را وارد و اینتر یا ویرگول بزنید..."
+                    :placeholder="__('user.messages.recipient_placeholder')"
                     class="flex-1 min-w-[150px] bg-transparent border-0 p-1 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-0"
                     dir="ltr"
                 />
@@ -215,7 +215,7 @@ const submitSend = async () => {
         <!-- Message Body Textarea with Integrated Segment & Cost Calculator -->
         <div class="glass-card !p-3.5 space-y-2.5 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
             <div class="flex items-center justify-between">
-                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">متن پیامک:</label>
+                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ __('user.messages.message_body_label') }}</label>
 
                 <!-- Calculation Pill -->
                 <div class="flex items-center gap-2 text-[10px] font-mono">
@@ -226,7 +226,7 @@ const submitSend = async () => {
                         {{ calculation.encoding }}
                     </span>
                     <span class="text-slate-500 dark:text-slate-400">
-                        {{ calculation.charCount }} کاراکتر ({{ calculation.segmentCount }} پارت)
+                        {{ __('user.messages.calc_info', { chars: calculation.charCount, segments: calculation.segmentCount }) }}
                     </span>
                 </div>
             </div>
@@ -234,7 +234,7 @@ const submitSend = async () => {
             <textarea
                 v-model="messageText"
                 rows="5"
-                placeholder="متن پیام خود را بنویسید..."
+                :placeholder="__('user.messages.message_placeholder')"
                 class="w-full glass-input !p-3 !text-xs !rounded-2xl resize-none bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
             ></textarea>
 
@@ -244,13 +244,13 @@ const submitSend = async () => {
                 class="p-2.5 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/70 dark:border-indigo-500/20 flex flex-wrap items-center justify-between gap-2 text-xs"
             >
                 <div class="flex items-center gap-3 text-[11px] text-slate-600 dark:text-slate-300 font-medium">
-                    <span>تعداد پارت: <b class="font-mono text-indigo-600 dark:text-indigo-400">{{ calculation.segmentCount }}</b></span>
-                    <span>تعداد گیرندگان: <b class="font-mono text-indigo-600 dark:text-indigo-400">{{ calculation.recipientCount }}</b></span>
-                    <span>تعرفه هر پارت: <b class="font-mono text-slate-500 dark:text-slate-400">{{ calculation.ratePerSegment }} COIN</b></span>
+                    <span>{{ __('user.messages.parts_count') }} <b class="font-mono text-indigo-600 dark:text-indigo-400">{{ calculation.segmentCount }}</b></span>
+                    <span>{{ __('user.messages.recipients_count') }} <b class="font-mono text-indigo-600 dark:text-indigo-400">{{ calculation.recipientCount }}</b></span>
+                    <span>{{ __('user.messages.tariff_per_part') }} <b class="font-mono text-slate-500 dark:text-slate-400">{{ calculation.ratePerSegment }} {{ __('dashboard.currency_trx') }}</b></span>
                 </div>
 
                 <div class="font-bold text-xs text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
-                    <span>مجموع تخمین هزینه:</span>
+                    <span>{{ __('user.messages.total_estimated_cost') }}</span>
                     <span class="font-mono text-sm font-black">{{ calculation.totalCost }} {{ calculation.currency }}</span>
                 </div>
             </div>
@@ -258,7 +258,7 @@ const submitSend = async () => {
             <!-- Batch Progress Indicator -->
             <div v-if="activeBatch" class="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/80 space-y-2">
                 <div class="flex items-center justify-between text-xs font-bold">
-                    <span class="text-indigo-700 dark:text-indigo-300">در حال پردازش در صف پس‌زمینه...</span>
+                    <span class="text-indigo-700 dark:text-indigo-300">{{ __('user.messages.background_queue_processing') }}</span>
                     <span class="font-mono text-indigo-600 dark:text-indigo-400">{{ activeBatch.processed }} / {{ activeBatch.total }} ({{ activeBatch.progress }}%)</span>
                 </div>
                 <div class="w-full bg-slate-200 dark:bg-slate-800 rounded-full h-2 overflow-hidden">
@@ -282,11 +282,11 @@ const submitSend = async () => {
                 <svg v-else class="w-4 h-4 -scale-x-100 text-white" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                 </svg>
-                <span>{{ isSending ? 'در حال ارسال...' : (recipientChips.length >= 10 ? 'ثبت و ارسال به صف انبوه' : 'ارسال پیامک') }}</span>
+                <span>{{ isSending ? __('user.messages.sending') : (recipientChips.length >= 10 ? __('user.messages.send_bulk_btn') : __('user.messages.send_single_btn')) }}</span>
             </button>
 
             <p class="text-[10px] text-slate-500 dark:text-slate-400 text-center pt-1">
-                پیام‌ها در محیط پلتفرم ثبت شده و پیامک مخابراتی ارسال نمی‌شود.
+                {{ __('user.messages.platform_disclaimer') }}
             </p>
         </div>
     </div>

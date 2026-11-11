@@ -70,7 +70,7 @@ const submit = () => {
 
 <template>
     <AuthLayout>
-        <Head title="ورود به سامانه" />
+        <Head :title="__('ui.auth.login.head_title')" />
 
         <!-- Header Brand & Title -->
         <div class="text-center mb-6">
@@ -79,8 +79,8 @@ const submit = () => {
                     <path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
                 </svg>
             </div>
-            <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">ورود به درگاه هوشمند</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">سامانه متمرکز مدیریت شماره‌های مجازی و ارتباطات سازمانی</p>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{{ __('ui.auth.login.title') }}</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ __('ui.auth.login.subtitle') }}</p>
         </div>
 
         <!-- Status or Flash Alerts -->
@@ -103,7 +103,7 @@ const submit = () => {
         <!-- 1. Authentication Method Selector Tabs -->
         <div class="mb-6">
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                شیوه احراز هویت و ورود را انتخاب فرمایید:
+                {{ __('ui.auth.login.method_prompt') }}
             </label>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-xs font-bold">
                 <!-- Method: Username -->
@@ -119,7 +119,7 @@ const submit = () => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span>نام کاربری</span>
+                    <span>{{ __('ui.auth.login.method_username') }}</span>
                 </button>
 
                 <!-- Method: Email -->
@@ -135,7 +135,7 @@ const submit = () => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span>ایمیل</span>
+                    <span>{{ __('ui.auth.login.method_email') }}</span>
                 </button>
 
                 <!-- Method: LDAP -->
@@ -151,7 +151,7 @@ const submit = () => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
                     </svg>
-                    <span>سامانه LDAP</span>
+                    <span>{{ __('ui.auth.login.method_ldap') }}</span>
                 </button>
 
                 <!-- Method: Keycloak -->
@@ -178,7 +178,7 @@ const submit = () => {
             <!-- A. Username Provider Field -->
             <div v-if="selectedMethod === 'username'" class="space-y-1.5">
                 <label for="username" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    شناسه کاربری:
+                    {{ __('ui.auth.login.username_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -191,7 +191,7 @@ const submit = () => {
                         type="text"
                         v-model="form.username"
                         class="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
-                        placeholder="شناسه کاربری خود را وارد فرمایید..."
+                        :placeholder="__('ui.auth.login.username_placeholder')"
                         required
                         autofocus
                         dir="ltr"
@@ -204,7 +204,7 @@ const submit = () => {
             <!-- B. Email Provider Field -->
             <div v-if="selectedMethod === 'email'" class="space-y-1.5">
                 <label for="email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    نشانی پست الکترونیک (ایمیل):
+                    {{ __('ui.auth.login.email_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -233,12 +233,12 @@ const submit = () => {
                     <svg class="w-4 h-4 shrink-0 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>احراز هویت سازمانی از طریق اکتیو دایرکتوری و سرویس LDAP سازمان</span>
+                    <span>{{ __('ui.auth.login.ldap_badge') }}</span>
                 </div>
 
                 <div class="space-y-1.5">
                     <label for="ldap_username" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        شناسه کاربری سازمانی (LDAP / Active Directory):
+                        {{ __('ui.auth.login.ldap_username_label') }}
                     </label>
                     <div class="relative">
                         <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -251,7 +251,7 @@ const submit = () => {
                             type="text"
                             v-model="form.ldap_username"
                             class="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
-                            placeholder="نام کاربری سازمانی (مثال: j.doe)"
+                            :placeholder="__('ui.auth.login.ldap_username_placeholder')"
                             required
                             autofocus
                             dir="ltr"
@@ -265,7 +265,7 @@ const submit = () => {
             <!-- Password Field (Shared for Username, Email, and LDAP) -->
             <div class="space-y-1.5">
                 <label for="password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    {{ selectedMethod === 'ldap' ? 'کلمه عبور حساب سازمانی LDAP:' : 'کلمه عبور:' }}
+                    {{ selectedMethod === 'ldap' ? __('ui.auth.login.password_ldap_label') : __('ui.auth.login.password_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -308,7 +308,7 @@ const submit = () => {
                         v-model="form.remember"
                         class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 dark:bg-slate-800"
                     />
-                    <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">مرا به خاطر بسپار</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400 font-medium">{{ __('ui.auth.login.remember_me') }}</span>
                 </label>
             </div>
 
@@ -319,10 +319,10 @@ const submit = () => {
                     :disabled="form.processing"
                     class="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-sm shadow-md shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                    <span v-if="form.processing">در حال اعتبارسنجی و ورود...</span>
+                    <span v-if="form.processing">{{ __('ui.auth.login.processing') }}</span>
                     <template v-else>
                         <span>
-                            {{ selectedMethod === 'ldap' ? 'ورود با حساب سازمانی LDAP' : (selectedMethod === 'email' ? 'ورود با نشانی ایمیل' : 'ورود به سامانه') }}
+                            {{ selectedMethod === 'ldap' ? __('ui.auth.login.submit_ldap') : (selectedMethod === 'email' ? __('ui.auth.login.submit_email') : __('ui.auth.login.submit_default')) }}
                         </span>
                         <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
@@ -339,10 +339,10 @@ const submit = () => {
                     <svg class="w-5 h-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
-                    <span>احراز هویت متمرکز سازمانی (Keycloak SSO)</span>
+                    <span>{{ __('ui.auth.login.keycloak_badge') }}</span>
                 </div>
                 <p class="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
-                    با کلیک بر روی دکمه زیر، به صورت امن به سامانه ورود یکپارچه سازمانی منتقل خواهید شد و پس از احراز هویت، مجدداً به این درگاه هدایت می‌شوید.
+                    {{ __('ui.auth.login.keycloak_desc') }}
                 </p>
             </div>
 
@@ -354,18 +354,18 @@ const submit = () => {
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                 </svg>
-                <span>ورود مستقیم از طریق Keycloak SSO</span>
+                <span>{{ __('ui.auth.login.keycloak_button') }}</span>
             </a>
             <div v-else class="p-3 text-center text-xs text-rose-500 font-bold bg-rose-50 dark:bg-rose-950/40 rounded-xl border border-rose-200">
-                درگاه ورود Keycloak هنوز توسط مدیر سامانه پیکربندی نشده است.
+                {{ __('ui.auth.login.keycloak_not_configured') }}
             </div>
         </div>
 
         <!-- Footer Links: Registration and Help -->
         <div class="mt-6 pt-5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span class="text-slate-500 dark:text-slate-400">حساب کاربری ندارید؟</span>
+            <span class="text-slate-500 dark:text-slate-400">{{ __('ui.auth.login.no_account') }}</span>
             <Link :href="route('register')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                ایجاد حساب کاربری جدید
+                {{ __('ui.auth.login.register_link') }}
             </Link>
         </div>
     </AuthLayout>

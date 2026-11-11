@@ -21,10 +21,10 @@ const form = useForm({
             </div>
             <div>
                 <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                    مشخصات هویتی و سازمانی
+                    {{ __('ui.profile.info.title') }}
                 </h3>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    به‌روزرسانی نام سازمانی و عنوان نمایشی حساب کاربری
+                    {{ __('ui.profile.info.desc') }}
                 </p>
             </div>
         </header>
@@ -36,7 +36,7 @@ const form = useForm({
             <!-- Organization / Display Name -->
             <div class="space-y-1.5">
                 <label for="name" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    عنوان سازمانی / نام و نام خانوادگی
+                    {{ __('ui.profile.info.name_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -51,7 +51,7 @@ const form = useForm({
                         required
                         autofocus
                         autocomplete="name"
-                        placeholder="نام و نام خانوادگی یا نام شرکت"
+                        :placeholder="__('ui.profile.info.name_placeholder')"
                         class="w-full pr-10 pl-3.5 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                     />
                 </div>
@@ -65,9 +65,9 @@ const form = useForm({
                         <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
-                        <span>شناسه کاربری</span>
+                        <span>{{ __('ui.profile.info.username_label') }}</span>
                     </label>
-                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">غیرقابل تغییر</span>
+                    <span class="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">{{ __('ui.profile.info.username_locked') }}</span>
                 </div>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -85,7 +85,7 @@ const form = useForm({
                     />
                 </div>
                 <p class="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                    شناسه کاربری یکتا بوده و جهت حفظ پایداری ارتباطات سازمانی غیرقابل تغییر است.
+                    {{ __('ui.profile.info.username_desc') }}
                 </p>
             </div>
 
@@ -93,13 +93,13 @@ const form = useForm({
             <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
                     <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                        نشانی پست الکترونیک (ایمیل)
+                        {{ __('ui.profile.info.email_label') }}
                     </label>
-                    <span v-if="user.email" class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">تایید شده</span>
+                    <span v-if="user.email" class="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">{{ __('ui.profile.info.email_verified') }}</span>
                 </div>
                 <input
                     type="text"
-                    :value="user.email || 'هنوز نشانی ایمیل به حساب شما متصل نشده است'"
+                    :value="user.email || __('ui.profile.info.no_email')"
                     disabled
                     readonly
                     dir="ltr"
@@ -121,7 +121,7 @@ const form = useForm({
                     <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
-                    <span>ذخیره تغییرات</span>
+                    <span>{{ __('ui.profile.info.save_changes') }}</span>
                 </button>
 
                 <Transition
@@ -137,7 +137,7 @@ const form = useForm({
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span>اطلاعات با موفقیت ذخیره شد.</span>
+                        <span>{{ __('ui.profile.info.saved_success') }}</span>
                     </div>
                 </Transition>
             </div>

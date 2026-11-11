@@ -2,6 +2,7 @@
 import InputError from '@/Components/InputError.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 interface UserIdentityData {
     id: number;
@@ -121,7 +122,7 @@ const submitIdentityPassword = () => {
 const unlinkingProvider = ref<string | null>(null);
 
 const unlink = (provider: string) => {
-    if (!confirm(`آیا از قطع اتصال این شیوه ورود (${provider}) اطمینان دارید؟`)) {
+    if (!confirm(__('ui.profile.identities.confirm_unlink', { provider }))) {
         return;
     }
 
@@ -139,13 +140,13 @@ const unlink = (provider: string) => {
 <template>
     <div class="space-y-5">
         <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-            <h3 class="text-sm font-black text-slate-900 dark:text-white">روش‌های متصل برای ورود</h3>
-            <p class="text-xs text-slate-400 mt-0.5">مدیریت شیوه‌های مجاز ورود به حساب کاربری</p>
+            <h3 class="text-sm font-black text-slate-900 dark:text-white">{{ __('ui.profile.identities.title') }}</h3>
+            <p class="text-xs text-slate-400 mt-0.5">{{ __('ui.profile.identities.subtitle') }}</p>
         </div>
 
         <!-- Info notice if no external auth is enabled in general settings -->
         <div v-if="!hasAnyExternalProviderEnabled" class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 text-xs flex items-center gap-2">
-            <span>در حال حاضر شیوه‌های ورود خارجی در تنظیمات سامانه غیرفعال می‌باشند.</span>
+            <span>{{ __('ui.profile.identities.external_disabled') }}</span>
         </div>
 
         <div class="space-y-4">
@@ -159,9 +160,9 @@ const unlink = (provider: string) => {
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h4 class="text-xs font-bold text-slate-900 dark:text-white">شناسه کاربری سامانه</h4>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل (هویت پایه)</span>
-                            <span v-if="usernameIdentity?.has_password || hasPassword" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">دارای گذرواژه فعال</span>
+                            <h4 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('ui.profile.identities.username_title') }}</h4>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{{ __('ui.profile.identities.connected_primary') }}</span>
+                            <span v-if="usernameIdentity?.has_password || hasPassword" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">{{ __('ui.profile.identities.has_active_pass') }}</span>
                         </div>
                         <p class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">@{{ user?.username }}</p>
                     </div>
@@ -173,7 +174,7 @@ const unlink = (provider: string) => {
                         @click="openPasswordModal('username')"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/50 dark:hover:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-800 transition-all cursor-pointer"
                     >
-                        تغییر گذرواژه شناسه
+                        {{ __('ui.profile.identities.change_pass') }}
                     </button>
                 </div>
             </div>
@@ -189,20 +190,20 @@ const unlink = (provider: string) => {
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h4 class="text-xs font-bold text-slate-900 dark:text-white">نشانی پست الکترونیک (ایمیل)</h4>
-                                <span v-if="emailIdentity || user?.email" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
-                                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+                                <h4 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('ui.profile.identities.email_title') }}</h4>
+                                <span v-if="emailIdentity || user?.email" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{{ __('ui.profile.identities.connected') }}</span>
+                                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ __('ui.profile.identities.not_connected') }}</span>
 
                                 <span v-if="emailIdentity?.has_password" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20">
-                                    گذرواژه اختصاصی فعال
+                                    {{ __('ui.profile.identities.dedicated_pass_active') }}
                                 </span>
 
                                 <span v-if="!authSettings.email_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                    غیرفعال در سامانه
+                                    {{ __('ui.profile.identities.disabled_in_system') }}
                                 </span>
                             </div>
                             <p v-if="user?.email" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">{{ user?.email }}</p>
-                            <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال ایمیل جهت ورود مستقل و دریافت اطلاعیه‌ها</p>
+                            <p v-else class="text-[11px] text-slate-400 mt-0.5">{{ __('ui.profile.identities.email_desc') }}</p>
                         </div>
                     </div>
 
@@ -213,7 +214,7 @@ const unlink = (provider: string) => {
                             @click="openPasswordModal('email')"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer"
                         >
-                            {{ emailIdentity?.has_password ? 'تغییر گذرواژه ایمیل' : 'تعیین گذرواژه ایمیل' }}
+                            {{ emailIdentity?.has_password ? __('ui.profile.identities.change_email_pass') : __('ui.profile.identities.set_email_pass') }}
                         </button>
                         <button
                             v-if="emailIdentity || user?.email"
@@ -221,16 +222,14 @@ const unlink = (provider: string) => {
                             @click="unlink('email')"
                             :disabled="unlinkingProvider === 'email'"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer"
-                        >
-                            قطع اتصال
-                        </button>
+                        >{{ __('ui.profile.identities.disconnect') }}</button>
                         <button
                             v-else-if="authSettings.email_enabled"
                             type="button"
                             @click="isEmailFormOpen = !isEmailFormOpen"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/50 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-800 transition-all cursor-pointer"
                         >
-                            {{ isEmailFormOpen ? 'انصراف' : 'اتصال ایمیل' }}
+                            {{ isEmailFormOpen ? __('ui.profile.identities.cancel') : __('ui.profile.identities.connect_email') }}
                         </button>
                     </div>
                 </div>
@@ -238,7 +237,7 @@ const unlink = (provider: string) => {
                 <!-- Inline Connect Email Form -->
                 <form v-if="isEmailFormOpen && !user?.email && authSettings.email_enabled" @submit.prevent="submitLinkEmail" class="p-4 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3.5">
                     <div class="space-y-1">
-                        <label for="link_email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">نشانی ایمیل:</label>
+                        <label for="link_email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.email_label') }}</label>
                         <input
                             id="link_email"
                             type="email"
@@ -252,7 +251,7 @@ const unlink = (provider: string) => {
                     </div>
 
                     <div v-if="hasPassword" class="space-y-1">
-                        <label for="email_current_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">رمز عبور فعلی حساب جهت تایید:</label>
+                        <label for="email_current_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.current_pass_label') }}</label>
                         <input
                             id="email_current_password"
                             type="password"
@@ -268,13 +267,13 @@ const unlink = (provider: string) => {
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
                         <div class="space-y-1">
                             <label for="link_email_password" class="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                گذرواژه اختصاصی ورود با ایمیل (اختیاری):
+                                {{ __('ui.profile.identities.email_pass_label') }}
                             </label>
                             <input
                                 id="link_email_password"
                                 type="password"
                                 v-model="emailForm.email_password"
-                                placeholder="حداقل ۸ نویسه امن"
+                                :placeholder="__('ui.profile.identities.pass_min_hint')"
                                 dir="ltr"
                                 class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                             />
@@ -282,13 +281,13 @@ const unlink = (provider: string) => {
                         </div>
                         <div class="space-y-1">
                             <label for="link_email_password_confirmation" class="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                                تکرار گذرواژه اختصاصی ایمیل:
+                                {{ __('ui.profile.identities.email_pass_confirm_label') }}
                             </label>
                             <input
                                 id="link_email_password_confirmation"
                                 type="password"
                                 v-model="emailForm.email_password_confirmation"
-                                placeholder="تکرار کلمه عبور"
+                                :placeholder="__('ui.profile.identities.repeat_pass_hint')"
                                 dir="ltr"
                                 class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white"
                             />
@@ -300,15 +299,13 @@ const unlink = (provider: string) => {
                             type="button"
                             @click="isEmailFormOpen = false"
                             class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('ui.profile.identities.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="emailForm.processing"
                             class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition-all"
                         >
-                            تایید و اتصال ایمیل
+                            {{ __('ui.profile.identities.submit_email') }}
                         </button>
                     </div>
                 </form>
@@ -325,16 +322,16 @@ const unlink = (provider: string) => {
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h4 class="text-xs font-bold text-slate-900 dark:text-white">سامانه سازمانی LDAP</h4>
-                                <span v-if="ldapIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
-                                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+                                <h4 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('ui.profile.identities.ldap_title') }}</h4>
+                                <span v-if="ldapIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{{ __('ui.profile.identities.connected') }}</span>
+                                <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ __('ui.profile.identities.not_connected') }}</span>
 
                                 <span v-if="!authSettings.ldap_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                    غیرفعال در سامانه
+                                    {{ __('ui.profile.identities.disabled_in_system') }}
                                 </span>
                             </div>
                             <p v-if="ldapIdentity" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">UID: {{ ldapIdentity.provider_id }}</p>
-                            <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال حساب کاربری دایرکتوری سازمانی</p>
+                            <p v-else class="text-[11px] text-slate-400 mt-0.5">{{ __('ui.profile.identities.ldap_desc') }}</p>
                         </div>
                     </div>
 
@@ -345,16 +342,14 @@ const unlink = (provider: string) => {
                             @click="unlink('ldap')"
                             :disabled="unlinkingProvider === 'ldap'"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer"
-                        >
-                            قطع اتصال
-                        </button>
+                        >{{ __('ui.profile.identities.disconnect') }}</button>
                         <button
                             v-else-if="authSettings.ldap_enabled"
                             type="button"
                             @click="isLdapFormOpen = !isLdapFormOpen"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold text-purple-600 hover:text-purple-700 bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/50 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-800 transition-all cursor-pointer"
                         >
-                            {{ isLdapFormOpen ? 'انصراف' : 'اتصال اکانت LDAP' }}
+                            {{ isLdapFormOpen ? __('ui.profile.identities.cancel') : __('ui.profile.identities.connect_ldap') }}
                         </button>
                     </div>
                 </div>
@@ -362,12 +357,12 @@ const unlink = (provider: string) => {
                 <!-- Inline Connect LDAP Form -->
                 <form v-if="isLdapFormOpen && !ldapIdentity && authSettings.ldap_enabled" @submit.prevent="submitLinkLdap" class="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 space-y-3">
                     <div class="space-y-1">
-                        <label for="link_ldap_user" class="block text-xs font-bold text-slate-700 dark:text-slate-300">نام کاربری سازمانی (LDAP):</label>
+                        <label for="link_ldap_user" class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.ldap_user_label') }}</label>
                         <input
                             id="link_ldap_user"
                             type="text"
                             v-model="ldapForm.ldap_username"
-                            placeholder="مثال: j.doe"
+                            :placeholder="__('ui.profile.identities.ldap_user_placeholder')"
                             dir="ltr"
                             class="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                             required
@@ -376,7 +371,7 @@ const unlink = (provider: string) => {
                     </div>
 
                     <div class="space-y-1">
-                        <label for="link_ldap_pass" class="block text-xs font-bold text-slate-700 dark:text-slate-300">گذرواژه سازمانی:</label>
+                        <label for="link_ldap_pass" class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.ldap_pass_label') }}</label>
                         <input
                             id="link_ldap_pass"
                             type="password"
@@ -394,15 +389,13 @@ const unlink = (provider: string) => {
                             type="button"
                             @click="isLdapFormOpen = false"
                             class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('ui.profile.identities.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="ldapForm.processing"
                             class="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-sm transition-all"
                         >
-                            احراز و اتصال حساب LDAP
+                            {{ __('ui.profile.identities.submit_ldap') }}
                         </button>
                     </div>
                 </form>
@@ -418,16 +411,16 @@ const unlink = (provider: string) => {
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h4 class="text-xs font-bold text-slate-900 dark:text-white">ورود یکپارچه Keycloak SSO</h4>
-                            <span v-if="keycloakIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">متصل</span>
-                            <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">متصل نیست</span>
+                            <h4 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('ui.profile.identities.keycloak_title') }}</h4>
+                            <span v-if="keycloakIdentity" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">{{ __('ui.profile.identities.connected') }}</span>
+                            <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300">{{ __('ui.profile.identities.not_connected') }}</span>
 
                             <span v-if="!authSettings.keycloak_enabled" class="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                                غیرفعال در سامانه
+                                {{ __('ui.profile.identities.disabled_in_system') }}
                             </span>
                         </div>
                         <p v-if="keycloakIdentity" class="font-mono text-xs text-slate-500 dark:text-slate-400 mt-0.5" dir="ltr">Sub: {{ keycloakIdentity.provider_id.slice(0, 14) }}...</p>
-                        <p v-else class="text-[11px] text-slate-400 mt-0.5">اتصال حساب متمرکز سازمانی Keycloak</p>
+                        <p v-else class="text-[11px] text-slate-400 mt-0.5">{{ __('ui.profile.identities.keycloak_desc') }}</p>
                     </div>
                 </div>
 
@@ -438,15 +431,13 @@ const unlink = (provider: string) => {
                         @click="unlink('keycloak')"
                         :disabled="unlinkingProvider === 'keycloak'"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 transition-all cursor-pointer"
-                    >
-                        قطع اتصال
-                    </button>
+                    >{{ __('ui.profile.identities.disconnect') }}</button>
                     <a
                         v-else-if="authSettings.keycloak_enabled && keycloakLinkUrl"
                         :href="keycloakLinkUrl"
                         class="px-3.5 py-1.5 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/50 dark:hover:bg-amber-900/50 border border-amber-200 dark:border-amber-800 transition-all inline-flex items-center gap-1 cursor-pointer"
                     >
-                        <span>اتصال به Keycloak</span>
+                        <span>{{ __('ui.profile.identities.connect_keycloak') }}</span>
                         <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
@@ -470,10 +461,10 @@ const unlink = (provider: string) => {
                         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                             <div>
                                 <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                    {{ activeProvider === 'email' ? 'تنظیم گذرواژه ورود با ایمیل' : 'تنظیم گذرواژه شناسه کاربری' }}
+                                    {{ activeProvider === 'email' ? __('ui.profile.identities.modal_email_pass_title') : __('ui.profile.identities.modal_username_pass_title') }}
                                 </h3>
                                 <p class="text-xs text-slate-400 mt-0.5">
-                                    تعریف گذرواژه اختصاصی و مستقل در جدول شیوه‌های ورود
+                                    {{ __('ui.profile.identities.modal_pass_subtitle') }}
                                 </p>
                             </div>
                             <button
@@ -487,7 +478,7 @@ const unlink = (provider: string) => {
 
                         <form @submit.prevent="submitIdentityPassword" class="space-y-3.5">
                             <div v-if="hasPassword" class="space-y-1">
-                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">گذرواژه فعلی حساب جهت تایید:</label>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.modal_current_pass') }}</label>
                                 <input
                                     type="password"
                                     v-model="passwordForm.current_password"
@@ -500,12 +491,12 @@ const unlink = (provider: string) => {
                             </div>
 
                             <div class="space-y-1">
-                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">گذرواژه جدید اختصاصی:</label>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.modal_new_pass') }}</label>
                                 <input
                                     type="password"
                                     v-model="passwordForm.password"
                                     dir="ltr"
-                                    placeholder="حداقل ۸ نویسه امن"
+                                    :placeholder="__('ui.profile.identities.pass_min_hint')"
                                     class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
                                     required
                                 />
@@ -513,12 +504,12 @@ const unlink = (provider: string) => {
                             </div>
 
                             <div class="space-y-1">
-                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">تکرار گذرواژه جدید:</label>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.identities.modal_repeat_pass') }}</label>
                                 <input
                                     type="password"
                                     v-model="passwordForm.password_confirmation"
                                     dir="ltr"
-                                    placeholder="تکرار کلمه عبور جدید"
+                                    :placeholder="__('ui.profile.identities.repeat_pass_hint')"
                                     class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
                                     required
                                 />
@@ -530,15 +521,13 @@ const unlink = (provider: string) => {
                                     type="button"
                                     @click="isPasswordModalOpen = false"
                                     class="px-3 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                                >
-                                    انصراف
-                                </button>
+                                >{{ __('ui.profile.identities.cancel') }}</button>
                                 <button
                                     type="submit"
                                     :disabled="passwordForm.processing"
                                     class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md transition-all disabled:opacity-50 cursor-pointer"
                                 >
-                                    ذخیره گذرواژه
+                                    {{ __('ui.profile.identities.save_pass') }}
                                 </button>
                             </div>
                         </form>

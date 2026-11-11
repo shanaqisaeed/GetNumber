@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
@@ -115,6 +116,8 @@ interface PaginatedData<T> {
         active: boolean;
     }[];
 }
+
+const { __ } = useTrans();
 
 const props = defineProps<{
     messages: PaginatedData<AdminMessageItem>;
@@ -286,14 +289,14 @@ const sendAdminMessage = async () => {
         const data = await res.json();
         if (res.ok && data.success) {
             adminMessageBody.value = '';
-            adminSendSuccess.value = 'پیامک با موفقیت از طرف خط فرستاده شد.';
+            adminSendSuccess.value = __('admin.messages.send_success');
             setTimeout(() => { adminSendSuccess.value = null; }, 3000);
             await selectConversation(selectedConv.value);
         } else {
-            adminSendError.value = data.message || 'خطا در ارسال پیامک مدیریت';
+            adminSendError.value = data.message || __('admin.messages.send_error');
         }
     } catch (e: any) {
-        adminSendError.value = e.message || 'خطا در برقراری ارتباط با سرور';
+        adminSendError.value = e.message || __('admin.messages.network_error');
     } finally {
         isSendingAdminSms.value = false;
     }
@@ -382,7 +385,7 @@ const { connectionLabel, connectionStatusDotClass, isWebSocketActive, performPol
                     phone_number_id: msg.phone_number_id,
                     body: msg.body,
                     direction: msg.direction,
-                    direction_label: msg.direction === 'inbound' ? 'دریافتی' : 'ارسالی',
+                    direction_label: msg.direction === 'inbound' ? __('admin.messages.dir_inbound') : __('admin.messages.dir_outbound'),
                     is_line_a: msg.direction === 'outbound',
                     sender: {
                         number: msg.sender,
@@ -395,7 +398,7 @@ const { connectionLabel, connectionStatusDotClass, isWebSocketActive, performPol
                         name: msg.destination_number,
                     },
                     processing_status: msg.processing_status,
-                    status_label: msg.processing_status === 'received' ? 'تحویل‌شده' : 'پردازش‌شده',
+                    status_label: msg.processing_status === 'received' ? __('admin.messages.status_received') : __('admin.messages.status_processed'),
                     status_badge: 'bg-emerald-500/10 text-emerald-600',
                     server_received_at: msg.server_received_at,
                     server_received_at_formatted: msg.server_received_at_formatted,
@@ -534,7 +537,7 @@ watch(() => props.messages, (newMessages) => {
 </script>
 
 <template>
-    <Head title="نظارت بر پیام‌ها و مکالمات سامانه" />
+    <Head :title="__('admin.messages.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6">
@@ -549,13 +552,13 @@ watch(() => props.messages, (newMessages) => {
                         </div>
                         <div>
                             <div class="flex items-center gap-2">
-                                <h1 class="text-xl font-bold text-slate-900 dark:text-white">مانیتورینگ و نظارت بر مکالمات و پیام‌های سامانه</h1>
+                                <h1 class="text-xl font-bold text-slate-900 dark:text-white">{{ __('admin.messages.page_title') }}</h1>
                                 <span class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
-                                    نمای گفتگو محور
+                                    {{ __('admin.messages.badge_chat_view') }}
                                 </span>
                             </div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                بازرسی تعاملی چت‌ها و پیامک‌های ردوبدل شده بین خطوط کاربران و مخاطبان خارجی
+                                {{ __('admin.messages.page_desc') }}
                             </p>
                         </div>
                     </div>
@@ -578,7 +581,7 @@ watch(() => props.messages, (newMessages) => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
                             </svg>
-                            <span>نمای چت و مکالمات</span>
+                            <span>{{ __('admin.messages.view_chat') }}</span>
                         </button>
                         <button
                             type="button"
@@ -593,7 +596,7 @@ watch(() => props.messages, (newMessages) => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 4h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <span>جدول لاگ‌های خام</span>
+                            <span>{{ __('admin.messages.view_table') }}</span>
                         </button>
                     </div>
 
@@ -615,7 +618,7 @@ watch(() => props.messages, (newMessages) => {
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">تعداد کل گفتگوهای فعال</p>
+                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.messages.stat_active_convs') }}</p>
                         <p class="text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">{{ (stats.total_conversations || conversationsList.length).toLocaleString('fa-IR') }}</p>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -627,7 +630,7 @@ watch(() => props.messages, (newMessages) => {
 
                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">کل پیام‌های سامانه</p>
+                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.messages.stat_total_messages') }}</p>
                         <p class="text-xl font-bold text-slate-900 dark:text-white mt-1">{{ totalCount.toLocaleString('fa-IR') }}</p>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
@@ -639,7 +642,7 @@ watch(() => props.messages, (newMessages) => {
 
                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">پیام‌های واصله امروز</p>
+                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.messages.stat_today_messages') }}</p>
                         <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{{ todayCount.toLocaleString('fa-IR') }}</p>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -651,7 +654,7 @@ watch(() => props.messages, (newMessages) => {
 
                 <div class="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">پیام‌های وضعیت خطا</p>
+                        <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.messages.stat_failed_messages') }}</p>
                         <p class="text-xl font-bold text-rose-600 dark:text-rose-400 mt-1">{{ stats.failed_messages.toLocaleString('fa-IR') }}</p>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -668,8 +671,8 @@ watch(() => props.messages, (newMessages) => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>
-                    <strong>اطلاعیه عملکرد پلتفرم:</strong>
-                    کلیه پیام‌های مبادله‌شده به صورت درون‌سامانه‌ای ثبت و پردازش می‌شوند و ارسال مخابراتی پیامک به اپراتورهای تلفن همراه انجام نمی‌گیرد.
+                    <strong>{{ __('admin.messages.platform_notice_title') }}</strong>
+                    {{ __('admin.messages.platform_notice_desc') }}
                 </span>
             </div>
 
@@ -683,13 +686,13 @@ watch(() => props.messages, (newMessages) => {
                             @change="applyGlobalFilters"
                             class="form-select w-full text-xs rounded-xl px-3 py-2.5 font-medium"
                         >
-                            <option value="">همه خطوط سامانه (نمایش کلیه مکالمات)</option>
+                            <option value="">{{ __('admin.messages.all_lines') }}</option>
                             <option
                                 v-for="num in (phoneNumbers || [])"
                                 :key="num.id"
                                 :value="num.id"
                             >
-                                {{ num.formatted }} — {{ num.title }} ({{ num.user ? num.user.name + ' - @' + num.user.username : 'بدون کاربر' }})
+                                {{ num.formatted }} — {{ num.title }} ({{ num.user ? num.user.name + ' - @' + num.user.username : __('admin.messages.no_user') }})
                             </option>
                         </select>
                     </div>
@@ -699,7 +702,7 @@ watch(() => props.messages, (newMessages) => {
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="جستجو در متن پیامک، نام کاربر، نام کاربری یا شماره..."
+                            :placeholder="__('admin.messages.search_placeholder')"
                             class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:border-indigo-500 focus:ring-indigo-500"
                         />
                     </div>
@@ -711,7 +714,7 @@ watch(() => props.messages, (newMessages) => {
                             @change="applyGlobalFilters"
                             class="form-select w-full text-xs rounded-xl px-3 py-2.5"
                         >
-                            <option value="">همه وضعیت‌ها</option>
+                            <option value="">{{ __('admin.messages.all_statuses') }}</option>
                             <option
                                 v-for="st in statuses"
                                 :key="st.value"
@@ -726,7 +729,7 @@ watch(() => props.messages, (newMessages) => {
                     <div class="sm:col-span-1 flex gap-2">
                         <button
                             type="submit"
-                            title="اعمال فیلتر"
+                            :title="__('admin.messages.filter_tooltip')"
                             class="w-full flex items-center justify-center p-2.5 text-xs font-semibold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-xs"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -736,7 +739,7 @@ watch(() => props.messages, (newMessages) => {
                         <button
                             type="button"
                             @click="resetGlobalFilters"
-                            title="پاکسازی فیلترها"
+                            :title="__('admin.messages.clear_tooltip')"
                             class="flex items-center justify-center p-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -757,9 +760,9 @@ watch(() => props.messages, (newMessages) => {
                     <div class="p-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
                         <div class="flex items-center justify-between mb-3">
                             <div class="flex items-center gap-2">
-                                <h2 class="text-sm font-bold text-slate-900 dark:text-white">مکالمات و چت‌های فعال سامانه</h2>
+                                <h2 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.messages.active_conversations') }}</h2>
                                 <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-300">
-                                    {{ filteredConversations.length }} گفتگو
+                                    {{ __('admin.messages.conv_count', { count: filteredConversations.length }) }}
                                 </span>
                             </div>
                         </div>
@@ -769,7 +772,7 @@ watch(() => props.messages, (newMessages) => {
                             <input
                                 v-model="chatSearch"
                                 type="text"
-                                placeholder="فیلتر سریع در شماره‌ها، کاربران یا پیام‌ها..."
+                                :placeholder="__('admin.messages.quick_filter_placeholder')"
                                 class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-3 py-2 pr-8 focus:border-indigo-500 focus:ring-indigo-500"
                             />
                             <svg class="w-4 h-4 text-slate-400 absolute right-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -784,7 +787,7 @@ watch(() => props.messages, (newMessages) => {
                             <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            <p class="text-xs font-semibold">هیچ گفتگویی منطبق با جستجو یافت نشد</p>
+                            <p class="text-xs font-semibold">{{ __('admin.messages.no_conv_found') }}</p>
                         </div>
 
                         <button
@@ -836,7 +839,7 @@ watch(() => props.messages, (newMessages) => {
                                         {{ conv.latest_message.server_received_at_formatted }}
                                     </span>
                                     <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                                        {{ conv.messages_count }} پیام
+                                        {{ __('admin.messages.messages_count', { count: conv.messages_count }) }}
                                     </span>
                                 </div>
                             </div>
@@ -868,9 +871,9 @@ watch(() => props.messages, (newMessages) => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
                         </div>
-                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">یک گفتگو را از لیست انتخاب کنید</h3>
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200">{{ __('admin.messages.select_conv_title') }}</h3>
                         <p class="text-xs text-slate-500 mt-1 max-w-sm">
-                            با انتخاب هر یک از گفتگوهای ستون راست، تبادل کامل پیامک‌ها بین دو طرف به صورت حباب‌های چت نمایش داده می‌شود.
+                            {{ __('admin.messages.select_conv_desc') }}
                         </p>
                     </div>
 
@@ -903,7 +906,7 @@ watch(() => props.messages, (newMessages) => {
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                         </svg>
                                     </div>
-                                    <span class="text-[9px] text-slate-400 mt-0.5">تبادل مستقیم</span>
+                                    <span class="text-[9px] text-slate-400 mt-0.5">{{ __('admin.messages.direct_exchange') }}</span>
                                 </div>
 
                                 <!-- Party B Card -->
@@ -928,7 +931,7 @@ watch(() => props.messages, (newMessages) => {
                                 <button
                                     type="button"
                                     @click="selectConversation(selectedConv)"
-                                    title="بارگذاری مجدد پیام‌های این گفتگو"
+                                    :title="__('admin.messages.reload_tooltip')"
                                     class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-colors"
                                 >
                                     <svg class="w-4 h-4" :class="isLoadingChat ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -948,11 +951,11 @@ watch(() => props.messages, (newMessages) => {
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <p class="text-xs">در حال بارگذاری پیام‌های گفتگو...</p>
+                                <p class="text-xs">{{ __('admin.messages.loading_messages') }}</p>
                             </div>
 
                             <div v-else-if="chatMessages.length === 0" class="py-12 text-center text-slate-400">
-                                <p class="text-xs">هیچ پیامی در این گفتگو ثبت نشده است.</p>
+                                <p class="text-xs">{{ __('admin.messages.no_messages_in_conv') }}</p>
                             </div>
 
                             <!-- Bubbles Stream -->
@@ -1013,11 +1016,11 @@ watch(() => props.messages, (newMessages) => {
                                             >
                                                 <span>{{ msg.status_label }}</span>
                                                 <template v-if="msg.is_line_a">
-                                                    <span v-if="msg.processing_status === 'processed'" class="text-emerald-300 inline-flex items-center -space-x-1 rtl:space-x-reverse" title="دو تیک سبز - خوانده‌شده">
+                                                    <span v-if="msg.processing_status === 'processed'" class="text-emerald-300 inline-flex items-center -space-x-1 rtl:space-x-reverse" :title="__('admin.messages.status_read')">
                                                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                                     </span>
-                                                    <span v-else-if="msg.processing_status === 'received'" class="text-indigo-200 inline-flex items-center -space-x-1 rtl:space-x-reverse" title="دو تیک - تحویل داده شده">
+                                                    <span v-else-if="msg.processing_status === 'received'" class="text-indigo-200 inline-flex items-center -space-x-1 rtl:space-x-reverse" :title="__('admin.messages.status_delivered')">
                                                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                                         <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                                                     </span>
@@ -1034,7 +1037,7 @@ watch(() => props.messages, (newMessages) => {
                                             <button
                                                 type="button"
                                                 @click="confirmDeleteMessage({ id: msg.id, body: msg.body })"
-                                                title="حذف این پیام از سامانه"
+                                                :title="__('admin.messages.delete_msg_tooltip')"
                                                 :class="[
                                                     'opacity-0 group-hover:opacity-100 p-1 rounded-md transition-opacity',
                                                     msg.is_line_a ? 'hover:bg-indigo-700 text-white' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-rose-500'
@@ -1062,12 +1065,12 @@ watch(() => props.messages, (newMessages) => {
 
                             <form @submit.prevent="sendAdminMessage" class="flex items-center gap-2">
                                 <div class="shrink-0 text-slate-400 text-xs font-semibold px-2">
-                                    ارسال از طرف <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold" dir="ltr">{{ selectedConv.line_a.formatted }}</span>:
+                                    {{ __('admin.messages.send_as') }} <span class="font-mono text-indigo-600 dark:text-indigo-400 font-bold" dir="ltr">{{ selectedConv.line_a.formatted }}</span>:
                                 </div>
                                 <input
                                     v-model="adminMessageBody"
                                     type="text"
-                                    placeholder="متن پیامک ارسالی مدیریت به این مکالمه را بنویسید..."
+                                    :placeholder="__('admin.messages.composer_placeholder')"
                                     :disabled="isSendingAdminSms"
                                     class="flex-1 text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white px-3 py-2.5 focus:border-indigo-500 focus:ring-indigo-500"
                                 />
@@ -1082,9 +1085,7 @@ watch(() => props.messages, (newMessages) => {
                                     </svg>
                                     <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                                    </svg>
-                                    <span>ارسال</span>
-                                </button>
+                                    </svg><span>{{ __('admin.messages.send') }}</span></button>
                             </form>
                         </div>
                     </div>
@@ -1101,9 +1102,9 @@ watch(() => props.messages, (newMessages) => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                         </svg>
                     </div>
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">هیچ پیامی در بایگانی سامانه یافت نشد</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.messages.no_messages_found') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                        هیچ پیامی منطبق با فیلترهای جستجو وجود ندارد.
+                        {{ __('admin.messages.no_messages_desc') }}
                     </p>
                 </div>
 
@@ -1111,14 +1112,14 @@ watch(() => props.messages, (newMessages) => {
                     <table class="w-full text-right text-xs">
                         <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-200 dark:border-slate-800">
                             <tr>
-                                <th class="py-3.5 px-4">شناسه</th>
-                                <th class="py-3.5 px-4">شماره مقصد</th>
-                                <th class="py-3.5 px-4">کاربر مقصد</th>
-                                <th class="py-3.5 px-4">فرستنده</th>
-                                <th class="py-3.5 px-4 min-w-[220px]">متن پیام</th>
-                                <th class="py-3.5 px-4">زمان سرور</th>
-                                <th class="py-3.5 px-4">وضعیت</th>
-                                <th class="py-3.5 px-4 text-center">اقدامات</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_id') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_recipient') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_user') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_sender') }}</th>
+                                <th class="py-3.5 px-4 min-w-[220px]">{{ __('admin.messages.th_text') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_time') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.messages.th_status') }}</th>
+                                <th class="py-3.5 px-4 text-center">{{ __('admin.messages.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-300">
@@ -1147,7 +1148,7 @@ watch(() => props.messages, (newMessages) => {
                                             @{{ (msg.phoneNumber?.user || msg.user)?.username }}
                                         </span>
                                     </div>
-                                    <span v-else class="text-slate-400 font-mono text-[11px]">سیستم / آزاد</span>
+                                    <span v-else class="text-slate-400 font-mono text-[11px]">{{ __('admin.messages.system_free') }}</span>
                                 </td>
 
                                 <td class="py-3.5 px-4 font-mono font-semibold text-slate-800 dark:text-slate-200 text-left" dir="ltr">
@@ -1184,7 +1185,7 @@ watch(() => props.messages, (newMessages) => {
                                             type="button"
                                             @click="openDetail(msg)"
                                             class="p-2 rounded-xl text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800 transition-colors"
-                                            title="مشاهده جزییات فنی پیام"
+                                            :title="__('admin.messages.tech_details_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -1195,7 +1196,7 @@ watch(() => props.messages, (newMessages) => {
                                             type="button"
                                             @click="confirmDeleteMessage(msg)"
                                             class="p-2 rounded-xl text-slate-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-800 transition-colors"
-                                            title="حذف پیام"
+                                            :title="__('admin.messages.delete_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1211,7 +1212,7 @@ watch(() => props.messages, (newMessages) => {
                 <!-- Pagination for Table -->
                 <div v-if="messages.links && messages.links.length > 3" class="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
                     <span class="text-slate-500">
-                        صفحه {{ messages.current_page }} از {{ messages.last_page }} (مجموع {{ messages.total }} پیام)
+                        {{ __('admin.messages.pagination_summary', { current: messages.current_page, last: messages.last_page, total: messages.total }) }}
                     </span>
                     <div class="flex gap-1">
                         <template v-for="(link, i) in messages.links" :key="i">
@@ -1236,7 +1237,7 @@ watch(() => props.messages, (newMessages) => {
             <div v-if="isDetailOpen && activeMessage" @click.self="closeDetail" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs">
                 <div class="bg-white dark:bg-slate-900 rounded-3xl max-w-xl w-full p-6 border border-slate-200 dark:border-slate-800 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0 mb-4">
-                        <h3 class="text-sm font-bold text-slate-900 dark:text-white">جزییات فنی پیام #{{ activeMessage.id }}</h3>
+                        <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.messages.modal_details_title', { id: activeMessage.id }) }}</h3>
                         <button type="button" @click="closeDetail" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -1246,37 +1247,35 @@ watch(() => props.messages, (newMessages) => {
 
                     <div class="space-y-3 text-xs overflow-y-auto flex-1">
                         <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl space-y-1">
-                            <span class="text-slate-400 text-[11px]">متن کامل پیام:</span>
+                            <span class="text-slate-400 text-[11px]">{{ __('admin.messages.full_text') }}</span>
                             <p class="text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap">{{ activeMessage.body }}</p>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                <span class="text-slate-400 text-[11px] block">شماره مقصد:</span>
+                                <span class="text-slate-400 text-[11px] block">{{ __('admin.messages.recipient_number') }}</span>
                                 <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm" dir="ltr">+85 {{ activeMessage.destination_number }}</span>
                             </div>
                             <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                <span class="text-slate-400 text-[11px] block">فرستنده:</span>
+                                <span class="text-slate-400 text-[11px] block">{{ __('admin.messages.sender') }}</span>
                                 <span class="font-mono font-bold text-slate-900 dark:text-white text-sm" dir="ltr">{{ activeMessage.sender }}</span>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 gap-3">
                             <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                <span class="text-slate-400 text-[11px] block">شناسه پیگیری مشتری (Client ID):</span>
+                                <span class="text-slate-400 text-[11px] block">{{ __('admin.messages.client_id') }}</span>
                                 <span class="font-mono text-slate-700 dark:text-slate-300" dir="ltr">{{ activeMessage.client_message_id || '—' }}</span>
                             </div>
                             <div class="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                                <span class="text-slate-400 text-[11px] block">سامانه مبدأ (Source System ID):</span>
+                                <span class="text-slate-400 text-[11px] block">{{ __('admin.messages.source_system') }}</span>
                                 <span class="font-mono text-slate-700 dark:text-slate-300" dir="ltr">{{ activeMessage.source_system_id || '—' }}</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end shrink-0 mt-4">
-                        <button type="button" @click="closeDetail" class="px-5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer">
-                            بستن
-                        </button>
+                        <button type="button" @click="closeDetail" class="px-5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer">{{ __('admin.messages.close') }}</button>
                     </div>
                 </div>
             </div>
@@ -1291,9 +1290,9 @@ watch(() => props.messages, (newMessages) => {
                             </svg>
                         </div>
                         <div class="text-center">
-                            <h3 class="text-sm font-bold text-slate-900 dark:text-white">آیا از حذف این پیامک اطمینان دارید؟</h3>
+                            <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.messages.confirm_delete_title') }}</h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                                شناسه پیام: <span class="font-mono font-bold" dir="ltr">#{{ messageToDelete.id }}</span>
+                                {{ __('admin.messages.msg_id') }} <span class="font-mono font-bold" dir="ltr">#{{ messageToDelete.id }}</span>
                             </p>
                             <p v-if="messageToDelete.body" class="text-xs text-slate-700 dark:text-slate-300 mt-2 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-xl line-clamp-2">
                                 «{{ messageToDelete.body }}»
@@ -1311,16 +1310,14 @@ watch(() => props.messages, (newMessages) => {
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ isDeleting ? 'در حال حذف...' : 'بله، حذف شود' }}</span>
+                            <span>{{ isDeleting ? __('admin.messages.deleting') : __('admin.messages.confirm_delete_btn') }}</span>
                         </button>
                         <button
                             type="button"
                             @click="closeDeleteModal"
                             :disabled="isDeleting"
                             class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.messages.cancel') }}</button>
                     </div>
                 </div>
             </div>

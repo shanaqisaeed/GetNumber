@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router, usePage } from '@inertiajs/vue3';
 import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 const props = withDefaults(
     defineProps<{
@@ -16,10 +17,10 @@ const currentLocale = computed<'fa' | 'en'>(() => ((page.props as any).locale ==
 const isOpen = ref(false);
 const dropdownRef = ref<HTMLDivElement | null>(null);
 
-const languages = [
-    { code: 'fa', name: 'فارسی', flag: '🇮🇷', dir: 'rtl' },
-    { code: 'en', name: 'English', flag: '🇺🇸', dir: 'ltr' },
-];
+const languages = computed(() => [
+    { code: 'fa', name: __('ui.components.language.fa'), flag: '🇮🇷', dir: 'rtl' },
+    { code: 'en', name: __('ui.components.language.en'), flag: '🇺🇸', dir: 'ltr' },
+]);
 
 function switchLanguage(code: 'fa' | 'en') {
     if (code === currentLocale.value) {
@@ -68,8 +69,8 @@ onUnmounted(() => {
             @click="isOpen = !isOpen"
             class="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200/80 dark:border-white/10 transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
             :class="buttonClass"
-            :title="currentLocale === 'fa' ? 'تغییر زبان سامانه' : 'Change Language'"
-            aria-label="تغییر زبان"
+            :title="__('ui.components.language.toggle_title')"
+            :aria-label="__('ui.components.language.toggle_title')"
         >
             <span class="text-sm leading-none">{{ currentLocale === 'fa' ? '🇮🇷' : '🇬🇧' }}</span>
             <span class="uppercase tracking-wider font-mono text-[11px]">{{ currentLocale }}</span>

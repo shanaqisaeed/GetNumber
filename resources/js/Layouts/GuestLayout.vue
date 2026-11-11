@@ -31,8 +31,8 @@ const isMobileMenuOpen = ref(false);
                     </div>
                     <div>
                         <div class="flex items-center gap-2">
-                            <span class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white">سامانه مدیریت خطوط</span>
-                            <span class="glass-pill text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hidden sm:inline-flex">راوی نو</span>
+                            <span class="text-sm sm:text-base font-black tracking-tight text-slate-900 dark:text-white">{{ __('ui.layouts.guest.brand_title') }}</span>
+                            <span class="glass-pill text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hidden sm:inline-flex">{{ __('ui.layouts.guest.brand_badge') }}</span>
                         </div>
                     </div>
                 </Link>
@@ -43,7 +43,7 @@ const isMobileMenuOpen = ref(false);
                         type="button"
                         class="app-theme-toggle-btn"
                         @click="toggleTheme"
-                        title="تغییر تم تاریک / روشن"
+                        :title="__('ui.layouts.guest.theme_toggle')"
                     >
                         <svg class="theme-icon-sun w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="5"></circle>
@@ -71,7 +71,7 @@ const isMobileMenuOpen = ref(false);
                             <line x1="16" y1="13" x2="8" y2="13"></line>
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                         </svg>
-                        <span>مستندات API</span>
+                        <span>{{ __('ui.layouts.guest.api_docs') }}</span>
                     </Link>
 
                     <template v-if="user">
@@ -79,7 +79,7 @@ const isMobileMenuOpen = ref(false);
                             :href="route('dashboard')"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
                         >
-                            <span>ورود به پیشخوان</span>
+                            <span>{{ __('ui.layouts.guest.dashboard') }}</span>
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="19" y1="12" x2="5" y2="12"></line>
                                 <polyline points="12 19 5 12 12 5"></polyline>
@@ -91,13 +91,13 @@ const isMobileMenuOpen = ref(false);
                             :href="route('login')"
                             class="glass-pill !py-2 !px-3.5 !text-xs font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
                         >
-                            ورود به سامانه
+                            {{ __('ui.layouts.guest.login') }}
                         </Link>
                         <Link
                             :href="route('register')"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
                         >
-                            <span>ثبت‌نام متقاضی</span>
+                            <span>{{ __('ui.layouts.guest.register') }}</span>
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="19" y1="12" x2="5" y2="12"></line>
                                 <polyline points="12 19 5 12 12 5"></polyline>
@@ -112,7 +112,7 @@ const isMobileMenuOpen = ref(false);
                         type="button"
                         class="app-theme-toggle-btn !w-9 !h-9"
                         @click="toggleTheme"
-                        title="تغییر تم تاریک / روشن"
+                        :title="__('ui.layouts.guest.theme_toggle')"
                     >
                         <svg class="theme-icon-sun w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="5"></circle>
@@ -135,7 +135,7 @@ const isMobileMenuOpen = ref(false);
                         type="button"
                         @click="isMobileMenuOpen = !isMobileMenuOpen"
                         class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-colors cursor-pointer"
-                        aria-label="منوی سایت"
+                        :aria-label="__('ui.layouts.guest.menu_aria')"
                     >
                         <svg v-if="!isMobileMenuOpen" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -170,7 +170,7 @@ const isMobileMenuOpen = ref(false);
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                 <polyline points="14 2 14 8 20 8"></polyline>
                             </svg>
-                            <span>مستندات وب‌سرویس API</span>
+                            <span>{{ __('ui.layouts.guest.api_docs_full') }}</span>
                         </span>
                         <span class="text-[10px] text-indigo-500 font-mono">REST</span>
                     </Link>
@@ -181,7 +181,7 @@ const isMobileMenuOpen = ref(false);
                             @click="isMobileMenuOpen = false"
                             class="glass-btn-primary !w-full !py-3 !text-xs !rounded-xl flex items-center justify-center gap-2"
                         >
-                            <span>ورود به پیشخوان کاربری</span>
+                            <span>{{ __('ui.layouts.guest.dashboard_user') }}</span>
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="19" y1="12" x2="5" y2="12"></line>
                                 <polyline points="12 19 5 12 12 5"></polyline>
@@ -194,14 +194,14 @@ const isMobileMenuOpen = ref(false);
                             @click="isMobileMenuOpen = false"
                             class="py-2.5 px-3 rounded-xl text-center text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 transition-colors"
                         >
-                            ورود به سامانه
+                            {{ __('ui.layouts.guest.login') }}
                         </Link>
                         <Link
                             :href="route('register')"
                             @click="isMobileMenuOpen = false"
                             class="glass-btn-primary !w-full !py-2.5 !px-3 !text-xs !rounded-xl flex items-center justify-center gap-1.5"
                         >
-                            <span>ثبت‌نام متقاضی</span>
+                            <span>{{ __('ui.layouts.guest.register') }}</span>
                         </Link>
                     </div>
                 </div>
@@ -218,17 +218,17 @@ const isMobileMenuOpen = ref(false);
             <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div class="flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    <span class="font-bold text-slate-700 dark:text-slate-300">سامانه مدیریت خطوط و سرشماره‌های سازمانی</span>
+                    <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('ui.layouts.guest.footer_desc') }}</span>
                 </div>
                 <div class="flex items-center gap-4 text-xs font-medium">
-                    <Link :href="route('api.docs')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">مستندات API</Link>
+                    <Link :href="route('api.docs')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ __('ui.layouts.guest.api_docs') }}</Link>
                     <span>•</span>
-                    <Link :href="route('login')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">ورود</Link>
+                    <Link :href="route('login')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ __('ui.layouts.guest.login') }}</Link>
                     <span>•</span>
-                    <Link :href="route('register')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">ثبت‌نام</Link>
+                    <Link :href="route('register')" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">{{ __('ui.layouts.guest.register') }}</Link>
                 </div>
                 <div class="text-[11px] text-slate-400">
-                    &copy; {{ new Date().getFullYear() }} تمامی حقوق برای سامانه محفوظ است.
+                    &copy; {{ new Date().getFullYear() }} {{ __('ui.layouts.guest.copyright') }}
                 </div>
             </div>
         </footer>

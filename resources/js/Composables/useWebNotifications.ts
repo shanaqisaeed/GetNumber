@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import axios from 'axios';
+import { __ } from './useTrans';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -99,7 +100,7 @@ export function useWebNotifications() {
      */
     const subscribeToPush = async (): Promise<SubscribeResult> => {
         if (!isSupported.value) {
-            error.value = 'مرورگر شما از قابلیت اعلان وب پشتیبانی نمی‌کند.';
+            error.value = __('ui.composables.web_notifications.unsupported');
             return {
                 success: false,
                 mode: 'unsupported',
@@ -120,7 +121,7 @@ export function useWebNotifications() {
                 return {
                     success: false,
                     mode: 'denied',
-                    message: 'مجوز ارسال اعلان توسط شما در مرورگر رد شد.',
+                    message: __('ui.composables.web_notifications.permission_denied'),
                 };
             }
 
@@ -184,23 +185,23 @@ export function useWebNotifications() {
                 return {
                     success: true,
                     mode: 'push',
-                    message: 'اعلان‌های پیشرفته مرورگر (حتی در صورت بسته بودن صفحه) فعال شدند.',
+                    message: __('ui.composables.web_notifications.push_enabled'),
                 };
             }
 
             return {
                 success: true,
                 mode: 'local',
-                message: 'اعلان‌های مرورگر با موفقیت فعال شدند.',
+                message: __('ui.composables.web_notifications.notifications_enabled'),
             };
         } catch (err: any) {
             console.error('[WebPush] Critical subscription error:', err);
             isSubscribing.value = false;
-            error.value = err?.message || 'خطا در فعال‌سازی اعلان‌ها';
+            error.value = err?.message || __('ui.composables.web_notifications.enable_error');
             return {
                 success: false,
                 mode: 'denied',
-                message: error.value || 'خطا در فعال‌سازی اعلان‌ها',
+                message: error.value || __('ui.composables.web_notifications.enable_error'),
             };
         }
     };
@@ -235,8 +236,10 @@ export function useWebNotifications() {
     const showLocalNotification = async (sender: string, messageId?: number | string) => {
         if (!isSupported.value || permission.value !== 'granted') return;
 
-        const title = 'پیامک جدید دریافت شد';
-        const body = sender ? `پیام جدیدی از شماره ${sender} دریافت شد.` : 'پیامک جدیدی دریافت شد.';
+        const title = __('ui.composables.web_notifications.new_sms_title');
+        const body = sender
+            ? __('ui.composables.web_notifications.new_sms_from_sender', { sender })
+            : __('ui.composables.web_notifications.new_sms_generic');
         const tag = messageId ? `getnumber-sms-${messageId}` : `getnumber-sms-${Date.now()}`;
         const options: NotificationOptions = {
             body,

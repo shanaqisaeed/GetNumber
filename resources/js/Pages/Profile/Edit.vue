@@ -110,7 +110,7 @@ const creditBalance = computed(() => {
 </script>
 
 <template>
-    <Head title="تنظیمات پروفایل و کاربری" />
+    <Head :title="__('ui.profile.head_title')" />
 
     <UserLayout>
         <div class="max-w-4xl mx-auto space-y-5 pb-16">
@@ -124,16 +124,16 @@ const creditBalance = computed(() => {
                                 {{ user?.name ? user.name.charAt(0) : 'U' }}
                             </div>
                         </div>
-                        <span class="status-dot-pulse absolute -bottom-0.5 -right-0.5 border-2 border-white dark:border-slate-900" title="وضعیت آنلاین"></span>
+                        <span class="status-dot-pulse absolute -bottom-0.5 -right-0.5 border-2 border-white dark:border-slate-900" :title="__('ui.profile.online_status')"></span>
                     </div>
 
                     <div class="min-w-0">
                         <div class="flex items-center gap-2 flex-wrap">
                             <h1 class="text-base font-black text-slate-900 dark:text-white truncate">
-                                {{ user?.name || 'کاربر گرامی' }}
+                                {{ user?.name || __('ui.profile.default_user') }}
                             </h1>
                             <span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 whitespace-nowrap">
-                                {{ user?.role === 'admin' ? 'راهبر ارشد سامانه' : 'کاربر تایید شده' }}
+                                {{ user?.role === 'admin' ? __('ui.profile.role_admin') : __('ui.profile.role_user') }}
                             </span>
                         </div>
                         <p class="text-xs text-slate-400 font-mono mt-0.5" dir="ltr">@{{ user?.username }}</p>
@@ -148,11 +148,11 @@ const creditBalance = computed(() => {
                         class="px-3.5 py-2 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/25 text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
                     >
                         <span>🪙</span>
-                        <span>اعتبار: {{ creditBalance }} TRX</span>
+                        <span>{{ __('ui.profile.credit_balance', { amount: creditBalance }) }}</span>
                     </button>
 
                     <div class="px-3.5 py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold whitespace-nowrap">
-                        <span>خطوط: {{ stats.active_lines }} از {{ stats.max_lines }}</span>
+                        <span>{{ __('ui.profile.lines_count', { active: stats.active_lines, max: stats.max_lines }) }}</span>
                     </div>
                 </div>
             </div>
@@ -172,7 +172,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span class="truncate">اطلاعات حساب</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.info') }}</span>
                 </button>
 
                 <!-- Tab 2: Security -->
@@ -187,7 +187,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span class="truncate">امنیت و رمز</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.security') }}</span>
                 </button>
 
                 <!-- Tab 3: Connected Identities -->
@@ -202,7 +202,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                     </svg>
-                    <span class="truncate">روش‌های ورود</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.identities') }}</span>
                 </button>
 
                 <!-- Row 2: Sessions, Wallet, Danger -->
@@ -218,7 +218,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span class="truncate">نشست‌های فعال</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.sessions') }}</span>
                 </button>
 
                 <!-- Tab 5: Wallet Recharge -->
@@ -233,7 +233,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                     </svg>
-                    <span class="truncate">شارژ حساب</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.wallet') }}</span>
                 </button>
 
                 <!-- Tab 6: Danger (Delete Account) -->
@@ -248,7 +248,7 @@ const creditBalance = computed(() => {
                     <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    <span class="truncate">حذف حساب</span>
+                    <span class="truncate">{{ __('ui.profile.tabs.danger') }}</span>
                 </button>
             </div>
 

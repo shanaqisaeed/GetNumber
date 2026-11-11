@@ -85,35 +85,33 @@ function clearFilters() {
 </script>
 
 <template>
-    <Head title="تیکت‌های پشتیبانی من" />
+    <Head :title="__('user.tickets.index_title')" />
 
     <UserLayout>
         <div class="space-y-4">
             <!-- 1. Header Banner -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
-                    <span class="wallet-title">مرکز پشتیبانی و تیکت‌ها</span>
-                    <span class="wallet-chip bg-indigo-500/15 border-indigo-500/35 text-indigo-600 dark:text-indigo-400">
-                        ۲۴/۷ فعال
-                    </span>
+                    <span class="wallet-title">{{ __('user.tickets.center_title') }}</span>
+                    <span class="wallet-chip bg-indigo-500/15 border-indigo-500/35 text-indigo-600 dark:text-indigo-400">{{ __('user.tickets.active_247') }}</span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    ارتباط مستقیم با کارشناسان فنی سامانه و پیگیری مسائل سرشماره‌ها، وب‌سرویس و وب‌هوک‌ها.
+                    {{ __('user.tickets.center_desc') }}
                 </div>
 
                 <!-- Stats 3-Column Pill Row -->
                 <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 text-center">
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">در انتظار</span>
+                        <span class="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">{{ __('user.tickets.stat_pending') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.open }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">پاسخ‌داده‌شده</span>
+                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">{{ __('user.tickets.stat_answered') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.answered }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">بسته‌شده</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">{{ __('user.tickets.stat_closed') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.closed }}</span>
                     </div>
                 </div>
@@ -126,7 +124,7 @@ function clearFilters() {
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>ثبت تیکت جدید</span>
+                        <span>{{ __('user.tickets.create_btn') }}</span>
                     </Link>
                 </div>
             </div>
@@ -138,7 +136,7 @@ function clearFilters() {
                         v-model="search"
                         @keydown.enter="applyFilters"
                         type="text"
-                        placeholder="جستجو در شناسه یا موضوع تیکت..."
+                        :placeholder="__('user.tickets.search_placeholder')"
                         class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -152,7 +150,7 @@ function clearFilters() {
                         @change="applyFilters"
                         class="form-select !py-2 !text-xs !rounded-xl w-full"
                     >
-                        <option value="">همه وضعیت‌ها</option>
+                        <option value="">{{ __('user.tickets.all_statuses') }}</option>
                         <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
 
@@ -161,7 +159,7 @@ function clearFilters() {
                         @change="applyFilters"
                         class="form-select !py-2 !text-xs !rounded-xl w-full"
                     >
-                        <option value="">همه دپارتمان‌ها</option>
+                        <option value="">{{ __('user.tickets.all_departments') }}</option>
                         <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
                     </select>
                 </div>
@@ -171,9 +169,7 @@ function clearFilters() {
                         type="button"
                         @click="clearFilters"
                         class="text-[11px] font-bold text-rose-500 hover:underline"
-                    >
-                        پاکسازی فیلترها
-                    </button>
+                    >{{ __('user.tickets.clear_filters') }}</button>
                 </div>
             </div>
 
@@ -208,7 +204,7 @@ function clearFilters() {
 
                     <!-- Associated number if any -->
                     <div v-if="ticket.phone_number" class="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span>خط مرتبط:</span>
+                        <span>{{ __('user.tickets.bound_line') }}</span>
                         <span dir="ltr" class="font-mono text-slate-800 dark:text-slate-200 font-bold">{{ ticket.phone_number.formatted_number }}</span>
                     </div>
 
@@ -216,7 +212,7 @@ function clearFilters() {
                     <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-[11px] text-slate-500 dark:text-slate-400">
                         <span class="font-mono">{{ ticket.last_reply_human || ticket.created_at }}</span>
                         <div class="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 font-bold group-hover:translate-x-[-3px] transition-transform">
-                            <span>مشاهده گفتگو</span>
+                            <span>{{ __('user.tickets.view_conversation') }}</span>
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
                             </svg>
@@ -248,9 +244,9 @@ function clearFilters() {
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">تیکتی یافت نشد</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.tickets.no_tickets_found') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                        در صورت نیاز به راهنمایی یا گزارش نقص، تیکت پشتیبانی جدیدی ثبت فرمایید.
+                        {{ __('user.tickets.no_tickets_desc') }}
                     </p>
                 </div>
                 <Link
@@ -260,7 +256,7 @@ function clearFilters() {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>ثبت تیکت جدید</span>
+                    <span>{{ __('user.tickets.create_btn') }}</span>
                 </Link>
             </div>
         </div>

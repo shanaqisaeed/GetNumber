@@ -65,7 +65,7 @@ const resetFilters = () => {
 </script>
 
 <template>
-    <Head title="لیست تراکنش‌ها و گردش حساب" />
+    <Head :title="__('user.wallet.transactions_title')" />
 
     <UserLayout>
         <div class="space-y-4 max-w-4xl mx-auto pb-10">
@@ -74,10 +74,10 @@ const resetFilters = () => {
                 <div>
                     <h1 class="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 shadow-sm shadow-indigo-500/50"></span>
-                        لیست تراکنش‌ها و گردش حساب
+                        {{ __('user.wallet.transactions_title') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        تاریخچه کامل افزایش اعتبار، خرید شماره و تراکنش‌های مالی حساب کاربری
+                        {{ __('user.wallet.transactions_subtitle') }}
                     </p>
                 </div>
 
@@ -88,17 +88,17 @@ const resetFilters = () => {
                     <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    <span>پروفایل و شارژ</span>
+                    <span>{{ __('user.wallet.profile_recharge_link') }}</span>
                 </Link>
             </div>
 
             <!-- Current Balance Hero Card -->
             <div class="p-5 rounded-3xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white shadow-xl shadow-indigo-600/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div class="space-y-1">
-                    <span class="text-xs text-indigo-150 font-medium">موجودی در دسترس:</span>
+                    <span class="text-xs text-indigo-150 font-medium">{{ __('user.wallet.available_balance') }}</span>
                     <div class="flex items-baseline gap-2">
                         <span class="text-2xl sm:text-3xl font-black font-mono tracking-tight">{{ wallet.balance }}</span>
-                        <span class="text-xs font-bold opacity-90">واحد اعتبار</span>
+                        <span class="text-xs font-bold opacity-90">{{ __('user.wallet.credit_unit') }}</span>
                     </div>
                 </div>
 
@@ -107,7 +107,7 @@ const resetFilters = () => {
                     class="px-4 py-2.5 rounded-2xl bg-white text-indigo-700 hover:bg-indigo-50 text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                 >
                     <span class="text-base leading-none">+</span>
-                    <span>شارژ حساب کاربری</span>
+                    <span>{{ __('user.wallet.recharge_btn') }}</span>
                 </Link>
             </div>
 
@@ -117,7 +117,7 @@ const resetFilters = () => {
                     <input
                         v-model="search"
                         type="text"
-                        placeholder="جستجو در شرح تراکنش یا کد رهگیری..."
+                        :placeholder="__('user.wallet.search_tx')"
                         @keyup.enter="applyFilters"
                         class="w-full px-3.5 py-2 pr-9 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                     />
@@ -132,7 +132,7 @@ const resetFilters = () => {
                         @change="applyFilters"
                         class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white cursor-pointer"
                     >
-                        <option value="">همه انواع تراکنش‌ها</option>
+                        <option value="">{{ __('user.wallet.all_tx_types') }}</option>
                         <option v-for="t in types" :key="t.value" :value="t.value">
                             {{ t.label }}
                         </option>
@@ -144,9 +144,7 @@ const resetFilters = () => {
                     type="button"
                     @click="resetFilters"
                     class="px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer whitespace-nowrap"
-                >
-                    حذف فیلترها
-                </button>
+                >{{ __('user.wallet.clear_filters') }}</button>
             </div>
 
             <!-- Transactions List -->
@@ -155,8 +153,8 @@ const resetFilters = () => {
                     <div class="w-12 h-12 mx-auto rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center text-xl">
                         💳
                     </div>
-                    <p class="text-sm font-bold text-slate-700 dark:text-slate-300">هیچ تراکنشی یافت نشد</p>
-                    <p class="text-xs text-slate-400">تاکنون تراکنش مالی برای حساب شما ثبت نشده است یا فیلترهای اعمال‌شده نتیجه‌ای نداشتند.</p>
+                    <p class="text-sm font-bold text-slate-700 dark:text-slate-300">{{ __('user.wallet.no_tx_found') }}</p>
+                    <p class="text-xs text-slate-400">{{ __('user.wallet.no_tx_desc') }}</p>
                 </div>
 
                 <div v-else class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -171,7 +169,7 @@ const resetFilters = () => {
                                     {{ item.type_label }}
                                 </span>
                                 <span v-if="item.reference_id" class="text-[11px] font-mono text-slate-400 dark:text-slate-500">
-                                    کد: {{ item.reference_id }}
+                                    {{ __('user.wallet.ref_code', { id: item.reference_id }) }}
                                 </span>
                                 <span class="text-[11px] text-slate-400">•</span>
                                 <span class="text-[11px] text-slate-400 font-mono">{{ item.created_at }}</span>
@@ -184,9 +182,9 @@ const resetFilters = () => {
 
                         <div class="flex items-center justify-between sm:justify-end gap-4 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100 dark:border-slate-800">
                             <div class="text-left sm:text-right">
-                                <span class="text-[10px] text-slate-400 block">مانده پس از تراکنش:</span>
+                                <span class="text-[10px] text-slate-400 block">{{ __('user.wallet.balance_after') }}</span>
                                 <span class="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
-                                    {{ item.balance_after }} واحد
+                                    {{ item.balance_after }} {{ __('user.wallet.unit') }}
                                 </span>
                             </div>
 
@@ -195,7 +193,7 @@ const resetFilters = () => {
                                     class="text-sm font-black font-mono block"
                                     :class="item.is_credit ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'"
                                 >
-                                    {{ item.is_credit ? '+' : '-' }}{{ item.amount }} واحد
+                                    {{ item.is_credit ? '+' : '-' }}{{ item.amount }} {{ __('user.wallet.unit') }}
                                 </span>
                             </div>
                         </div>

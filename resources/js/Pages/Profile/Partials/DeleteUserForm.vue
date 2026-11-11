@@ -48,10 +48,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-2">
             <div>
                 <h3 class="font-black text-sm text-rose-600 dark:text-rose-400">
-                    حذف حساب کاربری
+                    {{ __('ui.profile.delete_user.title') }}
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">
-                    با حذف حساب، کلیه خطوط و پیام‌های شما برای همیشه پاک خواهند شد.
+                    {{ __('ui.profile.delete_user.desc') }}
                 </p>
             </div>
             <button
@@ -62,7 +62,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
-                <span>حذف حساب کاربری</span>
+                <span>{{ __('ui.profile.delete_user.title') }}</span>
             </button>
         </div>
 
@@ -92,9 +92,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </div>
                                 <div>
                                     <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                                        تأیید نهایی حذف حساب
+                                        {{ __('ui.profile.delete_user.modal_title') }}
                                     </h3>
-                                    <p class="text-[11px] text-rose-500 font-semibold mt-0.5">عملیات غیرقابل بازگشت</p>
+                                    <p class="text-[11px] text-rose-500 font-semibold mt-0.5">{{ __('ui.profile.delete_user.irreversible') }}</p>
                                 </div>
                             </div>
                             <button
@@ -107,12 +107,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                            جهت احراز هویت امنیتی و تایید قطعی حذف دائمی این حساب، لطفاً کلمه عبور جاری خود را وارد فرمایید:
+                            {{ __('ui.profile.delete_user.modal_prompt') }}
                         </p>
 
                         <div class="space-y-1.5">
                             <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                                کلمه عبور جاری
+                                {{ __('ui.profile.delete_user.current_password') }}
                             </label>
                             <div class="relative">
                                 <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -126,7 +126,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     v-model="form.password"
                                     :type="showPassword ? 'text' : 'password'"
                                     dir="ltr"
-                                    placeholder="کلمه عبور جهت تایید"
+                                    :placeholder="__('ui.profile.delete_user.password_placeholder')"
                                     @keyup.enter="deleteUser"
                                     class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all"
                                 />
@@ -154,7 +154,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 @click="closeModal"
                                 class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
                             >
-                                انصراف
+                                {{ __('ui.profile.delete_user.cancel') }}
                             </button>
 
                             <button
@@ -167,7 +167,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span>تأیید و حذف قطعی حساب</span>
+                                <span>{{ __('ui.profile.delete_user.confirm_button') }}</span>
                             </button>
                         </div>
                     </div>

@@ -24,5 +24,15 @@ export type PageProps<
         wallet_balance?: string;
     };
     flash?: FlashMessages;
+    locale?: string;
+    dir?: 'rtl' | 'ltr';
+    translations?: Record<string, any>;
 };
+
+declare module 'vue' {
+    interface ComponentCustomProperties {
+        __: (key: string, replace?: Record<string, any>) => string;
+        $t: (key: string, replace?: Record<string, any>) => string;
+    }
+}
 

@@ -59,13 +59,13 @@ const isOutbound = computed(() => props.message.direction === 'outbound');
                     <span
                         v-if="message.processing_status === 'pending'"
                         class="text-indigo-200 inline-flex items-center gap-1 cursor-help"
-                        title="در حال ارسال به سرور..."
+                        :title="__('user.messages.sending_to_server')"
                     >
                         <svg class="animate-spin w-3 h-3 text-white" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span class="text-[8px] font-sans">ارسال...</span>
+                        <span class="text-[8px] font-sans">{{ __('user.messages.sending_status') }}</span>
                     </span>
 
                     <!-- 2. Failed with Retry button -->
@@ -80,16 +80,14 @@ const isOutbound = computed(() => props.message.direction === 'outbound');
                             type="button"
                             @click="emit('retry', message)"
                             class="underline font-bold text-[9px] hover:text-white bg-rose-950/60 px-1.5 py-0.5 rounded transition-colors"
-                        >
-                            تلاش مجدد
-                        </button>
+                        >{{ __('user.messages.retry') }}</button>
                     </div>
 
                     <!-- 3. Read: Two Emerald Ticks -->
                     <span
                         v-else-if="message.processing_status === 'processed'"
                         class="text-emerald-300 inline-flex items-center -space-x-1.5 rtl:space-x-reverse"
-                        title="خوانده شده توسط مخاطب"
+                        :title="__('user.messages.read_status')"
                     >
                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
@@ -103,7 +101,7 @@ const isOutbound = computed(() => props.message.direction === 'outbound');
                     <span
                         v-else-if="message.processing_status === 'received'"
                         class="text-indigo-200/90 inline-flex items-center -space-x-1.5 rtl:space-x-reverse"
-                        title="تحویل داده شده"
+                        :title="__('user.messages.delivered_status')"
                     >
                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
@@ -117,7 +115,7 @@ const isOutbound = computed(() => props.message.direction === 'outbound');
                     <span
                         v-else
                         class="text-indigo-200/70 inline-flex items-center"
-                        title="ارسال شده"
+                        :title="__('user.messages.sent_status')"
                     >
                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />

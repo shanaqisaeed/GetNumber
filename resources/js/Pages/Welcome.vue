@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import GuestLayout from '@/Layouts/GuestLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 defineProps<{
     canLogin?: boolean;
@@ -18,92 +19,92 @@ const toggleFaq = (index: number) => {
 };
 
 // 4 Architectural Core Pillars
-const corePillars = [
+const corePillars = computed(() => [
     {
-        title: 'خطوط استاندارد سازمانی',
-        badge: 'تخصیص خودکار و اتمیک',
-        description: 'تخصیص ساختاریافته شماره‌های ۹ رقمی از استخر خطوط فعال. با حفظ صفرهای اول و تضمین عدم تداخل یا واگذاری تکراری حتی تحت درخواست‌های همزمان.',
+        title: __('welcome.features.standard_title'),
+        badge: __('welcome.features.standard_badge'),
+        description: __('welcome.features.standard_desc'),
         icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z',
         gradient: 'from-blue-600 to-indigo-600',
     },
     {
-        title: 'سرشماره‌های اختصاصی سازمانی',
-        badge: 'طول انتخابی ۴ تا ۸ رقم',
-        description: 'گردش کار رسمی ثبت درخواست خطوط کوتاه و رند (شامل تمام طول‌های ۴، ۵، ۶، ۷ و ۸ رقم)، بررسی توسط مدیریت سامانه و تخصیص اتمیک پس از تأیید.',
+        title: __('welcome.features.requests_title'),
+        badge: __('welcome.features.requests_badge'),
+        description: __('welcome.features.requests_desc'),
         icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
         gradient: 'from-purple-600 to-pink-600',
     },
     {
-        title: 'گذرگاه وب‌سرویس RESTful API',
-        badge: 'ثبت امن و Idempotent',
-        description: 'امکان ثبت پیام‌های ورودی از طریق API با کلیدهای امنیتی هش‌شده SHA-256، اعتبارسنجی پیش‌شماره کامل و جلوگیری از پیام تکراری با کلید یکتای مبدأ.',
+        title: __('welcome.features.api_title'),
+        badge: __('welcome.features.api_badge'),
+        description: __('welcome.features.api_desc'),
         icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
         gradient: 'from-emerald-600 to-teal-600',
     },
     {
-        title: 'میز خدمت و تیکتینگ یکپارچه',
-        badge: 'پشتیبانی چندطرفه و پیوست‌ها',
-        description: 'سیستم ثبت تیکت پشتیبانی متصل به خطوط کاربر، با امکان الصاق فایل‌های مستندات تا ۵ مگابایت در فضای خصوصی محافظت‌شده سرور.',
+        title: __('welcome.features.tickets_title'),
+        badge: __('welcome.features.tickets_badge'),
+        description: __('welcome.features.tickets_desc'),
         icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z',
         gradient: 'from-amber-600 to-orange-600',
     },
-];
+]);
 
 // Workflow Steps
-const workflowSteps = [
+const workflowSteps = computed(() => [
     {
-        step: '۰۱',
-        title: 'افتتاح حساب کاربری',
-        desc: 'ثبت‌نام سریع با نام کاربری دلخواه و کلمه عبور امن بدون نیاز به پیچیدگی‌های اولیه.',
+        step: __('welcome.steps.step_1_num'),
+        title: __('welcome.steps.step_1_title'),
+        desc: __('welcome.steps.step_1_desc'),
     },
     {
-        step: '۰۲',
-        title: 'دریافت یا درخواست خط',
-        desc: 'تخصیص آنی شماره استاندارد ۹ رقمی یا ارسال درخواست سرشماره سازمانی ۴ تا ۸ رقم به مدیریت.',
+        step: __('welcome.steps.step_2_num'),
+        title: __('welcome.steps.step_2_title'),
+        desc: __('welcome.steps.step_2_desc'),
     },
     {
-        step: '۰۳',
-        title: 'صدور کلید وب‌سرویس (API)',
-        desc: 'دریافت توکن اختصاصی امن جهت اتصال سامانه‌های نرم‌افزاری و ثبت پیام‌های دریافتی.',
+        step: __('welcome.steps.step_3_num'),
+        title: __('welcome.steps.step_3_title'),
+        desc: __('welcome.steps.step_3_desc'),
     },
     {
-        step: '۰۴',
-        title: 'پایش و مشاهده بلادرنگ',
-        desc: 'مشاهده مکالمات، تفکیک بر اساس خطوط و شماره فرستنده در رابط کاربری شبیه گوشی.',
+        step: __('welcome.steps.step_4_num'),
+        title: __('welcome.steps.step_4_title'),
+        desc: __('welcome.steps.step_4_desc'),
     },
-];
+]);
 
 // Operational Metrics
-const metrics = [
-    { value: '< ۵۰ ms', label: 'میانگین پاسخگویی API', desc: 'سرعت بالا در ثبت و استعلام پیام‌ها' },
-    { value: '۱۰۰٪ اتمیک', label: 'تضمین یکتایی خطوط', desc: 'قفل‌گذاری تراکنشی در زمان تخصیص' },
-    { value: '۴ تا ۸ رقم', label: 'تنوع طول خطوط سازمانی', desc: 'پوشش کلیه سطوح سرشماره‌های شرکتی' },
-    { value: 'SHA-256', label: 'رمزنگاری کلیدهای API', desc: 'عدم نگهداری توکن‌های خام در دیتابیس' },
-];
+const metrics = computed(() => [
+    { value: __('welcome.stats.stat_1_val'), label: __('welcome.stats.stat_1_lbl'), desc: __('welcome.stats.stat_1_desc') },
+    { value: __('welcome.stats.stat_2_val'), label: __('welcome.stats.stat_2_lbl'), desc: __('welcome.stats.stat_2_desc') },
+    { value: __('welcome.stats.stat_3_val'), label: __('welcome.stats.stat_3_lbl'), desc: __('welcome.stats.stat_3_desc') },
+    { value: __('welcome.stats.stat_4_val'), label: __('welcome.stats.stat_4_lbl'), desc: __('welcome.stats.stat_4_desc') },
+]);
 
 // Frequently Asked Questions
-const faqs = [
+const faqs = computed(() => [
     {
-        q: 'ماهیت پیام‌های ثبت‌شده در این سامانه چیست؟',
-        a: 'این سامانه به عنوان یک زیرساخت نرم‌افزاری داخلی عمل می‌کند که پیام‌های ورودی را از طریق وب‌سرویس API در پایگاه‌داده ثبت نموده و در پنل کاربران نمایش می‌دهد. سیستم در این مرحله پیامک واقعی از طریق اپراتورهای مخابراتی به تلفن همراه ارسال نمی‌کند.',
+        q: __('welcome.faqs.q1'),
+        a: __('welcome.faqs.a1'),
     },
     {
-        q: 'تفاوت خط استاندارد با سرشماره‌های اختصاصی سازمانی چیست؟',
-        a: 'خطوط استاندارد شماره‌های ۹ رقمی هستند که با پیش‌شماره معتبر سیستم به صورت خودکار و اتمیک به کاربر تخصیص می‌یابند. سرشماره‌های سازمانی دارای طول دلخواه ۴، ۵، ۶، ۷ یا ۸ رقم هستند که پس از ثبت درخواست و تأیید مدیریت سامانه فعال می‌شوند.',
+        q: __('welcome.faqs.q2'),
+        a: __('welcome.faqs.a2'),
     },
     {
-        q: 'چگونه از ثبت پیام تکراری توسط سامانه‌های متصل جلوگیری می‌شود؟',
-        a: 'سامانه با بهره‌گیری از شناسه یکتای پیام مبدأ (client_message_id) و شناسه کلاینت، درخواست‌های تکراری را شناسایی کرده و بدون ثبت رکورد مضاعف در دیتابیس، پاسخ معتبر Idempotent بازمی‌گرداند.',
+        q: __('welcome.faqs.q3'),
+        a: __('welcome.faqs.a3'),
     },
     {
-        q: 'در زمان آزادسازی خط، اطلاعات و پیام‌های قبلی چه سرنوشتی خواهند داشت؟',
-        a: 'با آزادسازی خط توسط کاربر یا مدیر، تمامی پیام‌های مربوط به دوره مالکیت قبلی به صورت قطعی و امن در یک تراکنش دیتابیس پاکسازی می‌شوند تا مالک جدید بعدی خط به هیچ عنوان به پیام‌های مالک پیشین دسترسی نداشته باشد.',
+        q: __('welcome.faqs.q4'),
+        a: __('welcome.faqs.a4'),
     },
-];
+]);
 </script>
 
 <template>
-    <Head title="سامانه مدیریت خطوط، سرشماره‌ها و پیام‌های داخلی" />
+    <Head :title="__('welcome.head_title')" />
 
     <GuestLayout>
         <!-- 1. Hero Section -->
@@ -113,21 +114,21 @@ const faqs = [
                 <div class="inline-flex items-center gap-2 mb-6">
                     <span class="glass-pill text-indigo-600 dark:text-indigo-400 font-bold text-xs">
                         <span class="status-dot-pulse"></span>
-                        زیرساخت متمرکز مدیریت خطوط سازمانی و پیام‌ها
+                        {{ __('welcome.hero_badge') }}
                     </span>
                 </div>
 
                 <!-- Main Hero Headline -->
                 <h1 class="text-3xl sm:text-5xl font-black text-slate-900 dark:text-white tracking-tight leading-tight sm:leading-tight">
-                    پلتفرم هوشمند مدیریت خطوط،
+                    {{ __('welcome.hero_title_1') }}
                     <span class="block mt-2 bg-gradient-to-l from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
-                        سرشماره‌های سازمانی و جریان پیام‌ها
+                        {{ __('welcome.hero_title_2') }}
                     </span>
                 </h1>
 
                 <!-- Hero Subtitle -->
                 <p class="mt-6 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed max-w-2xl mx-auto font-medium">
-                    سامانه تخصصی جهت تخصیص خودکار شماره‌ها، بررسی و تأیید درخواست خطوط ۴ تا ۸ رقمی، دریافت و ثبت امن پیام‌ها از طریق وب‌سرویس و مدیریت یکپارچه گفتگوها.
+                    {{ __('welcome.hero_desc') }}
                 </p>
 
                 <!-- Dual CTA Action Buttons -->
@@ -137,8 +138,8 @@ const faqs = [
                             :href="route('dashboard')"
                             class="glass-btn-primary !w-auto !py-3.5 !px-8 !text-sm !rounded-2xl"
                         >
-                            <span>ورود به پیشخوان کاربری</span>
-                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <span>{{ __('welcome.dashboard_link') }}</span>
+                            <svg class="w-4 h-4 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="19" y1="12" x2="5" y2="12"></line>
                                 <polyline points="12 19 5 12 12 5"></polyline>
                             </svg>
@@ -149,8 +150,8 @@ const faqs = [
                             :href="route('register')"
                             class="glass-btn-primary !w-auto !py-3.5 !px-8 !text-sm !rounded-2xl"
                         >
-                            <span>ثبت‌نام متقاضی جدید</span>
-                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <span>{{ __('welcome.register_link') }}</span>
+                            <svg class="w-4 h-4 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <line x1="19" y1="12" x2="5" y2="12"></line>
                                 <polyline points="12 19 5 12 12 5"></polyline>
                             </svg>
@@ -159,13 +160,13 @@ const faqs = [
                             :href="route('login')"
                             class="glass-pill !py-3.5 !px-7 !text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
                         >
-                            <span>ورود به درگاه</span>
+                            <span>{{ __('welcome.login_link') }}</span>
                         </Link>
                     </template>
                 </div>
 
                 <!-- Technical Scope Clarification Notice (Required Policy) -->
-                <div class="mt-10 p-4 rounded-2xl glass-card text-right flex items-start gap-3.5 border-indigo-500/20 max-w-2xl mx-auto">
+                <div class="mt-10 p-4 rounded-2xl glass-card text-start flex items-start gap-3.5 border-indigo-500/20 max-w-2xl mx-auto">
                     <div class="w-9 h-9 rounded-xl bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 mt-0.5">
                         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="10"></circle>
@@ -174,8 +175,8 @@ const faqs = [
                         </svg>
                     </div>
                     <div class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                        <b class="text-slate-900 dark:text-white block mb-1">شفاف‌سازی فنی درباره ماهیت پیام‌ها:</b>
-                        این سامانه پیام‌های دریافتی از سامانه‌های مجاز را از طریق وب‌سرویس (API) در پایگاه‌داده ثبت نموده و در پنل کاربران نمایش می‌دهد. سیستم در این مرحله پیامک واقعی مخابراتی به شبکه تلفن همراه ارسال نمی‌کند.
+                        <b class="text-slate-900 dark:text-white block mb-1">{{ __('welcome.notice_title') }}</b>
+                        {{ __('welcome.notice_desc') }}
                     </div>
                 </div>
             </div>
@@ -184,12 +185,12 @@ const faqs = [
         <!-- 3. Core Architectural Pillars Bento Grid -->
         <section class="py-16 px-4 sm:px-6 max-w-6xl mx-auto border-t border-slate-200/60 dark:border-white/10">
             <div class="text-center mb-12">
-                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">معماری و قابلیت‌های محوری</span>
+                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">{{ __('welcome.features_pill') }}</span>
                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                    زیرساخت قدرتمند، توسعه‌پذیر و امن
+                    {{ __('welcome.features_title') }}
                 </h2>
                 <p class="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-xl mx-auto">
-                    ارائه امکانات جامع متناسب با نیازهای مدیریت خطوط، شبکه‌های ایزوله و ارتباطات سازمانی
+                    {{ __('welcome.features_desc') }}
                 </p>
             </div>
 
@@ -228,9 +229,9 @@ const faqs = [
         <!-- 4. Step-by-Step Workflow -->
         <section class="py-16 px-4 sm:px-6 max-w-6xl mx-auto border-t border-slate-200/60 dark:border-white/10">
             <div class="text-center mb-12">
-                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">فرآیند عملیاتی</span>
+                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">{{ __('welcome.workflow_pill') }}</span>
                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                    چگونگی بهره‌برداری از سامانه در ۴ گام ساده
+                    {{ __('welcome.workflow_title') }}
                 </h2>
             </div>
 
@@ -277,9 +278,9 @@ const faqs = [
         <!-- 6. Frequently Asked Questions (Accordion) -->
         <section class="py-16 px-4 sm:px-6 max-w-4xl mx-auto border-t border-slate-200/60 dark:border-white/10">
             <div class="text-center mb-10">
-                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">راهنمای کاربران</span>
+                <span class="glass-pill text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-2">{{ __('welcome.faq_pill') }}</span>
                 <h2 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mt-2">
-                    پرسش‌های متداول سازمانی
+                    {{ __('welcome.faq_title') }}
                 </h2>
             </div>
 
@@ -317,10 +318,10 @@ const faqs = [
         <section class="py-16 px-4 sm:px-6 max-w-6xl mx-auto border-t border-slate-200/60 dark:border-white/10">
             <div class="glass-card !p-8 sm:!p-12 text-center bg-gradient-to-tr from-indigo-950/20 via-purple-950/20 to-transparent relative overflow-hidden">
                 <h3 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white mb-3">
-                    آماده شروع و مدیریت خطوط سازمانی خود هستید؟
+                    {{ __('welcome.cta_title') }}
                 </h3>
                 <p class="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-xl mx-auto mb-6 leading-relaxed">
-                    همین حالا حساب کاربری خود را افتتاح نمایید و خطوط و پیام‌های داخلی خود را در محیطی یکپارچه و امن مدیریت کنید.
+                    {{ __('welcome.cta_desc') }}
                 </p>
 
                 <div class="flex flex-wrap justify-center gap-4">
@@ -328,8 +329,8 @@ const faqs = [
                         :href="route('register')"
                         class="glass-btn-primary !w-auto !py-3 !px-8 !text-sm !rounded-2xl"
                     >
-                        <span>افتتاح حساب کاربری</span>
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <span>{{ __('welcome.cta_register') }}</span>
+                        <svg class="w-4 h-4 rtl:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <line x1="19" y1="12" x2="5" y2="12"></line>
                             <polyline points="12 19 5 12 12 5"></polyline>
                         </svg>
@@ -338,7 +339,7 @@ const faqs = [
                         :href="route('login')"
                         class="glass-pill !py-3 !px-7 !text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400"
                     >
-                        <span>ورود به سامانه</span>
+                        <span>{{ __('welcome.cta_login') }}</span>
                     </Link>
                 </div>
             </div>

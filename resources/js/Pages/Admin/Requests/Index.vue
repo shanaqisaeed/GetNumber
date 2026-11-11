@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 
@@ -51,6 +52,8 @@ interface PaginationLink {
     label: string;
     active: boolean;
 }
+
+const { __ } = useTrans();
 
 const props = defineProps<{
     requests: {
@@ -205,7 +208,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
 <template>
     <AdminLayout>
-        <Head title="بررسی و تأیید درخواست‌های سرشماره" />
+        <Head :title="__('admin.requests.head_title')" />
 
         <div class="space-y-6">
             <!-- Flash Alerts -->
@@ -229,17 +232,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <div>
                         <div class="flex items-center gap-2 mb-1.5">
                             <span class="glass-pill text-[11px] text-purple-600 dark:text-purple-400 font-bold">
-                                مدیریت کل خطوط و سرشماره‌ها
+                                {{ __('admin.requests.badge_all_lines') }}
                             </span>
                             <span class="glass-pill text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">
-                                ۴ الی ۸ رقم
+                                {{ __('admin.requests.badge_length_range') }}
                             </span>
                         </div>
                         <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                            بررسی و تعیین تکلیف درخواست‌های سرشماره سازمانی
+                            {{ __('admin.requests.page_title') }}
                         </h1>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
-                            رسیدگی، تایید با تخصیص خودکار/دستی/استخر و یا رد درخواست‌های سرشماره با درج دلیل سیستمی.
+                            {{ __('admin.requests.page_desc') }}
                         </p>
                     </div>
                 </div>
@@ -249,7 +252,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card !p-4 flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">کل درخواست‌های دریافتی</span>
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 block mb-1">{{ __('admin.requests.total_requests') }}</span>
                         <span class="text-2xl font-black text-slate-900 dark:text-white">{{ stats.total }}</span>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold">
@@ -262,9 +265,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div class="glass-card !p-4 flex items-center justify-between">
                     <div>
                         <span class="text-xs font-bold text-amber-600 dark:text-amber-400 block mb-1 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                            نیازمند بررسی
-                        </span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>{{ __('admin.requests.pending_review') }}</span>
                         <span class="text-2xl font-black text-amber-600 dark:text-amber-400">{{ stats.pending }}</span>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
@@ -277,9 +278,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div class="glass-card !p-4 flex items-center justify-between">
                     <div>
                         <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 block mb-1 flex items-center gap-1.5">
-                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            تأیید و تخصیص یافته
-                        </span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{{ __('admin.requests.approved_requests') }}</span>
                         <span class="text-2xl font-black text-emerald-600 dark:text-emerald-400">{{ stats.approved }}</span>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
@@ -291,7 +290,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                 <div class="glass-card !p-4 flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-rose-600 dark:text-rose-400 block mb-1">رد شده با دلیل</span>
+                        <span class="text-xs font-bold text-rose-600 dark:text-rose-400 block mb-1">{{ __('admin.requests.rejected_requests') }}</span>
                         <span class="text-2xl font-black text-rose-600 dark:text-rose-400">{{ stats.rejected }}</span>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold">
@@ -309,7 +308,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         v-model="search"
                         @keyup.enter="handleFilter"
                         type="text"
-                        placeholder="جستجو در نام کاربر، عنوان یا شماره..."
+                        :placeholder="__('admin.requests.search_placeholder')"
                         class="glass-input !py-2.5 !pr-10 !text-xs"
                     />
                     <svg class="w-4 h-4 text-slate-400 absolute right-3.5 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -323,10 +322,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select !py-2 !px-3 !text-xs cursor-pointer"
                     >
-                        <option value="">همه وضعیت‌ها</option>
-                        <option value="pending">در انتظار بررسی</option>
-                        <option value="approved">تأیید شده</option>
-                        <option value="rejected">رد شده</option>
+                        <option value="">{{ __('admin.requests.all_statuses') }}</option>
+                        <option value="pending">{{ __('admin.requests.status_pending') }}</option>
+                        <option value="approved">{{ __('admin.requests.status_approved') }}</option>
+                        <option value="rejected">{{ __('admin.requests.status_rejected') }}</option>
                     </select>
 
                     <select
@@ -334,12 +333,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select !py-2 !px-3 !text-xs cursor-pointer"
                     >
-                        <option value="">همه طول‌ها</option>
-                        <option value="4">۴ رقمی</option>
-                        <option value="5">۵ رقمی</option>
-                        <option value="6">۶ رقمی</option>
-                        <option value="7">۷ رقمی</option>
-                        <option value="8">۸ رقمی</option>
+                        <option value="">{{ __('admin.requests.all_lengths') }}</option>
+                        <option value="4">{{ __('admin.requests.digits_count', { count: 4 }) }}</option>
+                        <option value="5">{{ __('admin.requests.digits_count', { count: 5 }) }}</option>
+                        <option value="6">{{ __('admin.requests.digits_count', { count: 6 }) }}</option>
+                        <option value="7">{{ __('admin.requests.digits_count', { count: 7 }) }}</option>
+                        <option value="8">{{ __('admin.requests.digits_count', { count: 8 }) }}</option>
                     </select>
 
                     <button
@@ -347,7 +346,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @click="resetFilter"
                         type="button"
                         class="glass-pill !py-2 !px-3 !text-xs hover:text-rose-500 transition-colors cursor-pointer"
-                        title="حذف فیلترها"
+                        :title="__('admin.requests.clear_filters')"
                     >
                         ✕
                     </button>
@@ -361,13 +360,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <thead class="bg-slate-100/60 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/80 dark:border-white/10">
                             <tr>
                                 <th class="px-5 py-4 text-center w-12">#</th>
-                                <th class="px-5 py-4">کاربر متقاضی</th>
-                                <th class="px-5 py-4">عنوان و شرح سرویس</th>
-                                <th class="px-5 py-4 text-center">طول درخواستی</th>
-                                <th class="px-5 py-4 text-center">پیشنهادی / تخصیص‌یافته</th>
-                                <th class="px-5 py-4 text-center">وضعیت</th>
-                                <th class="px-5 py-4 text-center">تاریخ ثبت</th>
-                                <th class="px-5 py-4 text-center">عملیات مدیریت</th>
+                                <th class="px-5 py-4">{{ __('admin.requests.th_user') }}</th>
+                                <th class="px-5 py-4">{{ __('admin.requests.th_service') }}</th>
+                                <th class="px-5 py-4 text-center">{{ __('admin.requests.th_length') }}</th>
+                                <th class="px-5 py-4 text-center">{{ __('admin.requests.th_allocated_num') }}</th>
+                                <th class="px-5 py-4 text-center">{{ __('admin.requests.th_status') }}</th>
+                                <th class="px-5 py-4 text-center">{{ __('admin.requests.th_date') }}</th>
+                                <th class="px-5 py-4 text-center">{{ __('admin.requests.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200/50 dark:divide-white/5">
@@ -392,7 +391,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             class="text-[9px] font-bold px-1.5 py-0.5 rounded-md border shrink-0"
                                             :class="req.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/25 text-slate-400'"
                                         >
-                                            {{ req.accepts_incoming_sms ? 'دوطرفه' : 'یک‌طرفه' }}
+                                            {{ req.accepts_incoming_sms ? __('admin.requests.two_way') : __('admin.requests.one_way') }}
                                         </span>
                                     </div>
                                     <span class="block text-[11px] font-normal text-slate-400 line-clamp-1 mt-0.5">
@@ -402,7 +401,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                                 <td class="px-5 py-4 text-center">
                                     <span class="glass-pill text-[10px] font-bold">
-                                        {{ req.requested_length }} رقم
+                                        {{ __('admin.requests.digits_unit', { length: req.requested_length }) }}
                                     </span>
                                 </td>
 
@@ -451,7 +450,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                                             </svg>
-                                            <span>بررسی</span>
+                                            <span>{{ __('admin.requests.review_btn') }}</span>
                                         </button>
 
                                         <!-- Details Button -->
@@ -459,7 +458,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             type="button"
                                             @click="openDetailsModal(req)"
                                             class="p-1.5 rounded-xl glass-pill hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors cursor-pointer"
-                                            title="مشاهده جزئیات کامل"
+                                            :title="__('admin.requests.view_details')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -478,9 +477,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                             </svg>
                                         </div>
-                                        <span class="font-bold text-sm text-slate-800 dark:text-slate-200">درخواستی در این بخش ثبت نشده است</span>
+                                        <span class="font-bold text-sm text-slate-800 dark:text-slate-200">{{ __('admin.requests.no_requests_title') }}</span>
                                         <p class="text-xs text-slate-400 mt-1 max-w-sm">
-                                            هیچ درخواستی متناسب با فیلترهای جستجو یافت نشد.
+                                            {{ __('admin.requests.no_requests_desc') }}
                                         </p>
                                     </div>
                                 </td>
@@ -492,7 +491,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <!-- Pagination -->
                 <div v-if="requests.last_page > 1" class="p-4 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between">
                     <span class="text-xs text-slate-500 dark:text-slate-400 font-mono">
-                        صفحه {{ requests.current_page }} از {{ requests.last_page }}
+                        {{ __('admin.requests.pagination_indicator', { current: requests.current_page, last: requests.last_page }) }}
                     </span>
                     <div class="flex items-center gap-1">
                         <template v-for="(link, i) in requests.links" :key="i">
@@ -521,10 +520,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                            بررسی و تعیین تکلیف درخواست #{{ activeRequest.id }}
+                            {{ __('admin.requests.modal_review_title', { id: activeRequest.id }) }}
                         </h3>
                         <span class="text-[11px] text-slate-500 dark:text-slate-400">
-                            متقاضی: {{ activeRequest.user.name }} (@{{ activeRequest.user.username }})
+                            {{ __('admin.requests.modal_applicant', { name: activeRequest.user.name, username: activeRequest.user.username }) }}
                         </span>
                     </div>
                     <button type="button" @click="closeReviewModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -534,28 +533,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Request Summary Card -->
                     <div class="p-3.5 rounded-2xl bg-slate-100/60 dark:bg-slate-950/60 border border-slate-200/60 dark:border-white/5 text-xs space-y-2">
                         <div class="flex items-center justify-between">
-                            <span class="font-bold text-slate-900 dark:text-white">عنوان سرویس:</span>
+                            <span class="font-bold text-slate-900 dark:text-white">{{ __('admin.requests.label_service_title') }}</span>
                             <span class="font-bold text-indigo-600 dark:text-indigo-400">{{ activeRequest.service_title }}</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">طول درخواستی:</span>
-                            <span class="font-mono font-bold">{{ activeRequest.requested_length }} رقمی</span>
+                            <span class="text-slate-500 dark:text-slate-400">{{ __('admin.requests.label_requested_length') }}</span>
+                            <span class="font-mono font-bold">{{ __('admin.requests.digits_count', { count: activeRequest.requested_length }) }}</span>
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">قابلیت دریافت پیامک ورودی:</span>
+                            <span class="text-slate-500 dark:text-slate-400">{{ __('admin.requests.label_incoming_sms') }}</span>
                             <span
                                 class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
                                 :class="activeRequest.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-400'"
                             >
-                                {{ activeRequest.accepts_incoming_sms ? 'دوطرفه (دریافت فعال)' : 'یک‌طرفه (صرفاً ارسال)' }}
+                                {{ activeRequest.accepts_incoming_sms ? __('admin.requests.sms_two_way_full') : __('admin.requests.sms_one_way_full') }}
                             </span>
                         </div>
                         <div v-if="activeRequest.preferred_number" class="flex items-center justify-between">
-                            <span class="text-slate-500 dark:text-slate-400">شماره پیشنهادی متقاضی:</span>
+                            <span class="text-slate-500 dark:text-slate-400">{{ __('admin.requests.label_preferred_number') }}</span>
                             <span dir="ltr" class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ activeRequest.preferred_number }}</span>
                         </div>
                         <div>
-                            <span class="text-slate-500 dark:text-slate-400 block mb-1">شرح کاربرد:</span>
+                            <span class="text-slate-500 dark:text-slate-400 block mb-1">{{ __('admin.requests.label_description') }}</span>
                             <p class="text-slate-700 dark:text-slate-300 leading-relaxed bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200/40 dark:border-white/5">
                                 {{ activeRequest.description }}
                             </p>
@@ -569,24 +568,20 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             @click="reviewTab = 'approve'"
                             class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
                             :class="reviewTab === 'approve' ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
-                        >
-                            تأیید و تخصیص سرشماره
-                        </button>
+                        >{{ __('admin.requests.tab_approve') }}</button>
                         <button
                             type="button"
                             @click="reviewTab = 'reject'"
                             class="pb-2 px-3 text-xs font-bold border-b-2 transition-all cursor-pointer"
                             :class="reviewTab === 'reject' ? 'border-rose-500 text-rose-600 dark:text-rose-400' : 'border-transparent text-slate-400 hover:text-slate-600'"
-                        >
-                            عدم تأیید و رد درخواست
-                        </button>
+                        >{{ __('admin.requests.tab_reject') }}</button>
                     </div>
 
                     <!-- Tab 1: Approve Form -->
                     <form v-if="reviewTab === 'approve'" @submit.prevent="submitApprove" class="space-y-4">
                         <div>
                             <label class="form-label mb-2">
-                                شیوه تخصیص سرشماره سازمانی
+                                {{ __('admin.requests.allocation_method_label') }}
                             </label>
                             <div class="grid grid-cols-3 gap-2">
                                 <label
@@ -594,8 +589,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     :class="approveForm.mode === 'auto' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
                                 >
                                     <input type="radio" value="auto" v-model="approveForm.mode" class="sr-only" />
-                                    <span class="block font-bold">تخصیص خودکار</span>
-                                    <span class="text-[10px] opacity-75">سیستمی</span>
+                                    <span class="block font-bold">{{ __('admin.requests.method_auto') }}</span>
+                                    <span class="text-[10px] opacity-75">{{ __('admin.requests.method_auto_sub') }}</span>
                                 </label>
 
                                 <label
@@ -603,8 +598,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     :class="approveForm.mode === 'pool' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
                                 >
                                     <input type="radio" value="pool" v-model="approveForm.mode" class="sr-only" />
-                                    <span class="block font-bold">از استخر آزاد</span>
-                                    <span class="text-[10px] opacity-75">انتخاب دستی</span>
+                                    <span class="block font-bold">{{ __('admin.requests.method_pool') }}</span>
+                                    <span class="text-[10px] opacity-75">{{ __('admin.requests.method_pool_sub') }}</span>
                                 </label>
 
                                 <label
@@ -612,34 +607,34 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     :class="approveForm.mode === 'custom' ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 font-bold' : 'border-slate-200 dark:border-white/10 text-slate-600 dark:text-slate-400'"
                                 >
                                     <input type="radio" value="custom" v-model="approveForm.mode" class="sr-only" />
-                                    <span class="block font-bold">شماره دستی</span>
-                                    <span class="text-[10px] opacity-75">سفارشی ادمین</span>
+                                    <span class="block font-bold">{{ __('admin.requests.method_custom') }}</span>
+                                    <span class="text-[10px] opacity-75">{{ __('admin.requests.method_custom_sub') }}</span>
                                 </label>
                             </div>
                         </div>
 
                         <!-- Mode: Auto Info -->
                         <div v-if="approveForm.mode === 'auto'" class="p-3 rounded-xl bg-slate-100/60 dark:bg-slate-900/60 border border-slate-200/40 dark:border-white/5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            سامانه به صورت اتمیک یک سرشماره {{ activeRequest.requested_length }} رقمی آزاد را از استخر تخصیص داده یا به صورت تصادفی و یکتا تولید می‌نماید.
+                            {{ __('admin.requests.method_auto_desc', { length: activeRequest.requested_length }) }}
                         </div>
 
                         <!-- Mode: Pool Select -->
                         <div v-if="approveForm.mode === 'pool'" class="space-y-1.5">
                             <label class="form-label">
-                                انتخاب سرشماره آزاد از استخر (طول {{ activeRequest.requested_length }} رقم) <span class="text-rose-500">*</span>
+                                {{ __('admin.requests.select_pool_label', { length: activeRequest.requested_length }) }} <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 v-if="filteredPoolNumbers.length > 0"
                                 v-model="approveForm.pool_number_id"
                                 class="form-select w-full !text-xs font-mono"
                             >
-                                <option value="">-- انتخاب خط آزاد --</option>
+                                <option value="">{{ __('admin.requests.select_pool_default') }}</option>
                                 <option v-for="num in filteredPoolNumbers" :key="num.id" :value="num.id">
-                                    {{ num.number }} (طول: {{ num.length }} رقم)
+                                    {{ __('admin.requests.pool_option_text', { number: num.number, length: num.length }) }}
                                 </option>
                             </select>
                             <div v-else class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-300 text-xs">
-                                در حال حاضر سرشماره آزادی با طول {{ activeRequest.requested_length }} رقم در استخر موجود نیست. لطفاً از شیوه «تخصیص خودکار» یا «شماره دستی» استفاده نمایید.
+                                {{ __('admin.requests.pool_empty_warning', { length: activeRequest.requested_length }) }}
                             </div>
                             <span v-if="approveForm.errors.pool_number_id" class="text-xs text-rose-500 block">
                                 {{ approveForm.errors.pool_number_id }}
@@ -649,14 +644,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <!-- Mode: Custom Manual -->
                         <div v-if="approveForm.mode === 'custom'" class="space-y-1.5">
                             <label class="form-label">
-                                سرشماره دلخواه دستی (دقیقاً {{ activeRequest.requested_length }} رقم عددی) <span class="text-rose-500">*</span>
+                                {{ __('admin.requests.custom_num_label', { length: activeRequest.requested_length }) }} <span class="text-rose-500">*</span>
                             </label>
                             <input
                                 type="text"
                                 v-model="approveForm.custom_number"
                                 dir="ltr"
                                 :maxlength="activeRequest.requested_length"
-                                placeholder="مثال: 2000"
+                                :placeholder="__('admin.requests.custom_num_placeholder')"
                                 class="form-input w-full !text-xs !font-mono text-left"
                             />
                             <span v-if="approveForm.errors.custom_number" class="text-xs text-rose-500 block">
@@ -665,9 +660,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         </div>
 
                         <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
-                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-                                انصراف
-                            </button>
+                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">{{ __('admin.requests.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="approveForm.processing"
@@ -677,7 +670,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span>{{ approveForm.processing ? 'در حال ثبت و تخصیص...' : 'تأیید نهایی و واگذاری خط' }}</span>
+                                <span>{{ approveForm.processing ? __('admin.requests.approving') : __('admin.requests.approve_submit') }}</span>
                             </button>
                         </div>
                     </form>
@@ -686,12 +679,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <form v-if="reviewTab === 'reject'" @submit.prevent="submitReject" class="space-y-4">
                         <div>
                             <label class="form-label mb-1.5">
-                                دلیل عدم تأیید و رد درخواست <span class="text-rose-500">*</span>
+                                {{ __('admin.requests.reject_reason_label') }} <span class="text-rose-500">*</span>
                             </label>
                             <textarea
                                 v-model="rejectForm.reason"
                                 rows="3"
-                                placeholder="لطفاً دلیل شفاف عدم تأیید را جهت نمایش به متقاضی درج فرمایید (حداقل ۳ کاراکتر)..."
+                                :placeholder="__('admin.requests.reject_reason_placeholder')"
                                 class="form-textarea w-full !text-xs resize-none"
                             ></textarea>
                             <span v-if="rejectForm.errors.reason" class="text-xs text-rose-500 block mt-1">
@@ -700,13 +693,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         </div>
 
                         <div class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed">
-                            با رد درخواست، وضعیت به «رد شده» تغییر یافته و دلیل فوق به متقاضی نمایش داده خواهد شد.
+                            {{ __('admin.requests.reject_notice') }}
                         </div>
 
                         <div class="pt-3 border-t border-slate-200/60 dark:border-white/10 flex justify-end gap-2.5">
-                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">
-                                انصراف
-                            </button>
+                            <button type="button" @click="closeReviewModal" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer">{{ __('admin.requests.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="rejectForm.processing"
@@ -716,7 +707,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                <span>{{ rejectForm.processing ? 'در حال رد درخواست...' : 'تأیید رد درخواست' }}</span>
+                                <span>{{ rejectForm.processing ? __('admin.requests.rejecting') : __('admin.requests.reject_submit') }}</span>
                             </button>
                         </div>
                     </form>
@@ -730,9 +721,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div class="pb-4 border-b border-slate-200/60 dark:border-white/10 flex items-center justify-between mb-4 shrink-0">
                     <div>
                         <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                            جزئیات درخواست سرشماره سازمانی #{{ detailsRequest.id }}
+                            {{ __('admin.requests.modal_details_title', { id: detailsRequest.id }) }}
                         </h3>
-                        <span class="text-[11px] text-slate-400 block font-mono">ثبت‌شده توسط {{ detailsRequest.user.name }} (@{{ detailsRequest.user.username }})</span>
+                        <span class="text-[11px] text-slate-400 block font-mono">{{ __('admin.requests.submitted_by', { name: detailsRequest.user.name, username: detailsRequest.user.username }) }}</span>
                     </div>
                     <button type="button" @click="closeDetailsModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
@@ -740,46 +731,46 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <div class="space-y-4 text-xs overflow-y-auto flex-1">
                     <div class="grid grid-cols-2 gap-3">
                         <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                            <span class="text-slate-400 block text-[10px] mb-1">طول درخواستی</span>
-                            <span class="font-bold text-slate-900 dark:text-white">{{ detailsRequest.requested_length }} رقم</span>
+                            <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.label_requested_length') }}</span>
+                            <span class="font-bold text-slate-900 dark:text-white">{{ __('admin.requests.digits_unit', { length: detailsRequest.requested_length }) }}</span>
                         </div>
                         <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                            <span class="text-slate-400 block text-[10px] mb-1">وضعیت کنونی</span>
+                            <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.current_status') }}</span>
                             <span class="font-bold" :class="detailsRequest.status_badge">{{ detailsRequest.status_label }}</span>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
                         <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                            <span class="text-slate-400 block text-[10px] mb-1">قابلیت دریافت پیامک</span>
+                            <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.incoming_sms') }}</span>
                             <span
                                 class="text-[10px] font-bold px-2 py-0.5 rounded-full border inline-block"
                                 :class="detailsRequest.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/25 text-slate-400'"
                             >
-                                {{ detailsRequest.accepts_incoming_sms ? 'دوطرفه (دریافت فعال)' : 'یک‌طرفه (صرفاً ارسال)' }}
+                                {{ detailsRequest.accepts_incoming_sms ? __('admin.requests.sms_two_way_full') : __('admin.requests.sms_one_way_full') }}
                             </span>
                         </div>
                         <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                            <span class="text-slate-400 block text-[10px] mb-1">شماره پیشنهادی</span>
+                            <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.preferred_number') }}</span>
                             <span dir="ltr" class="font-mono font-bold text-slate-700 dark:text-slate-300">
-                                {{ detailsRequest.preferred_number || 'ندارد' }}
+                                {{ detailsRequest.preferred_number || __('admin.requests.none') }}
                             </span>
                         </div>
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                        <span class="text-slate-400 block text-[10px] mb-1">عنوان سرویس</span>
+                        <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.service_title') }}</span>
                         <span class="font-bold text-slate-900 dark:text-white">{{ detailsRequest.service_title }}</span>
                     </div>
 
                     <div class="p-3 rounded-xl bg-slate-100/50 dark:bg-slate-950/50 border border-slate-200/40 dark:border-white/5">
-                        <span class="text-slate-400 block text-[10px] mb-1">توضیحات و کاربرد</span>
+                        <span class="text-slate-400 block text-[10px] mb-1">{{ __('admin.requests.description_usecase') }}</span>
                         <p class="text-slate-700 dark:text-slate-300 leading-relaxed">{{ detailsRequest.description }}</p>
                     </div>
 
                     <!-- Allocated number card if approved -->
                     <div v-if="detailsRequest.allocated_number" class="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/25">
-                        <span class="text-emerald-700 dark:text-emerald-400 block text-[10px] font-bold mb-1">سرشماره اختصاص‌یافته</span>
+                        <span class="text-emerald-700 dark:text-emerald-400 block text-[10px] font-bold mb-1">{{ __('admin.requests.allocated_number') }}</span>
                         <div class="flex items-center justify-between">
                             <span dir="ltr" class="font-mono text-base font-black text-emerald-700 dark:text-emerald-400">
                                 {{ detailsRequest.allocated_number.formatted_number }}
@@ -788,29 +779,25 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 type="button"
                                 @click="copyToClipboard(detailsRequest.allocated_number.number)"
                                 class="px-3 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 transition-colors cursor-pointer"
-                            >
-                                کپی شماره
-                            </button>
+                            >{{ __('admin.requests.copy_number') }}</button>
                         </div>
                     </div>
 
                     <!-- Rejection reason if rejected -->
                     <div v-if="detailsRequest.rejection_reason" class="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25">
-                        <span class="text-rose-700 dark:text-rose-400 block text-[10px] font-bold mb-1">دلیل رد درخواست</span>
+                        <span class="text-rose-700 dark:text-rose-400 block text-[10px] font-bold mb-1">{{ __('admin.requests.rejection_reason') }}</span>
                         <p class="text-rose-900 dark:text-rose-200 leading-relaxed">{{ detailsRequest.rejection_reason }}</p>
                     </div>
 
                     <!-- Reviewer info -->
                     <div v-if="detailsRequest.reviewed_at" class="text-[11px] text-slate-400 pt-2 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between font-mono">
-                        <span>بررسی‌کننده: {{ detailsRequest.reviewer_name || 'راهبر سامانه' }}</span>
-                        <span>تاریخ: {{ detailsRequest.reviewed_at }}</span>
+                        <span>{{ __('admin.requests.reviewer', { name: detailsRequest.reviewer_name || __('admin.requests.reviewer_system') }) }}</span>
+                        <span>{{ __('admin.requests.review_date', { date: detailsRequest.reviewed_at }) }}</span>
                     </div>
                 </div>
 
                 <div class="pt-4 border-t border-slate-200/60 dark:border-white/10 flex justify-end mt-4 shrink-0">
-                    <button type="button" @click="closeDetailsModal" class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer">
-                        بستن
-                    </button>
+                    <button type="button" @click="closeDetailsModal" class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer">{{ __('admin.requests.close') }}</button>
                 </div>
             </div>
         </div>

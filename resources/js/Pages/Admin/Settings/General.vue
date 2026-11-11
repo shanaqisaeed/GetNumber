@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import InputError from '@/Components/InputError.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
@@ -175,7 +176,7 @@ const testLdapConnection = async () => {
         });
         ldapTestResult.value = await res.json();
     } catch {
-        ldapTestResult.value = { success: false, message: 'خطا در برقراری ارتباط با وب‌سرویس تست.' };
+        ldapTestResult.value = { success: false, message: __('admin.settings.ldap_ajax_error') };
     } finally {
         testingLdap.value = false;
     }
@@ -213,7 +214,7 @@ const testKeycloakConnection = async () => {
         });
         keycloakTestResult.value = await res.json();
     } catch {
-        keycloakTestResult.value = { success: false, message: 'خطا در استعلام از سرور Keycloak.' };
+        keycloakTestResult.value = { success: false, message: __('admin.settings.keycloak_ajax_error') };
     } finally {
         testingKeycloak.value = false;
     }
@@ -221,7 +222,7 @@ const testKeycloakConnection = async () => {
 </script>
 
 <template>
-    <Head title="تنظیمات جامع سامانه" />
+    <Head :title="__('admin.settings.head_title')" />
 
     <AdminLayout>
         <template #header>
@@ -232,8 +233,8 @@ const testKeycloakConnection = async () => {
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-base font-black text-slate-900 dark:text-white">تنظیمات عمومی و احراز هویت سامانه</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">پیکربندی متمرکز مشخصات پلتفرم، سقف خطوط، شیوه‌های ورود و اتصال به سامانه‌های سازمانی</p>
+                    <h1 class="text-base font-black text-slate-900 dark:text-white">{{ __('admin.settings.main_title') }}</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.main_desc') }}</p>
                 </div>
             </div>
         </template>
@@ -252,7 +253,7 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span>تنظیمات عمومی</span>
+                    <span>{{ __('admin.settings.tab_general') }}</span>
                 </button>
 
                 <button
@@ -266,7 +267,7 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>تعرفه سرشماره‌ها</span>
+                    <span>{{ __('admin.settings.tab_tariffs') }}</span>
                 </button>
 
                 <button
@@ -280,7 +281,7 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span>درگاه‌های احراز هویت</span>
+                    <span>{{ __('admin.settings.tab_auth') }}</span>
                 </button>
 
                 <button
@@ -294,7 +295,7 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <span>سرویس سازمانی LDAP</span>
+                    <span>{{ __('admin.settings.tab_ldap') }}</span>
                 </button>
 
                 <button
@@ -308,7 +309,7 @@ const testKeycloakConnection = async () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
-                    <span>سرویس Keycloak SSO</span>
+                    <span>{{ __('admin.settings.tab_keycloak') }}</span>
                 </button>
             </div>
 
@@ -318,13 +319,13 @@ const testKeycloakConnection = async () => {
                     <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
                         <div class="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                             <span class="w-3 h-3 rounded-full bg-indigo-500"></span>
-                            <h2 class="text-sm font-black text-slate-900 dark:text-white">مشخصات پلتفرم و سقف خطوط کاربران</h2>
+                            <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.platform_specs_title') }}</h2>
                         </div>
 
                         <div class="space-y-4">
                             <div>
                                 <label for="app_name" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    نام رسمی و عنوان سامانه:
+                                    {{ __('admin.settings.app_name_label') }}
                                 </label>
                                 <input
                                     id="app_name"
@@ -338,7 +339,7 @@ const testKeycloakConnection = async () => {
 
                             <div>
                                 <label for="app_description" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    توضیحات مختصر پلتفرم:
+                                    {{ __('admin.settings.app_desc_label') }}
                                 </label>
                                 <textarea
                                     id="app_description"
@@ -354,10 +355,10 @@ const testKeycloakConnection = async () => {
                                 <div class="flex items-center justify-between gap-2 flex-wrap">
                                     <div>
                                         <label for="default_locale" class="block text-xs font-black text-slate-900 dark:text-white">
-                                            زبان پیش‌فرض سامانه و جهت متون:
+                                            {{ __('admin.settings.default_lang_label') }}
                                         </label>
                                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                            تعیین زبان رسمی پلتفرم؛ جهت نمایش صفحات بر اساس زبان انتخابی به صورت خودکار (فارسی: راست‌چین RTL / انگلیسی: چپ‌چین LTR) تنظیم می‌شود.
+                                            {{ __('admin.settings.default_lang_help') }}
                                         </p>
                                     </div>
                                     <div class="flex items-center gap-2">
@@ -366,8 +367,8 @@ const testKeycloakConnection = async () => {
                                             v-model="generalForm.default_locale"
                                             class="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
                                         >
-                                            <option value="fa">🇮🇷 فارسی (راست‌چین - RTL)</option>
-                                            <option value="en">🇬🇧 English (چپ‌چین - LTR)</option>
+                                            <option value="fa">{{ __('admin.settings.lang_fa') }}</option>
+                                            <option value="en">{{ __('admin.settings.lang_en') }}</option>
                                         </select>
                                         <span
                                             class="px-2 py-1 rounded-lg text-[10px] font-mono font-black border"
@@ -385,10 +386,10 @@ const testKeycloakConnection = async () => {
                                 <div class="flex items-center justify-between gap-2 flex-wrap">
                                     <div>
                                         <label for="max_lines_per_user" class="block text-xs font-black text-indigo-950 dark:text-indigo-200">
-                                            سقف مجاز تخصیص خطوط برای هر حساب کاربری:
+                                            {{ __('admin.settings.max_lines_label') }}
                                         </label>
                                         <p class="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 mt-0.5">
-                                            تعیین حداکثر تعداد خطوط سازمانی فعال که یک کاربر عادی می‌تواند به طور همزمان مالک آن باشد (پیش‌فرض: ۱۰ خط).
+                                            {{ __('admin.settings.max_lines_help') }}
                                         </p>
                                     </div>
                                     <div class="flex items-center gap-2">
@@ -401,7 +402,7 @@ const testKeycloakConnection = async () => {
                                             class="w-24 px-3 py-2 text-center font-mono font-black text-sm rounded-xl border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
                                             required
                                         />
-                                        <span class="text-xs font-bold text-indigo-900 dark:text-indigo-300">خط</span>
+                                        <span class="text-xs font-bold text-indigo-900 dark:text-indigo-300">{{ __('admin.settings.unit_lines') }}</span>
                                     </div>
                                 </div>
                                 <InputError class="mt-1" :message="generalForm.errors.max_lines_per_user" />
@@ -413,7 +414,7 @@ const testKeycloakConnection = async () => {
                     <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
                         <div class="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                             <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-                            <h2 class="text-sm font-black text-slate-900 dark:text-white">رویدادها و هشدارهای امنیتی هسته مرکزی</h2>
+                            <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.security_events_title') }}</h2>
                         </div>
 
                         <div class="space-y-4">
@@ -424,8 +425,8 @@ const testKeycloakConnection = async () => {
                                     class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <div>
-                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">ثبت رویداد تلاش‌های ناموفق ورود</span>
-                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">ثبت تمام تلاش‌های ورود با رمز اشتباه در گزارش‌های امنیتی</span>
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">{{ __('admin.settings.evt_failed_login') }}</span>
+                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('admin.settings.evt_failed_login_desc') }}</span>
                                 </div>
                             </label>
 
@@ -436,8 +437,8 @@ const testKeycloakConnection = async () => {
                                     class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <div>
-                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">ثبت رویداد ثبت‌نام کاربران جدید</span>
-                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">ثبت لحظه‌ای ثبت‌نام و ساخت حساب‌های کاربری جدید</span>
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">{{ __('admin.settings.evt_new_user') }}</span>
+                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('admin.settings.evt_new_user_desc') }}</span>
                                 </div>
                             </label>
 
@@ -448,8 +449,8 @@ const testKeycloakConnection = async () => {
                                     class="mt-1 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                                 <div>
-                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">ثبت هشدارهای تغییرات امنیتی</span>
-                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">ثبت تغییر رمز، فعال‌سازی احراز دومرحله‌ای، اتصال و قطع هویت‌ها</span>
+                                    <span class="text-xs font-bold text-slate-900 dark:text-white block">{{ __('admin.settings.evt_security_changes') }}</span>
+                                    <span class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('admin.settings.evt_security_changes_desc') }}</span>
                                 </div>
                             </label>
                         </div>
@@ -461,7 +462,7 @@ const testKeycloakConnection = async () => {
                             :disabled="generalForm.processing"
                             class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
-                            {{ generalForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات عمومی' }}
+                            {{ generalForm.processing ? __('admin.settings.saving') : __('admin.settings.save_general') }}
                         </button>
                     </div>
                 </form>
@@ -474,30 +475,30 @@ const testKeycloakConnection = async () => {
                         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                             <div class="flex items-center gap-3">
                                 <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
-                                <h2 class="text-sm font-black text-slate-900 dark:text-white">جدول تعرفه سرشماره‌های سازمانی (۴ تا ۸ رقمی)</h2>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.tariffs_table_title') }}</h2>
                             </div>
-                            <span class="text-xs text-slate-500">مجموعاً ۱۰ فیلد تعرفه برای خطوط عادی و رند (بر حسب کوین / TRX)</span>
+                            <span class="text-xs text-slate-500">{{ __('admin.settings.tariffs_table_sub') }}</span>
                         </div>
 
                         <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            این مبالغ در زمان ثبت درخواست سرشماره سازمانی توسط کاربران در کیف پول مسدود (بلوکه) می‌شوند و با تایید مدیریت تسویه، و در صورت رد درخواست بلافاصله آزاد و عودت داده می‌شوند.
+                            {{ __('admin.settings.tariffs_table_desc') }}
                         </p>
 
                         <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
                             <table class="w-full text-right text-xs">
                                 <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-800">
                                     <tr>
-                                        <th class="p-3.5">طول سرشماره</th>
-                                        <th class="p-3.5">تعرفه خط عادی (کوین)</th>
-                                        <th class="p-3.5">تعرفه خط رند / نیمه‌رند (کوین)</th>
+                                        <th class="p-3.5">{{ __('admin.settings.th_prefix_length') }}</th>
+                                        <th class="p-3.5">{{ __('admin.settings.th_regular_tariff') }}</th>
+                                        <th class="p-3.5">{{ __('admin.settings.th_rond_tariff') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                                     <!-- 4 Digits -->
                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                                         <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۴</span>
-                                            <span>سرشماره ۴ رقمی (مانند 1000)</span>
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">4</span>
+                                            <span>{{ __('admin.settings.prefix_4_desc') }}</span>
                                         </td>
                                         <td class="p-3.5">
                                             <input v-model="pricingForm.org_price_4_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
@@ -510,8 +511,8 @@ const testKeycloakConnection = async () => {
                                     <!-- 5 Digits -->
                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                                         <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۵</span>
-                                            <span>سرشماره ۵ رقمی</span>
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">5</span>
+                                            <span>{{ __('admin.settings.prefix_5_desc') }}</span>
                                         </td>
                                         <td class="p-3.5">
                                             <input v-model="pricingForm.org_price_5_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
@@ -524,8 +525,8 @@ const testKeycloakConnection = async () => {
                                     <!-- 6 Digits -->
                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                                         <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۶</span>
-                                            <span>سرشماره ۶ رقمی</span>
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">6</span>
+                                            <span>{{ __('admin.settings.prefix_6_desc') }}</span>
                                         </td>
                                         <td class="p-3.5">
                                             <input v-model="pricingForm.org_price_6_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
@@ -538,8 +539,8 @@ const testKeycloakConnection = async () => {
                                     <!-- 7 Digits -->
                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                                         <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۷</span>
-                                            <span>سرشماره ۷ رقمی</span>
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">7</span>
+                                            <span>{{ __('admin.settings.prefix_7_desc') }}</span>
                                         </td>
                                         <td class="p-3.5">
                                             <input v-model="pricingForm.org_price_7_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
@@ -552,8 +553,8 @@ const testKeycloakConnection = async () => {
                                     <!-- 8 Digits -->
                                     <tr class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                                         <td class="p-3.5 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">۸</span>
-                                            <span>سرشماره ۸ رقمی</span>
+                                            <span class="w-6 h-6 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-xs">8</span>
+                                            <span>{{ __('admin.settings.prefix_8_desc') }}</span>
                                         </td>
                                         <td class="p-3.5">
                                             <input v-model="pricingForm.org_price_8_regular" type="number" step="0.0001" dir="ltr" class="form-input w-40 font-mono text-center font-bold" required />
@@ -573,7 +574,7 @@ const testKeycloakConnection = async () => {
                             :disabled="pricingForm.processing"
                             class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
-                            {{ pricingForm.processing ? 'در حال ذخیره...' : 'ذخیره تعرفه‌های سازمانی' }}
+                            {{ pricingForm.processing ? __('admin.settings.saving_tariffs') : __('admin.settings.save_tariffs') }}
                         </button>
                     </div>
                 </form>
@@ -586,17 +587,17 @@ const testKeycloakConnection = async () => {
                         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                             <div class="flex items-center gap-3">
                                 <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                                <h2 class="text-sm font-black text-slate-900 dark:text-white">روش‌های فعال احراز هویت در سامانه</h2>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.auth_title') }}</h2>
                             </div>
-                            <span class="text-xs text-slate-500">کنترل یکپارچه درگاه‌های ورود</span>
+                            <span class="text-xs text-slate-500">{{ __('admin.settings.auth_desc') }}</span>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <!-- Username -->
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-4">
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">نام کاربری و گذرواژه</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">ورود سنتی با شناسه کاربری سامانه</p>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.login_username_title') }}</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.login_username_desc') }}</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="authForm.auth_username_enabled" class="sr-only peer" />
@@ -607,8 +608,8 @@ const testKeycloakConnection = async () => {
                             <!-- Email -->
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-4">
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">پست الکترونیک (ایمیل) و گذرواژه</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">ورود امن از طریق نشانی ایمیل کاربر</p>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.login_email_title') }}</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.login_email_desc') }}</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="authForm.auth_email_enabled" class="sr-only peer" />
@@ -620,10 +621,10 @@ const testKeycloakConnection = async () => {
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-4">
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">اکتیو دایرکتوری سازمانی (LDAP)</h3>
-                                        <span v-if="!ldapSettings.config.host" class="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">نیاز به پیکربندی</span>
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.auth_ldap_title') }}</h3>
+                                        <span v-if="!ldapSettings.config.host" class="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">{{ __('admin.settings.not_configured_badge') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">ورود کارمندان با حساب شبکه سازمان</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.auth_ldap_desc') }}</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="authForm.auth_ldap_enabled" class="sr-only peer" />
@@ -635,10 +636,10 @@ const testKeycloakConnection = async () => {
                             <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between gap-4">
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">ورود یکپارچه Keycloak SSO</h3>
-                                        <span v-if="!keycloakSettings.config.client_id" class="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">نیاز به پیکربندی</span>
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.auth_keycloak_title') }}</h3>
+                                        <span v-if="!keycloakSettings.config.client_id" class="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">{{ __('admin.settings.not_configured_badge') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">ورود از طریق سرور احراز هویت متمرکز</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.auth_keycloak_desc') }}</p>
                                 </div>
                                 <label class="relative inline-flex items-center cursor-pointer">
                                     <input type="checkbox" v-model="authForm.auth_keycloak_enabled" class="sr-only peer" />
@@ -650,8 +651,8 @@ const testKeycloakConnection = async () => {
                         <!-- Registration Toggle -->
                         <div class="p-4 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-4">
                             <div>
-                                <h3 class="text-xs font-bold text-slate-900 dark:text-white">امکان ثبت‌نام آزاد کاربر جدید</h3>
-                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">در صورت غیرفعال بودن، فقط ادمین یا سامانه‌های متمرکز قادر به تعریف کاربر خواهند بود</p>
+                                <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.registration_open_title') }}</h3>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.registration_open_desc') }}</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
                                 <input type="checkbox" v-model="authForm.allow_user_registration" class="sr-only peer" />
@@ -668,7 +669,7 @@ const testKeycloakConnection = async () => {
                             :disabled="authForm.processing"
                             class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
-                            {{ authForm.processing ? 'در حال ذخیره...' : 'ذخیره وضعیت درگاه‌های ورود' }}
+                            {{ authForm.processing ? __('admin.settings.saving') : __('admin.settings.save_gateways_status') }}
                         </button>
                     </div>
                 </form>
@@ -682,7 +683,7 @@ const testKeycloakConnection = async () => {
                         <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span>توجه: افزونه PHP LDAP روی مفسر فعال نیست. جهت اتصال موفق به سرور LDAP باید php_ldap.dll را فعال فرمایید.</span>
+                        <span v-html="__('admin.settings.ldap_ext_warning_desc', { ext: 'php_ldap' })"></span>
                     </div>
 
                     <form @submit.prevent="submitLdap" class="space-y-6">
@@ -690,16 +691,16 @@ const testKeycloakConnection = async () => {
                             <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                                 <div class="flex items-center gap-3">
                                     <span class="w-3 h-3 rounded-full bg-purple-500"></span>
-                                    <h2 class="text-sm font-black text-slate-900 dark:text-white">پیکربندی سرور اکتیو دایرکتوری LDAP</h2>
+                                    <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.ldap_title') }}</h2>
                                 </div>
                                 <span class="text-xs px-2.5 py-1 rounded-lg" :class="ldapSettings.isEnabled ? 'bg-emerald-500/10 text-emerald-600 font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'">
-                                    {{ ldapSettings.isEnabled ? 'درگاه فعال است' : 'درگاه غیرفعال است' }}
+                                    {{ ldapSettings.isEnabled ? __('admin.settings.gateway_active') : __('admin.settings.gateway_inactive') }}
                                 </span>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div class="md:col-span-2">
-                                    <label for="ldap_host" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">هاست یا آی‌پی سرور (Host):</label>
+                                    <label for="ldap_host" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.host_label') }}</label>
                                     <input
                                         id="ldap_host"
                                         type="text"
@@ -713,7 +714,7 @@ const testKeycloakConnection = async () => {
                                 </div>
 
                                 <div>
-                                    <label for="ldap_port" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">پورت اتصال (Port):</label>
+                                    <label for="ldap_port" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.port_label') }}</label>
                                     <input
                                         id="ldap_port"
                                         type="number"
@@ -729,21 +730,21 @@ const testKeycloakConnection = async () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="ldap_encryption" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">نوع رمزنگاری پروتکل:</label>
+                                    <label for="ldap_encryption" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.encryption_label') }}</label>
                                     <select
                                         id="ldap_encryption"
                                         v-model="ldapForm.encryption"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                     >
-                                        <option value="none">ساده / بدون رمزنگاری (None - Port 389)</option>
-                                        <option value="tls">رمزنگاری StartTLS (Port 389)</option>
-                                        <option value="ssl">رمزنگاری کامل SSL/LDAPS (Port 636)</option>
+                                        <option value="none">{{ __('admin.settings.enc_none') }}</option>
+                                        <option value="tls">{{ __('admin.settings.enc_tls') }}</option>
+                                        <option value="ssl">{{ __('admin.settings.enc_ssl') }}</option>
                                     </select>
                                     <InputError class="mt-1" :message="ldapForm.errors.encryption" />
                                 </div>
 
                                 <div>
-                                    <label for="ldap_base_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">شاخه ریشه جستجو (Base DN):</label>
+                                    <label for="ldap_base_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.base_dn_label') }}</label>
                                     <input
                                         id="ldap_base_dn"
                                         type="text"
@@ -759,7 +760,7 @@ const testKeycloakConnection = async () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="ldap_bind_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">کاربر اتصال سرویس (Bind DN - اختیاری):</label>
+                                    <label for="ldap_bind_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.bind_dn_label') }}</label>
                                     <input
                                         id="ldap_bind_dn"
                                         type="text"
@@ -772,12 +773,12 @@ const testKeycloakConnection = async () => {
                                 </div>
 
                                 <div>
-                                    <label for="ldap_bind_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">رمز عبور کاربر سرویس (Bind Password):</label>
+                                    <label for="ldap_bind_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.bind_password_label') }}</label>
                                     <input
                                         id="ldap_bind_password"
                                         type="password"
                                         v-model="ldapForm.bind_password"
-                                        placeholder="جهت عدم تغییر خالی بگذارید..."
+                                        :placeholder="__('admin.settings.leave_blank_if_unchanged')"
                                         dir="ltr"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                     />
@@ -787,7 +788,7 @@ const testKeycloakConnection = async () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
-                                    <label for="ldap_search_filter" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">فیلتر جستجو (Filter):</label>
+                                    <label for="ldap_search_filter" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.search_filter_label') }}</label>
                                     <input
                                         id="ldap_search_filter"
                                         type="text"
@@ -799,12 +800,12 @@ const testKeycloakConnection = async () => {
                                 </div>
 
                                 <div>
-                                    <label for="ldap_uid_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">ویژگی نام کاربری (UID):</label>
+                                    <label for="ldap_uid_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.uid_attr') }}</label>
                                     <input
                                         id="ldap_uid_attribute"
                                         type="text"
                                         v-model="ldapForm.uid_attribute"
-                                        placeholder="sAMAccountName یا uid"
+                                        :placeholder="__('admin.settings.uid_placeholder')"
                                         dir="ltr"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                         required
@@ -812,7 +813,7 @@ const testKeycloakConnection = async () => {
                                 </div>
 
                                 <div>
-                                    <label for="ldap_email_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">ویژگی ایمیل (Mail):</label>
+                                    <label for="ldap_email_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.email_attr') }}</label>
                                     <input
                                         id="ldap_email_attribute"
                                         type="text"
@@ -832,7 +833,7 @@ const testKeycloakConnection = async () => {
                                     class="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
                                 />
                                 <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                    ایجاد خودکار حساب کاربری در سامانه پس از اولین ورود موفقیت‌آمیز LDAP
+                                    {{ __('admin.settings.jit_desc') }}
                                 </span>
                             </label>
                         </div>
@@ -846,7 +847,7 @@ const testKeycloakConnection = async () => {
                                     :disabled="testingLdap"
                                     class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-700 transition-all cursor-pointer"
                                 >
-                                    {{ testingLdap ? 'در حال برقراری آزمایشی ارتباط...' : 'تست اتصال به سرور LDAP' }}
+                                    {{ testingLdap ? __('admin.settings.testing_conn') : __('admin.settings.test_connection') }}
                                 </button>
 
                                 <span v-if="ldapTestResult" class="text-xs font-bold flex items-center gap-1.5" :class="ldapTestResult.success ? 'text-emerald-600' : 'text-rose-500'">
@@ -860,7 +861,7 @@ const testKeycloakConnection = async () => {
                                 :disabled="ldapForm.processing"
                                 class="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                             >
-                                {{ ldapForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات LDAP' }}
+                                {{ ldapForm.processing ? __('admin.settings.saving') : __('admin.settings.save_ldap') }}
                             </button>
                         </div>
                     </form>
@@ -874,17 +875,17 @@ const testKeycloakConnection = async () => {
                         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                             <div class="flex items-center gap-3">
                                 <span class="w-3 h-3 rounded-full bg-amber-500"></span>
-                                <h2 class="text-sm font-black text-slate-900 dark:text-white">پیکربندی احراز هویت یکپارچه Keycloak SSO</h2>
+                                <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.keycloak_title') }}</h2>
                             </div>
                             <span class="text-xs px-2.5 py-1 rounded-lg" :class="keycloakSettings.isEnabled ? 'bg-emerald-500/10 text-emerald-600 font-bold' : 'bg-slate-200 dark:bg-slate-800 text-slate-500'">
-                                {{ keycloakSettings.isEnabled ? 'درگاه فعال است' : 'درگاه غیرفعال است' }}
+                                {{ keycloakSettings.isEnabled ? __('admin.settings.gateway_active') : __('admin.settings.gateway_inactive') }}
                             </span>
                         </div>
 
                         <!-- Callback URL box -->
                         <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs space-y-1">
-                            <span class="font-bold text-amber-800 dark:text-amber-300 block">نشانی بازگشت مجاز (Valid Redirect URI):</span>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400">این نشانی را در بخش Clients > Valid redirect URIs در پنل سرور Keycloak کپی نمایید:</p>
+                            <span class="font-bold text-amber-800 dark:text-amber-300 block">{{ __('admin.settings.redirect_title') }}</span>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-400">{{ __('admin.settings.redirect_desc') }}</p>
                             <div class="p-2.5 rounded-xl bg-white dark:bg-slate-950 font-mono text-[11px] text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-800 break-all select-all" dir="ltr">
                                 {{ keycloakSettings.callbackUrl }}
                             </div>
@@ -892,7 +893,7 @@ const testKeycloakConnection = async () => {
 
                         <div class="space-y-4">
                             <div>
-                                <label for="keycloak_base_url" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">آدرس سرور Keycloak (Base URL):</label>
+                                <label for="keycloak_base_url" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.keycloak_url_label') }}</label>
                                 <input
                                     id="keycloak_base_url"
                                     type="url"
@@ -907,12 +908,12 @@ const testKeycloakConnection = async () => {
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <label for="keycloak_realm" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">نام قلمرو (Realm):</label>
+                                    <label for="keycloak_realm" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.realm_name_label') }}</label>
                                     <input
                                         id="keycloak_realm"
                                         type="text"
                                         v-model="keycloakForm.realm"
-                                        placeholder="master یا my-company"
+                                        :placeholder="__('admin.settings.realm_name_label')"
                                         dir="ltr"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white"
                                         required
@@ -921,7 +922,7 @@ const testKeycloakConnection = async () => {
                                 </div>
 
                                 <div>
-                                    <label for="keycloak_client_id" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">شناسه کلاینت (Client ID):</label>
+                                    <label for="keycloak_client_id" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.client_id_label') }}</label>
                                     <input
                                         id="keycloak_client_id"
                                         type="text"
@@ -936,12 +937,12 @@ const testKeycloakConnection = async () => {
                             </div>
 
                             <div>
-                                <label for="keycloak_client_secret" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">کلید محرمانه کلاینت (Client Secret - اختیاری):</label>
+                                <label for="keycloak_client_secret" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.settings.client_secret_label') }}</label>
                                 <input
                                     id="keycloak_client_secret"
                                     type="password"
                                     v-model="keycloakForm.client_secret"
-                                    placeholder="جهت عدم تغییر مقدار فعلی، این فیلد را خالی بگذارید..."
+                                    :placeholder="__('admin.settings.leave_blank_if_unchanged')"
                                     dir="ltr"
                                     class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white"
                                 />
@@ -955,7 +956,7 @@ const testKeycloakConnection = async () => {
                                     class="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
                                 />
                                 <span class="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                    ایجاد خودکار حساب کاربری در سامانه در اولین ورود موفق Keycloak
+                                    {{ __('admin.settings.keycloak_jit_desc') }}
                                 </span>
                             </label>
                         </div>
@@ -970,7 +971,7 @@ const testKeycloakConnection = async () => {
                                 :disabled="testingKeycloak"
                                 class="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs border border-slate-300 dark:border-slate-700 transition-all cursor-pointer"
                             >
-                                {{ testingKeycloak ? 'در حال استعلام از سرور...' : 'تست اتصال به سرور Keycloak' }}
+                                {{ testingKeycloak ? __('admin.settings.testing_conn') : __('admin.settings.test_connection') }}
                             </button>
 
                             <span v-if="keycloakTestResult" class="text-xs font-bold flex items-center gap-1.5" :class="keycloakTestResult.success ? 'text-emerald-600' : 'text-rose-500'">
@@ -984,7 +985,7 @@ const testKeycloakConnection = async () => {
                             :disabled="keycloakForm.processing"
                             class="px-6 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                         >
-                            {{ keycloakForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات Keycloak' }}
+                            {{ keycloakForm.processing ? __('admin.settings.saving') : __('admin.settings.save_keycloak') }}
                         </button>
                     </div>
                 </form>

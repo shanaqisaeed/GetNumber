@@ -89,7 +89,7 @@ const resetFilters = () => {
 };
 
 const resolveIncident = (id: number) => {
-    if (confirm('آیا از علامت‌گذاری این رخداد امنیتی به عنوان حل‌شده اطمینان دارید؟')) {
+    if (!confirm(__('admin.security.confirm_resolve'))) {
         router.post(route('admin.security.incidents.resolve', id), {}, { preserveScroll: true });
     }
 };
@@ -137,15 +137,15 @@ const severityBadgeClass = (sev: string) => {
 const typeLabel = (t: string) => {
     switch (t) {
         case 'phishing_attempt':
-            return 'تلاش برای فیشینگ / کلاهبرداری';
+            return __('admin.security.incident_phishing');
         case 'rate_limit_tripped':
-            return 'تجاوز از سقف Rate Limit';
+            return __('admin.security.incident_rate_limit');
         case 'suspicious_behavior_auto_restricted':
-            return 'محدودسازی خودکار رفتار مشکوک';
+            return __('admin.security.incident_auto_restrict');
         case 'suspicious_activity_warning':
-            return 'هشدار فعالیت مشکوک';
+            return __('admin.security.incident_suspicious_warning');
         case 'failed_2fa_challenge':
-            return 'کد تایید دو مرحله‌ای نادرست';
+            return __('admin.security.incident_failed_2fa');
         default:
             return t;
     }
@@ -154,7 +154,7 @@ const typeLabel = (t: string) => {
 
 <template>
     <AdminLayout>
-        <Head title="دیده‌بانی امنیت و رخدادها" />
+        <Head :title="__('admin.security.page_title')" />
 
         <div class="space-y-6">
             <!-- Header -->
@@ -164,10 +164,10 @@ const typeLabel = (t: string) => {
                         <svg class="w-6 h-6 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
-                        <span>دیده‌بانی امنیت و رخدادهای مشکوک</span>
+                        <span>{{ __('admin.security.heading') }}</span>
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        نظارت بر تخلفات، حملات فیشینگ، تخطی از محدودیت‌ها و تنظیم سطوح دسترسی کاربران
+                        {{ __('admin.security.subheading') }}
                     </p>
                 </div>
             </div>
@@ -176,7 +176,7 @@ const typeLabel = (t: string) => {
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 block">کل رخدادها</span>
+                        <span class="text-xs font-bold text-slate-500 dark:text-slate-400 block">{{ __('admin.security.total_incidents') }}</span>
                         <span class="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1 block">{{ stats.total }}</span>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
@@ -188,7 +188,7 @@ const typeLabel = (t: string) => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-amber-500 block">در انتظار بررسی</span>
+                        <span class="text-xs font-bold text-amber-500 block">{{ __('admin.security.pending_review') }}</span>
                         <span class="text-2xl font-black text-amber-500 font-mono mt-1 block">{{ stats.unresolved }}</span>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center font-bold">
@@ -198,7 +198,7 @@ const typeLabel = (t: string) => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-rose-500 block">بحرانی / پرخطر</span>
+                        <span class="text-xs font-bold text-rose-500 block">{{ __('admin.security.critical_risk') }}</span>
                         <span class="text-2xl font-black text-rose-500 font-mono mt-1 block">{{ stats.critical }}</span>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-rose-500/15 text-rose-500 flex items-center justify-center">
@@ -210,7 +210,7 @@ const typeLabel = (t: string) => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-sky-500 block">رخدادهای امروز</span>
+                        <span class="text-xs font-bold text-sky-500 block">{{ __('admin.security.today_incidents') }}</span>
                         <span class="text-2xl font-black text-sky-500 font-mono mt-1 block">{{ stats.today }}</span>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-sky-500/15 text-sky-500 flex items-center justify-center">
@@ -226,13 +226,13 @@ const typeLabel = (t: string) => {
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3.5 items-end">
                     <!-- Search Input -->
                     <div class="sm:col-span-2 lg:col-span-4">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">جستجو در رخدادها</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.security.search_label') }}</label>
                         <div class="relative">
                             <input
                                 v-model="search"
                                 @keydown.enter="applyFilters"
                                 type="text"
-                                placeholder="جستجو در نوع رخداد، نام کاربر، IP..."
+                                :placeholder="__('admin.security.search_placeholder')"
                                 class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 py-2.5 pr-9 pl-3 transition-colors"
                             />
                             <div class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
@@ -245,48 +245,48 @@ const typeLabel = (t: string) => {
 
                     <!-- Severity Filter -->
                     <div class="lg:col-span-2">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">سطح شدت</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.security.severity_label') }}</label>
                         <select
                             v-model="severity"
                             @change="applyFilters"
                             class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-rose-500 focus:ring-1 focus:ring-rose-500 py-2.5 px-3 transition-colors"
                         >
-                            <option value="">همه شدت‌ها</option>
-                            <option value="critical">بحرانی (Critical)</option>
-                            <option value="high">بالا (High)</option>
-                            <option value="medium">متوسط (Medium)</option>
-                            <option value="low">پایین (Low)</option>
+                            <option value="">{{ __('admin.security.all_severities') }}</option>
+                            <option value="critical">{{ __('admin.security.severity_critical') }}</option>
+                            <option value="high">{{ __('admin.security.severity_high') }}</option>
+                            <option value="medium">{{ __('admin.security.severity_medium') }}</option>
+                            <option value="low">{{ __('admin.security.severity_low') }}</option>
                         </select>
                     </div>
 
                     <!-- Type Filter -->
                     <div class="lg:col-span-2">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">نوع رخداد</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.security.type_label') }}</label>
                         <select
                             v-model="type"
                             @change="applyFilters"
                             class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-rose-500 focus:ring-1 focus:ring-rose-500 py-2.5 px-3 transition-colors"
                         >
-                            <option value="">همه انواع رخداد</option>
-                            <option value="phishing_attempt">فیشینگ و کلاهبرداری</option>
-                            <option value="rate_limit_tripped">تخطی از سقف ارسال</option>
-                            <option value="suspicious_behavior_auto_restricted">رفتار مشکوک</option>
-                            <option value="suspicious_activity_warning">هشدار رفتار مشکوک</option>
-                            <option value="failed_2fa_challenge">شکست تایید دومرحله‌ای</option>
+                            <option value="">{{ __('admin.security.all_types') }}</option>
+                            <option value="phishing_attempt">{{ __('admin.security.type_phishing') }}</option>
+                            <option value="rate_limit_tripped">{{ __('admin.security.type_rate_limit') }}</option>
+                            <option value="suspicious_behavior_auto_restricted">{{ __('admin.security.type_suspicious') }}</option>
+                            <option value="suspicious_activity_warning">{{ __('admin.security.type_suspicious_warning') }}</option>
+                            <option value="failed_2fa_challenge">{{ __('admin.security.type_failed_2fa') }}</option>
                         </select>
                     </div>
 
                     <!-- Resolved Status Filter -->
                     <div class="lg:col-span-2">
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">وضعیت پیگیری</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.security.status_label') }}</label>
                         <select
                             v-model="resolved"
                             @change="applyFilters"
                             class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:border-rose-500 focus:ring-1 focus:ring-rose-500 py-2.5 px-3 transition-colors"
                         >
-                            <option value="">همه وضعیت‌ها</option>
-                            <option value="0">در انتظار بررسی (حل‌نشده)</option>
-                            <option value="1">حل و خاتمه‌یافته</option>
+                            <option value="">{{ __('admin.security.all_statuses') }}</option>
+                            <option value="0">{{ __('admin.security.status_pending') }}</option>
+                            <option value="1">{{ __('admin.security.status_resolved') }}</option>
                         </select>
                     </div>
 
@@ -300,7 +300,7 @@ const typeLabel = (t: string) => {
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                             </svg>
-                            <span>اعمال</span>
+                            <span>{{ __('admin.security.apply_btn') }}</span>
                         </button>
 
                         <button
@@ -308,10 +308,8 @@ const typeLabel = (t: string) => {
                             type="button"
                             @click="resetFilters"
                             class="py-2.5 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors shrink-0"
-                            title="پاکسازی فیلترها"
-                        >
-                            پاکسازی
-                        </button>
+                            :title="__('admin.security.clear_filters_title')"
+                        >{{ __('admin.security.clear') }}</button>
                     </div>
                 </div>
             </div>
@@ -322,14 +320,14 @@ const typeLabel = (t: string) => {
                     <table class="w-full text-right text-xs">
                         <thead class="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 border-b border-slate-200/80 dark:border-slate-800/80">
                             <tr>
-                                <th class="p-3.5 font-bold">شناسه</th>
-                                <th class="p-3.5 font-bold">کاربر</th>
-                                <th class="p-3.5 font-bold">نوع رخداد</th>
-                                <th class="p-3.5 font-bold">شدت</th>
-                                <th class="p-3.5 font-bold">اقدام انجام‌شده</th>
-                                <th class="p-3.5 font-bold">آدرس IP</th>
-                                <th class="p-3.5 font-bold">وضعیت</th>
-                                <th class="p-3.5 font-bold text-left">عملیات</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_id') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_user') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.type_label') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_severity') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_action_taken') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_ip') }}</th>
+                                <th class="p-3.5 font-bold">{{ __('admin.security.th_status') }}</th>
+                                <th class="p-3.5 font-bold text-left">{{ __('admin.security.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/80">
@@ -343,7 +341,7 @@ const typeLabel = (t: string) => {
                                                 {{ inc.user.trust_tier }}
                                             </span>
                                         </div>
-                                        <span class="text-[10px] text-slate-400 font-mono">ریسک: {{ inc.user.risk_score }}</span>
+                                        <span class="text-[10px] text-slate-400 font-mono">{{ __('admin.security.risk_score', { score: inc.user.risk_score }) }}</span>
                                     </div>
                                     <span v-else class="text-slate-400 font-mono">-</span>
                                 </td>
@@ -362,11 +360,9 @@ const typeLabel = (t: string) => {
                                     {{ inc.ip_address || '-' }}
                                 </td>
                                 <td class="p-3.5">
-                                    <span v-if="inc.resolved_at" class="text-emerald-500 font-bold text-[10px] flex items-center gap-1">
-                                        ✓ حل‌شده
-                                    </span>
+                                    <span v-if="inc.resolved_at" class="text-emerald-500 font-bold text-[10px] flex items-center gap-1">{{ __('admin.security.resolved_badge') }}</span>
                                     <span v-else class="text-amber-500 font-bold text-[10px] flex items-center gap-1">
-                                        ⏳ در انتظار بررسی
+                                        ⏳ {{ __('admin.security.pending_review') }}
                                     </span>
                                 </td>
                                 <td class="p-3.5 text-left space-x-2 rtl:space-x-reverse">
@@ -375,17 +371,13 @@ const typeLabel = (t: string) => {
                                         type="button"
                                         @click="resolveIncident(inc.id)"
                                         class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold transition-colors cursor-pointer"
-                                    >
-                                        بستن رخداد
-                                    </button>
+                                    >{{ __('admin.security.close_incident') }}</button>
                                     <button
                                         v-if="inc.user"
                                         type="button"
                                         @click="openTierModal(inc.user)"
                                         class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 text-[11px] font-bold transition-colors cursor-pointer"
-                                    >
-                                        تنظیم سطح
-                                    </button>
+                                    >{{ __('admin.security.set_trust_level') }}</button>
                                 </td>
                             </tr>
 
@@ -395,7 +387,7 @@ const typeLabel = (t: string) => {
                                         <svg class="w-8 h-8 text-slate-300 dark:text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                         </svg>
-                                        <span>هیچ رخداد امنیتی ثبت‌شده‌ای یافت نشد.</span>
+                                        <span>{{ __('admin.security.no_incidents') }}</span>
                                     </div>
                                 </td>
                             </tr>
@@ -409,7 +401,7 @@ const typeLabel = (t: string) => {
                     class="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3"
                 >
                     <div class="text-xs text-slate-400">
-                        نمایش صفحه {{ incidents.current_page }} از {{ incidents.last_page }} (مجموع {{ incidents.total }} رخداد)
+                        {{ __('admin.security.pagination_summary', { current: incidents.current_page, last: incidents.last_page, total: incidents.total }) }}
                     </div>
                     <div class="flex items-center gap-1">
                         <Link
@@ -439,25 +431,25 @@ const typeLabel = (t: string) => {
                 <div class="w-full max-w-sm shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white rounded-3xl p-6 animate-in zoom-in-95 duration-200">
                     <h3 class="text-sm font-black flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                        <span>مدیریت سطح اعتبار: {{ targetUser.username }}</span>
+                        <span>{{ __('admin.security.modal_trust_title', { username: targetUser.username }) }}</span>
                     </h3>
 
                     <div class="space-y-2">
-                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300">سطح دسترسی و اعتبار:</label>
+                        <label class="block text-xs font-bold text-slate-600 dark:text-slate-300">{{ __('admin.security.trust_level_label') }}</label>
                         <select
                             v-model="selectedTier"
                             class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white py-2.5 px-3 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
                         >
-                            <option value="new">کاربر جدید (New - محدودیت سخت‌گیرانه)</option>
-                            <option value="standard">کاربر استاندارد (Standard - نرخ معمولی)</option>
-                            <option value="trusted">کاربر تاییدشده (Trusted - سقف بالا)</option>
-                            <option value="restricted">حساب محدود شده (Restricted - مسدود)</option>
+                            <option value="new">{{ __('admin.security.trust_new') }}</option>
+                            <option value="standard">{{ __('admin.security.trust_standard') }}</option>
+                            <option value="trusted">{{ __('admin.security.trust_trusted') }}</option>
+                            <option value="restricted">{{ __('admin.security.trust_restricted') }}</option>
                         </select>
                     </div>
 
                     <label class="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer pt-1">
                         <input v-model="resetRisk" type="checkbox" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-                        <span>ریست کردن امتیاز ریسک کاربر به صفر</span>
+                        <span>{{ __('admin.security.reset_risk_label') }}</span>
                     </label>
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
@@ -465,16 +457,14 @@ const typeLabel = (t: string) => {
                             type="button"
                             @click="isTierModalOpen = false"
                             class="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.security.cancel') }}</button>
                         <button
                             type="button"
                             @click="submitTierUpdate"
                             :disabled="isUpdatingTier"
                             class="py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50"
                         >
-                            <span>ذخیره تغییرات</span>
+                            <span>{{ __('admin.security.save_changes') }}</span>
                         </button>
                     </div>
                 </div>

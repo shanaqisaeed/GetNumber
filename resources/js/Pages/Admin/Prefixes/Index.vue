@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -32,6 +33,7 @@ const props = defineProps<{
 
 // Toast
 const toastMessage = ref<string | null>(null);
+const { __ } = useTrans();
 const showToast = (msg: string) => {
     toastMessage.value = msg;
     setTimeout(() => {
@@ -72,7 +74,7 @@ const submitCreate = () => {
         preserveScroll: true,
         onSuccess: () => {
             isCreateModalOpen.value = false;
-            showToast('پیش‌شماره جدید با موفقیت افزوده شد.');
+            showToast(__('admin.prefixes.toast_created'));
         },
     });
 };
@@ -116,7 +118,7 @@ const submitEdit = () => {
         preserveScroll: true,
         onSuccess: () => {
             isEditModalOpen.value = false;
-            showToast('تنظیمات پیش‌شماره با موفقیت به‌روزرسانی شد.');
+            showToast(__('admin.prefixes.toast_updated'));
         },
     });
 };
@@ -135,7 +137,7 @@ const toggleStatus = (prefix: PrefixItem) => {
         is_active: !prefix.is_active,
     }, {
         preserveScroll: true,
-        onSuccess: () => showToast(`وضعیت پیش‌شماره ${prefix.prefix} تغییر یافت.`),
+        onSuccess: () => showToast(__('admin.prefixes.toast_status_changed', { prefix: prefix.prefix })),
     });
 };
 
@@ -153,23 +155,23 @@ const setAsDefault = (prefix: PrefixItem) => {
         is_active: true,
     }, {
         preserveScroll: true,
-        onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} به عنوان پیش‌فرض سامانه برگزیده شد.`),
+        onSuccess: () => showToast(__('admin.prefixes.toast_default_set', { prefix: prefix.prefix })),
     });
 };
 
 // Delete Prefix
 const deletePrefix = (prefix: PrefixItem) => {
-    if (confirm(`آیا از حذف پیش‌شماره ${prefix.prefix} اطمینان کامل دارید؟`)) {
+    if (confirm(__('admin.prefixes.confirm_delete', { prefix: prefix.prefix }))) {
         router.delete(route('admin.prefixes.destroy', prefix.id), {
             preserveScroll: true,
-            onSuccess: () => showToast(`پیش‌شماره ${prefix.prefix} با موفقیت حذف گردید.`),
+            onSuccess: () => showToast(__('admin.prefixes.toast_deleted', { prefix: prefix.prefix })),
         });
     }
 };
 </script>
 
 <template>
-    <Head title="مدیریت پیش‌شماره‌ها و تعرفه خطوط" />
+    <Head :title="__('admin.prefixes.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6">
@@ -188,10 +190,10 @@ const deletePrefix = (prefix: PrefixItem) => {
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                        <span>مدیریت پیش‌شماره‌ها، کشورها و تعرفه‌های رند</span>
+                        <span>{{ __('admin.prefixes.page_title') }}</span>
                     </h1>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                        تعیین کشور، کد دو حرفی ISO، پرچم، پیش‌کدهای معتبر و قیمت‌گذاری سه‌سطحی (عادی، نیمه‌رند و طلایی) برای هر پیش‌شماره.
+                        {{ __('admin.prefixes.page_desc') }}
                     </p>
                 </div>
 
@@ -203,7 +205,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>افزودن پیش‌شماره جدید</span>
+                    <span>{{ __('admin.prefixes.add_prefix') }}</span>
                 </button>
             </div>
 
@@ -214,7 +216,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         #
                     </div>
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">تعداد کل پیش‌شماره‌ها</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">{{ __('admin.prefixes.total_prefixes') }}</span>
                         <span class="text-lg font-black font-mono text-slate-900 dark:text-white">{{ stats.total }}</span>
                     </div>
                 </div>
@@ -224,7 +226,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         ✓
                     </div>
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">پیش‌شماره‌های فعال</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">{{ __('admin.prefixes.active_prefixes') }}</span>
                         <span class="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400">{{ stats.active }}</span>
                     </div>
                 </div>
@@ -234,7 +236,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         {{ stats.default }}
                     </div>
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">پیش‌شماره پیش‌فرض سیستم</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-bold">{{ __('admin.prefixes.default_prefix') }}</span>
                         <span class="text-lg font-black font-mono text-amber-600 dark:text-amber-400">{{ stats.default }}</span>
                     </div>
                 </div>
@@ -246,14 +248,14 @@ const deletePrefix = (prefix: PrefixItem) => {
                     <table class="w-full text-right text-xs">
                         <thead class="bg-slate-50 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-slate-800">
                             <tr>
-                                <th class="p-3.5">کشور و پرچم</th>
-                                <th class="p-3.5">پیش‌شماره</th>
-                                <th class="p-3.5">پیش‌کدها</th>
-                                <th class="p-3.5">تعرفه‌ها (عادی / نیمه‌رند / طلایی)</th>
-                                <th class="p-3.5">خطوط متصل</th>
-                                <th class="p-3.5">وضعیت</th>
-                                <th class="p-3.5">پیش‌فرض</th>
-                                <th class="p-3.5 text-center">عملیات</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_country') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_prefix') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_precodes') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_tariffs') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_lines') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_status') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_default') }}</th>
+                                <th class="p-3.5 text-center">{{ __('admin.prefixes.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200/70 dark:divide-slate-800/70">
@@ -283,22 +285,22 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 </td>
                                 <td class="p-3.5 font-mono">
                                     <div class="flex items-center gap-1.5 text-[11px]">
-                                        <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" title="عادی">
+                                        <span class="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400" :title="__('admin.prefixes.tier_regular')">
                                             {{ prefix.price_regular }}
                                         </span>
                                         <span>/</span>
-                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-bold" title="نیمه‌رند">
+                                        <span class="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 font-bold" :title="__('admin.prefixes.tier_semi_rond')">
                                             {{ prefix.price_semi_rond }}
                                         </span>
                                         <span>/</span>
-                                        <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 font-black" title="طلایی">
+                                        <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 font-black" :title="__('admin.prefixes.tier_golden')">
                                             {{ prefix.price_golden_rond }}
                                         </span>
                                     </div>
                                 </td>
                                 <td class="p-3.5">
                                     <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
-                                        {{ prefix.numbers_count }} خط
+                                        {{ __('admin.prefixes.lines_count', { count: prefix.numbers_count }) }}
                                     </span>
                                 </td>
                                 <td class="p-3.5">
@@ -310,22 +312,20 @@ const deletePrefix = (prefix: PrefixItem) => {
                                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-800'
                                             : 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700'"
                                     >
-                                        {{ prefix.is_active ? 'فعال' : 'غیرفعال' }}
+                                        {{ prefix.is_active ? __('admin.prefixes.status_active') : __('admin.prefixes.status_inactive') }}
                                     </button>
                                 </td>
                                 <td class="p-3.5">
                                     <span v-if="prefix.is_default" class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800 inline-flex items-center gap-1">
                                         <span>★</span>
-                                        <span>پیش‌فرض</span>
+                                        <span>{{ __('admin.prefixes.default_badge') }}</span>
                                     </span>
                                     <button
                                         v-else
                                         type="button"
                                         @click="setAsDefault(prefix)"
                                         class="text-[11px] font-bold text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 transition-colors"
-                                    >
-                                        تعیین پیش‌فرض
-                                    </button>
+                                    >{{ __('admin.prefixes.set_default') }}</button>
                                 </td>
                                 <td class="p-3.5 text-center">
                                     <div class="flex items-center justify-center gap-2">
@@ -333,7 +333,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                             type="button"
                                             @click="openEditModal(prefix)"
                                             class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                            title="ویرایش پیش‌شماره"
+                                            :title="__('admin.prefixes.edit_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -344,7 +344,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                             @click="deletePrefix(prefix)"
                                             :disabled="prefix.is_default || prefix.numbers_count > 0"
                                             class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none transition-colors"
-                                            title="حذف پیش‌شماره"
+                                            :title="__('admin.prefixes.delete_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -362,14 +362,14 @@ const deletePrefix = (prefix: PrefixItem) => {
             <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isCreateModalOpen = false">
                 <div class="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">افزودن پیش‌شماره و کشور جدید</h3>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.prefixes.modal_add_title') }}</h3>
                         <button type="button" @click="isCreateModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
                     </div>
 
                     <form @submit.prevent="submitCreate" class="space-y-3.5 text-xs overflow-y-auto flex-1">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="form-label mb-1">پیش‌شماره بین‌المللی</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.prefix_label') }}</label>
                                 <input
                                     v-model="createForm.prefix"
                                     type="text"
@@ -381,11 +381,11 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 <p v-if="createForm.errors.prefix" class="text-rose-500 text-[11px] mt-1">{{ createForm.errors.prefix }}</p>
                             </div>
                             <div>
-                                <label class="form-label mb-1">نام کشور</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.country_label') }}</label>
                                 <input
                                     v-model="createForm.country_name"
                                     type="text"
-                                    placeholder="ایران"
+                                    :placeholder="__('admin.prefixes.country_placeholder')"
                                     class="form-input w-full"
                                     required
                                 />
@@ -394,7 +394,7 @@ const deletePrefix = (prefix: PrefixItem) => {
 
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="form-label mb-1">کد دو حرفی کشور (ISO)</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.iso_label') }}</label>
                                 <input
                                     v-model="createForm.country_code"
                                     type="text"
@@ -405,7 +405,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 />
                             </div>
                             <div>
-                                <label class="form-label mb-1">پرچم (ایموجی)</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.flag_label') }}</label>
                                 <input
                                     v-model="createForm.flag"
                                     type="text"
@@ -416,7 +416,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         </div>
 
                         <div>
-                            <label class="form-label mb-1">پیش‌کدهای ۳ رقمی مجاز (با کاما جدا کنید)</label>
+                            <label class="form-label mb-1">{{ __('admin.prefixes.precodes_label') }}</label>
                             <input
                                 v-model="createForm.sub_prefixes"
                                 type="text"
@@ -424,15 +424,15 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 placeholder="912, 910, 918, 935"
                                 class="form-input w-full font-mono text-left"
                             />
-                            <p class="text-[11px] text-slate-500 mt-1">پیش‌کدهایی که کاربر می‌تواند در مرحله دوم مدال ثبت شماره انتخاب کند.</p>
+                            <p class="text-[11px] text-slate-500 mt-1">{{ __('admin.prefixes.precodes_help') }}</p>
                         </div>
 
                         <!-- 3-Tier Rond Pricing for 9-digit lines -->
                         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
-                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">تعرفه خطوط ۹ رقمی (بر حسب کوین/TRX):</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">{{ __('admin.prefixes.pricing_label') }}</span>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
-                                    <label class="text-[11px] text-slate-500 block mb-1">عادی</label>
+                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.tier_regular') }}</label>
                                     <input
                                         v-model="createForm.price_regular"
                                         type="number"
@@ -442,7 +442,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">نیمه‌رند</label>
+                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">{{ __('admin.prefixes.tier_semi_rond') }}</label>
                                     <input
                                         v-model="createForm.price_semi_rond"
                                         type="number"
@@ -452,7 +452,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">طلایی</label>
+                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">{{ __('admin.prefixes.tier_golden') }}</label>
                                     <input
                                         v-model="createForm.price_golden_rond"
                                         type="number"
@@ -467,11 +467,11 @@ const deletePrefix = (prefix: PrefixItem) => {
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="createForm.is_active" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.prefixes.is_active_label') }}</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="createForm.is_default" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">پیش‌فرض سامانه</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.prefixes.is_default_label') }}</span>
                             </label>
                         </div>
 
@@ -480,15 +480,13 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 type="button"
                                 @click="isCreateModalOpen = false"
                                 class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('admin.prefixes.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="createForm.processing"
                                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-sm disabled:opacity-50 cursor-pointer"
                             >
-                                <span>{{ createForm.processing ? 'در حال ثبت...' : 'ذخیره پیش‌شماره' }}</span>
+                                <span>{{ createForm.processing ? __('admin.prefixes.saving') : __('admin.prefixes.save_prefix') }}</span>
                             </button>
                         </div>
                     </form>
@@ -499,14 +497,14 @@ const deletePrefix = (prefix: PrefixItem) => {
             <div v-if="isEditModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm" @click.self="isEditModalOpen = false">
                 <div class="w-full max-w-lg rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0 mb-4">
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش پیش‌شماره {{ editingPrefix?.prefix }}</h3>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.prefixes.modal_edit_title', { prefix: editingPrefix?.prefix }) }}</h3>
                         <button type="button" @click="isEditModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer">✕</button>
                     </div>
 
                     <form @submit.prevent="submitEdit" class="space-y-3.5 text-xs overflow-y-auto flex-1">
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label class="form-label mb-1">نام کشور</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.country_label') }}</label>
                                 <input
                                     v-model="editForm.country_name"
                                     type="text"
@@ -515,7 +513,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 />
                             </div>
                             <div>
-                                <label class="form-label mb-1">کد دو حرفی کشور (ISO)</label>
+                                <label class="form-label mb-1">{{ __('admin.prefixes.iso_label') }}</label>
                                 <input
                                     v-model="editForm.country_code"
                                     type="text"
@@ -527,7 +525,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         </div>
 
                         <div>
-                            <label class="form-label mb-1">پرچم (ایموجی)</label>
+                            <label class="form-label mb-1">{{ __('admin.prefixes.flag_label') }}</label>
                             <input
                                 v-model="editForm.flag"
                                 type="text"
@@ -536,7 +534,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                         </div>
 
                         <div>
-                            <label class="form-label mb-1">پیش‌کدهای ۳ رقمی مجاز (با کاما جدا کنید)</label>
+                            <label class="form-label mb-1">{{ __('admin.prefixes.precodes_label') }}</label>
                             <input
                                 v-model="editForm.sub_prefixes"
                                 type="text"
@@ -547,10 +545,10 @@ const deletePrefix = (prefix: PrefixItem) => {
 
                         <!-- 3-Tier Rond Pricing for 9-digit lines -->
                         <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 space-y-2">
-                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">تعرفه خطوط ۹ رقمی (کوین/TRX):</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200 block text-xs">{{ __('admin.prefixes.pricing_label_edit') }}</span>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
-                                    <label class="text-[11px] text-slate-500 block mb-1">عادی</label>
+                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.tier_regular') }}</label>
                                     <input
                                         v-model="editForm.price_regular"
                                         type="number"
@@ -560,7 +558,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">نیمه‌رند</label>
+                                    <label class="text-[11px] text-blue-600 dark:text-blue-400 block mb-1 font-bold">{{ __('admin.prefixes.tier_semi_rond') }}</label>
                                     <input
                                         v-model="editForm.price_semi_rond"
                                         type="number"
@@ -570,7 +568,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     />
                                 </div>
                                 <div>
-                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">طلایی</label>
+                                    <label class="text-[11px] text-amber-600 dark:text-amber-400 block mb-1 font-bold">{{ __('admin.prefixes.tier_golden') }}</label>
                                     <input
                                         v-model="editForm.price_golden_rond"
                                         type="number"
@@ -585,11 +583,11 @@ const deletePrefix = (prefix: PrefixItem) => {
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="editForm.is_active" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">فعال بودن</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.prefixes.is_active_label') }}</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="editForm.is_default" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
-                                <span class="font-bold text-slate-700 dark:text-slate-300">پیش‌فرض سامانه</span>
+                                <span class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.prefixes.is_default_label') }}</span>
                             </label>
                         </div>
 
@@ -598,15 +596,13 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 type="button"
                                 @click="isEditModalOpen = false"
                                 class="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('admin.prefixes.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="editForm.processing"
                                 class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-sm disabled:opacity-50 cursor-pointer"
                             >
-                                <span>{{ editForm.processing ? 'در حال ثبت...' : 'به‌روزرسانی تنظیمات' }}</span>
+                                <span>{{ editForm.processing ? __('admin.prefixes.saving') : __('admin.prefixes.update_settings') }}</span>
                             </button>
                         </div>
                     </form>

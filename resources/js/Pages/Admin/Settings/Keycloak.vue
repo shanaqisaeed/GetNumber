@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import InputError from '@/Components/InputError.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -48,7 +49,7 @@ const runConnectionTest = async () => {
     } catch (e: any) {
         testResult.value = {
             success: false,
-            message: e?.response?.data?.message || 'خطا در برقراری ارتباط با وب‌سرور جهت تست Keycloak.',
+            message: e?.response?.data?.message || __('admin.settings.keycloak_ajax_error'),
         };
     } finally {
         isTesting.value = false;
@@ -67,7 +68,7 @@ const copyCallback = () => {
 </script>
 
 <template>
-    <Head title="تنظیمات احراز هویت یکپارچه Keycloak" />
+    <Head :title="__('admin.settings.head_title_keycloak')" />
 
     <AdminLayout>
         <template #header>
@@ -79,11 +80,11 @@ const copyCallback = () => {
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="text-base font-black text-slate-900 dark:text-white">پیکربندی هویت یکپارچه Keycloak (SSO)</h1>
-                        <span v-if="isEnabled" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">درگاه فعال</span>
-                        <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 border border-slate-500/20">درگاه خاموش</span>
+                        <h1 class="text-base font-black text-slate-900 dark:text-white">{{ __('admin.settings.keycloak_title') }}</h1>
+                        <span v-if="isEnabled" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{{ __('admin.settings.gateway_active') }}</span>
+                        <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 border border-slate-500/20">{{ __('admin.settings.gateway_inactive') }}</span>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">پروتکل استاندارد OpenID Connect و مدیریت نشست‌های متمرکز سازمانی</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.keycloak_desc') }}</p>
                 </div>
             </div>
         </template>
@@ -102,7 +103,7 @@ const copyCallback = () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 <div>
-                    <span class="font-bold block">{{ testResult.success ? 'تست اتصال به سرور Keycloak تایید شد' : 'تست اتصال ناموفق' }}</span>
+                    <span class="font-bold block">{{ testResult.success ? __('admin.settings.keycloak_test_success') : __('admin.settings.keycloak_test_failed') }}</span>
                     <span>{{ testResult.message }}</span>
                 </div>
             </div>
@@ -114,21 +115,21 @@ const copyCallback = () => {
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        نشانی بازگشت (Valid Redirect URI) جهت ثبت در کنسول Keycloak:
+                        {{ __('admin.settings.redirect_title') }}
                     </span>
                     <button
                         type="button"
                         @click="copyCallback"
                         class="text-xs font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 underline cursor-pointer"
                     >
-                        {{ copied ? 'کپی شد!' : 'کپی نشانی' }}
+                        {{ copied ? __('admin.users.copied') : __('admin.settings.copy_url') }}
                     </button>
                 </div>
                 <div class="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-amber-500/30 font-mono text-xs text-slate-800 dark:text-slate-200 select-all" dir="ltr">
                     {{ callbackUrl }}
                 </div>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400">
-                    این نشانی باید در بخش <strong class="text-slate-700 dark:text-slate-300">Valid redirect URIs</strong> کلاینت مورد نظر در کنسول ادمین Keycloak ثبت شود.
+                    <span v-html="__('admin.settings.redirect_desc_html')"></span>
                 </p>
             </div>
 
@@ -138,7 +139,7 @@ const copyCallback = () => {
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <div class="flex items-center gap-2.5">
                             <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                            <h2 class="text-sm font-black text-slate-900 dark:text-white">مشخصات سرور و قلمرو (Realm)</h2>
+                            <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.realm_specs_title') }}</h2>
                         </div>
                         <button
                             type="button"
@@ -150,14 +151,14 @@ const copyCallback = () => {
                             <svg v-else class="w-4 h-4 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
-                            <span>بررسی وضعیت سرور Keycloak</span>
+                            <span>{{ __('admin.settings.test_connection') }}</span>
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="base_url" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                نشانی اینترنتی سرور Keycloak (Base URL):
+                                {{ __('admin.settings.keycloak_url_label') }}
                             </label>
                             <input
                                 id="base_url"
@@ -173,7 +174,7 @@ const copyCallback = () => {
 
                         <div>
                             <label for="realm" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                نام قلمرو (Realm Name):
+                                {{ __('admin.settings.realm_name_label') }}
                             </label>
                             <input
                                 id="realm"
@@ -192,14 +193,14 @@ const copyCallback = () => {
                 <!-- OpenID Connect Client Credentials Card -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
                     <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <h2 class="text-sm font-black text-slate-900 dark:text-white">شناسه‌های کلاینت (Client Credentials)</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مشخصات کلاینت تعریف شده از نوع Confidential در قلمرو Keycloak</p>
+                        <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.client_credentials_title') }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.client_credentials_desc') }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="client_id" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                شناسه کلاینت (Client ID):
+                                {{ __('admin.settings.client_id_label') }}
                             </label>
                             <input
                                 id="client_id"
@@ -215,7 +216,7 @@ const copyCallback = () => {
 
                         <div>
                             <label for="client_secret" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                کلید محرمانه (Client Secret):
+                                {{ __('admin.settings.client_secret_label') }}
                             </label>
                             <input
                                 id="client_secret"
@@ -232,8 +233,8 @@ const copyCallback = () => {
                     <!-- Auto Provisioning -->
                     <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <div>
-                            <h3 class="text-xs font-bold text-slate-900 dark:text-white">ایجاد خودکار کاربر در اولین ورود Keycloak</h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">در صورت ورود کاربری که از قبل در سامانه ثبت‌نام نشده باشد، به صورت خودکار با مشخصات توکن Keycloak حساب وی ساخته شود</p>
+                            <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.keycloak_jit_title') }}</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.keycloak_jit_desc') }}</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" v-model="form.auto_create_user" class="sr-only peer">
@@ -249,12 +250,12 @@ const copyCallback = () => {
                         :disabled="form.processing"
                         class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs shadow-md shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                        <span v-if="form.processing">در حال ذخیره‌سازی...</span>
+                        <span v-if="form.processing">{{ __('admin.settings.saving') }}</span>
                         <template v-else>
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>ذخیره تنظیمات Keycloak</span>
+                            <span>{{ __('admin.settings.save_keycloak') }}</span>
                         </template>
                     </button>
                 </div>

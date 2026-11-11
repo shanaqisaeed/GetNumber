@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -13,6 +14,8 @@ interface GatewayModel {
     supported_networks: string[];
     config: Record<string, any> | null;
 }
+
+const { __ } = useTrans();
 
 const props = defineProps<{
     gateways: GatewayModel[];
@@ -88,7 +91,7 @@ const submitGatewayUpdate = () => {
 </script>
 
 <template>
-    <Head title="پیکربندی درگاه‌های پرداخت کریپتو" />
+    <Head :title="__('admin.payments.head_title_gateways')" />
 
     <AdminLayout>
         <template #header>
@@ -96,10 +99,10 @@ const submitGatewayUpdate = () => {
                 <div>
                     <h1 class="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                        پیکربندی درگاه‌های پرداخت و صرافی‌ها
+                        {{ __('admin.payments.page_title_gateways') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        مدیریت اتصال صرافی نوبیتکس، شبکه ترون گرید و درگاه‌های شبیه‌ساز تست
+                        {{ __('admin.payments.page_desc_gateways') }}
                     </p>
                 </div>
 
@@ -111,7 +114,7 @@ const submitGatewayUpdate = () => {
                         <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
-                        <span>واریزی‌های کریپتو</span>
+                        <span>{{ __('admin.payments.back_to_deposits_btn') }}</span>
                     </Link>
                 </div>
             </div>
@@ -131,44 +134,44 @@ const submitGatewayUpdate = () => {
                                 class="px-2 py-0.5 rounded-lg text-[10px] font-bold"
                                 :class="g.is_active ? 'bg-emerald-500/15 text-emerald-500' : 'bg-rose-500/15 text-rose-500'"
                             >
-                                {{ g.is_active ? 'فعال' : 'غیرفعال' }}
+                                {{ g.is_active ? __('admin.payments.status_active') : __('admin.payments.status_inactive') }}
                             </span>
                             <span
                                 v-if="g.is_default"
                                 class="px-2 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-400 text-[10px] font-bold border border-indigo-500/30"
                             >
-                                درگاه پیش‌فرض
+                                {{ __('admin.payments.default_gateway') }}
                             </span>
                         </div>
 
                         <div class="flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                             <div>
-                                شناسه درایور: <span class="font-mono font-bold text-slate-700 dark:text-slate-200">{{ g.driver }}</span>
+                                {{ __('admin.payments.driver_id') }} <span class="font-mono font-bold text-slate-700 dark:text-slate-200">{{ g.driver }}</span>
                             </div>
                             <span>•</span>
                             <div>
-                                ارزهای پشتیبانی‌شده:
+                                {{ __('admin.payments.supported_currencies') }}
                                 <span class="font-mono font-bold text-slate-700 dark:text-slate-200">{{ (g.supported_currencies || []).join(', ') }}</span>
                             </div>
                             <span>•</span>
                             <div>
-                                شبکه‌ها:
+                                {{ __('admin.payments.networks') }}
                                 <span class="font-mono font-bold text-slate-700 dark:text-slate-200">{{ (g.supported_networks || []).join(', ') }}</span>
                             </div>
                         </div>
 
                         <div v-if="g.driver === 'nobitex'" class="text-[11px] text-slate-400 pt-1 flex flex-wrap items-center gap-2">
-                            <span>آدرس پایه: <span class="font-mono">{{ g.config?.base_url || 'https://apiv2.nobitex.ir' }}</span></span>
+                            <span>{{ __('admin.payments.base_url') }} <span class="font-mono">{{ g.config?.base_url || 'https://apiv2.nobitex.ir' }}</span></span>
                             <span>•</span>
                             <span>
-                                وضعیت اتصال:
+                                {{ __('admin.payments.connection_status') }}
                                 <span v-if="g.config?.secret_key && g.config?.api_key" class="text-emerald-500 font-bold">API Key (Ed25519)</span>
-                                <span v-else-if="g.config?.api_key" class="text-sky-500 font-bold">توکن سنتی (Token)</span>
-                                <span v-else class="text-amber-500 font-bold">تنظیم‌نشده</span>
+                                <span v-else-if="g.config?.api_key" class="text-sky-500 font-bold">{{ __('admin.payments.token_legacy') }}</span>
+                                <span v-else class="text-amber-500 font-bold">{{ __('admin.payments.not_configured') }}</span>
                             </span>
                             <span v-if="g.config?.deposit_address">•</span>
                             <span v-if="g.config?.deposit_address" class="text-slate-500 dark:text-slate-400">
-                                آدرس TRX: <span class="font-mono text-slate-700 dark:text-slate-300">{{ g.config.deposit_address }}</span>
+                                {{ __('admin.payments.trx_address') }} <span class="font-mono text-slate-700 dark:text-slate-300">{{ g.config.deposit_address }}</span>
                             </span>
                         </div>
                     </div>
@@ -181,17 +184,15 @@ const submitGatewayUpdate = () => {
                             :disabled="syncingId === g.id || !g.config?.api_key"
                             class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
                         >
-                            <span v-if="syncingId === g.id">در حال همگام‌سازی...</span>
-                            <span v-else>همگام‌سازی کیف‌پول TRX</span>
+                            <span v-if="syncingId === g.id">{{ __('admin.payments.syncing') }}</span>
+                            <span v-else>{{ __('admin.payments.sync_trx_wallet') }}</span>
                         </button>
 
                         <button
                             type="button"
                             @click="openEditModal(g)"
                             class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20 shrink-0 cursor-pointer"
-                        >
-                            ویرایش تنظیمات درگاه
-                        </button>
+                        >{{ __('admin.payments.edit_gateway_btn') }}</button>
                     </div>
                 </div>
             </div>
@@ -206,7 +207,7 @@ const submitGatewayUpdate = () => {
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                            ویرایش درگاه «{{ editingGateway?.name }}»
+                            {{ __('admin.payments.modal_edit_gateway_title', { name: editingGateway?.name }) }}
                         </h3>
                         <button type="button" @click="closeEditModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">✕</button>
                     </div>
@@ -216,42 +217,42 @@ const submitGatewayUpdate = () => {
                         <div class="grid grid-cols-2 gap-3">
                             <label class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" v-model="form.is_active" class="rounded text-indigo-600" />
-                                <span class="font-bold text-slate-900 dark:text-white">درگاه فعال باشد</span>
+                                <span class="font-bold text-slate-900 dark:text-white">{{ __('admin.payments.is_active_label') }}</span>
                             </label>
 
                             <label class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" v-model="form.is_default" class="rounded text-indigo-600" />
-                                <span class="font-bold text-slate-900 dark:text-white">درگاه پیش‌فرض سیستم</span>
+                                <span class="font-bold text-slate-900 dark:text-white">{{ __('admin.payments.is_default_label') }}</span>
                             </label>
                         </div>
 
                         <!-- Nobitex specific fields -->
                         <template v-if="editingGateway?.driver === 'nobitex'">
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید عمومی وب‌سرویس نوبیتکس</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.nobitex_public_key') }}</label>
                                 <input
                                     v-model="form.config.api_key"
                                     type="text"
-                                    placeholder="کلید عمومی مانند NXH77kqbGD6lm6XzZDvuJC0DhA= یا توکن..."
+                                    :placeholder="__('admin.payments.nobitex_public_key_placeholder')"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید محرمانه وب‌سرویس نوبیتکس</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.nobitex_secret_key') }}</label>
                                 <input
                                     v-model="form.config.secret_key"
                                     type="text"
-                                    placeholder="کلید محرمانه Ed25519 مانند HW53SbFXYkI9g4=..."
+                                    :placeholder="__('admin.payments.nobitex_secret_key_placeholder')"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                                 <p class="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                                    💡 <strong>راهنما:</strong> در روش جدید احراز هویت نوبیتکس (Ed25519)، درخواست‌ها با استفاده از جفت‌کلید عمومی و خصوصی به‌صورت دیجیتالی امضا می‌شوند. در صورت استفاده از کلید API، وارد کردن هر دو فیلد الزامی است. (برای توکن‌های قدیمی ۴۰ کاراکتری، فیلد سکرت را خالی بگذارید). همچنین دقت کنید که IP سرور باید در پنل نوبیتکس جزو لیست مجاز (Whitelist) ثبت شده باشد.
+                                    <span v-html="__('admin.payments.nobitex_help_html')"></span>
                                 </p>
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">آدرس پایه API (Base URL)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.base_url_label') }}</label>
                                 <input
                                     v-model="form.config.base_url"
                                     type="text"
@@ -261,21 +262,21 @@ const submitGatewayUpdate = () => {
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">شناسه کیف پول ترون نوبیتکس (اختیاری)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.wallet_id_label') }}</label>
                                 <input
                                     v-model="form.config.wallet_id"
                                     type="number"
-                                    placeholder="در صورت خالی بودن، به صورت خودکار از API دریافت می‌شود"
+                                    :placeholder="__('admin.payments.wallet_id_placeholder')"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">آدرس واریز ثابت اختصاصی (اختیاری / جهت Override)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.static_deposit_address') }}</label>
                                 <input
                                     v-model="form.config.deposit_address_override"
                                     type="text"
-                                    placeholder="آدرس کیف پول ثابت در صورت عدم تولید داینامیک..."
+                                    :placeholder="__('admin.payments.static_deposit_placeholder')"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                             </div>
@@ -284,7 +285,7 @@ const submitGatewayUpdate = () => {
                         <!-- TronGrid specific fields -->
                         <template v-else-if="editingGateway?.driver === 'tron_grid'">
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">آدرس دریافت ترون (TRON Deposit Address)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.trongrid_deposit_address') }}</label>
                                 <input
                                     v-model="form.config.deposit_address"
                                     type="text"
@@ -294,11 +295,11 @@ const submitGatewayUpdate = () => {
                             </div>
 
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">کلید TronGrid API Key (اختیاری)</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.trongrid_key') }}</label>
                                 <input
                                     v-model="form.config.api_key"
                                     type="password"
-                                    placeholder="کلید اختیاری از سایت trongrid.io جهت حذف محدودیت ریت‌لیمیت..."
+                                    :placeholder="__('admin.payments.trongrid_key_placeholder')"
                                     class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs focus:border-indigo-500 outline-none text-slate-900 dark:text-white"
                                 />
                             </div>
@@ -307,7 +308,7 @@ const submitGatewayUpdate = () => {
                         <!-- Mock specific fields -->
                         <template v-else>
                             <div>
-                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">آدرس شبیه‌ساز تست</label>
+                                <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.simulator_address') }}</label>
                                 <input
                                     v-model="form.config.deposit_address"
                                     type="text"
@@ -317,7 +318,7 @@ const submitGatewayUpdate = () => {
                         </template>
 
                         <div>
-                            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">حداقل مبلغ واریز (TRX)</label>
+                            <label class="block font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.payments.min_deposit_trx') }}</label>
                             <input
                                 v-model="form.config.min_deposit"
                                 type="number"
@@ -332,16 +333,14 @@ const submitGatewayUpdate = () => {
                                 type="button"
                                 @click="closeEditModal"
                                 class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('admin.payments.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="form.processing"
                                 class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-md shadow-indigo-600/20 disabled:opacity-50 transition-all"
                             >
-                                <span v-if="form.processing">در حال ذخیره...</span>
-                                <span v-else>ذخیره تنظیمات درگاه</span>
+                                <span v-if="form.processing">{{ __('admin.payments.saving') }}</span>
+                                <span v-else>{{ __('admin.payments.save_gateway_settings') }}</span>
                             </button>
                         </div>
                     </form>

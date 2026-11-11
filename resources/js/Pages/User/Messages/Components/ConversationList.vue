@@ -99,7 +99,7 @@ onMounted(() => {
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>
-                <b>ارتباطات درون‌پلتفرمی:</b> پیام‌ها صرفاً در محیط پلتفرم و میان خطوط سازمانی ثبت و تبادل می‌شوند و هیچ‌گونه پیامک مخابراتی تجاری ارسال نمی‌گردد.
+                <b>{{ __('user.messages.chat_disclaimer_title') }}</b> {{ __('user.messages.chat_disclaimer_desc') }}
             </span>
         </div>
 
@@ -110,7 +110,7 @@ onMounted(() => {
                     v-model="searchQuery"
                     @input="emit('search-change', searchQuery)"
                     type="text"
-                    placeholder="جستجو در مخاطبان یا پیام‌ها..."
+                    :placeholder="__('user.messages.search_contacts_or_messages')"
                     class="glass-input !py-2.5 !pr-9 !pl-3 !text-xs !rounded-2xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                 />
                 <svg class="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,12 +123,12 @@ onMounted(() => {
                 @click="emit('start-new')"
                 :disabled="!hasCurrentNumber"
                 class="glass-btn-primary !w-auto !py-2.5 !px-3.5 !text-xs !rounded-2xl flex items-center gap-1.5 shrink-0"
-                title="پیام جدید"
+                :title="__('user.messages.new_message')"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
-                <span class="hidden sm:inline">پیام جدید</span>
+                <span class="hidden sm:inline">{{ __('user.messages.new_message') }}</span>
             </button>
         </div>
 
@@ -175,11 +175,11 @@ onMounted(() => {
                                     {{ conv.peer_formatted }}
                                 </div>
                                 <div v-else class="text-[10px] text-violet-600 dark:text-violet-400 font-bold">
-                                    سرشماره تجاری رسمی
+                                    {{ __('user.messages.official_commercial_prefix') }}
                                 </div>
                                 <!-- Latest Message Snippet -->
                                 <p class="text-xs text-slate-600 dark:text-slate-300 truncate mt-0.5 max-w-[240px]">
-                                    <span v-if="conv.latest_message?.direction === 'outbound'" class="text-indigo-600 dark:text-indigo-400 font-bold ml-1">شما:</span>
+                                    <span v-if="conv.latest_message?.direction === 'outbound'" class="text-indigo-600 dark:text-indigo-400 font-bold ml-1">{{ __('user.tickets.you') }}:</span>
                                     {{ conv.latest_message?.body }}
                                 </p>
                             </div>
@@ -210,9 +210,9 @@ onMounted(() => {
                 </svg>
             </div>
             <div class="space-y-1">
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">هنوز گفتگویی ندارید</h3>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.messages.no_conversations_title') }}</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                    پیامک‌های دریافتی یا ارسالی شما در این بخش مانند پیام‌رسان گوشی نمایش داده می‌شوند.
+                    {{ __('user.messages.no_conversations_desc') }}
                 </p>
             </div>
             <div class="w-full flex justify-center pt-2">
@@ -224,7 +224,7 @@ onMounted(() => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>ارسال اولین پیامک</span>
+                    <span>{{ __('user.messages.send_first_sms') }}</span>
                 </button>
             </div>
         </div>

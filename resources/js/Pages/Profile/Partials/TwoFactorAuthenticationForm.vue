@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { __ } from '@/Composables/useTrans';
 import QrCode from '@/Components/QrCode.vue';
 
 interface TwoFactorStatus {
@@ -79,10 +80,10 @@ const startEnable = async () => {
             manualSecret.value = data.secret;
             recoveryCodes.value = data.recovery_codes || [];
         } else {
-            showToast(data.message || 'خطا در ایجاد کلید امنیتی');
+            showToast(data.message || __('ui.profile.two_factor.key_error'));
         }
     } catch {
-        showToast('خطای شبکه در ارتباط با سرور');
+        showToast(__('ui.profile.two_factor.network_error'));
     } finally {
         isEnabling.value = false;
     }
@@ -90,7 +91,7 @@ const startEnable = async () => {
 
 const confirmEnable = async () => {
     if (!confirmationCode.value || confirmationCode.value.length !== 6) {
-        confirmError.value = 'لطفاً کد ۶ رقمی را به صورت کامل وارد نمایید.';
+        confirmError.value = __('ui.profile.two_factor.code_required');
         return;
     }
 
@@ -110,7 +111,7 @@ const confirmEnable = async () => {
 
         const data = await res.json();
         if (res.ok && data.success) {
-            showToast('احراز هویت دومرحله‌ای با موفقیت فعال شد');
+            showToast(__('ui.profile.two_factor.enabled_success'));
             status.value.enabled = true;
             status.value.confirmed_at = new Date().toISOString();
             if (data.recovery_codes) {
@@ -121,10 +122,10 @@ const confirmEnable = async () => {
             confirmationCode.value = '';
             fetchStatus();
         } else {
-            confirmError.value = data.errors?.code?.[0] || data.message || 'کد وارد شده نامعتبر است.';
+            confirmError.value = data.errors?.code?.[0] || data.message || __('ui.profile.two_factor.invalid_code');
         }
     } catch {
-        confirmError.value = 'خطا در برقراری ارتباط با سرور.';
+        confirmError.value = __('ui.profile.two_factor.server_error');
     } finally {
         isConfirming.value = false;
     }
@@ -139,7 +140,7 @@ const openPasswordModal = (action: 'disable' | 'regenerate') => {
 
 const submitPasswordAction = async () => {
     if (!currentPassword.value) {
-        passwordError.value = 'ورود گذرواژه الزامی است.';
+        passwordError.value = __('ui.profile.two_factor.pass_required');
         return;
     }
 
@@ -159,17 +160,17 @@ const submitPasswordAction = async () => {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast('احراز هویت دومرحله‌ای غیرفعال شد');
+                showToast(__('ui.profile.two_factor.disabled_success'));
                 status.value.enabled = false;
                 status.value.confirmed_at = null;
                 recoveryCodes.value = [];
                 isPasswordModalOpen.value = false;
                 fetchStatus();
             } else {
-                passwordError.value = data.errors?.password?.[0] || data.message || 'گذرواژه وارد شده اشتباه است.';
+                passwordError.value = data.errors?.password?.[0] || data.message || __('ui.profile.two_factor.wrong_pass');
             }
         } catch {
-            passwordError.value = 'خطای ارتباط با سرور.';
+            passwordError.value = __('ui.profile.two_factor.server_error');
         } finally {
             isDisabling.value = false;
         }
@@ -187,14 +188,14 @@ const submitPasswordAction = async () => {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast('کدهای بازیابی جدید صادر شدند');
+                showToast(__('ui.profile.two_factor.recovery_new_success'));
                 recoveryCodes.value = data.recovery_codes || [];
                 isPasswordModalOpen.value = false;
             } else {
-                passwordError.value = data.errors?.password?.[0] || data.message || 'گذرواژه وارد شده اشتباه است.';
+                passwordError.value = data.errors?.password?.[0] || data.message || __('ui.profile.two_factor.wrong_pass');
             }
         } catch {
-            passwordError.value = 'خطای ارتباط با سرور.';
+            passwordError.value = __('ui.profile.two_factor.server_error');
         } finally {
             isRegenerating.value = false;
         }
@@ -205,12 +206,12 @@ const copyRecoveryCodes = () => {
     if (recoveryCodes.value.length === 0) return;
     const text = recoveryCodes.value.join('\n');
     navigator.clipboard.writeText(text);
-    showToast('کدهای بازیابی در کلیپ‌بورد کپی شدند');
+    showToast(__('ui.profile.two_factor.copied_codes'));
 };
 
 const copyText = (text: string) => {
     navigator.clipboard.writeText(text);
-    showToast('در کلیپ‌بورد کپی شد');
+    showToast(__('ui.profile.two_factor.copied'));
 };
 
 onMounted(() => {
@@ -235,10 +236,10 @@ onMounted(() => {
                     <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span>احراز هویت دومرحله‌ای (TOTP)</span>
+                    <span>{{ __('ui.profile.two_factor.title') }}</span>
                 </h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    افزایش امنیت ورود به حساب کاربری با استفاده از اپلیکیشن‌های Authenticator (مانند Google Authenticator یا 1Password)
+                    {{ __('ui.profile.two_factor.subtitle') }}
                 </p>
             </div>
 
@@ -249,26 +250,24 @@ onMounted(() => {
                     class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5"
                 >
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>فعال</span>
+                    <span>{{ __('ui.profile.two_factor.active') }}</span>
                 </span>
                 <span
                     v-else
                     class="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-500 dark:text-slate-400"
-                >
-                    غیرفعال
-                </span>
+                >{{ __('ui.profile.two_factor.inactive') }}</span>
             </div>
         </div>
 
         <!-- Loading State -->
         <div v-if="isLoading" class="py-6 text-center text-xs text-slate-400">
-            در حال دریافت وضعیت امنیتی حساب...
+            {{ __('ui.profile.two_factor.loading') }}
         </div>
 
         <!-- 1. When 2FA is NOT yet enabled and setup has NOT started -->
         <div v-else-if="!status.enabled && !qrCodeUrl" class="space-y-3">
             <div class="p-4 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-500/20 text-xs text-indigo-950 dark:text-indigo-200 leading-relaxed">
-                با فعال‌سازی احراز هویت دومرحله‌ای، هنگام ورود علاوه بر گذرواژه، یک کد ۶ رقمی یکبار مصرف که توسط برنامه گوشی شما تولید می‌شود لازم خواهد بود. این ویژگی مانع نفوذ هکرها حتی در صورت لو رفتن گذرواژه می‌شود.
+                {{ __('ui.profile.two_factor.explanation') }}
             </div>
 
             <div class="flex justify-center pt-2">
@@ -285,7 +284,7 @@ onMounted(() => {
                     <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
-                    <span>شروع راه‌اندازی و دریافت کد QR</span>
+                    <span>{{ __('ui.profile.two_factor.start_btn') }}</span>
                 </button>
             </div>
         </div>
@@ -293,8 +292,8 @@ onMounted(() => {
         <!-- 2. Setup Step: Vertical Sequence (QR -> Token -> Copy Button -> 6-Digit Code -> Activation Button) -->
         <div v-else-if="!status.enabled && qrCodeUrl" class="space-y-5 p-5 rounded-3xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10">
             <div class="text-center space-y-1">
-                <h4 class="text-sm font-black text-slate-900 dark:text-white">مراحل فعال‌سازی ورود دومرحله‌ای</h4>
-                <p class="text-xs text-slate-500 dark:text-slate-400">مراحل زیر را به ترتیب دنبال نمایید:</p>
+                <h4 class="text-sm font-black text-slate-900 dark:text-white">{{ __('ui.profile.two_factor.steps_title') }}</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">{{ __('ui.profile.two_factor.steps_subtitle') }}</p>
             </div>
 
             <!-- Level 1: QR Code on its own clean level -->
@@ -303,14 +302,14 @@ onMounted(() => {
                     <QrCode :value="qrCodeUrl" :size="180" />
                 </div>
                 <p class="text-xs font-bold text-slate-700 dark:text-slate-300 mt-3">
-                    سطح اول: تصویر QR بالا را با اپلیکیشن Google Authenticator اسکن کنید
+                    {{ __('ui.profile.two_factor.step_1') }}
                 </p>
             </div>
 
             <!-- Level 2: Token (Secret Key) below it -->
             <div class="space-y-1.5 text-center">
                 <span class="text-xs font-bold text-slate-600 dark:text-slate-400 block">
-                    سطح دوم: یا کلید متنی زیر را به صورت دستی در برنامه وارد فرمایید:
+                    {{ __('ui.profile.two_factor.step_2') }}
                 </span>
                 <div class="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 font-mono text-sm sm:text-base font-black text-indigo-700 dark:text-indigo-300 text-center select-all tracking-wider dir-ltr shadow-xs">
                     {{ manualSecret }}
@@ -327,14 +326,14 @@ onMounted(() => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    <span>کپی کلید متنی</span>
+                    <span>{{ __('ui.profile.two_factor.step_3') }}</span>
                 </button>
             </div>
 
             <!-- Level 4: 6-digit confirmation code input -->
             <div class="space-y-2 pt-2 text-center">
                 <label class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    سطح چهارم: کد ۶ رقمی تولید‌شده در اپلیکیشن را وارد نمایید:
+                    {{ __('ui.profile.two_factor.step_4') }}
                 </label>
                 <div class="flex justify-center">
                     <input
@@ -358,12 +357,12 @@ onMounted(() => {
                     :disabled="isConfirming || confirmationCode.length !== 6"
                     class="glass-btn-primary !w-full !py-3 !text-sm !font-black !rounded-2xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                    <span v-if="isConfirming">در حال بررسی و فعال‌سازی...</span>
+                    <span v-if="isConfirming">{{ __('ui.profile.two_factor.activating') }}</span>
                     <template v-else>
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        <span>فعالسازی ورود دومرحله‌ای</span>
+                        <span>{{ __('ui.profile.two_factor.activate_btn') }}</span>
                     </template>
                 </button>
             </div>
@@ -376,22 +375,20 @@ onMounted(() => {
                     <svg class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
-                    <span>حساب کاربری شما با لایه احراز هویت دومرحله‌ای محافظت می‌شود.</span>
+                    <span>{{ __('ui.profile.two_factor.protected_badge') }}</span>
                 </div>
 
                 <button
                     type="button"
                     @click="openPasswordModal('disable')"
                     class="text-rose-600 dark:text-rose-400 hover:underline font-bold text-xs"
-                >
-                    غیرفعال‌سازی
-                </button>
+                >{{ __('ui.profile.two_factor.disable_btn') }}</button>
             </div>
 
             <!-- Recovery Codes Box -->
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">کدهای بازیابی اضطراری (Backup Codes):</span>
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.profile.two_factor.backup_codes_title') }}</span>
                     <div class="flex items-center gap-2">
                         <button
                             v-if="recoveryCodes.length > 0"
@@ -399,14 +396,14 @@ onMounted(() => {
                             @click="copyRecoveryCodes"
                             class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                         >
-                            کپی همه کدها
+                            {{ __('ui.profile.two_factor.copy_all') }}
                         </button>
                         <button
                             type="button"
                             @click="openPasswordModal('regenerate')"
                             class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                         >
-                            صدور کدهای جدید
+                            {{ __('ui.profile.two_factor.regenerate') }}
                         </button>
                     </div>
                 </div>
@@ -418,7 +415,7 @@ onMounted(() => {
                         </span>
                     </div>
                     <p class="text-[10px] text-amber-600 dark:text-amber-400 mt-2 text-center">
-                        این کدها را در مکانی امن ذخیره کنید. در صورت گم کردن گوشی، تنها راه ورود شما خواهند بود. هر کد فقط یکبار مصرف است.
+                        {{ __('ui.profile.two_factor.backup_notice') }}
                     </p>
                 </div>
             </div>
@@ -432,17 +429,17 @@ onMounted(() => {
         >
             <div class="glass-card !p-5 w-full max-w-sm shadow-2xl relative space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
                 <h4 class="text-sm font-black">
-                    {{ passwordAction === 'disable' ? 'تایید غیرفعال‌سازی ورود دومرحله‌ای' : 'تایید صدور کدهای بازیابی جدید' }}
+                    {{ passwordAction === 'disable' ? __('ui.profile.two_factor.modal_disable_title') : __('ui.profile.two_factor.modal_regenerate_title') }}
                 </h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                    جهت تایید هویت، لطفاً گذرواژه فعلی حساب کاربری خود را وارد فرمایید:
+                    {{ __('ui.profile.two_factor.modal_prompt') }}
                 </p>
 
                 <input
                     v-model="currentPassword"
                     @keydown.enter.prevent="submitPasswordAction"
                     type="password"
-                    placeholder="گذرواژه فعلی..."
+                    :placeholder="__('ui.profile.two_factor.modal_pass_placeholder')"
                     class="w-full glass-input !py-2.5 !px-3 !text-xs !rounded-xl bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
                 />
 
@@ -453,16 +450,14 @@ onMounted(() => {
                         type="button"
                         @click="isPasswordModalOpen = false"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
-                    >
-                        انصراف
-                    </button>
+                    >{{ __('ui.profile.two_factor.cancel') }}</button>
                     <button
                         type="button"
                         @click="submitPasswordAction"
                         :disabled="isDisabling || isRegenerating || !currentPassword"
                         class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
                     >
-                        <span>تایید</span>
+                        <span>{{ __('ui.profile.two_factor.confirm') }}</span>
                     </button>
                 </div>
             </div>

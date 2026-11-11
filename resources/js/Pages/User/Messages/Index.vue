@@ -89,7 +89,8 @@ const showToast = (msg: string) => {
 };
 
 // Copy helper
-const copyToClipboard = async (text: string, label = 'شماره کپی شد') => {
+const copyToClipboard = async (text: string, label?: string) => {
+    const finalLabel = label || __('user.messages.copied');
     try {
         if (navigator.clipboard && window.isSecureContext) {
             await navigator.clipboard.writeText(text);
@@ -101,9 +102,9 @@ const copyToClipboard = async (text: string, label = 'شماره کپی شد') =
             document.execCommand('copy');
             document.body.removeChild(input);
         }
-        showToast(label);
+        showToast(finalLabel);
     } catch {
-        showToast(label);
+        showToast(finalLabel);
     }
 };
 
@@ -311,7 +312,7 @@ const handleSendMessage = async (text: string) => {
                     body: sentMsg.body,
                     direction: 'outbound',
                     server_received_at: sentMsg.server_received_at,
-                    server_received_at_formatted: 'هم‌اکنون',
+                    server_received_at_formatted: __('user.messages.just_now'),
                 };
                 conv.messages_count += 1;
                 conversationList.value.splice(convIdx, 1);
@@ -332,7 +333,7 @@ const handleRetryMessage = async (msg: ChatMessage) => {
         msg,
         selectedLineId.value,
         () => {
-            showToast('پیامک با موفقیت ارسال شد');
+            showToast(__('user.messages.sent_success'));
         },
         (errMsg) => {
             showToast(errMsg);
@@ -385,7 +386,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="هاب پیام‌رسانی و گفتگو" />
+    <Head :title="__('user.messages.page_title')" />
 
     <UserLayout>
         <!-- Floating Toast Notification -->

@@ -49,6 +49,10 @@ class DashboardController extends Controller
                     'display_title' => $p->display_title,
                     'type' => $p->type->value,
                     'type_label' => $p->type->label(),
+                    'rond_tier' => $p->rond_tier ?? 'regular',
+                    'rond_tier_label' => $p->rond_tier_label,
+                    'accepts_incoming_sms' => (bool) $p->accepts_incoming_sms,
+                    'prefix_flag' => $p->phonePrefix?->flag ?? '📱',
                     'allocated_at' => $p->allocated_at?->format('Y/m/d H:i') ?? $p->created_at->format('Y/m/d H:i'),
                     'allocated_ago' => $p->allocated_at?->diffForHumans() ?? $p->created_at->diffForHumans(),
                 ]);
@@ -75,13 +79,50 @@ class DashboardController extends Controller
             ];
         });
 
+        $walletModel = $user->getOrCreateWallet();
+
+        $recentTransactions = $walletModel->transactions()
+            ->latest('id')
+            ->limit(3)
+            ->get()
+            ->map(fn ($t) => [
+                'id' => $t->id,
+                'type' => $t->type->value,
+                'type_label' => $t->type->label(),
+                'is_credit' => $t->type->isCredit(),
+                'badge_classes' => $t->type->badgeClasses(),
+                'amount' => (int) round((float) $t->amount),
+                'description' => $t->description ?: $t->type->label(),
+                'created_at' => $t->created_at->format('Y/m/d H:i'),
+                'created_ago' => $t->created_at->diffForHumans(),
+            ]);
+
+        $pendingDeposit = \App\Models\CryptoDeposit::where('user_id', $user->id)
+            ->whereIn('status', [
+                \App\Enums\PaymentStatus::PendingTransfer,
+                \App\Enums\PaymentStatus::TxSubmitted,
+                \App\Enums\PaymentStatus::Verifying,
+            ])
+            ->latest('id')
+            ->first();
+
         return Inertia::render('Dashboard', [
             'quota' => $quota,
             'stats' => [
                 'active_numbers' => $quota['active'],
+                'standard_numbers' => $metrics['standard_numbers'] ?? 0,
+                'service_numbers' => $metrics['service_numbers'] ?? 0,
                 'total_messages' => $metrics['total_messages'],
+                'inbound_messages' => $metrics['inbound_messages'] ?? 0,
+                'outbound_messages' => $metrics['outbound_messages'] ?? 0,
+                'today_messages' => $metrics['today_messages'] ?? 0,
                 'unread_messages' => $metrics['unread_messages'],
                 'pending_requests' => $metrics['pending_requests'],
+                'approved_requests' => $metrics['approved_requests'] ?? 0,
+                'active_tokens' => $metrics['active_tokens'] ?? 0,
+                'total_tokens' => $metrics['total_tokens'] ?? 0,
+                'open_tickets' => $metrics['open_tickets'] ?? 0,
+                'answered_tickets' => $metrics['answered_tickets'] ?? 0,
             ],
             'recent_numbers' => $dashboardData['recentNumbers'],
             'unread_messages' => $dashboardData['unreadMessages'],
@@ -101,8 +142,24 @@ class DashboardController extends Controller
                 'is_default',
             ]),
             'wallet' => [
-                'balance' => (string) $user->getOrCreateWallet()->balance,
+                'balance' => (string) $walletModel->balance,
+                'currency' => $walletModel->currency ?? 'COIN',
                 'number_price_coin' => SystemSetting::getNumberPriceCoin(),
+                'sms_rate' => (string) SystemSetting::get('sms_rate_per_segment', '0.0100'),
+                'recent_transactions' => $recentTransactions,
+                'pending_deposit' => $pendingDeposit ? [
+                    'tracking_code' => $pendingDeposit->tracking_code,
+                    'requested_amount' => (string) $pendingDeposit->requested_amount,
+                    'coin_amount' => (string) $pendingDeposit->coin_amount,
+                    'currency' => $pendingDeposit->currency,
+                    'status_label' => $pendingDeposit->status->label(),
+                ] : null,
+            ],
+            'security_overview' => [
+                'two_factor_enabled' => $user->hasTwoFactorEnabled(),
+                'connected_identities_count' => $user->identities()->count(),
+                'trust_tier' => $user->trust_tier ?? 'standard',
+                'web_push_subscribed' => \App\Models\PushSubscription::where('user_id', $user->id)->exists(),
             ],
         ]);
     }

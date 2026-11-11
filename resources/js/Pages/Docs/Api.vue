@@ -54,7 +54,7 @@ const codeSnippets = computed<Record<LanguageKey, string>>(() => ({
   -d '{
     "destination_number": "${props.mockDestination}",
     "sender": "+989121111111",
-    "body": "کد تأیید ورود شما: ۱۲۳۴۵",
+    "body": "Your verification code: 12345",
     "client_message_id": "MSG-9876543210",
     "source_system_id": "GATEWAY-TEHRAN"
   }'`,
@@ -74,7 +74,7 @@ headers = {
 payload = {
     "destination_number": "${props.mockDestination}",
     "sender": "+989121111111",
-    "body": "کد تأیید ورود شما: ۱۲۳۴۵",
+    "body": "Your verification code: 12345",
     "client_message_id": "MSG-9876543210",
     "source_system_id": "GATEWAY-TEHRAN"
 }
@@ -84,13 +84,13 @@ try:
     data = response.json()
 
     if response.status_code == 201:
-        print("پیام جدید با موفقیت در سامانه ثبت شد. شناسه:", data["data"]["id"])
+        print("New message registered successfully. ID:", data["data"]["id"])
     elif response.status_code == 200 and data.get("data", {}).get("is_duplicate"):
-        print("درخواست تکراری معتبر (Idempotent):", data["message"])
+        print("Valid idempotent request:", data["message"])
     else:
-        print(f"خطای وب‌سرویس ({response.status_code}):", data.get("message"))
+        print(f"API error ({response.status_code}):", data.get("message"))
 except requests.exceptions.RequestException as e:
-    print("خطای ارتباط با سرور:", str(e))`,
+    print("Server connection error:", str(e))`,
 
     php: `<?php
 
@@ -100,7 +100,7 @@ $token = '${props.mockToken}';
 $payload = [
     'destination_number' => '${props.mockDestination}',
     'sender' => '+989121111111',
-    'body' => 'کد تأیید ورود شما: ۱۲۳۴۵',
+    'body' => 'Your verification code: 12345',
     'client_message_id' => 'MSG-9876543210',
     'source_system_id' => 'GATEWAY-TEHRAN'
 ];
@@ -124,17 +124,17 @@ $error = curl_error($ch);
 curl_close($ch);
 
 if ($error) {
-    echo "خطای ارتباط: {$error}\n";
+    echo "Connection error: {$error}\n";
     exit;
 }
 
 $data = json_decode($response, true);
 if ($httpCode === 201) {
-    echo "پیام با موفقیت ثبت شد. شناسه: " . $data['data']['id'] . "\n";
+    echo "Message recorded successfully. ID: " . $data['data']['id'] . "\n";
 } elseif ($httpCode === 200 && ($data['data']['is_duplicate'] ?? false)) {
-    echo "پیام تکراری قبلاً ثبت شده: " . $data['message'] . "\n";
+    echo "Duplicate message already registered: " . $data['message'] . "\n";
 } else {
-    echo "خطا ({$httpCode}): " . ($data['message'] ?? 'خطای اعتبارسنجی یا سرور') . "\n";
+    echo "Error ({$httpCode}): " . ($data['message'] ?? 'Validation or server error') . "\n";
 }`,
 
     javascript: `const apiUrl = '${props.baseUrl}/api/v1/messages';
@@ -144,7 +144,7 @@ async function recordInboundMessage() {
   const payload = {
     destination_number: '${props.mockDestination}',
     sender: '+989121111111',
-    body: 'کد تأیید ورود شما: ۱۲۳۴۵',
+    body: 'Your verification code: 12345',
     client_message_id: 'MSG-9876543210',
     source_system_id: 'GATEWAY-TEHRAN'
   };
@@ -163,14 +163,14 @@ async function recordInboundMessage() {
     const data = await res.json();
 
     if (res.status === 201) {
-      console.log('پیام با موفقیت در سامانه ثبت شد:', data.data);
+      console.log('Message registered successfully:', data.data);
     } else if (res.status === 200 && data.data?.is_duplicate) {
-      console.warn('درخواست تکراری معتبر (Idempotent):', data.message);
+      console.warn('Valid idempotent request:', data.message);
     } else {
-      console.error(\`خطا (\${res.status}):\`, data.message, data.errors || '');
+      console.error(\`Error (\${res.status}):\`, data.message, data.errors || '');
     }
   } catch (err) {
-    console.error('عدم برقراری ارتباط با وب‌سرویس:', err);
+    console.error('Failed to connect to API:', err);
   }
 }
 
@@ -220,26 +220,26 @@ async function sendInboundMessage(payload: MessagePayload): Promise<void> {
     const result: ApiResponse<RecordedMessage> = await response.json();
 
     if (response.status === 201) {
-      console.log(\`پیام جدید با شناسه \${result.data?.id} با موفقیت ثبت شد.\`);
+      console.log(\`New message with ID \${result.data?.id} registered successfully.\`);
     } else if (response.status === 200 && result.data?.is_duplicate) {
-      console.warn('پیام تکراری است (Idempotent):', result.message);
+      console.warn('Duplicate message (Idempotent):', result.message);
     } else {
-      console.error(\`خطای سرور [\${result.code || response.status}]: \${result.message}\`);
+      console.error(\`Server error [\${result.code || response.status}]: \${result.message}\`);
     }
   } catch (error) {
-    console.error('خطای ارتباط شبکه:', error);
+    console.error('Network connection error:', error);
   }
 }
 
 sendInboundMessage({
   destination_number: '${props.mockDestination}',
   sender: '+989121111111',
-  body: 'کد تأیید ورود شما: ۱۲۳۴۵',
+  body: 'Your verification code: 12345',
   client_message_id: 'MSG-9876543210',
   source_system_id: 'GATEWAY-TEHRAN',
 });`,
 
-    nodejs: `// نیازمند Node.js 18+ یا پکیج node-fetch
+    nodejs: `// Requires Node.js 18+ or node-fetch package
 const API_URL = '${props.baseUrl}/api/v1/messages';
 const TOKEN = '${props.mockToken}';
 
@@ -247,7 +247,7 @@ async function main() {
   const payload = {
     destination_number: '${props.mockDestination}',
     sender: '+989121111111',
-    body: 'کد تأیید ورود شما: ۱۲۳۴۵',
+    body: 'Your verification code: 12345',
     client_message_id: 'MSG-9876543210',
     source_system_id: 'GATEWAY-TEHRAN'
   };
@@ -266,14 +266,14 @@ async function main() {
     const body = await res.json();
 
     if (res.status === 201) {
-      console.log('موفقیت‌آمیز - شناسه پیام در سامانه:', body.data.id);
+      console.log('Success - Message ID:', body.data.id);
     } else if (res.status === 200 && body.data?.is_duplicate) {
-      console.log('پیام تکراری (قبلاً ثبت شده):', body.message);
+      console.log('Duplicate message (already recorded):', body.message);
     } else {
-      console.error(\`خطای \${res.status}:\`, body.message, body.errors ?? '');
+      console.error(\`Error \${res.status}:\`, body.message, body.errors ?? '');
     }
   } catch (err) {
-    console.error('خطای ارتباط شبکه:', err.message);
+    console.error('Network connection error:', err.message);
   }
 }
 
@@ -294,7 +294,7 @@ public class ApiClient {
         {
             "destination_number": "${props.mockDestination}",
             "sender": "+989121111111",
-            "body": "کد تأیید ورود شما: ۱۲۳۴۵",
+            "body": "Your verification code: 12345",
             "client_message_id": "MSG-9876543210",
             "source_system_id": "GATEWAY-TEHRAN"
         }
@@ -317,14 +317,14 @@ public class ApiClient {
             int statusCode = response.statusCode();
 
             if (statusCode == 201) {
-                System.out.println("پیام با موفقیت ثبت شد: " + response.body());
+                System.out.println("Message registered successfully: " + response.body());
             } else if (statusCode == 200) {
-                System.out.println("درخواست تکراری معتبر (Idempotent): " + response.body());
+                System.out.println("Valid idempotent request: " + response.body());
             } else {
-                System.err.println("خطای وب‌سرویس (" + statusCode + "): " + response.body());
+                System.err.println("API error (" + statusCode + "): " + response.body());
             }
         } catch (Exception e) {
-            System.err.println("خطای برقراری ارتباط با سامانه: " + e.getMessage());
+            System.err.println("Connection error: " + e.getMessage());
         }
     }
 }`,
@@ -350,7 +350,7 @@ class Program
         {
             destination_number = "${props.mockDestination}",
             sender = "+989121111111",
-            body = "کد تأیید ورود شما: ۱۲۳۴۵",
+            body = "Your verification code: 12345",
             client_message_id = "MSG-9876543210",
             source_system_id = "GATEWAY-TEHRAN"
         };
@@ -364,20 +364,20 @@ class Program
 
             if (response.StatusCode == System.Net.HttpStatusCode.Created)
             {
-                Console.WriteLine($"پیام ورودی با موفقیت در سامانه ثبت گردید:\\n{responseBody}");
+                Console.WriteLine($"Inbound message registered successfully:\\n{responseBody}");
             }
             else if (response.StatusCode == System.Net.HttpStatusCode.OK)
             {
-                Console.WriteLine($"درخواست تکراری معتبر (Idempotent):\\n{responseBody}");
+                Console.WriteLine($"Valid idempotent request:\\n{responseBody}");
             }
             else
             {
-                Console.WriteLine($"خطای سرور [{(int)response.StatusCode}]:\\n{responseBody}");
+                Console.WriteLine($"Server error [{(int)response.StatusCode}]:\\n{responseBody}");
             }
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"خطای ارتباط شبکه: {ex.Message}");
+            Console.WriteLine($"Network connection error: {ex.Message}");
         }
     }
 }`,
@@ -408,20 +408,20 @@ func main() {
 	payload := MessageRequest{
 		DestinationNumber: "${props.mockDestination}",
 		Sender:            "+989121111111",
-		Body:              "کد تأیید ورود شما: ۱۲۳۴۵",
+		Body:              "Your verification code: 12345",
 		ClientMessageId:   "MSG-9876543210",
 		SourceSystemId:    "GATEWAY-TEHRAN",
 	}
 
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
-		fmt.Printf("خطا در سریال‌سازی داده: %v\\n", err)
+		fmt.Printf("Error serializing data: %v\\n", err)
 		return
 	}
 
 	req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Printf("خطا در ایجاد درخواست: %v\\n", err)
+		fmt.Printf("Error creating request: %v\\n", err)
 		return
 	}
 
@@ -432,18 +432,18 @@ func main() {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("خطای ارتباط با سرور: %v\\n", err)
+		fmt.Printf("Server connection error: %v\\n", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode == http.StatusCreated {
-		fmt.Printf("پیام با موفقیت ثبت شد: %s\\n", string(body))
+		fmt.Printf("Message registered successfully: %s\\n", string(body))
 	} else if resp.StatusCode == http.StatusOK {
-		fmt.Printf("پیام تکراری معتبر (Idempotent): %s\\n", string(body))
+		fmt.Printf("Valid idempotent message: %s\\n", string(body))
 	} else {
-		fmt.Printf("خطای وب‌سرویس [%d]: %s\\n", resp.StatusCode, string(body))
+		fmt.Printf("API error [%d]: %s\\n", resp.StatusCode, string(body))
 	}
 }`,
 
@@ -457,7 +457,7 @@ token = '${props.mockToken}'
 payload = {
   destination_number: '${props.mockDestination}',
   sender: '+989121111111',
-  body: 'کد تأیید ورود شما: ۱۲۳۴۵',
+  body: 'Your verification code: 12345',
   client_message_id: 'MSG-9876543210',
   source_system_id: 'GATEWAY-TEHRAN'
 }
@@ -475,14 +475,14 @@ begin
 
   case response.code.to_i
   when 201
-    puts "پیام با موفقیت در سامانه ثبت شد. شناسه: #{data.dig('data', 'id')}"
+    puts "Message registered successfully. ID: #{data.dig('data', 'id')}"
   when 200
-    puts "پیام تکراری قبلاً ثبت شده (Idempotent): #{data['message']}"
+    puts "Duplicate message previously recorded: #{data['message']}"
   else
-    puts "خطای وب‌سرویس (#{response.code}): #{data['message']}"
+    puts "API error (#{response.code}): #{data['message']}"
   end
 rescue StandardError => e
-  puts "خطای ارتباط شبکه: #{e.message}"
+  puts "Network connection error: #{e.message}"
 end`,
 
     powershell: `$apiUrl = "${props.baseUrl}/api/v1/messages"
@@ -496,7 +496,7 @@ $headers = @{
 $body = @{
     destination_number = "${props.mockDestination}"
     sender             = "+989121111111"
-    body               = "کد تأیید ورود شما: ۱۲۳۴۵"
+    body               = "Your verification code: 12345"
     client_message_id  = "MSG-9876543210"
     source_system_id   = "GATEWAY-TEHRAN"
 } | ConvertTo-Json -Compress
@@ -504,33 +504,33 @@ $body = @{
 try {
     $response = Invoke-RestMethod -Uri $apiUrl -Method Post -Headers $headers -Body $body -ContentType "application/json; charset=utf-8"
     if ($response.data.is_duplicate) {
-        Write-Host "پیام تکراری است (Idempotent): $($response.message)" -ForegroundColor Yellow
+        Write-Host "Duplicate message (Idempotent): $($response.message)" -ForegroundColor Yellow
     } else {
-        Write-Host "پیام با موفقیت در سامانه ثبت شد! شناسه: $($response.data.id)" -ForegroundColor Green
+        Write-Host "Message registered successfully! ID: $($response.data.id)" -ForegroundColor Green
     }
 } catch {
     $statusCode = $_.Exception.Response.StatusCode.value__
-    Write-Host "خطا در فراخوانی وب‌سرویس (کد $statusCode): $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "API call error (Code $statusCode): $($_.Exception.Message)" -ForegroundColor Red
 }`,
 }));
 </script>
 
 <template>
     <GuestLayout>
-        <Head title="مستندات جامع وب‌سرویس RESTful API" />
+        <Head :title="__('docs.page_title')" />
 
         <div class="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-12">
             <!-- Header Section with Rich Aesthetics -->
             <div class="text-center space-y-4 max-w-3xl mx-auto">
                 <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span>نسخه فعال وب‌سرویس: v1 • استاندارد RESTful</span>
+                    <span>{{ __('docs.active_version_badge') }}</span>
                 </div>
                 <h1 class="text-3xl sm:text-4xl font-black text-slate-900 dark:text-white tracking-tight">
-                    مستندات رسمی و راهنمای اتصال به API
+                    {{ __('docs.heading') }}
                 </h1>
                 <p class="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                    راهنمای یکپارچه‌سازی سامانه‌ها با گذرگاه ارتباطی سامانه مدیریت خطوط و ثبت پیام‌ها، همراه با قوانین اعتبارسنجی پیش‌شماره کامل و نمونه‌کدهای معتبر در ۱۱ زبان برنامه‌نویسی.
+                    {{ __('docs.subheading') }}
                 </p>
             </div>
 
@@ -546,12 +546,10 @@ try {
                     </div>
                     <div class="space-y-2">
                         <h2 class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>ماهیت عملیاتی وب‌سرویس ثبت پیام</span>
-                            <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">نکته حیاتی</span>
+                            <span>{{ __('docs.disclaimer_title') }}</span>
+                            <span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300">{{ __('docs.critical_badge') }}</span>
                         </h2>
-                        <p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium">
-                            این وب‌سرویس پیام‌های ورودی را <span class="font-bold underline decoration-amber-500 underline-offset-4">منحصراً در پایگاه داده داخلی سامانه ثبت و ذخیره می‌کند</span> و <span class="font-bold underline decoration-amber-500 underline-offset-4">به هیچ عنوان پیامک (SMS) مخابراتی واقعی به اپراتورها ارسال نمی‌کند</span>. کلیه پیام‌های ثبت‌شده در کارتابل و رابط کاربری پیامک کاربر و مدیر نمایش داده خواهند شد.
-                        </p>
+                        <p class="text-sm text-slate-700 dark:text-slate-200 leading-relaxed font-medium" v-html="__('docs.disclaimer_text')"></p>
                     </div>
                 </div>
             </div>
@@ -566,13 +564,13 @@ try {
                             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
                         </svg>
                     </div>
-                    <h3 class="font-bold text-slate-900 dark:text-white text-base">احراز هویت و محرمانگی کلید</h3>
+                    <h3 class="font-bold text-slate-900 dark:text-white text-base">{{ __('docs.principles.auth_title') }}</h3>
                     <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                        کلید دسترسی (API Token) صرفاً در پنل احراز هویت‌شده کاربر قابل صدور و مشاهده است. کلید در هدر درخواست به صورت <code class="font-mono text-indigo-600 dark:text-indigo-400 font-bold">Authorization: Bearer [TOKEN]</code> یا هدر اختصاصی <code class="font-mono text-indigo-600 dark:text-indigo-400">X-API-Key</code> ارسال می‌گردد.
+                        {{ __('docs.principles.auth_desc', { bearer: 'Authorization: Bearer [TOKEN]', header: 'X-API-Key' }) }}
                     </p>
                     <div class="pt-2">
                         <Link :href="route('login')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-1">
-                            <span>دریافت توکن در پنل کاربری</span>
+                            <span>{{ __('docs.principles.get_token_link') }}</span>
                             <span>←</span>
                         </Link>
                     </div>
@@ -585,9 +583,9 @@ try {
                             <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                         </svg>
                     </div>
-                    <h3 class="font-bold text-slate-900 dark:text-white text-base">پیش‌شماره کامل و کنترل مالکیت</h3>
+                    <h3 class="font-bold text-slate-900 dark:text-white text-base">{{ __('docs.principles.prefix_title') }}</h3>
                     <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                        شماره مقصد الزامی است و باید <span class="font-bold">همیشه با پیش‌شماره کامل سامانه</span> (مانند <code class="font-mono text-purple-600 dark:text-purple-400 font-bold">{{ defaultPrefix }}000010001</code>) ارسال شود. کاربر عادی فقط مجاز به ثبت پیام برای خطوط فعال حساب خود است و خطوط پلتفرم در اختیار ادمین است.
+                        {{ __('docs.principles.prefix_desc', { example: defaultPrefix + '000010001' }) }}
                     </p>
                 </div>
 
@@ -600,9 +598,9 @@ try {
                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                         </svg>
                     </div>
-                    <h3 class="font-bold text-slate-900 dark:text-white text-base">جلوگیری از پیام تکراری و سقف نرخ</h3>
+                    <h3 class="font-bold text-slate-900 dark:text-white text-base">{{ __('docs.principles.idempotency_title') }}</h3>
                     <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                        با ارسال <code class="font-mono text-emerald-600 dark:text-emerald-400">client_message_id</code>، سیستم با محدودیت دیتابیس از ثبت تکراری جلوگیری کرده و کد <code class="font-mono font-bold">200 OK</code> با فلگ <code class="font-mono">is_duplicate: true</code> برمی‌گرداند. سقف نرخ ۶۰ درخواست در دقیقه است.
+                        {{ __('docs.principles.idempotency_desc', { field: 'client_message_id', code: '200 OK', flag: 'is_duplicate: true' }) }}
                     </p>
                 </div>
             </div>
@@ -611,7 +609,7 @@ try {
             <div class="space-y-6">
                 <div class="flex items-center justify-between border-b border-slate-200 dark:border-white/10 pb-3">
                     <h2 class="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                        <span>متدهای وب‌سرویس</span>
+                        <span>{{ __('docs.api_reference_title') }}</span>
                         <span class="text-xs font-normal text-slate-500">API Reference</span>
                     </h2>
                     <div class="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
@@ -622,7 +620,7 @@ try {
                             :class="activeEndpoint === 'store' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-emerald-500 text-white px-1.5 py-0.5 rounded ml-1.5">POST</span>
-                            <span>ارسال و ثبت پیام (یکپارچه)</span>
+                            <span>{{ __('docs.endpoints.store_tab') }}</span>
                         </button>
                         <button
                             type="button"
@@ -631,7 +629,7 @@ try {
                             :class="activeEndpoint === 'list' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded ml-1.5">GET</span>
-                            <span>فهرست پیام‌ها</span>
+                            <span>{{ __('docs.endpoints.list_tab') }}</span>
                         </button>
                         <button
                             type="button"
@@ -640,7 +638,7 @@ try {
                             :class="activeEndpoint === 'poll' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded ml-1.5">GET</span>
-                            <span>استعلام سریع (Poll)</span>
+                            <span>{{ __('docs.endpoints.poll_tab') }}</span>
                         </button>
                         <button
                             type="button"
@@ -649,7 +647,7 @@ try {
                             :class="activeEndpoint === 'numbers' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded ml-1.5">GET</span>
-                            <span>فهرست خطوط</span>
+                            <span>{{ __('docs.endpoints.numbers_tab') }}</span>
                         </button>
                         <button
                             type="button"
@@ -658,7 +656,7 @@ try {
                             :class="activeEndpoint === 'ping' ? 'bg-indigo-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'"
                         >
                             <span class="font-mono uppercase font-black text-[10px] bg-blue-500 text-white px-1.5 py-0.5 rounded ml-1.5">GET</span>
-                            <span>تست توکن (Ping)</span>
+                            <span>{{ __('docs.endpoints.ping_tab') }}</span>
                         </button>
                     </div>
                 </div>
@@ -671,74 +669,74 @@ try {
                             <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/messages</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span class="glass-pill text-[11px] font-bold text-indigo-600 dark:text-indigo-400">مجوز لازم: messages:write یا messages:send</span>
-                            <span class="glass-pill text-[11px] font-bold text-emerald-600 dark:text-emerald-400">هزینه: رایگان (بدون کسر Coin)</span>
-                            <span class="glass-pill text-[11px] font-bold text-amber-600 dark:text-amber-400">سقف: ۶۰ در دقیقه</span>
+                            <span class="glass-pill text-[11px] font-bold text-indigo-600 dark:text-indigo-400">{{ __('docs.endpoints.perm_store') }}</span>
+                            <span class="glass-pill text-[11px] font-bold text-emerald-600 dark:text-emerald-400">{{ __('docs.endpoints.cost_free') }}</span>
+                            <span class="glass-pill text-[11px] font-bold text-amber-600 dark:text-amber-400">{{ __('docs.endpoints.rate_store') }}</span>
                         </div>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                        این وب‌سرویس جامع جهت <span class="font-bold">ارسال پیامک خروجی (تکی یا چندگانه/گروهی)</span> از خطوط سازمانی شما، و همچنین <span class="font-bold">دریافت و ثبت وب‌هوک پیامک‌های ورودی</span> در کارتابل سامانه با پشتیبانی کامل از Idempotency طراحی شده است.
+                        {{ __('docs.endpoints.desc_store') }}
                     </p>
 
                     <!-- Parameters Table -->
                     <div class="space-y-3">
-                        <h4 class="font-bold text-sm text-slate-900 dark:text-white">پارامترهای بدنه درخواست (JSON Body)</h4>
+                        <h4 class="font-bold text-sm text-slate-900 dark:text-white">{{ __('docs.endpoints.params_title') }}</h4>
                         <div class="overflow-x-auto rounded-xl border border-slate-200 dark:border-white/10">
                             <table class="w-full text-right text-xs">
                                 <thead class="bg-slate-50 dark:bg-slate-900/60 text-slate-600 dark:text-slate-400 font-bold border-b border-slate-200 dark:border-white/10">
                                     <tr>
-                                        <th class="p-3">نام فیلد</th>
-                                        <th class="p-3">نوع</th>
-                                        <th class="p-3">وضعیت</th>
-                                        <th class="p-3">توضیحات و قوانین</th>
+                                        <th class="p-3">{{ __('docs.endpoints.col_name') }}</th>
+                                        <th class="p-3">{{ __('docs.endpoints.col_type') }}</th>
+                                        <th class="p-3">{{ __('docs.endpoints.col_status') }}</th>
+                                        <th class="p-3">{{ __('docs.endpoints.col_desc') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-200/60 dark:divide-white/5">
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">destination_number / destinations</td>
                                         <td class="p-3 font-mono">string | array</td>
-                                        <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
+                                        <td class="p-3"><span class="text-rose-600 font-bold">{{ __('docs.endpoints.required') }}</span></td>
                                         <td class="p-3 leading-relaxed">
-                                            شماره مقصد (تکی یا آرایه‌ای از شماره‌ها جهت ارسال چندگانه/Bulk). شماره‌های شبکه GetNumber باید همراه با پیش‌شماره کامل سامانه ارسال شوند. فیلد <code class="font-mono">to</code> نیز به عنوان نام مستعار پشتیبانی می‌شود.
+                                            {{ __('docs.endpoints.param_destination_desc', { to: 'to' }) }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">sender / from_number</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
-                                        <td class="p-3">خط فرستنده پیام (در ارسال خروجی باید متعلق به کاربر باشد). فیلدهای <code class="font-mono">from</code> یا <code class="font-mono">from_number_id</code> نیز پشتیبانی می‌شوند.</td>
+                                        <td class="p-3"><span class="text-rose-600 font-bold">{{ __('docs.endpoints.required') }}</span></td>
+                                        <td class="p-3">{{ __('docs.endpoints.param_sender_desc', { from: 'from', from_id: 'from_number_id' }) }}</td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">body / message</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3"><span class="text-rose-600 font-bold">الزامی</span></td>
-                                        <td class="p-3">متن کامل پیام (حداکثر ۵۰۰۰ کاراکتر با پشتیبانی کامل از UTF-8 و متون فارسی).</td>
+                                        <td class="p-3"><span class="text-rose-600 font-bold">{{ __('docs.endpoints.required') }}</span></td>
+                                        <td class="p-3">{{ __('docs.endpoints.param_body_desc') }}</td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">direction</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3 text-slate-500">اختیاری</td>
-                                        <td class="p-3">جهت پیام: <code class="font-mono">outbound</code> (پیش‌فرض هنگام ارسال از خطوط اختصاص‌یافته) یا <code class="font-mono">inbound</code> (دریافت وب‌هوک).</td>
+                                        <td class="p-3 text-slate-500">{{ __('docs.endpoints.optional') }}</td>
+                                        <td class="p-3">{{ __('docs.endpoints.param_direction_desc', { outbound: 'outbound', inbound: 'inbound' }) }}</td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">client_message_id</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3 text-slate-500">اختیاری</td>
+                                        <td class="p-3 text-slate-500">{{ __('docs.endpoints.optional') }}</td>
                                         <td class="p-3 leading-relaxed">
-                                            شناسه یکتای پیام در سیستم فرستنده جهت تضمین Idempotency و ممانعت از ثبت تکراری پیام.
+                                            {{ __('docs.endpoints.param_client_msg_desc') }}
                                         </td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">source_system_id</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3 text-slate-500">اختیاری</td>
-                                        <td class="p-3">شناسه گیت‌وی یا سرور ارسال‌کننده (در صورت خالی بودن به توکن متصل می‌شود).</td>
+                                        <td class="p-3 text-slate-500">{{ __('docs.endpoints.optional') }}</td>
+                                        <td class="p-3">{{ __('docs.endpoints.param_source_system_desc') }}</td>
                                     </tr>
                                     <tr>
                                         <td class="p-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">source_time</td>
                                         <td class="p-3 font-mono">string</td>
-                                        <td class="p-3 text-slate-500">اختیاری</td>
-                                        <td class="p-3">زمان رخداد پیام در سرور مبدأ در قالب استاندارد ISO 8601.</td>
+                                        <td class="p-3 text-slate-500">{{ __('docs.endpoints.optional') }}</td>
+                                        <td class="p-3">{{ __('docs.endpoints.param_source_time_desc') }}</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -747,22 +745,22 @@ try {
 
                     <!-- Response Example -->
                     <div class="space-y-3">
-                        <h4 class="font-bold text-sm text-slate-900 dark:text-white">پاسخ‌های استاندارد وب‌سرویس</h4>
+                        <h4 class="font-bold text-sm text-slate-900 dark:text-white">{{ __('docs.endpoints.responses_title') }}</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- 201 Created -->
                             <div class="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 p-4 text-slate-200 text-xs font-mono space-y-2">
                                 <div class="flex items-center justify-between text-[11px] pb-1 border-b border-white/10 text-emerald-400 font-bold">
-                                    <span>201 Created (ثبت جدید)</span>
+                                    <span>{{ __('docs.endpoints.resp_201_title') }}</span>
                                 </div>
                                 <pre dir="ltr" class="overflow-x-auto text-[11px]">{
   "success": true,
-  "message": "پیام ورودی با موفقیت در سامانه ثبت گردید.",
+  "message": "Inbound message registered successfully.",
   "data": {
     "id": 482,
     "destination_number": "000010001",
     "destination_title": "{{ defaultPrefix }} 000010001",
     "sender": "+989121111111",
-    "body": "کد تأیید ورود شما: ۱۲۳۴۵",
+    "body": "Your verification code: 12345",
     "client_message_id": "MSG-9876543210",
     "source_system_id": "GATEWAY-TEHRAN",
     "processing_status": "received",
@@ -774,11 +772,11 @@ try {
                             <!-- 200 OK Duplicate -->
                             <div class="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 p-4 text-slate-200 text-xs font-mono space-y-2">
                                 <div class="flex items-center justify-between text-[11px] pb-1 border-b border-white/10 text-amber-400 font-bold">
-                                    <span>200 OK (درخواست تکراری / Idempotent)</span>
+                                    <span>{{ __('docs.endpoints.resp_200_title') }}</span>
                                 </div>
                                 <pre dir="ltr" class="overflow-x-auto text-[11px]">{
   "success": true,
-  "message": "پیام پیش‌تر در سامانه ثبت شده است (درخواست تکراری / Idempotent).",
+  "message": "Message previously recorded (Idempotent).",
   "data": {
     "id": 482,
     "destination_number": "000010001",
@@ -797,12 +795,12 @@ try {
                         <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/messages</span>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300">
-                        دریافت فهرست پیام‌های ورودی مرتبط با خطوط کاربر با صفحه‌بندی (Pagination) و فیلترهای جستجو، شماره مقصد و شماره فرستنده.
+                        {{ __('docs.endpoints.desc_list') }}
                     </p>
                     <div class="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-900 p-4 text-slate-200 text-xs font-mono">
                         <pre dir="ltr" class="overflow-x-auto text-[11px]">{
   "success": true,
-  "message": "فهرست پیام‌ها با موفقیت دریافت شد.",
+  "message": "Message list retrieved successfully.",
   "pagination": {
     "current_page": 1,
     "last_page": 3,
@@ -814,7 +812,7 @@ try {
       "id": 482,
       "destination_number": "000010001",
       "sender": "+989121111111",
-      "body": "کد تأیید ورود شما: ۱۲۳۴۵",
+      "body": "Your verification code: 12345",
       "server_received_at": "2026-10-24T20:10:00+03:30",
       "processing_status": "received"
     }
@@ -830,7 +828,7 @@ try {
                         <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/messages/poll?after_id=480</span>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300">
-                        متد اختصاصی Polling با سرعت بالا جهت دریافت بلادرنگ پیام‌های جدید رسیده بعد از یک شناسه مشخص (<code class="font-mono font-bold text-indigo-600 dark:text-indigo-400">after_id</code>).
+                        {{ __('docs.endpoints.desc_poll', { field: 'after_id' }) }}
                     </p>
                 </div>
 
@@ -841,7 +839,7 @@ try {
                         <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/numbers</span>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300">
-                        دریافت فهرست خطوط فعال اختصاص‌یافته به حساب کاربری دارنده کلید API همراه با شماره با پیش‌شماره کامل و برچسب خط.
+                        {{ __('docs.endpoints.desc_numbers') }}
                     </p>
                 </div>
 
@@ -852,7 +850,7 @@ try {
                         <span class="font-mono text-sm sm:text-base font-bold text-slate-900 dark:text-white" dir="ltr">/api/v1/ping</span>
                     </div>
                     <p class="text-sm text-slate-600 dark:text-slate-300">
-                        ساده‌ترین متد جهت بررسی صحت ارتباط شبکه، اعتبار کلید دسترسی (Token) و استعلام نقش کاربری.
+                        {{ __('docs.endpoints.desc_ping') }}
                     </p>
                 </div>
             </div>
@@ -862,10 +860,10 @@ try {
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-white/10 pb-4">
                     <div>
                         <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>نمونه‌کدهای آماده در ۱۱ زبان برنامه‌نویسی</span>
+                            <span>{{ __('docs.code_examples_title') }}</span>
                         </h2>
                         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                            نمونه‌های اجرایی مطابق با قرارداد واقعی وب‌سرویس، شامل توکن فرضی، ساختار درخواست، مدیریت پاسخ و خطاها.
+                            {{ __('docs.code_examples_desc') }}
                         </p>
                     </div>
 
@@ -911,7 +909,7 @@ try {
                             <svg v-else class="w-3.5 h-3.5 text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
-                            <span>{{ copiedKey === selectedLang ? 'کپی شد!' : 'کپی کد' }}</span>
+                            <span>{{ copiedKey === selectedLang ? __('docs.copied') : __('docs.copy_code') }}</span>
                         </button>
                     </div>
 
@@ -922,14 +920,14 @@ try {
 
             <!-- Error Handling Reference -->
             <div class="glass-card p-6 sm:p-8 rounded-2xl border border-slate-200/80 dark:border-white/10 space-y-4">
-                <h3 class="text-lg font-black text-slate-900 dark:text-white">کدهای وضعیت و ساختار خطاهای استاندارد</h3>
+                <h3 class="text-lg font-black text-slate-900 dark:text-white">{{ __('docs.errors_title') }}</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                     <div class="p-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 space-y-1.5">
                         <div class="flex items-center gap-2">
                             <span class="font-mono font-bold text-rose-600 dark:text-rose-400">401 Unauthorized</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            عدم ارسال کلید دسترسی در هدر یا نامعتبر بودن/انقضای توکن (<code class="font-mono">MISSING_API_TOKEN</code> / <code class="font-mono">INVALID_API_TOKEN</code>).
+                            {{ __('docs.errors.err_401_desc', { codes: 'MISSING_API_TOKEN / INVALID_API_TOKEN' }) }}
                         </p>
                     </div>
 
@@ -938,7 +936,7 @@ try {
                             <span class="font-mono font-bold text-amber-600 dark:text-amber-400">403 Forbidden</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            فقدان مجوز لازم در توکن، تلاش برای ثبت پیام روی خط کاربر دیگر یا خطوط اختصاصی پلتفرم (<code class="font-mono">FORBIDDEN</code>).
+                            {{ __('docs.errors.err_403_desc', { codes: 'FORBIDDEN' }) }}
                         </p>
                     </div>
 
@@ -947,7 +945,7 @@ try {
                             <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">422 Unprocessable</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            خطای اعتبارسنجی فیلدها مانند نبود پیش‌شماره کامل، طول نامعتبر شماره یا غیرفعال بودن دریافت پیامک روی خط (<code class="font-mono">VALIDATION_ERROR</code>).
+                            {{ __('docs.errors.err_422_desc', { codes: 'VALIDATION_ERROR' }) }}
                         </p>
                     </div>
 
@@ -956,7 +954,7 @@ try {
                             <span class="font-mono font-bold text-purple-600 dark:text-purple-400">429 Too Many Requests</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            تجاوز از سقف مجاز ۶۰ درخواست در دقیقه برای هر توکن یا نشانی IP کاربر (<code class="font-mono">RATE_LIMIT_EXCEEDED</code>).
+                            {{ __('docs.errors.err_429_desc', { codes: 'RATE_LIMIT_EXCEEDED' }) }}
                         </p>
                     </div>
 
@@ -965,7 +963,7 @@ try {
                             <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400">201 Created</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            پیام جدید با موفقیت و به صورت اتمیک در پایگاه داده سامانه ثبت شد و آماده مشاهده در کارتابل است.
+                            {{ __('docs.errors.err_201_desc') }}
                         </p>
                     </div>
 
@@ -974,7 +972,7 @@ try {
                             <span class="font-mono font-bold text-blue-600 dark:text-blue-400">200 OK (Idempotent)</span>
                         </div>
                         <p class="text-slate-600 dark:text-slate-400 leading-relaxed">
-                            درخواست با موفقیت پردازش شد و به دلیل تکراری بودن شناسه پیام، پیام پیشین بدون دوباره‌کاری بازگردانده شد.
+                            {{ __('docs.errors.err_200_desc') }}
                         </p>
                     </div>
                 </div>

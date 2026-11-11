@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -35,6 +36,8 @@ interface PaginationLink {
     label: string;
     active: boolean;
 }
+
+const { __ } = useTrans();
 
 const props = defineProps<{
     deposits: {
@@ -163,7 +166,7 @@ const submitManualReject = () => {
 </script>
 
 <template>
-    <Head title="مدیریت واریزی‌های کریپتو" />
+    <Head :title="__('admin.payments.head_title')" />
 
     <AdminLayout>
         <template #header>
@@ -171,10 +174,10 @@ const submitManualReject = () => {
                 <div>
                     <h1 class="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span>
-                        مدیریت درگاه‌های پرداخت و واریزی‌های ترون (TRX)
+                        {{ __('admin.payments.page_title') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        نظارت بر درگاه نوبیتکس، استعلام TX Hash از بلاکچین، تایید خودکار و شارژ کیف پول
+                        {{ __('admin.payments.page_desc') }}
                     </p>
                 </div>
 
@@ -187,7 +190,7 @@ const submitManualReject = () => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span>پیکربندی درگاه‌ها</span>
+                        <span>{{ __('admin.payments.configure_gateways') }}</span>
                     </Link>
                 </div>
             </div>
@@ -198,7 +201,7 @@ const submitManualReject = () => {
             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">مجموع ترون دریافتی</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">{{ __('admin.payments.total_trx') }}</span>
                         <div class="text-xl sm:text-2xl font-black font-mono text-emerald-500 dark:text-emerald-400 mt-1">
                             {{ stats.total_completed_trx }}
                             <span class="text-xs font-bold text-slate-400 mr-1">TRX</span>
@@ -211,7 +214,7 @@ const submitManualReject = () => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">کوین‌های شارژشده</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">{{ __('admin.payments.total_coins') }}</span>
                         <div class="text-xl sm:text-2xl font-black font-mono text-amber-500 dark:text-amber-400 mt-1">
                             {{ stats.total_completed_coins }}
                             <span class="text-xs font-bold text-slate-400 mr-1">COIN</span>
@@ -224,10 +227,10 @@ const submitManualReject = () => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">تراکنش‌های موفق</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">{{ __('admin.payments.successful_txs') }}</span>
                         <div class="text-xl sm:text-2xl font-black font-mono text-indigo-500 dark:text-indigo-400 mt-1">
                             {{ stats.completed_count }}
-                            <span class="text-xs font-bold text-slate-400 mr-1">مورد</span>
+                            <span class="text-xs font-bold text-slate-400 mr-1 rtl:ml-1 rtl:mr-0">{{ __('admin.payments.unit_tx') }}</span>
                         </div>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
@@ -239,10 +242,10 @@ const submitManualReject = () => {
 
                 <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">در صف بررسی و تأیید</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block font-medium">{{ __('admin.payments.pending_txs') }}</span>
                         <div class="text-xl sm:text-2xl font-black font-mono text-amber-500 mt-1">
                             {{ stats.pending_count }}
-                            <span class="text-xs font-bold text-slate-400 mr-1">درخواست</span>
+                            <span class="text-xs font-bold text-slate-400 mr-1 rtl:ml-1 rtl:mr-0">{{ __('admin.payments.unit_request') }}</span>
                         </div>
                     </div>
                     <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center font-bold">
@@ -259,7 +262,7 @@ const submitManualReject = () => {
                             v-model="search"
                             @keyup.enter="applyFilters"
                             type="text"
-                            placeholder="جستجو در کد رهگیری، TX Hash، آدرس یا کاربر..."
+                            :placeholder="__('admin.payments.search_placeholder')"
                             class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                         />
                     </div>
@@ -270,7 +273,7 @@ const submitManualReject = () => {
                             @change="applyFilters"
                             class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                         >
-                            <option value="">همه وضعیت‌ها</option>
+                            <option value="">{{ __('admin.payments.all_statuses') }}</option>
                             <option v-for="s in statuses" :key="s.value" :value="s.value">
                                 {{ s.label }}
                             </option>
@@ -283,7 +286,7 @@ const submitManualReject = () => {
                             @change="applyFilters"
                             class="w-full px-3.5 py-2 text-xs rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                         >
-                            <option value="">همه درگاه‌ها</option>
+                            <option value="">{{ __('admin.payments.all_gateways') }}</option>
                             <option v-for="g in gateways" :key="g.driver" :value="g.driver">
                                 {{ g.name }}
                             </option>
@@ -295,17 +298,13 @@ const submitManualReject = () => {
                             type="button"
                             @click="applyFilters"
                             class="flex-1 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md shadow-indigo-600/20"
-                        >
-                            فیلتر
-                        </button>
+                        >{{ __('admin.payments.filter') }}</button>
                         <button
                             v-if="search || selectedStatus || selectedGateway || selectedUserId"
                             type="button"
                             @click="resetFilters"
                             class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold transition-all"
-                        >
-                            پاک‌سازی
-                        </button>
+                        >{{ __('admin.payments.clear') }}</button>
                     </div>
                 </div>
             </div>
@@ -315,8 +314,8 @@ const submitManualReject = () => {
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <h2 class="text-sm font-extrabold text-slate-900 dark:text-white">درخواست‌های واریز ترون</h2>
-                        <span class="text-xs text-slate-400 font-mono">({{ deposits.total }} رکورد)</span>
+                        <h2 class="text-sm font-extrabold text-slate-900 dark:text-white">{{ __('admin.payments.deposits_heading') }}</h2>
+                        <span class="text-xs text-slate-400 font-mono">{{ __('admin.payments.records_count', { count: deposits.total }) }}</span>
                     </div>
                 </div>
 
@@ -324,15 +323,15 @@ const submitManualReject = () => {
                     <table class="w-full text-right text-xs">
                         <thead class="border-b border-slate-200 dark:border-slate-800 text-slate-400">
                             <tr>
-                                <th class="py-3 px-3 font-bold">شناسه / کد رهگیری</th>
-                                <th class="py-3 px-3 font-bold">کاربر</th>
-                                <th class="py-3 px-3 font-bold">درگاه / شبکه</th>
-                                <th class="py-3 px-3 font-bold">مبلغ (TRX)</th>
-                                <th class="py-3 px-3 font-bold">کوین معادل</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_id_tracking') }}</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_user') }}</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_gateway_network') }}</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_amount_trx') }}</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_equivalent_coins') }}</th>
                                 <th class="py-3 px-3 font-bold">TX Hash</th>
-                                <th class="py-3 px-3 font-bold">وضعیت</th>
-                                <th class="py-3 px-3 font-bold">تاریخ ثبت</th>
-                                <th class="py-3 px-3 font-bold text-center">عملیات</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_status') }}</th>
+                                <th class="py-3 px-3 font-bold">{{ __('admin.payments.th_created_at') }}</th>
+                                <th class="py-3 px-3 font-bold text-center">{{ __('admin.payments.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
@@ -371,7 +370,7 @@ const submitManualReject = () => {
                                     <span v-if="d.tx_hash" dir="ltr" class="font-mono text-[10px] select-all text-slate-600 dark:text-slate-300 inline-block text-left" :title="d.tx_hash">
                                         {{ d.tx_hash.substring(0, 10) }}...{{ d.tx_hash.substring(d.tx_hash.length - 8) }}
                                     </span>
-                                    <span v-else class="text-[10px] text-slate-400 italic">ثبت‌نشده</span>
+                                    <span v-else class="text-[10px] text-slate-400 italic">{{ __('admin.payments.not_registered') }}</span>
                                 </td>
                                 <td class="py-3 px-3">
                                     <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold border" :class="d.status_badge">
@@ -388,7 +387,7 @@ const submitManualReject = () => {
                                             @click="verifyDeposit(d)"
                                             :disabled="isVerifying === d.id"
                                             class="p-1.5 rounded-lg bg-blue-500/15 hover:bg-blue-500/25 text-blue-500 transition-all disabled:opacity-50 cursor-pointer"
-                                            title="استعلام مجدد از شبکه"
+                                            :title="__('admin.payments.recheck_network')"
                                         >
                                             <svg class="w-3.5 h-3.5" :class="{ 'animate-spin': isVerifying === d.id }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -401,10 +400,8 @@ const submitManualReject = () => {
                                             type="button"
                                             @click="openManualModal(d)"
                                             class="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold border border-emerald-500/30 transition-all cursor-pointer"
-                                            title="تأیید دستی"
-                                        >
-                                            تأیید
-                                        </button>
+                                            :title="__('admin.payments.manual_approve_tooltip')"
+                                        >{{ __('admin.payments.approve_btn') }}</button>
 
                                         <!-- Manual Reject Button if not completed and not failed -->
                                         <button
@@ -412,16 +409,14 @@ const submitManualReject = () => {
                                             type="button"
                                             @click="openRejectModal(d)"
                                             class="px-2 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 text-[10px] font-bold border border-rose-500/30 transition-all cursor-pointer"
-                                            title="رد دستی تراکنش (فیک / نامعتبر)"
-                                        >
-                                            رد
-                                        </button>
+                                            :title="__('admin.payments.manual_reject_tooltip')"
+                                        >{{ __('admin.payments.reject_btn') }}</button>
 
                                         <!-- Inspect Link -->
                                         <Link
                                             :href="route('admin.payments.show', d.id)"
                                             class="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all"
-                                            title="مشاهده جزئیات کامل"
+                                            :title="__('admin.payments.view_details_tooltip')"
                                         >
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -434,7 +429,7 @@ const submitManualReject = () => {
 
                             <tr v-if="deposits.data.length === 0">
                                 <td colspan="9" class="py-8 text-center text-slate-400">
-                                    تراکنشی با این مشخصات یافت نشد.
+                                    {{ __('admin.payments.no_transactions_found') }}
                                 </td>
                             </tr>
                         </tbody>
@@ -470,7 +465,7 @@ const submitManualReject = () => {
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                            تأیید دستی تراکنش و شارژ کیف پول
+                            {{ __('admin.payments.modal_approve_title') }}
                         </h3>
                         <button type="button" @click="closeManualModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                             ✕
@@ -479,15 +474,15 @@ const submitManualReject = () => {
 
                     <div v-if="depositToApprove" class="my-4 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-1">
                         <div class="flex justify-between">
-                            <span class="text-slate-500">کد رهگیری:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_tracking_code') }}</span>
                             <span class="font-mono font-bold text-indigo-400">{{ depositToApprove.tracking_code }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">کاربر:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_user') }}</span>
                             <span class="font-bold text-slate-900 dark:text-white">{{ depositToApprove.user.name }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">مبلغ شارژ:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_amount') }}</span>
                             <span class="font-mono font-bold text-amber-500">{{ depositToApprove.coin_amount }} COIN ({{ depositToApprove.requested_amount }} TRX)</span>
                         </div>
                     </div>
@@ -495,25 +490,25 @@ const submitManualReject = () => {
                     <form @submit.prevent="submitManualApproval" class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                شناسه تراکنش بلاکچین (TX Hash)
+                                {{ __('admin.payments.label_tx_hash') }}
                             </label>
                             <input
                                 v-model="manualForm.tx_hash"
                                 type="text"
-                                placeholder="در صورت وجود TX Hash وارد نمایید..."
+                                :placeholder="__('admin.payments.placeholder_tx_hash')"
                                 class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
                             />
                         </div>
 
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                دلیل تأیید دستی (اجباری جهت لاگ امنیتی) <span class="text-rose-500">*</span>
+                                {{ __('admin.payments.label_approve_reason') }} <span class="text-rose-500">*</span>
                             </label>
                             <textarea
                                 v-model="manualForm.reason"
                                 rows="3"
                                 required
-                                placeholder="دلیل تأیید دستی و تطبیق تراکنش را شرح دهید..."
+                                :placeholder="__('admin.payments.placeholder_approve_reason')"
                                 class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none text-slate-900 dark:text-white"
                             ></textarea>
                             <p v-if="manualForm.errors.reason" class="text-rose-500 text-[11px] mt-1">{{ manualForm.errors.reason }}</p>
@@ -524,16 +519,14 @@ const submitManualReject = () => {
                                 type="button"
                                 @click="closeManualModal"
                                 class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('admin.payments.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="manualForm.processing"
                                 class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-all cursor-pointer"
                             >
-                                <span v-if="manualForm.processing">در حال اعمال...</span>
-                                <span v-else>تأیید و شارژ کیف پول کاربر</span>
+                                <span v-if="manualForm.processing">{{ __('admin.payments.applying') }}</span>
+                                <span v-else>{{ __('admin.payments.confirm_approve_submit') }}</span>
                             </button>
                         </div>
                     </form>
@@ -550,7 +543,7 @@ const submitManualReject = () => {
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h3 class="text-sm font-black text-rose-500 flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                            رد دستی تراکنش (فیک / نامعتبر)
+                            {{ __('admin.payments.modal_reject_title') }}
                         </h3>
                         <button type="button" @click="closeRejectModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
                             ✕
@@ -559,15 +552,15 @@ const submitManualReject = () => {
 
                     <div v-if="depositToReject" class="my-4 p-3 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-xs space-y-1">
                         <div class="flex justify-between">
-                            <span class="text-slate-500">کد رهگیری:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_tracking_code') }}</span>
                             <span class="font-mono font-bold text-indigo-400">{{ depositToReject.tracking_code }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">کاربر:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_user') }}</span>
                             <span class="font-bold text-slate-900 dark:text-white">{{ depositToReject.user.name }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-500">مبلغ درخواست:</span>
+                            <span class="text-slate-500">{{ __('admin.payments.label_req_amount') }}</span>
                             <span class="font-mono font-bold text-slate-700 dark:text-slate-300">{{ depositToReject.requested_amount }} TRX</span>
                         </div>
                     </div>
@@ -575,13 +568,13 @@ const submitManualReject = () => {
                     <form @submit.prevent="submitManualReject" class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                دلیل رد تراکنش (اجباری جهت لاگ امنیتی و نمایش به کاربر) <span class="text-rose-500">*</span>
+                                {{ __('admin.payments.label_reject_reason') }} <span class="text-rose-500">*</span>
                             </label>
                             <textarea
                                 v-model="rejectForm.reason"
                                 rows="3"
                                 required
-                                placeholder="مثلاً: هش تراکنش فیک است، واریزی در بلاکچین یا صرافی نوبیتکس ثبت نشده است..."
+                                :placeholder="__('admin.payments.placeholder_reject_reason')"
                                 class="w-full px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs focus:border-rose-500 focus:ring-1 focus:ring-rose-500 outline-none resize-none text-slate-900 dark:text-white"
                             ></textarea>
                             <p v-if="rejectForm.errors.reason" class="text-rose-500 text-[11px] mt-1">{{ rejectForm.errors.reason }}</p>
@@ -592,16 +585,14 @@ const submitManualReject = () => {
                                 type="button"
                                 @click="closeRejectModal"
                                 class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('admin.payments.cancel') }}</button>
                             <button
                                 type="submit"
                                 :disabled="rejectForm.processing"
                                 class="px-5 py-2 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 shadow-md shadow-rose-600/20 disabled:opacity-50 transition-all cursor-pointer"
                             >
-                                <span v-if="rejectForm.processing">در حال اعمال...</span>
-                                <span v-else>رد قطعی تراکنش</span>
+                                <span v-if="rejectForm.processing">{{ __('admin.payments.applying') }}</span>
+                                <span v-else>{{ __('admin.payments.confirm_reject_submit') }}</span>
                             </button>
                         </div>
                     </form>

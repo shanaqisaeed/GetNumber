@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 
@@ -33,7 +34,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="تنظیمات شیوه‌های احراز هویت" />
+    <Head :title="__('admin.settings.head_title_auth')" />
 
     <AdminLayout>
         <template #header>
@@ -44,8 +45,8 @@ const submit = () => {
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-base font-black text-slate-900 dark:text-white">روش‌های احراز هویت و ورود</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مدیریت اتصال و روشن/خاموش کردن درگاه‌های ورود و ثبت‌نام سامانه</p>
+                    <h1 class="text-base font-black text-slate-900 dark:text-white">{{ __('admin.settings.auth_page_title') }}</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.auth_page_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -58,9 +59,9 @@ const submit = () => {
                         <div>
                             <h2 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                                ثبت‌نام مستقیم کاربران (Self Registration)
+                                {{ __('admin.settings.self_registration_title') }}
                             </h2>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">اجازه ایجاد حساب کاربری جدید به عموم متقاضیان از طریق صفحه ثبت‌نام</p>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.self_registration_desc') }}</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" v-model="form.allow_user_registration" class="sr-only peer">
@@ -72,8 +73,8 @@ const submit = () => {
                 <!-- Auth Providers List Card -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
                     <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <h2 class="text-sm font-black text-slate-900 dark:text-white">درگاه‌های ورود مجاز سامانه</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">در صورت غیرفعال‌سازی هر درگاه، فیلدها و دکمه مربوطه در صفحه ورود مخفی خواهند شد</p>
+                        <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.allowed_gateways_heading') }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.allowed_gateways_desc') }}</p>
                         <InputError class="mt-2" :message="form.errors.auth_username_enabled" />
                     </div>
 
@@ -87,8 +88,8 @@ const submit = () => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">ورود با نام کاربری و گذرواژه</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">روش سنتی احراز هویت با شناسه کاربری یکتا و هش محلی</p>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.login_username_title') }}</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.login_username_desc') }}</p>
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -106,8 +107,8 @@ const submit = () => {
                                     </svg>
                                 </div>
                                 <div>
-                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">ورود با پست الکترونیک (ایمیل) و گذرواژه</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">امکان ورود کاربران با استفاده از آدرس ایمیل تایید شده و گذرواژه</p>
+                                    <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.login_email_title') }}</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.login_email_desc') }}</p>
                                 </div>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer shrink-0">
@@ -126,12 +127,12 @@ const submit = () => {
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">ورود با سامانه سازمانی LDAP / Active Directory</h3>
-                                        <span v-if="!ldapConfigured" class="text-[10px] text-amber-500 font-bold px-1.5 py-0.2 rounded bg-amber-500/10">پیکربندی نشده</span>
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.auth_ldap_title') }}</h3>
+                                        <span v-if="!ldapConfigured" class="text-[10px] text-amber-500 font-bold px-1.5 py-0.2 rounded bg-amber-500/10">{{ __('admin.settings.not_configured_badge') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">اتصال زنده به دایرکتوری سازمانی سازمان جهت احراز هویت پرسنلی</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.auth_ldap_desc') }}</p>
                                     <Link :href="route('admin.settings.ldap')" class="inline-flex items-center gap-1 text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline mt-1">
-                                        <span>پیکربندی و تست سرور LDAP</span>
+                                        <span>{{ __('admin.settings.configure_and_test_ldap') }}</span>
                                         <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                         </svg>
@@ -154,12 +155,12 @@ const submit = () => {
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
-                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">ورود یکپارچه Keycloak SSO (OpenID Connect)</h3>
-                                        <span v-if="!keycloakConfigured" class="text-[10px] text-amber-500 font-bold px-1.5 py-0.2 rounded bg-amber-500/10">پیکربندی نشده</span>
+                                        <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.auth_keycloak_title') }}</h3>
+                                        <span v-if="!keycloakConfigured" class="text-[10px] text-amber-500 font-bold px-1.5 py-0.2 rounded bg-amber-500/10">{{ __('admin.settings.not_configured_badge') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">ورود متمرکز سازمانی از طریق سرور مدیریت هویت و دسترسی Keycloak</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.auth_keycloak_desc') }}</p>
                                     <Link :href="route('admin.settings.keycloak')" class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline mt-1">
-                                        <span>پیکربندی و تست سرور Keycloak</span>
+                                        <span>{{ __('admin.settings.configure_and_test_keycloak') }}</span>
                                         <svg class="w-3.5 h-3.5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                         </svg>
@@ -181,12 +182,12 @@ const submit = () => {
                         :disabled="form.processing"
                         class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-xs shadow-md shadow-indigo-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                        <span v-if="form.processing">در حال ذخیره‌سازی...</span>
+                        <span v-if="form.processing">{{ __('admin.settings.saving') }}</span>
                         <template v-else>
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>ذخیره وضعیت درگاه‌های ورود</span>
+                            <span>{{ __('admin.settings.save_gateways_status') }}</span>
                         </template>
                     </button>
                 </div>

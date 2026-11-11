@@ -2,6 +2,7 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 
 interface UserSummary {
     id: number;
@@ -323,14 +324,14 @@ const submitEdit = () => {
 
 // Delete Action
 const handleDelete = (item: PhoneNumberItem) => {
-    if (confirm(`آیا از حذف دائم خط سازمانی ${item.formatted_number} اطمینان دارید؟ این اقدام غیرقابل بازگشت است.`)) {
+    if (confirm(__('admin.numbers.confirm_delete', { number: item.formatted_number }))) {
         router.delete(route('admin.numbers.destroy', item.id));
     }
 };
 
 // Release Action
 const handleRelease = (item: PhoneNumberItem) => {
-    if (confirm(`آیا از آزادسازی خط سازمانی ${item.formatted_number} و بازگردانی آن به استخر شماره‌ها اطمینان دارید؟`)) {
+    if (confirm(__('admin.numbers.confirm_release', { number: item.formatted_number }))) {
         router.post(route('admin.numbers.release', item.id));
     }
 };
@@ -365,6 +366,7 @@ const submitStatus = () => {
 };
 
 // Copy state
+const { __ } = useTrans();
 const copiedId = ref<number | null>(null);
 const copyNumber = (item: PhoneNumberItem) => {
     navigator.clipboard.writeText(item.formatted_number);
@@ -389,11 +391,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 </script>
 
 <template>
-    <Head title="مدیریت کلان خطوط و سرشماره‌ها" />
+    <Head :title="__('admin.numbers.head_title')" />
 
     <AdminLayout>
         <template #header>
-            <h1 class="text-base font-bold text-slate-900 dark:text-white">مدیریت خطوط سازمانی</h1>
+            <h1 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.numbers.header_title') }}</h1>
         </template>
 
         <!-- Page Header & Action Bar (Buttons relocated from header to page body) -->
@@ -401,10 +403,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <div>
                 <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                     <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
-                    مدیریت خطوط سازمانی و استخر شماره‌ها
+                    {{ __('admin.numbers.page_title') }}
                 </h1>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    نظارت بر خطوط ارتباطی، تخصیص شماره‌ها به کاربران و تنظیم وضعیت
+                    {{ __('admin.numbers.page_desc') }}
                 </p>
             </div>
 
@@ -416,7 +418,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                     </svg>
-                    <span>تولید دسته‌ای شماره آزاد</span>
+                    <span>{{ __('admin.numbers.batch_btn') }}</span>
                 </button>
 
                 <button
@@ -426,7 +428,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>ثبت شماره جدید</span>
+                    <span>{{ __('admin.numbers.single_btn') }}</span>
                 </button>
             </div>
         </div>
@@ -436,22 +438,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <!-- System Stats Cards -->
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm">
-                <span class="text-xs text-slate-400 font-bold block mb-1">مجموع کل خطوط سامانه</span>
+                <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.numbers.total_lines') }}</span>
                 <span dir="ltr" class="text-2xl font-black font-mono text-slate-900 dark:text-white block text-right">{{ stats.total }}</span>
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm">
-                <span class="text-xs text-slate-400 font-bold block mb-1">خطوط تخصیص‌یافته به کاربران</span>
+                <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.numbers.allocated_lines') }}</span>
                 <span dir="ltr" class="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400 block text-right">{{ stats.allocated }}</span>
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm">
-                <span class="text-xs text-slate-400 font-bold block mb-1">خطوط آزاد و آماده تخصیص</span>
+                <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.numbers.free_lines') }}</span>
                 <span dir="ltr" class="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 block text-right">{{ stats.available }}</span>
             </div>
 
             <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm">
-                <span class="text-xs text-slate-400 font-bold block mb-1">خطوط تعلیق‌شده</span>
+                <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.numbers.suspended_lines') }}</span>
                 <span dir="ltr" class="text-2xl font-black font-mono text-rose-600 dark:text-rose-400 block text-right">{{ stats.suspended }}</span>
             </div>
         </div>
@@ -465,7 +467,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         type="text"
                         v-model="search"
                         @keyup.enter="handleFilter"
-                        placeholder="جستجو در شماره، شناسه، عنوان یا نام کاربر..."
+                        :placeholder="__('admin.numbers.search_placeholder')"
                         class="w-full pr-10 pl-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 placeholder:text-slate-400"
                     />
                     <svg class="w-4 h-4 text-slate-400 absolute right-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -480,10 +482,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
-                        <option value="">همه انواع خطوط</option>
-                        <option value="user_standard">اعتباری (۹ رقمی)</option>
-                        <option value="user_service">تجاری (۴ تا ۸ رقمی)</option>
-                        <option value="platform_service">تجاری سامانه</option>
+                        <option value="">{{ __('admin.numbers.all_types') }}</option>
+                        <option value="user_standard">{{ __('admin.numbers.type_user_standard') }}</option>
+                        <option value="user_service">{{ __('admin.numbers.type_user_service') }}</option>
+                        <option value="platform_service">{{ __('admin.numbers.type_platform_service') }}</option>
                     </select>
                 </div>
 
@@ -494,12 +496,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
-                        <option value="">همه وضعیت‌ها</option>
-                        <option value="available">آزاد در استخر</option>
-                        <option value="allocated">تخصیص‌یافته به کاربر</option>
-                        <option value="reserved">رزروشده</option>
-                        <option value="suspended">تعلیق‌شده</option>
-                        <option value="inactive">غیرفعال</option>
+                        <option value="">{{ __('admin.numbers.all_statuses') }}</option>
+                        <option value="available">{{ __('admin.numbers.status_available') }}</option>
+                        <option value="allocated">{{ __('admin.numbers.status_allocated') }}</option>
+                        <option value="reserved">{{ __('admin.numbers.status_reserved') }}</option>
+                        <option value="suspended">{{ __('admin.numbers.status_suspended') }}</option>
+                        <option value="inactive">{{ __('admin.numbers.status_inactive') }}</option>
                     </select>
                 </div>
 
@@ -510,13 +512,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
-                        <option value="">همه ارقام (طول)</option>
-                        <option value="4">۴ رقمی</option>
-                        <option value="5">۵ رقمی</option>
-                        <option value="6">۶ رقمی</option>
-                        <option value="7">۷ رقمی</option>
-                        <option value="8">۸ رقمی</option>
-                        <option value="9">۹ رقمی</option>
+                        <option value="">{{ __('admin.numbers.all_lengths') }}</option>
+                        <option value="4">{{ __('admin.numbers.digits_count', { count: 4 }) }}</option>
+                        <option value="5">{{ __('admin.numbers.digits_count', { count: 5 }) }}</option>
+                        <option value="6">{{ __('admin.numbers.digits_count', { count: 6 }) }}</option>
+                        <option value="7">{{ __('admin.numbers.digits_count', { count: 7 }) }}</option>
+                        <option value="8">{{ __('admin.numbers.digits_count', { count: 8 }) }}</option>
+                        <option value="9">{{ __('admin.numbers.digits_count', { count: 9 }) }}</option>
                     </select>
                 </div>
 
@@ -527,7 +529,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         @change="handleFilter"
                         class="form-select w-full py-2.5 px-3 text-xs rounded-xl"
                     >
-                        <option value="">همه کاربران</option>
+                        <option value="">{{ __('admin.numbers.all_users') }}</option>
                         <option v-for="u in users" :key="u.id" :value="String(u.id)">
                             {{ u.name }} (@{{ u.username }})
                         </option>
@@ -538,17 +540,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <!-- Sort and Action Row -->
             <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                 <div class="flex items-center gap-2">
-                    <span class="text-xs text-slate-400 font-bold">مرتب‌سازی:</span>
+                    <span class="text-xs text-slate-400 font-bold">{{ __('admin.numbers.sort_label') }}</span>
                     <select
                         v-model="sortFilter"
                         @change="handleFilter"
                         class="form-select py-1.5 px-3 text-xs rounded-xl"
                     >
-                        <option value="newest">جدیدترین شماره‌ها</option>
-                        <option value="oldest">قدیمی‌ترین شماره‌ها</option>
-                        <option value="number_asc">ترتیب ارقام (صعودی)</option>
-                        <option value="number_desc">ترتیب ارقام (نزولی)</option>
-                        <option value="allocated_at">تاریخ آخرین تخصیص</option>
+                        <option value="newest">{{ __('admin.numbers.sort_newest') }}</option>
+                        <option value="oldest">{{ __('admin.numbers.sort_oldest') }}</option>
+                        <option value="number_asc">{{ __('admin.numbers.sort_number_asc') }}</option>
+                        <option value="number_desc">{{ __('admin.numbers.sort_number_desc') }}</option>
+                        <option value="allocated_at">{{ __('admin.numbers.sort_allocated_at') }}</option>
                     </select>
                 </div>
 
@@ -556,16 +558,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <button
                         @click="handleFilter"
                         class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors cursor-pointer"
-                    >
-                        اعمال فیلترها
-                    </button>
+                    >{{ __('admin.numbers.apply_filters') }}</button>
                     <button
                         v-if="search || typeFilter || statusFilter || userIdFilter || lengthFilter || sortFilter !== 'newest'"
                         @click="clearFilter"
                         class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-600 dark:text-slate-300 hover:text-rose-600 text-xs font-bold transition-colors cursor-pointer"
-                    >
-                        حذف فیلترها
-                    </button>
+                    >{{ __('admin.numbers.clear_filters') }}</button>
                 </div>
             </div>
         </div>
@@ -576,14 +574,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <table class="w-full text-right text-xs">
                     <thead class="bg-slate-50/80 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800/80 text-slate-500 dark:text-slate-400 font-bold">
                         <tr>
-                            <th class="py-3.5 px-5">شماره سازمانی</th>
-                            <th class="py-3.5 px-5">عنوان نمایشی خط</th>
-                            <th class="py-3.5 px-5">نوع خط</th>
-                            <th class="py-3.5 px-5">کاربر تخصیص‌یافته</th>
-                            <th class="py-3.5 px-5">دریافت پیامک</th>
-                            <th class="py-3.5 px-5">وضعیت</th>
-                            <th class="py-3.5 px-5">تاریخ تخصیص</th>
-                            <th class="py-3.5 px-5 text-left">عملیات مدیریت</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_number') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_title') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_type') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_user') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_incoming_sms') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_status') }}</th>
+                            <th class="py-3.5 px-5">{{ __('admin.numbers.th_allocated_at') }}</th>
+                            <th class="py-3.5 px-5 text-left rtl:text-right">{{ __('admin.numbers.th_actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -601,21 +599,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <span
                                         v-if="item.rond_tier === 'golden_rond'"
                                         class="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 whitespace-nowrap"
-                                        :title="item.rond_pattern || 'رند طلایی'"
-                                    >
-                                        طلایی
-                                    </span>
+                                        :title="item.rond_pattern || __('admin.numbers.golden_rond')"
+                                    >{{ __('admin.numbers.golden_rond') }}</span>
                                     <span
                                         v-else-if="item.rond_tier === 'semi_rond'"
                                         class="px-1.5 py-0.5 rounded-md text-[10px] font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 whitespace-nowrap"
-                                        :title="item.rond_pattern || 'نیمه‌رند'"
-                                    >
-                                        نیمه‌رند
-                                    </span>
+                                        :title="item.rond_pattern || __('admin.numbers.semi_rond')"
+                                    >{{ __('admin.numbers.semi_rond') }}</span>
                                     <button
                                         @click="copyNumber(item)"
                                         class="text-slate-400 hover:text-indigo-600 p-1 transition-colors cursor-pointer"
-                                        :title="copiedId === item.id ? 'در حافظه کپی شد' : 'کپی شماره'"
+                                        :title="copiedId === item.id ? __('admin.numbers.copied') : __('admin.numbers.copy_number')"
                                     >
                                         <svg v-if="copiedId === item.id" class="w-3.5 h-3.5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -632,7 +626,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <div v-if="item.display_title" class="font-bold text-slate-900 dark:text-white max-w-xs truncate" :title="item.display_title">
                                     {{ item.display_title }}
                                 </div>
-                                <span v-else class="text-slate-400 dark:text-slate-500 italic text-[11px]">بدون عنوان</span>
+                                <span v-else class="text-slate-400 dark:text-slate-500 italic text-[11px]">{{ __('admin.numbers.no_title') }}</span>
                             </td>
 
                             <td class="py-3.5 px-5">
@@ -647,7 +641,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <span class="font-bold text-slate-900 dark:text-white">{{ item.user.name }}</span>
                                     <span dir="ltr" class="text-[10px] font-mono text-slate-400">@{{ item.user.username }}</span>
                                 </div>
-                                <span v-else class="text-slate-400 italic">بدون انتساب (آزاد)</span>
+                                <span v-else class="text-slate-400 italic">{{ __('admin.numbers.unassigned') }}</span>
                             </td>
 
                             <!-- Incoming SMS Reception Capability -->
@@ -659,7 +653,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800'"
                                 >
                                     <span class="w-1.5 h-1.5 rounded-full" :class="item.accepts_incoming_sms ? 'bg-emerald-500' : 'bg-amber-500'"></span>
-                                    {{ item.accepts_incoming_sms ? 'دریافت فعال (دوطرفه)' : 'فقط ارسال (یک‌طرفه)' }}
+                                    {{ item.accepts_incoming_sms ? __('admin.numbers.incoming_sms_active') : __('admin.numbers.incoming_sms_inactive') }}
                                 </span>
                             </td>
 
@@ -679,42 +673,34 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <button
                                         @click="openEditModal(item)"
                                         class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
-                                        title="ویرایش مشخصات خط"
-                                    >
-                                        ویرایش
-                                    </button>
+                                        :title="__('admin.numbers.edit_tooltip')"
+                                    >{{ __('admin.numbers.edit_btn') }}</button>
 
                                     <!-- Assign button (if available) -->
                                     <button
                                         v-if="item.status === 'available'"
                                         @click="openAssignModal(item)"
                                         class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                                    >
-                                        تخصیص
-                                    </button>
+                                    >{{ __('admin.numbers.assign_btn') }}</button>
 
                                     <!-- Release button (if allocated) -->
                                     <button
                                         v-if="item.status === 'allocated'"
                                         @click="handleRelease(item)"
                                         class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
-                                    >
-                                        آزادسازی
-                                    </button>
+                                    >{{ __('admin.numbers.release_btn') }}</button>
 
                                     <!-- Status button -->
                                     <button
                                         @click="openStatusModal(item)"
                                         class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                                    >
-                                        وضعیت
-                                    </button>
+                                    >{{ __('admin.numbers.status_btn') }}</button>
 
                                     <!-- Delete button -->
                                     <button
                                         @click="handleDelete(item)"
                                         class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                                        title="حذف کامل خط"
+                                        :title="__('admin.numbers.delete_tooltip')"
                                     >
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -726,7 +712,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                         <tr v-if="numbers.data.length === 0">
                             <td colspan="8" class="py-10 text-center text-slate-400">
-                                هیچ شماره‌ای با معیارهای انتخابی یافت نگردید.
+                                {{ __('admin.numbers.no_numbers_found') }}
                             </td>
                         </tr>
                     </tbody>
@@ -738,7 +724,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div v-if="isBatchModalOpen" @click.self="closeBatchModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تولید دسته‌ای شماره‌های آزاد</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.numbers.batch_modal_title') }}</h3>
                     <button @click="closeBatchModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
@@ -746,7 +732,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Count Input -->
                     <div>
                         <label class="form-label mb-1.5">
-                            تعداد خطوط جهت تولید (حداکثر ۱۰۰ شماره در هر نوبت)
+                            {{ __('admin.numbers.batch_count_label') }}
                         </label>
                         <input
                             type="number"
@@ -762,19 +748,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Digits Length Input (As requested: length entered manually) -->
                     <div>
                         <label class="form-label mb-1.5">
-                            طول ارقام شماره (تعداد ارقام عددی، مثلاً ۹ یا ۶ یا ۴)
+                            {{ __('admin.numbers.batch_length_label') }}
                         </label>
                         <input
                             type="number"
                             v-model="batchForm.digits"
                             min="4"
                             max="11"
-                            placeholder="مثال: ۹"
+                            :placeholder="__('admin.numbers.batch_length_placeholder')"
                             class="form-input w-full font-mono"
                             required
                         />
                         <p class="text-[11px] text-slate-400 mt-1">
-                            شماره‌های تولیدشده دقیقاً با این تعداد رقم و با حفظ قطعی صفرهای ابتدایی ایجاد می‌گردند.
+                            {{ __('admin.numbers.batch_length_help') }}
                         </p>
                         <p v-if="batchForm.errors.digits" class="text-rose-500 text-[11px] mt-1">{{ batchForm.errors.digits }}</p>
                     </div>
@@ -782,15 +768,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Type Selection -->
                     <div>
                         <label class="form-label mb-1.5">
-                            نوع خطوط سازمانی
+                            {{ __('admin.numbers.batch_type_label') }}
                         </label>
                         <select
                             v-model="batchForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره‌های اعتباری</option>
-                            <option value="user_service">خطوط تجاری</option>
-                            <option value="platform_service">خطوط تجاری سامانه</option>
+                            <option value="user_standard">{{ __('admin.numbers.type_user_standard') }}</option>
+                            <option value="user_service">{{ __('admin.numbers.type_user_service') }}</option>
+                            <option value="platform_service">{{ __('admin.numbers.type_platform_service') }}</option>
                         </select>
                     </div>
 
@@ -799,9 +785,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeBatchModal"
                             class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="batchForm.processing"
@@ -811,7 +795,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ batchForm.processing ? 'در حال تولید...' : 'تولید و ثبت در استخر' }}</span>
+                            <span>{{ batchForm.processing ? __('admin.numbers.batch_submitting') : __('admin.numbers.batch_submit') }}</span>
                         </button>
                     </div>
                 </form>
@@ -822,19 +806,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div v-if="isSingleModalOpen" @click.self="closeSingleModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت دستی شماره جدید</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.numbers.single_modal_title') }}</h3>
                     <button @click="closeSingleModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
                 <form @submit.prevent="submitSingle" class="space-y-4 overflow-y-auto flex-1">
                     <div>
                         <label class="form-label mb-1.5">
-                            شماره (۴ تا ۱۱ رقم عددی)
+                            {{ __('admin.numbers.single_number_label') }}
                         </label>
                         <input
                             type="text"
                             v-model="singleForm.number"
-                            placeholder="مثال: 000123456 یا 1000"
+                            :placeholder="__('admin.numbers.single_number_placeholder')"
                             dir="ltr"
                             class="form-input w-full font-mono text-left"
                             required
@@ -844,27 +828,27 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                     <div>
                         <label class="form-label mb-1.5">
-                            نوع خط
+                            {{ __('admin.numbers.single_type_label') }}
                         </label>
                         <select
                             v-model="singleForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره اعتباری</option>
-                            <option value="user_service">خط تجاری</option>
-                            <option value="platform_service">خط تجاری سامانه</option>
+                            <option value="user_standard">{{ __('admin.numbers.type_user_standard') }}</option>
+                            <option value="user_service">{{ __('admin.numbers.type_user_service') }}</option>
+                            <option value="platform_service">{{ __('admin.numbers.type_platform_service') }}</option>
                         </select>
                     </div>
 
                     <div v-if="prefixes && prefixes.length > 0">
                         <label class="form-label mb-1.5">
-                            پیش‌شماره متصل
+                            {{ __('admin.numbers.single_prefix_label') }}
                         </label>
                         <select
                             v-model="singleForm.phone_prefix_id"
                             class="form-select w-full"
                         >
-                            <option value="">پیش‌فرض سامانه</option>
+                            <option value="">{{ __('admin.numbers.prefix_default') }}</option>
                             <option v-for="p in prefixes" :key="p.id" :value="String(p.id)">
                                 {{ p.prefix }} ({{ p.name }})
                             </option>
@@ -873,30 +857,30 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                     <div>
                         <label class="form-label mb-1.5">
-                            سطح رند بودن
+                            {{ __('admin.numbers.single_rond_label') }}
                         </label>
                         <select
                             v-model="singleForm.rond_tier"
                             class="form-select w-full"
                         >
-                            <option value="">تشخیص خودکار توسط الگوریتم سامانه</option>
-                            <option value="golden_rond">رند طلایی (Golden)</option>
-                            <option value="semi_rond">نیمه رند (Semi-Rond)</option>
-                            <option value="regular">غیر رند / عادی</option>
+                            <option value="">{{ __('admin.numbers.rond_auto') }}</option>
+                            <option value="golden_rond">{{ __('admin.numbers.golden_rond') }} (Golden)</option>
+                            <option value="semi_rond">{{ __('admin.numbers.semi_rond') }} (Semi-Rond)</option>
+                            <option value="regular">{{ __('admin.numbers.rond_regular') }}</option>
                         </select>
                         <p class="text-[11px] text-slate-400 mt-1">
-                            در صورت خالی گذاشتن، الگوریتم‌های مخابراتی سامانه رند بودن شماره را خودکار تحلیل می‌کنند.
+                            {{ __('admin.numbers.rond_help') }}
                         </p>
                     </div>
 
                     <div>
                         <label class="form-label mb-1.5">
-                            عنوان نمایشی سرویس (اختیاری)
+                            {{ __('admin.numbers.single_title_label') }}
                         </label>
                         <input
                             type="text"
                             v-model="singleForm.display_title"
-                            placeholder="مثال: پشتیبانی سامانه، مرکز اعلانات، بانکداری"
+                            :placeholder="__('admin.numbers.single_title_placeholder')"
                             class="form-input w-full"
                         />
                         <p v-if="singleForm.errors.display_title" class="text-rose-500 text-[11px] mt-1">{{ singleForm.errors.display_title }}</p>
@@ -910,7 +894,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             class="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
                         />
                         <label for="accepts_incoming_sms" class="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                            امکان دریافت پیامک ورودی فعال باشد (در صورت غیرفعال بودن، خط صرفاً یک‌طرفه/اطلاع‌رسانی است)
+                            {{ __('admin.numbers.single_sms_label') }}
                         </label>
                     </div>
 
@@ -919,9 +903,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeSingleModal"
                             class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="singleForm.processing"
@@ -931,7 +913,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ singleForm.processing ? 'در حال ثبت...' : 'ثبت خط در سامانه' }}</span>
+                            <span>{{ singleForm.processing ? __('admin.numbers.submitting') : __('admin.numbers.single_submit') }}</span>
                         </button>
                     </div>
                 </form>
@@ -942,35 +924,35 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div v-if="isAssignModalOpen" @click.self="closeAssignModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تخصیص خط سازمانی به کاربر</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.numbers.assign_modal_title') }}</h3>
                     <button @click="closeAssignModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
                 <form @submit.prevent="submitAssign" class="space-y-4 overflow-y-auto flex-1">
                     <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 text-xs flex items-center justify-between">
-                        <span>شماره خط انتخابی:</span>
+                        <span>{{ __('admin.numbers.assign_number_label') }}</span>
                         <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberToAssign?.formatted_number }}</span>
                     </div>
 
                     <div>
                         <label class="form-label mb-1.5">
-                            عنوان یا نام نمایشی خط (اختیاری)
+                            {{ __('admin.numbers.assign_title_label') }}
                         </label>
                         <input
                             type="text"
                             v-model="assignForm.display_title"
-                            placeholder="مثال: واحد فروش، پشتیبانی، امور مالی..."
+                            :placeholder="__('admin.numbers.assign_title_placeholder')"
                             class="form-input w-full"
                         />
                         <p class="text-[11px] text-slate-400 mt-1">
-                            در صورت خالی گذاشتن، عنوان قبلی خط حفظ خواهد شد.
+                            {{ __('admin.numbers.assign_title_help') }}
                         </p>
                     </div>
 
                     <!-- Searchable User Selection -->
                     <div>
                         <label class="form-label mb-1.5">
-                            جستجو و انتخاب کاربر مقصد (شناسه ID، نام یا نام کاربری)
+                            {{ __('admin.numbers.assign_user_label') }}
                         </label>
 
                         <!-- Selected User Display Card -->
@@ -988,9 +970,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 type="button"
                                 @click="clearSelectedUser"
                                 class="text-xs text-rose-500 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                                تغییر کاربر
-                            </button>
+                            >{{ __('admin.numbers.change_user') }}</button>
                         </div>
 
                         <!-- Search Input -->
@@ -998,7 +978,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <input
                                 type="text"
                                 v-model="userSearchQuery"
-                                placeholder="شناسه (مثال: 5) یا نام کاربری..."
+                                :placeholder="__('admin.numbers.user_search_placeholder')"
                                 class="form-input w-full pr-10 pl-4 py-2.5"
                             />
                             <div class="absolute right-3 top-3 text-slate-400">
@@ -1033,7 +1013,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             </div>
 
                             <p v-if="userSearchQuery && !isSearchingUsers && userSearchResults.length === 0" class="text-[11px] text-slate-400 mt-1">
-                                کاربری با مشخصات فوق یافت نشد.
+                                {{ __('admin.numbers.user_not_found') }}
                             </p>
                         </div>
 
@@ -1045,9 +1025,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeAssignModal"
                             class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="assignForm.processing || !assignForm.user_id"
@@ -1057,7 +1035,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ assignForm.processing ? 'در حال ثبت تخصیص...' : 'تأیید و تخصیص خط' }}</span>
+                            <span>{{ assignForm.processing ? __('admin.numbers.assign_submitting') : __('admin.numbers.assign_submit') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1068,40 +1046,40 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
         <div v-if="isStatusModalOpen" @click.self="closeStatusModal" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 backdrop-blur-sm">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تغییر وضعیت خط سازمانی</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.numbers.status_modal_title') }}</h3>
                     <button @click="closeStatusModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
                 </div>
 
                 <form @submit.prevent="submitStatus" class="space-y-4 overflow-y-auto flex-1">
                     <div class="p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/60 text-xs flex items-center justify-between">
-                        <span>شماره خط:</span>
+                        <span>{{ __('admin.numbers.status_number_label') }}</span>
                         <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberForStatus?.formatted_number }}</span>
                     </div>
 
                     <div>
                         <label class="form-label mb-1.5">
-                            وضعیت جدید
+                            {{ __('admin.numbers.status_new_label') }}
                         </label>
                         <select
                             v-model="statusForm.status"
                             class="form-select w-full"
                         >
-                            <option value="available">آزاد برای تخصیص</option>
-                            <option value="allocated">تخصیص‌یافته</option>
-                            <option value="reserved">رزروشده</option>
-                            <option value="suspended">تعلیق‌شده</option>
-                            <option value="inactive">غیرفعال</option>
+                            <option value="available">{{ __('admin.numbers.status_available') }}</option>
+                            <option value="allocated">{{ __('admin.numbers.status_allocated') }}</option>
+                            <option value="reserved">{{ __('admin.numbers.status_reserved') }}</option>
+                            <option value="suspended">{{ __('admin.numbers.status_suspended') }}</option>
+                            <option value="inactive">{{ __('admin.numbers.status_inactive') }}</option>
                         </select>
                     </div>
 
                     <div>
                         <label class="form-label mb-1.5">
-                            علت تغییر وضعیت (ثبت در گزارش‌های نظارتی)
+                            {{ __('admin.numbers.status_reason_label') }}
                         </label>
                         <input
                             type="text"
                             v-model="statusForm.reason"
-                            placeholder="مثال: دستور اداری، تعلیق موقت، یا بررسی فنی"
+                            :placeholder="__('admin.numbers.status_reason_placeholder')"
                             class="form-input w-full"
                         />
                     </div>
@@ -1111,9 +1089,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeStatusModal"
                             class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="statusForm.processing"
@@ -1123,7 +1099,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ statusForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات وضعیت' }}</span>
+                            <span>{{ statusForm.processing ? __('admin.numbers.saving_status') : __('admin.numbers.save_status') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1135,7 +1111,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5 shrink-0">
                     <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">ویرایش مشخصات خط سازمانی</h3>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('admin.numbers.edit_modal_title') }}</h3>
                         <p dir="ltr" class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-0.5 text-right">{{ numberToEdit?.formatted_number }}</p>
                     </div>
                     <button @click="closeEditModal" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer">✕</button>
@@ -1145,12 +1121,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Display Title -->
                     <div>
                         <label class="form-label mb-1.5">
-                            عنوان یا نام نمایشی خط
+                            {{ __('admin.numbers.edit_title_label') }}
                         </label>
                         <input
                             type="text"
                             v-model="editForm.display_title"
-                            placeholder="مثال: پشتیبانی فنی، درگاه مالی، واحد فروش"
+                            :placeholder="__('admin.numbers.edit_title_placeholder')"
                             class="form-input w-full"
                         />
                         <p v-if="editForm.errors.display_title" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.display_title }}</p>
@@ -1159,15 +1135,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Line Type -->
                     <div>
                         <label class="form-label mb-1.5">
-                            نوع خط سازمانی
+                            {{ __('admin.numbers.single_type_label') }}
                         </label>
                         <select
                             v-model="editForm.type"
                             class="form-select w-full"
                         >
-                            <option value="user_standard">شماره اعتباری</option>
-                            <option value="user_service">خط تجاری</option>
-                            <option value="platform_service">خط تجاری سامانه</option>
+                            <option value="user_standard">{{ __('admin.numbers.type_user_standard') }}</option>
+                            <option value="user_service">{{ __('admin.numbers.type_user_service') }}</option>
+                            <option value="platform_service">{{ __('admin.numbers.type_platform_service') }}</option>
                         </select>
                         <p v-if="editForm.errors.type" class="text-rose-500 text-[11px] mt-1">{{ editForm.errors.type }}</p>
                     </div>
@@ -1175,13 +1151,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Prefix Selection -->
                     <div v-if="prefixes && prefixes.length > 0">
                         <label class="form-label mb-1.5">
-                            پیش‌شماره متصل
+                            {{ __('admin.numbers.single_prefix_label') }}
                         </label>
                         <select
                             v-model="editForm.phone_prefix_id"
                             class="form-select w-full"
                         >
-                            <option value="">پیش‌فرض سامانه</option>
+                            <option value="">{{ __('admin.numbers.prefix_default') }}</option>
                             <option v-for="p in prefixes" :key="p.id" :value="String(p.id)">
                                 {{ p.prefix }} ({{ p.name }})
                             </option>
@@ -1191,22 +1167,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Rond Tier Selection -->
                     <div>
                         <label class="form-label mb-1.5">
-                            سطح رند بودن خط
+                            {{ __('admin.numbers.single_rond_label') }}
                         </label>
                         <select
                             v-model="editForm.rond_tier"
                             class="form-select w-full"
                         >
-                            <option value="regular">غیر رند / عادی</option>
-                            <option value="semi_rond">نیمه رند (Semi-Rond)</option>
-                            <option value="golden_rond">رند طلایی (Golden)</option>
+                            <option value="regular">{{ __('admin.numbers.rond_regular') }}</option>
+                            <option value="semi_rond">{{ __('admin.numbers.semi_rond') }} (Semi-Rond)</option>
+                            <option value="golden_rond">{{ __('admin.numbers.golden_rond') }} (Golden)</option>
                         </select>
                     </div>
 
                     <!-- User Ownership Assignment -->
                     <div>
                         <label class="form-label mb-1.5">
-                            کاربر مالک خط (در صورت عدم انتساب، خط آزاد خواهد شد)
+                            {{ __('admin.numbers.edit_owner_label') }}
                         </label>
                         <div v-if="selectedEditUser" class="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 flex items-center justify-between mb-2">
                             <div class="flex items-center gap-2.5">
@@ -1222,16 +1198,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 type="button"
                                 @click="clearSelectedEditUser"
                                 class="text-xs text-rose-500 hover:text-rose-700 font-bold px-2 py-1 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                            >
-                                حذف مالک (آزادسازی)
-                            </button>
+                            >{{ __('admin.numbers.remove_owner') }}</button>
                         </div>
 
                         <div v-else class="relative">
                             <input
                                 type="text"
                                 v-model="editUserSearchQuery"
-                                placeholder="جستجو کاربر با نام یا نام کاربری جهت انتساب..."
+                                :placeholder="__('admin.numbers.search_user_placeholder')"
                                 class="form-input w-full pr-10 pl-4 py-2"
                             />
                             <div class="absolute right-3 top-2.5 text-slate-400">
@@ -1275,7 +1249,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             class="w-4 h-4 rounded-md text-indigo-600 focus:ring-indigo-500 border-slate-300 dark:border-slate-700"
                         />
                         <label for="edit_accepts_incoming_sms" class="text-xs font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
-                            امکان دریافت پیامک ورودی فعال باشد (دو طرفه)
+                            {{ __('admin.numbers.edit_sms_label') }}
                         </label>
                     </div>
 
@@ -1284,9 +1258,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeEditModal"
                             class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="editForm.processing"
@@ -1296,7 +1268,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ editForm.processing ? 'در حال ذخیره...' : 'ذخیره تغییرات' }}</span>
+                            <span>{{ editForm.processing ? __('admin.numbers.saving') : __('admin.numbers.save_changes') }}</span>
                         </button>
                     </div>
                 </form>

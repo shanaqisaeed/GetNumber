@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 export interface BreadcrumbItem {
     label: string;
@@ -14,8 +15,10 @@ const props = withDefaults(defineProps<{
 }>(), {
     items: () => [],
     homeRoute: 'dashboard',
-    homeLabel: 'پیشخوان',
+    homeLabel: '',
 });
+
+const resolvedHomeLabel = computed(() => props.homeLabel || __('ui.components.breadcrumb.home_default'));
 
 // Auto-detected trail mapping when props.items is empty
 const autoItems = computed<BreadcrumbItem[]>(() => {
@@ -33,31 +36,31 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
     // Route dictionaries for automatic breadcrumb trail
     const routeMap: Record<string, BreadcrumbItem[]> = {
         // User Routes
-        'numbers.index': [{ label: 'خطوط من' }],
-        'numbers.create': [{ label: 'خطوط من', href: ziggy().has?.('numbers.index') ? ziggy('numbers.index') : undefined }, { label: 'تخصیص خط جدید' }],
-        'messages.index': [{ label: 'پیامک‌ها و صندوق گفتگو' }],
-        'requests.index': [{ label: 'درخواست‌های سرشماره' }],
-        'requests.create': [{ label: 'درخواست‌های سرشماره', href: ziggy().has?.('requests.index') ? ziggy('requests.index') : undefined }, { label: 'ثبت درخواست جدید' }],
-        'tickets.index': [{ label: 'میز خدمت و پشتیبانی' }],
-        'tickets.create': [{ label: 'میز خدمت و پشتیبانی', href: ziggy().has?.('tickets.index') ? ziggy('tickets.index') : undefined }, { label: 'ارسال تیکت جدید' }],
-        'tickets.show': [{ label: 'میز خدمت و پشتیبانی', href: ziggy().has?.('tickets.index') ? ziggy('tickets.index') : undefined }, { label: 'مشاهده گفتگو' }],
-        'payments.index': [{ label: 'امور مالی و تراکنش‌ها' }],
-        'payments.checkout': [{ label: 'امور مالی و تراکنش‌ها', href: ziggy().has?.('payments.index') ? ziggy('payments.index') : undefined }, { label: 'فاکتور پرداخت' }],
-        'profile.edit': [{ label: 'پروفایل و تنظیمات امنیتی' }],
-        'api-tokens.index': [{ label: 'کلیدهای ارتباطی و وب‌سرویس' }],
+        'numbers.index': [{ label: __('ui.components.breadcrumb.my_numbers') }],
+        'numbers.create': [{ label: __('ui.components.breadcrumb.my_numbers'), href: ziggy().has?.('numbers.index') ? ziggy('numbers.index') : undefined }, { label: __('ui.components.breadcrumb.allocate_number') }],
+        'messages.index': [{ label: __('ui.components.breadcrumb.messages_inbox') }],
+        'requests.index': [{ label: __('ui.components.breadcrumb.number_requests') }],
+        'requests.create': [{ label: __('ui.components.breadcrumb.number_requests'), href: ziggy().has?.('requests.index') ? ziggy('requests.index') : undefined }, { label: __('ui.components.breadcrumb.submit_request') }],
+        'tickets.index': [{ label: __('ui.components.breadcrumb.service_desk') }],
+        'tickets.create': [{ label: __('ui.components.breadcrumb.service_desk'), href: ziggy().has?.('tickets.index') ? ziggy('tickets.index') : undefined }, { label: __('ui.components.breadcrumb.new_ticket') }],
+        'tickets.show': [{ label: __('ui.components.breadcrumb.service_desk'), href: ziggy().has?.('tickets.index') ? ziggy('tickets.index') : undefined }, { label: __('ui.components.breadcrumb.view_conversation') }],
+        'payments.index': [{ label: __('ui.components.breadcrumb.finance_transactions') }],
+        'payments.checkout': [{ label: __('ui.components.breadcrumb.finance_transactions'), href: ziggy().has?.('payments.index') ? ziggy('payments.index') : undefined }, { label: __('ui.components.breadcrumb.payment_invoice') }],
+        'profile.edit': [{ label: __('ui.components.breadcrumb.profile_security') }],
+        'api-tokens.index': [{ label: __('ui.components.breadcrumb.api_tokens') }],
 
         // Admin Routes
-        'admin.users.index': [{ label: 'مدیریت کاربران و دسترسی‌ها' }],
-        'admin.numbers.index': [{ label: 'مدیریت خطوط و سرشماره‌ها' }],
-        'admin.prefixes.index': [{ label: 'مدیریت پیش‌شماره‌ها' }],
-        'admin.requests.index': [{ label: 'بررسی درخواست‌های سرشماره' }],
-        'admin.messages.index': [{ label: 'مدیریت و نظارت بر پیام‌ها' }],
-        'admin.payments.index': [{ label: 'درگاه‌ها و تراکنش‌های مالی' }],
-        'admin.api-tokens.index': [{ label: 'کلیدهای ارتباطی وب‌سرویس' }],
-        'admin.tickets.index': [{ label: 'میز خدمت و تیکت‌ها' }],
-        'admin.monitoring.index': [{ label: 'دیده‌بانی و مانیتورینگ سیستم' }],
-        'admin.security.incidents.index': [{ label: 'رخدادهای امنیتی و فیشینگ' }],
-        'admin.audit-logs.index': [{ label: 'گزارش رویدادها و لاگ‌های امنیتی' }],
+        'admin.users.index': [{ label: __('ui.components.breadcrumb.admin_users') }],
+        'admin.numbers.index': [{ label: __('ui.components.breadcrumb.admin_numbers') }],
+        'admin.prefixes.index': [{ label: __('ui.components.breadcrumb.admin_prefixes') }],
+        'admin.requests.index': [{ label: __('ui.components.breadcrumb.admin_requests') }],
+        'admin.messages.index': [{ label: __('ui.components.breadcrumb.admin_messages') }],
+        'admin.payments.index': [{ label: __('ui.components.breadcrumb.admin_payments') }],
+        'admin.api-tokens.index': [{ label: __('ui.components.breadcrumb.admin_api_tokens') }],
+        'admin.tickets.index': [{ label: __('ui.components.breadcrumb.admin_tickets') }],
+        'admin.monitoring.index': [{ label: __('ui.components.breadcrumb.admin_monitoring') }],
+        'admin.security.incidents.index': [{ label: __('ui.components.breadcrumb.admin_security_incidents') }],
+        'admin.audit-logs.index': [{ label: __('ui.components.breadcrumb.admin_audit_logs') }],
     };
 
     for (const [key, trail] of Object.entries(routeMap)) {
@@ -71,7 +74,7 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
 </script>
 
 <template>
-    <nav aria-label="مسیر راهنما" class="flex items-center text-xs text-slate-500 dark:text-slate-400 py-1.5 overflow-x-auto no-scrollbar">
+    <nav :aria-label="__('ui.components.breadcrumb.aria_label')" class="flex items-center text-xs text-slate-500 dark:text-slate-400 py-1.5 overflow-x-auto no-scrollbar">
         <ol class="flex items-center gap-1.5 min-w-max">
             <!-- Home Link -->
             <li class="inline-flex items-center">
@@ -83,7 +86,7 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
-                    <span>{{ props.homeLabel }}</span>
+                    <span>{{ resolvedHomeLabel }}</span>
                 </Link>
             </li>
 

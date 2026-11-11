@@ -150,7 +150,7 @@ const showToast = (msg: string) => {
 // Copy phone number
 const copyNumber = (item: PhoneNumberItem) => {
     navigator.clipboard.writeText(item.formatted_number);
-    showToast(`شماره ${item.formatted_number} کپی شد`);
+    showToast(__('user.numbers.copied', { number: item.formatted_number }));
 };
 
 // Global escape key handler for modals
@@ -167,7 +167,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
-    <Head title="خطوط اختصاص‌یافته من" />
+    <Head :title="__('user.numbers.page_title')" />
 
     <UserLayout>
         <!-- Floating Toast Notification -->
@@ -193,7 +193,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <div class="wallet-top-row">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span class="wallet-title">سهمیه خطوط سازمانی شما</span>
+                        <span class="wallet-title">{{ __('user.numbers.quota_title') }}</span>
                     </div>
                     <span
                         class="wallet-chip"
@@ -203,13 +203,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 : 'bg-rose-500/15 border-rose-500/35 text-rose-600 dark:text-rose-400'
                         ]"
                     >
-                        {{ quota.max - quota.active > 0 ? `${quota.max - quota.active} خط آزاد` : 'تکمیل ظرفیت' }}
+                        {{ quota.max - quota.active > 0 ? __('user.numbers.free_lines', { count: quota.max - quota.active }) : __('user.numbers.capacity_full') }}
                     </span>
                 </div>
 
                 <div class="wallet-amount">
                     <span>{{ quota.active }}</span>
-                    <span class="wallet-currency text-sm font-bold text-slate-500 dark:text-slate-400">/ {{ quota.max }} خط فعال</span>
+                    <span class="wallet-currency text-sm font-bold text-slate-500 dark:text-slate-400">/ {{ quota.max }} {{ __('dashboard.active_numbers_unit') }}</span>
                 </div>
 
                 <!-- Progress Bar -->
@@ -224,7 +224,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                 <div class="mt-4 flex items-center justify-between gap-3 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <span class="text-[11px] text-slate-600 dark:text-slate-400">
-                        پیش‌شماره سامانه: <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-black" dir="ltr">{{ default_prefix || '+85' }}</strong>
+                        {{ __('user.numbers.system_prefix') }} <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-black" dir="ltr">{{ default_prefix || '+85' }}</strong>
                     </span>
 
                     <button
@@ -236,7 +236,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>تخصیص خط جدید</span>
+                        <span>{{ __('user.numbers.allocate_new') }}</span>
                     </button>
                 </div>
             </div>
@@ -248,7 +248,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         type="text"
                         v-model="search"
                         @keyup.enter="handleFilter"
-                        placeholder="جستجو در خطوط یا عناوین..."
+                        :placeholder="__('user.numbers.search_placeholder')"
                         class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -261,9 +261,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     @change="handleFilter"
                     class="form-select !py-2 !text-xs !rounded-xl w-auto"
                 >
-                    <option value="">همه انواع</option>
-                    <option value="standard">خط اعتباری</option>
-                    <option value="service">خط تجاری</option>
+                    <option value="">{{ __('user.numbers.all_types') }}</option>
+                    <option value="standard">{{ __('user.numbers.type_standard') }}</option>
+                    <option value="service">{{ __('user.numbers.type_service') }}</option>
                 </select>
 
                 <button
@@ -271,7 +271,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     type="button"
                     @click="clearFilter"
                     class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
-                    title="پاکسازی فیلتر"
+                    :title="__('user.numbers.clear_filter')"
                 >
                     ✕
                 </button>
@@ -300,7 +300,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 {{ item.rond_tier_label }}
                             </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
-                                {{ item.display_title || 'خط سازمانی' }}
+                                {{ item.display_title || __('user.numbers.default_title') }}
                             </span>
                         </div>
 
@@ -308,9 +308,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="openEditTitleModal(item)"
                             class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
-                        >
-                            ویرایش نام
-                        </button>
+                        >{{ __('user.numbers.edit_title') }}</button>
                     </div>
 
                     <!-- Monospace Number Presentation Box -->
@@ -331,7 +329,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="copyNumber(item)"
                             class="p-2 rounded-xl glass-pill hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                            title="کپی شماره"
+                            :title="__('user.numbers.copy_number')"
                         >
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -348,16 +346,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                             </svg>
-                            <span>مشاهده پیامک‌ها</span>
+                            <span>{{ __('user.numbers.view_sms') }}</span>
                         </Link>
 
                         <button
                             type="button"
                             @click="openReleaseModal(item)"
                             class="text-[11px] font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:underline transition-colors"
-                        >
-                            آزادسازی خط
-                        </button>
+                        >{{ __('user.numbers.release_line') }}</button>
                     </div>
                 </div>
 
@@ -386,9 +382,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">خطی یافت نشد</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.numbers.no_numbers_found') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                        شما در حال حاضر خط فعالی با فیلترهای انتخابی ندارید.
+                        {{ __('user.numbers.no_numbers_desc') }}
                     </p>
                 </div>
                 <div v-if="quota.active < quota.max" class="w-full flex justify-center pt-2">
@@ -400,7 +396,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>دریافت خط جدید</span>
+                        <span>{{ __('user.numbers.get_new_line') }}</span>
                     </button>
                 </div>
             </div>
@@ -421,18 +417,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                        ویرایش عنوان خط {{ selectedNumberForTitle?.formatted_number }}
+                        {{ __('user.numbers.modal_edit_title', { number: selectedNumberForTitle?.formatted_number }) }}
                     </h3>
                     <button type="button" @click="closeEditTitleModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
                 </div>
 
                 <form @submit.prevent="submitTitleUpdate" class="space-y-4">
                     <div>
-                        <label class="form-label">عنوان نمایشی:</label>
+                        <label class="form-label">{{ __('user.numbers.label_display_title') }}</label>
                         <input
                             type="text"
                             v-model="titleForm.display_title"
-                            placeholder="مثال: بخش پشتیبانی یا فروش"
+                            :placeholder="__('user.numbers.placeholder_title')"
                             maxlength="100"
                             class="form-input !py-2.5 !text-xs"
                             :disabled="titleForm.processing"
@@ -440,9 +436,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeEditTitleModal" :disabled="titleForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                            انصراف
-                        </button>
+                        <button type="button" @click="closeEditTitleModal" :disabled="titleForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="titleForm.processing"
@@ -452,7 +446,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                             </svg>
-                            <span>{{ titleForm.processing ? 'در حال ذخیره...' : 'ذخیره عنوان' }}</span>
+                            <span>{{ titleForm.processing ? __('user.numbers.saving') : __('user.numbers.save_title') }}</span>
                         </button>
                     </div>
                 </form>
@@ -469,20 +463,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
 
                 <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تأیید آزادسازی خط</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.numbers.modal_release_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        آیا از آزادسازی خط <span dir="ltr" class="font-mono font-bold text-slate-900 dark:text-white">{{ numberToRelease?.formatted_number }}</span> اطمینان دارید؟
+                        {{ __('user.numbers.release_confirm_text', { number: numberToRelease?.formatted_number }) }}
                     </p>
                 </div>
 
                 <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed text-right">
-                    <b>ضمانت حریم خصوصی:</b> کلیه پیام‌های پیشین این خط پس از آزادسازی به‌صورت دائمی حذف خواهند شد تا در اختیار مالک بعدی قرار نگیرد.
+                    <b>{{ __('user.numbers.privacy_guarantee') }}</b> {{ __('user.numbers.privacy_guarantee_desc') }}
                 </div>
 
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        انصراف
-                    </button>
+                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.numbers.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRelease"
@@ -493,7 +485,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ releaseProcessing ? 'در حال آزادسازی...' : 'آزادسازی قطعی' }}</span>
+                        <span>{{ releaseProcessing ? __('user.numbers.releasing') : __('user.numbers.confirm_release') }}</span>
                     </button>
                 </div>
             </div>

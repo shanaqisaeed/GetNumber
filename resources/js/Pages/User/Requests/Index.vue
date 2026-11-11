@@ -211,7 +211,7 @@ const goToStep2 = () => {
 
 const goToStep3 = () => {
     if (createForm.preferred_number && createForm.preferred_number.length !== createForm.requested_length) {
-        createForm.setError('preferred_number', `طول شماره وارد شده باید دقیقاً ${createForm.requested_length} رقم باشد.`);
+        createForm.setError('preferred_number', __('user.requests.length_error', { length: createForm.requested_length }));
         return;
     }
     createForm.clearErrors('preferred_number');
@@ -222,11 +222,11 @@ const goToStep4 = () => {
     createForm.clearErrors();
     let hasErr = false;
     if (!createForm.service_title.trim()) {
-        createForm.setError('service_title', 'درج عنوان سرشماره یا نام تجاری الزامی است.');
+        createForm.setError('service_title', __('user.requests.service_title_error'));
         hasErr = true;
     }
     if (!createForm.description.trim()) {
-        createForm.setError('description', 'توضیحات و اهداف استفاده از سرشماره را شرح دهید.');
+        createForm.setError('description', __('user.requests.description_error'));
         hasErr = true;
     }
     if (!politicalTermsAccepted.value) {
@@ -304,9 +304,9 @@ const showToast = (msg: string) => {
 const copyToClipboard = async (text: string) => {
     try {
         await navigator.clipboard.writeText(text);
-        showToast('شماره در کلیپ‌بورد کپی شد');
+        showToast(__('user.requests.copied'));
     } catch {
-        showToast('شماره کپی شد');
+        showToast(__('user.requests.copied'));
     }
 };
 
@@ -324,7 +324,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <UserLayout>
-        <Head title="درخواست‌های سرشماره من" />
+        <Head :title="__('user.requests.page_title')" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">
@@ -347,28 +347,26 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <!-- 1. Header Banner & Action -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
-                    <span class="wallet-title">درخواست خط تجاری</span>
-                    <span class="wallet-chip bg-purple-500/15 border-purple-500/35 text-purple-600 dark:text-purple-400">
-                        ۴ تا ۸ رقمی
-                    </span>
+                    <span class="wallet-title">{{ __('user.requests.header_title') }}</span>
+                    <span class="wallet-chip bg-purple-500/15 border-purple-500/35 text-purple-600 dark:text-purple-400">{{ __('user.requests.digits_4_to_8') }}</span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    درخواست تخصیص خطوط تجاری کوتاه (۴ تا ۸ رقمی) جهت سامانه‌ها و پیام‌های تجاری.
+                    {{ __('user.requests.header_desc') }}
                 </div>
 
                 <!-- Stats 3-Column Pill Row -->
                 <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 text-center">
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">در انتظار</span>
+                        <span class="text-[10px] text-amber-600 dark:text-amber-400 block font-bold">{{ __('user.requests.stat_pending') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.pending }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">تأییدشده</span>
+                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">{{ __('user.requests.stat_approved') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.approved }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">ردشده</span>
+                        <span class="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">{{ __('user.requests.stat_rejected') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.rejected }}</span>
                     </div>
                 </div>
@@ -383,7 +381,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>ثبت درخواست خط تجاری جدید</span>
+                        <span>{{ __('user.requests.create_btn') }}</span>
                     </button>
                 </div>
             </div>
@@ -395,7 +393,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         type="text"
                         v-model="search"
                         @keyup.enter="handleFilter"
-                        placeholder="جستجو در عنوان یا توضیحات..."
+                        :placeholder="__('user.requests.search_placeholder')"
                         class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                     />
                     <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -408,10 +406,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     @change="handleFilter"
                     class="form-select !py-2 !text-xs !rounded-xl w-auto"
                 >
-                    <option value="">همه وضعیت‌ها</option>
-                    <option value="pending">در انتظار</option>
-                    <option value="approved">تأییدشده</option>
-                    <option value="rejected">ردشده</option>
+                    <option value="">{{ __('user.requests.all_statuses') }}</option>
+                    <option value="pending">{{ __('user.requests.stat_pending') }}</option>
+                    <option value="approved">{{ __('user.requests.stat_approved') }}</option>
+                    <option value="rejected">{{ __('user.requests.stat_rejected') }}</option>
                 </select>
 
                 <button
@@ -419,7 +417,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     type="button"
                     @click="resetFilter"
                     class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
-                    title="پاکسازی"
+                    :title="__('user.requests.clear')"
                 >
                     ✕
                 </button>
@@ -439,19 +437,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 {{ req.prefix.flag }} {{ req.prefix.prefix }}
                             </span>
                             <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0">
-                                {{ req.requested_length }} رقمی
+                                {{ __('user.requests.digits_unit', { count: req.requested_length }) }}
                             </span>
                             <span
                                 class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
                                 :class="req.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'"
                             >
-                                {{ req.accepts_incoming_sms ? 'دوطرفه (دریافت فعال)' : 'یک‌طرفه (صرفاً ارسال)' }}
+                                {{ req.accepts_incoming_sms ? __('user.requests.twoway_badge') : __('user.requests.oneway_badge') }}
                             </span>
                             <span
                                 v-if="req.held_amount && Number(req.held_amount) > 0"
                                 class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 shrink-0"
                             >
-                                وجه مسدود: {{ req.held_amount }} کوین
+                                {{ __('user.requests.held_amount', { amount: req.held_amount }) }}
                             </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
                                 {{ req.service_title }}
@@ -474,7 +472,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         class="p-2.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/25 flex items-center justify-between"
                     >
                         <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">شماره تخصیص‌یافته:</span>
+                            <span class="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">{{ __('user.requests.allocated_number') }}</span>
                             <span dir="ltr" class="font-mono font-black text-xs text-slate-900 dark:text-white">
                                 {{ req.allocated_number.formatted_number }}
                             </span>
@@ -483,7 +481,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="copyToClipboard(req.allocated_number.formatted_number)"
                             class="p-1 text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300"
-                            title="کپی"
+                            :title="__('user.requests.copy')"
                         >
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -496,7 +494,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         v-else-if="req.status === 'rejected' && req.rejection_reason"
                         class="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed"
                     >
-                        <span class="font-bold">علت عدم تأیید:</span> {{ req.rejection_reason }}
+                        <span class="font-bold">{{ __('user.requests.rejection_reason') }}</span> {{ req.rejection_reason }}
                     </div>
 
                     <!-- Footer: Date & Actions -->
@@ -508,18 +506,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 type="button"
                                 @click="openDetailsModal(req)"
                                 class="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300"
-                            >
-                                جزئیات
-                            </button>
+                            >{{ __('user.requests.details') }}</button>
 
                             <button
                                 v-if="req.status === 'pending'"
                                 type="button"
                                 @click="openCancelModal(req)"
                                 class="font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('user.requests.cancel') }}</button>
                         </div>
                     </div>
                 </div>
@@ -548,9 +542,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">درخواستی یافت نشد</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.requests.no_requests_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                        شما در حال حاضر درخواستی برای سرشماره‌های خاص ثبت نکرده‌اید.
+                        {{ __('user.requests.no_requests_desc') }}
                     </p>
                 </div>
                 <div class="w-full flex justify-center pt-2">
@@ -562,7 +556,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>ثبت اولین درخواست</span>
+                        <span>{{ __('user.requests.create_first') }}</span>
                     </button>
                 </div>
             </div>
@@ -593,15 +587,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     🏢
                                 </div>
                                 <div>
-                                    <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت درخواست سرشماره سازمانی</h3>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">فرآیند ۴ مرحله‌ای تخصیص و فعال‌سازی سرشماره تجاری</p>
+                                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.requests.modal_title') }}</h3>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('user.requests.modal_subtitle') }}</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 @click="closeCreateModal"
                                 class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                                aria-label="بستن"
+                                :aria-label="__('user.requests.close')"
                             >
                                 ✕
                             </button>
@@ -622,11 +616,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         : (createStep > 1 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
                                 >
                                     <span v-if="createStep > 1">✓</span>
-                                    <span v-else>۱</span>
+                                    <span v-else>1</span>
                                 </div>
-                                <span :class="createStep === 1 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 1 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
-                                    پیش‌شماره
-                                </span>
+                                <span :class="createStep === 1 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 1 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">{{ __('user.requests.step1_tab') }}</span>
                             </div>
 
                             <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 1 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
@@ -644,11 +636,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         : (createStep > 2 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
                                 >
                                     <span v-if="createStep > 2">✓</span>
-                                    <span v-else>۲</span>
+                                    <span v-else>2</span>
                                 </div>
-                                <span :class="createStep === 2 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 2 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
-                                    طول و شماره
-                                </span>
+                                <span :class="createStep === 2 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 2 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">{{ __('user.requests.step2_tab') }}</span>
                             </div>
 
                             <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 2 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
@@ -666,11 +656,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         : (createStep > 3 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
                                 >
                                     <span v-if="createStep > 3">✓</span>
-                                    <span v-else>۳</span>
+                                    <span v-else>3</span>
                                 </div>
-                                <span :class="createStep === 3 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 3 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
-                                    اطلاعات و تعهد
-                                </span>
+                                <span :class="createStep === 3 ? 'text-purple-600 dark:text-purple-400 font-black' : (createStep > 3 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">{{ __('user.requests.step3_tab') }}</span>
                             </div>
 
                             <div class="flex-1 mx-1.5 h-0.5" :class="createStep > 3 ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-white/10'"></div>
@@ -683,11 +671,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
                                         : 'bg-slate-100 dark:bg-white/10 text-slate-400'"
                                 >
-                                    <span>۴</span>
+                                    <span>4</span>
                                 </div>
-                                <span :class="createStep === 4 ? 'text-purple-600 dark:text-purple-400 font-black' : 'text-slate-400'">
-                                    پرداخت
-                                </span>
+                                <span :class="createStep === 4 ? 'text-purple-600 dark:text-purple-400 font-black' : 'text-slate-400'">{{ __('user.requests.step4_tab') }}</span>
                             </div>
                         </div>
 
@@ -697,10 +683,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div v-if="createStep === 1" class="space-y-4">
                             <div>
                                 <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
-                                    مرحله ۱: تعیین کشور و کد پیش‌شماره
+                                    {{ __('user.requests.step1_title') }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    لطفاً کشور و کد پیش‌شماره مد نظر برای صدور سرشماره سازمانی را برگزینید:
+                                    {{ __('user.requests.step1_desc') }}
                                 </p>
                             </div>
 
@@ -709,7 +695,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <input
                                     type="text"
                                     v-model="countrySearch"
-                                    placeholder="جستجوی نام کشور یا پیش‌شماره..."
+                                    :placeholder="__('user.requests.step1_search')"
                                     class="form-input !py-2 !px-3 !pr-9 !text-xs"
                                 />
                                 <span class="absolute right-3 top-2.5 text-slate-400 text-xs">🔍</span>
@@ -753,14 +739,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </div>
 
                                 <div v-if="filteredPrefixes.length === 0" class="text-center py-6 text-xs text-slate-400">
-                                    پیش‌شماره‌ای با این مشخصات یافت نشد.
+                                    {{ __('user.requests.no_prefixes_found') }}
                                 </div>
                             </div>
 
                             <!-- Selected Country Banner & Footer -->
                             <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/10">
                                 <div class="text-xs font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-                                    <span>انتخاب فعلی:</span>
+                                    <span>{{ __('user.requests.current_selection') }}</span>
                                     <span class="text-purple-600 dark:text-purple-400 font-black">
                                         {{ selectedPrefix?.flag }} {{ selectedPrefix?.country_name || selectedPrefix?.name }} ({{ selectedPrefix?.prefix }})
                                     </span>
@@ -771,7 +757,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     :disabled="!selectedPrefix"
                                     class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer disabled:opacity-40"
                                 >
-                                    <span>ادامه به انتخاب طول شماره</span>
+                                    <span>{{ __('user.requests.continue_step2') }}</span>
                                     <span>←</span>
                                 </button>
                             </div>
@@ -784,10 +770,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <div class="flex items-center justify-between flex-wrap gap-2">
                                 <div>
                                     <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
-                                        مرحله ۲: انتخاب طول و شماره سازمانی
+                                        {{ __('user.requests.step2_title') }}
                                     </h4>
                                     <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                        طول خط مورد نظر (۴ تا ۸ رقم) را مشخص کرده و شماره دلخواه یا پیشنهادی را برگزینید:
+                                        {{ __('user.requests.step2_desc') }}
                                     </p>
                                 </div>
                                 <div class="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 text-xs font-bold border border-purple-500/20">
@@ -797,7 +783,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                             <!-- Length Chips -->
                             <div>
-                                <label class="form-label">طول سرشماره درخواستی:</label>
+                                <label class="form-label">{{ __('user.requests.length_label') }}</label>
                                 <div class="grid grid-cols-5 gap-1.5">
                                     <button
                                         v-for="l in availableLengths"
@@ -811,7 +797,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                                 : 'bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
                                         ]"
                                     >
-                                        {{ l }} رقم
+                                        {{ __('user.requests.digits_unit', { count: l }) }}
                                     </button>
                                 </div>
                             </div>
@@ -820,10 +806,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-2">
                                 <div class="flex items-center justify-between">
                                     <span class="text-[11px] font-black text-purple-800 dark:text-purple-300">
-                                        شماره‌های آزاد پیشنهادی در استخر (طول {{ createForm.requested_length }} رقمی):
+                                        {{ __('user.requests.pool_numbers_title', { length: createForm.requested_length }) }}
                                     </span>
                                     <span class="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
-                                        {{ poolNumbersForCurrentLength.length }} شماره موجود
+                                        {{ __('user.requests.available_count', { count: poolNumbersForCurrentLength.length }) }}
                                     </span>
                                 </div>
 
@@ -839,20 +825,20 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-purple-400 hover:bg-purple-50/40'"
                                     >
                                         <span>{{ pool.number }}</span>
-                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[10px] text-amber-500" title="شماره رند">★</span>
+                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[10px] text-amber-500" :title="__('user.requests.rond_number_title')">★</span>
                                     </button>
                                 </div>
                                 <div v-else class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed py-1">
-                                    شماره آماده از پیش تعریف‌شده‌ای برای این طول در استخر وجود ندارد؛ می‌توانید شماره دلخواه خود را در کادر زیر وارد فرمایید تا توسط کارشناسان بررسی شود.
+                                    {{ __('user.requests.no_pool_numbers') }}
                                 </div>
                             </div>
 
                             <!-- Preferred Number Input -->
                             <div>
                                 <label class="form-label flex items-center justify-between">
-                                    <span>شماره درخواستی (انتخاب از پیشنهادات یا ورود دستی):</span>
+                                    <span>{{ __('user.requests.preferred_number_label') }}</span>
                                     <span class="font-mono text-[10px] text-slate-400 font-bold">
-                                        {{ createForm.preferred_number ? createForm.preferred_number.length : 0 }} / {{ createForm.requested_length }} رقم
+                                        {{ createForm.preferred_number ? createForm.preferred_number.length : 0 }} / {{ __('user.requests.digits_unit', { count: createForm.requested_length }) }}
                                     </span>
                                 </label>
                                 <div dir="ltr" class="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
@@ -865,7 +851,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         type="text"
                                         v-model="createForm.preferred_number"
                                         :maxlength="createForm.requested_length"
-                                        placeholder="مثال: 8888"
+                                        :placeholder="__('user.requests.placeholder_preferred')"
                                         dir="ltr"
                                         class="w-full h-10 px-3 rounded-xl bg-white dark:bg-slate-900 font-mono font-black text-sm text-center tracking-widest text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 focus:border-purple-500 outline-none"
                                     />
@@ -874,7 +860,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         type="button"
                                         @click="createForm.preferred_number = ''"
                                         class="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs"
-                                        title="پاک کردن شماره"
+                                        :title="__('user.requests.clear_number')"
                                     >
                                         ✕
                                     </button>
@@ -887,10 +873,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <!-- Live Price Estimation Box -->
                             <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs">
                                 <div>
-                                    <span class="text-slate-500 dark:text-slate-400 block text-[11px]">تعرفه برآورد شده:</span>
+                                    <span class="text-slate-500 dark:text-slate-400 block text-[11px]">{{ __('user.requests.estimated_tariff') }}</span>
                                     <div class="flex items-center gap-2 mt-0.5">
                                         <span class="font-black text-sm text-purple-600 dark:text-purple-400 font-mono">
-                                            {{ currentPrice }} کوین (TRX)
+                                            {{ __('user.requests.coins_trx', { amount: currentPrice }) }}
                                         </span>
                                         <span
                                             class="px-2 py-0.5 rounded-md text-[10px] font-black border"
@@ -898,12 +884,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                                 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                                                 : 'bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border-slate-300 dark:border-slate-600'"
                                         >
-                                            {{ currentIsRond ? 'الگوی رند' : 'الگوی عادی' }}
+                                            {{ currentIsRond ? __('user.requests.rond_pattern') : __('user.requests.regular_pattern') }}
                                         </span>
                                     </div>
                                 </div>
                                 <div class="text-left text-[11px] text-slate-500 dark:text-slate-400">
-                                    طول: <strong class="text-slate-800 dark:text-slate-200">{{ createForm.requested_length }} رقمی</strong>
+                                    {{ __('user.requests.length_digits', { length: createForm.requested_length }) }}
                                 </div>
                             </div>
 
@@ -913,15 +899,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     type="button"
                                     @click="createStep = 1"
                                     class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
-                                >
-                                    ← مرحله قبل (کشور)
-                                </button>
+                                >{{ __('user.requests.back_to_country') }}</button>
                                 <button
                                     type="button"
                                     @click="goToStep3"
                                     class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer"
                                 >
-                                    <span>ادامه به مشخصات خط</span>
+                                    <span>{{ __('user.requests.continue_step3') }}</span>
                                     <span>←</span>
                                 </button>
                             </div>
@@ -933,22 +917,22 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div v-else-if="createStep === 3" class="space-y-4">
                             <div>
                                 <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
-                                    مرحله ۳: اطلاعات هویتی، کاربرد و تعهدنامه
+                                    {{ __('user.requests.step3_title') }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    مشخصات بهره‌بردار سرشماره و تعهدنامه عدم وابستگی سیاسی را تکمیل نمایید:
+                                    {{ __('user.requests.step3_desc') }}
                                 </p>
                             </div>
 
-                            <!-- Service Title (برای کیه) -->
+                            <!-- Service Title -->
                             <div>
                                 <label class="form-label">
-                                    عنوان سرشماره / نام تجاری یا سازمان بهره‌بردار <span class="text-rose-500">*</span>:
+                                    {{ __('user.requests.service_title_label') }} <span class="text-rose-500">*</span>:
                                 </label>
                                 <input
                                     type="text"
                                     v-model="createForm.service_title"
-                                    placeholder="مثال: شرکت تجارت الکترونیک پارس / سامانه اطلاع‌رسانی"
+                                    :placeholder="__('user.requests.service_title_placeholder')"
                                     required
                                     class="form-input !py-2.5 !text-xs"
                                 />
@@ -957,15 +941,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </p>
                             </div>
 
-                            <!-- Description (توضیحش چیه) -->
+                            <!-- Description -->
                             <div>
                                 <label class="form-label">
-                                    توضیحات و اهداف بهره‌برداری سازمانی <span class="text-rose-500">*</span>:
+                                    {{ __('user.requests.description_label') }} <span class="text-rose-500">*</span>:
                                 </label>
                                 <textarea
                                     v-model="createForm.description"
                                     rows="2"
-                                    placeholder="اهداف استفاده، نوع پیام‌ها و مخاطبان سرشماره را شرح دهید..."
+                                    :placeholder="__('user.requests.description_placeholder')"
                                     required
                                     class="form-textarea !py-2 !text-xs resize-none"
                                 ></textarea>
@@ -974,7 +958,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </p>
                             </div>
 
-                            <!-- Incoming SMS Option (میخواد پیامک ورودی داشته باشه یا نه) -->
+                            <!-- Incoming SMS Option -->
                             <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                                 <label class="flex items-start gap-3 cursor-pointer">
                                     <input
@@ -984,10 +968,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     />
                                     <div class="space-y-0.5 select-none">
                                         <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block">
-                                            قابلیت دریافت پیامک ورودی (خط دوطرفه)
+                                            {{ __('user.requests.incoming_sms_label') }}
                                         </span>
                                         <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                            در صورت فعال بودن، پیامک‌های ارسالی کاربران به این سرشماره دریافت و در سامانه قابل مدیریت خواهد بود.
+                                            {{ __('user.requests.incoming_sms_desc') }}
                                         </p>
                                     </div>
                                 </label>
@@ -998,7 +982,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <div class="flex items-start gap-2 text-amber-800 dark:text-amber-300 font-bold">
                                     <span class="text-base shrink-0 mt-0.5">⚠️</span>
                                     <p class="text-[11px] leading-relaxed">
-                                        این سامانه یک بستر کاملاً مستقل و ارائه‌دهنده خدمات فنی-تجاری است. استفاده از سرشماره‌های سازمانی برای هرگونه اهداف حزبی، تشکل‌های سیاسی، تبلیغات جناحی یا مواضع سیاسی اکیداً ممنوع بوده و در صورت احراز، خط فوراً و برای همیشه مسدود خواهد شد.
+                                        {{ __('user.requests.commitment_p1') }}
                                     </p>
                                 </div>
 
@@ -1010,7 +994,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         class="mt-0.5 w-4 h-4 rounded border-amber-400 text-purple-600 focus:ring-purple-500/40 cursor-pointer"
                                     />
                                     <span class="text-[11px] text-slate-800 dark:text-slate-200 font-bold select-none leading-relaxed">
-                                        اقرار و تأیید می‌نمایم که خط و سازمان ما جزء هیچ حزب یا سازمان سیاسی نیست و در صورت احراز هرگونه فعالیت سیاسی، خط مسدود شده و حق هیچ‌گونه اعتراضی نخواهم داشت.
+                                        {{ __('user.requests.commitment_checkbox') }}
                                     </span>
                                 </label>
                             </div>
@@ -1021,16 +1005,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     type="button"
                                     @click="createStep = 2"
                                     class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
-                                >
-                                    ← مرحله قبل (شماره)
-                                </button>
+                                >{{ __('user.requests.back_to_number') }}</button>
                                 <button
                                     type="button"
                                     @click="goToStep4"
                                     :disabled="!politicalTermsAccepted || !createForm.service_title.trim() || !createForm.description.trim()"
                                     class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-2xl inline-flex items-center justify-center gap-1.5 shadow-md shadow-purple-600/25 cursor-pointer disabled:opacity-40"
                                 >
-                                    <span>ادامه به فاکتور و پرداخت</span>
+                                    <span>{{ __('user.requests.continue_step4') }}</span>
                                     <span>←</span>
                                 </button>
                             </div>
@@ -1042,17 +1024,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div v-else-if="createStep === 4" class="space-y-4">
                             <div>
                                 <h4 class="font-bold text-xs text-slate-800 dark:text-slate-200">
-                                    مرحله ۴: فاکتور نهایی و ثبت پرداخت
+                                    {{ __('user.requests.step4_title') }}
                                 </h4>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    مشخصات نهایی سرشماره را بازبینی کرده و با تایید پرداخت، درخواست خود را ثبت فرمایید:
+                                    {{ __('user.requests.step4_desc') }}
                                 </p>
                             </div>
 
                             <!-- Order Summary Card -->
                             <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-white/10 text-xs space-y-2">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-slate-500 dark:text-slate-400">کشور و پیش‌شماره:</span>
+                                    <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.country_prefix_label') }}</span>
                                     <span class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                                         <span>{{ selectedPrefix?.flag }}</span>
                                         <span>{{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
@@ -1060,27 +1042,27 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                                    <span class="text-slate-500 dark:text-slate-400">طول سرشماره:</span>
+                                    <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.length_prefix_label') }}</span>
                                     <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                        {{ createForm.requested_length }} رقم
+                                        {{ __('user.requests.digits_unit', { count: createForm.requested_length }) }}
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                                    <span class="text-slate-500 dark:text-slate-400">شماره برگزیده:</span>
+                                    <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.chosen_number_label') }}</span>
                                     <span dir="ltr" class="font-mono font-black text-purple-600 dark:text-purple-400">
-                                        {{ createForm.preferred_number ? (selectedPrefix?.prefix + ' - ' + createForm.preferred_number) : 'تخصیص هوشمند توسط کارشناس' }}
+                                        {{ createForm.preferred_number ? (selectedPrefix?.prefix + ' - ' + createForm.preferred_number) : __('user.requests.smart_allocation') }}
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                                    <span class="text-slate-500 dark:text-slate-400">عنوان تجاری:</span>
+                                    <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.business_title_label') }}</span>
                                     <span class="font-bold text-slate-800 dark:text-slate-200 truncate max-w-[200px]">
                                         {{ createForm.service_title }}
                                     </span>
                                 </div>
                                 <div class="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-white/10">
-                                    <span class="text-slate-500 dark:text-slate-400">پیامک ورودی:</span>
+                                    <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.incoming_label') }}</span>
                                     <span class="font-bold" :class="createForm.accepts_incoming_sms ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500'">
-                                        {{ createForm.accepts_incoming_sms ? 'فعال (دوطرفه)' : 'غیرفعال' }}
+                                        {{ createForm.accepts_incoming_sms ? __('user.requests.incoming_enabled') : __('user.requests.incoming_disabled') }}
                                     </span>
                                 </div>
                             </div>
@@ -1088,43 +1070,41 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <!-- Financial Invoice Card -->
                             <div class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/25 space-y-2.5 text-xs">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-slate-600 dark:text-slate-300 font-bold">هزینه قطعی سرشماره:</span>
+                                    <span class="text-slate-600 dark:text-slate-300 font-bold">{{ __('user.requests.final_cost_label') }}</span>
                                     <div class="text-left">
                                         <span class="text-base font-black text-purple-600 dark:text-purple-400 font-mono">
-                                            {{ currentPrice }} کوین (TRX)
+                                            {{ __('user.requests.coins_trx', { amount: currentPrice }) }}
                                         </span>
                                         <span class="block text-[10px] text-slate-500">
-                                            ({{ currentIsRond ? 'تعرفه خطوط رند' : 'تعرفه خطوط عادی' }})
+                                            ({{ currentIsRond ? __('user.requests.rond_tariff') : __('user.requests.regular_tariff') }})
                                         </span>
                                     </div>
                                 </div>
 
                                 <div class="flex items-center justify-between pt-2 border-t border-purple-500/15">
-                                    <span class="text-slate-600 dark:text-slate-400">موجودی کیف پول شما:</span>
+                                    <span class="text-slate-600 dark:text-slate-400">{{ __('user.requests.wallet_balance_label') }}</span>
                                     <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                        {{ userBalance.toFixed(2) }} کوین
+                                        {{ userBalance.toFixed(2) }} {{ __('user.wallet.unit') }}
                                     </span>
                                 </div>
 
                                 <div class="flex items-center justify-between pt-1 border-t border-purple-500/15">
-                                    <span class="text-slate-600 dark:text-slate-400">مانده پس از ثبت سفارش:</span>
+                                    <span class="text-slate-600 dark:text-slate-400">{{ __('user.requests.balance_after_label') }}</span>
                                     <span
                                         class="font-mono font-bold"
                                         :class="hasInsufficientBalance ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'"
                                     >
-                                        {{ (userBalance - Number(currentPrice)).toFixed(2) }} کوین
+                                        {{ (userBalance - Number(currentPrice)).toFixed(2) }} {{ __('user.wallet.unit') }}
                                     </span>
                                 </div>
 
                                 <div class="pt-1.5 text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed bg-white/70 dark:bg-black/30 p-2.5 rounded-xl border border-purple-500/15">
-                                    🔒 <strong>سازوکار مالی مسدودی (Hold):</strong> با کلیک بر روی پرداخت، مبلغ <strong class="text-purple-600 dark:text-purple-400">{{ currentPrice }} TRX</strong> به‌صورت امن در کیف پول شما مسدود می‌شود. در صورت رد درخواست توسط کارشناسان، وجه فوراً و ۱۰۰٪ به موجودی قابل استفاده شما عودت داده می‌شود.
+                                    🔒 {{ __('user.requests.hold_notice', { amount: currentPrice }) }}
                                 </div>
 
                                 <div v-if="hasInsufficientBalance" class="pt-1 text-rose-600 dark:text-rose-400 font-bold text-[11px] flex items-center justify-between">
-                                    <span>⚠️ موجودی کیف پول شما برای این سفارش کافی نمی‌باشد.</span>
-                                    <Link :href="route('profile.edit')" class="underline hover:text-rose-700">
-                                        شارژ حساب ←
-                                    </Link>
+                                    <span>⚠️ {{ __('user.requests.insufficient_balance') }}</span>
+                                    <Link :href="route('profile.edit')" class="underline hover:text-rose-700">{{ __('user.requests.recharge_link') }}</Link>
                                 </div>
                             </div>
 
@@ -1135,9 +1115,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     @click="createStep = 3"
                                     :disabled="createForm.processing"
                                     class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all cursor-pointer"
-                                >
-                                    ← مرحله قبل (مشخصات)
-                                </button>
+                                >{{ __('user.requests.back_to_info') }}</button>
                                 <button
                                     type="button"
                                     @click="submitCreate"
@@ -1155,7 +1133,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                     </svg>
                                     <span>
-                                        {{ createForm.processing ? 'در حال ثبت و مسدودی وجه...' : 'پرداخت و ثبت نهایی درخواست' }}
+                                        {{ createForm.processing ? __('user.requests.submitting_payment') : __('user.requests.confirm_payment_btn') }}
                                     </span>
                                 </button>
                             </div>
@@ -1188,7 +1166,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
                                     🔍
                                 </div>
-                                <h3 class="font-black text-sm text-slate-900 dark:text-white">جزئیات درخواست #{{ selectedRequest.id }}</h3>
+                                <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.requests.modal_details_title', { id: selectedRequest.id }) }}</h3>
                             </div>
                             <button
                                 type="button"
@@ -1201,7 +1179,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                         <div class="space-y-3 text-xs">
                             <div v-if="selectedRequest.prefix" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">پیش‌شماره / کشور:</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_prefix_country') }}</span>
                                 <span class="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                                     <span>{{ selectedRequest.prefix.flag }}</span>
                                     <span>{{ selectedRequest.prefix.country_name }}</span>
@@ -1209,36 +1187,36 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 </span>
                             </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">عنوان:</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_title') }}</span>
                                 <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.service_title }}</span>
                             </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">طول شماره:</span>
-                                <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ selectedRequest.requested_length }} رقمی</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_length') }}</span>
+                                <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ __('user.requests.digits_unit', { count: selectedRequest.requested_length }) }}</span>
                             </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">قابلیت دریافت پیامک:</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_incoming') }}</span>
                                 <span
                                     class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
                                     :class="selectedRequest.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'"
                                 >
-                                    {{ selectedRequest.accepts_incoming_sms ? 'دوطرفه (ارسال و دریافت)' : 'یک‌طرفه (صرفاً ارسال)' }}
+                                    {{ selectedRequest.accepts_incoming_sms ? __('user.requests.detail_incoming_twoway') : __('user.requests.detail_incoming_oneway') }}
                                 </span>
                             </div>
                             <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">وضعیت:</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_status') }}</span>
                                 <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border" :class="selectedRequest.status_badge">
                                     {{ selectedRequest.status_label }}
                                 </span>
                             </div>
                             <div>
-                                <span class="text-slate-500 dark:text-slate-400 block mb-1 font-semibold">شرح درخواست:</span>
+                                <span class="text-slate-500 dark:text-slate-400 block mb-1 font-semibold">{{ __('user.requests.detail_description') }}</span>
                                 <p class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 leading-relaxed text-xs">
                                     {{ selectedRequest.description }}
                                 </p>
                             </div>
                             <div v-if="selectedRequest.reviewer_name" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
-                                <span class="text-slate-500 dark:text-slate-400">بررسی‌کننده:</span>
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_reviewer') }}</span>
                                 <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.reviewer_name }}</span>
                             </div>
                         </div>
@@ -1248,9 +1226,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 type="button"
                                 @click="closeDetailsModal"
                                 class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
-                            >
-                                بستن
-                            </button>
+                            >{{ __('user.requests.close') }}</button>
                         </div>
                     </div>
                 </div>
@@ -1280,9 +1256,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <div class="space-y-1.5">
-                            <h3 class="font-black text-sm text-slate-900 dark:text-white">لغو درخواست سرشماره</h3>
+                            <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.requests.cancel_modal_title') }}</h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400">
-                                آیا از انصراف و حذف این درخواست اطمینان دارید؟ این عمل غیرقابل بازگشت است.
+                                {{ __('user.requests.cancel_modal_desc') }}
                             </p>
                         </div>
 
@@ -1292,9 +1268,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 @click="closeCancelModal"
                                 :disabled="cancelProcessing"
                                 class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-xs font-bold text-slate-700 dark:text-slate-300 transition-all"
-                            >
-                                انصراف
-                            </button>
+                            >{{ __('user.requests.cancel') }}</button>
                             <button
                                 type="button"
                                 @click="confirmCancel"
@@ -1311,7 +1285,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                 </svg>
-                                <span>{{ cancelProcessing ? 'در حال لغو...' : 'تأیید و لغو درخواست' }}</span>
+                                <span>{{ cancelProcessing ? __('user.requests.canceling') : __('user.requests.confirm_cancel') }}</span>
                             </button>
                         </div>
                     </div>

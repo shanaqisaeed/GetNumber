@@ -2,6 +2,7 @@
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { __ } from '@/Composables/useTrans';
 import { ref } from 'vue';
 
 defineProps<{
@@ -25,11 +26,11 @@ function submit() {
 </script>
 
 <template>
-    <Head title="تعریف حساب کاربری جدید" />
+    <Head :title="__('admin.users.create_page_title')" />
 
     <AdminLayout>
         <template #header>
-            <h1 class="text-base font-bold text-slate-900 dark:text-white">تعریف حساب کاربری جدید</h1>
+            <h1 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.users.create_heading') }}</h1>
         </template>
 
         <div class="w-full space-y-6">
@@ -37,10 +38,10 @@ function submit() {
             <div class="flex items-center justify-between pb-2">
                 <div>
                     <h2 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                        تعریف حساب کاربری جدید
+                        {{ __('admin.users.create_heading') }}
                     </h2>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                        ثبت اطلاعات و صدور دسترسی حساب کاربری سازمانی
+                        {{ __('admin.users.create_subheading') }}
                     </p>
                 </div>
 
@@ -51,7 +52,7 @@ function submit() {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    <span>بازگشت به فهرست کاربران</span>
+                    <span>{{ __('admin.users.back_to_list') }}</span>
                 </Link>
             </div>
             <!-- 2026 Admin Info Banner (Full Width) -->
@@ -67,9 +68,9 @@ function submit() {
                             </svg>
                         </div>
                         <div>
-                            <h2 class="text-base sm:text-lg font-black text-white">صدور آنی شناسه و پروانه کاربری</h2>
+                            <h2 class="text-base sm:text-lg font-black text-white">{{ __('admin.users.create_hero_title') }}</h2>
                             <p class="text-xs text-indigo-200/80 mt-0.5 leading-relaxed">
-                                حساب‌های ایجادشده بلافاصله آماده تخصیص خطوط سازمانی ۹ رقمی و بهره‌برداری از خدمات شبکه خواهند بود.
+                                {{ __('admin.users.create_hero_desc') }}
                             </p>
                         </div>
                     </div>
@@ -77,7 +78,7 @@ function submit() {
                     <div class="flex items-center gap-2">
                         <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 text-white border border-white/10 text-xs font-bold">
                             <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            کنسول مرکزی راهبری ۲۰۲۶
+                            {{ __('admin.users.create_hero_badge') }}
                         </span>
                     </div>
                 </div>
@@ -91,19 +92,17 @@ function submit() {
                         <!-- Column 1: Identity & Credentials -->
                         <div class="space-y-6">
                             <div class="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">
-                                    ۱
-                                </div>
+                                <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-xs">1</div>
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">مشخصات هویتی و شناسه کاربری</h3>
-                                    <p class="text-[11px] text-slate-400">اطلاعات پایه حساب جهت احراز هویت</p>
+                                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.users.step1_title') }}</h3>
+                                    <p class="text-[11px] text-slate-400">{{ __('admin.users.step1_desc') }}</p>
                                 </div>
                             </div>
 
                             <!-- Name -->
                             <div>
                                 <label for="name" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    عنوان سازمانی / نام و نام خانوادگی
+                                    {{ __('admin.users.field_fullname') }}
                                 </label>
                                 <div class="relative rounded-2xl group">
                                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-500 transition-colors">
@@ -117,7 +116,7 @@ function submit() {
                                         v-model="form.name"
                                         required
                                         autofocus
-                                        placeholder="مثال: شرکت ارتباطات پیشرو یا احمد رضایی"
+                                        :placeholder="__('admin.users.field_fullname_ph')"
                                         class="block w-full pr-11 pl-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 transition-all outline-none"
                                     />
                                 </div>
@@ -128,9 +127,9 @@ function submit() {
                             <div>
                                 <div class="flex items-center justify-between mb-1.5">
                                     <label for="username" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                                        شناسه کاربری یکتا (نام کاربری ورود)
+                                        {{ __('admin.users.field_username') }}
                                     </label>
-                                    <span class="text-[11px] text-slate-400 font-mono">حروف انگلیسی و ارقام</span>
+                                    <span class="text-[11px] text-slate-400 font-mono">{{ __('admin.users.username_hint') }}</span>
                                 </div>
                                 <div class="relative rounded-2xl group">
                                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-500 transition-colors">
@@ -144,7 +143,7 @@ function submit() {
                                         v-model="form.username"
                                         required
                                         dir="ltr"
-                                        placeholder="مثال: tehran_agency یا ahmad100"
+                                        :placeholder="__('admin.users.field_username_ph')"
                                         class="block w-full pr-11 pl-4 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 transition-all outline-none text-right"
                                     />
                                 </div>
@@ -154,7 +153,7 @@ function submit() {
                             <!-- Password -->
                             <div>
                                 <label for="password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    کلمه عبور اولیه
+                                    {{ __('admin.users.field_password') }}
                                 </label>
                                 <div class="relative rounded-2xl group">
                                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400 dark:text-slate-500 group-focus-within:text-indigo-500 transition-colors">
@@ -168,14 +167,14 @@ function submit() {
                                         v-model="form.password"
                                         required
                                         dir="ltr"
-                                        placeholder="حداقل ۸ نویسه امن"
+                                        :placeholder="__('admin.users.field_password_ph')"
                                         class="block w-full pr-11 pl-11 py-3.5 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:focus:ring-indigo-500/20 transition-all outline-none"
                                     />
                                     <button
                                         type="button"
                                         @click="showPassword = !showPassword"
                                         class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                                        title="نمایش یا پنهان گذرواژه"
+                                        :title="__('admin.users.toggle_password')"
                                     >
                                         <svg v-if="!showPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -193,19 +192,17 @@ function submit() {
                         <!-- Column 2: Role, Status & Policy -->
                         <div class="space-y-6">
                             <div class="pb-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
-                                <div class="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs">
-                                    ۲
-                                </div>
+                                <div class="w-8 h-8 rounded-xl bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-xs">2</div>
                                 <div>
-                                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">سطوح دسترسی و وضعیت حساب</h3>
-                                    <p class="text-[11px] text-slate-400">تعیین مجوزها و اختیارات کاربری</p>
+                                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.users.step2_title') }}</h3>
+                                    <p class="text-[11px] text-slate-400">{{ __('admin.users.step2_desc') }}</p>
                                 </div>
                             </div>
 
                             <!-- Role -->
                             <div>
                                 <label for="role" class="form-label mb-1.5">
-                                    نقش کاربری در سامانه
+                                    {{ __('admin.users.field_role') }}
                                 </label>
                                 <div class="relative">
                                     <select
@@ -220,7 +217,7 @@ function submit() {
                                     </select>
                                 </div>
                                 <p class="text-[11px] text-slate-400 mt-1.5">
-                                    راهبر ارشد دسترسی کامل مدیریتی دارد؛ کاربر سازمانی فقط به پیشخوان کاربری دسترسی دارد.
+                                    {{ __('admin.users.role_hint') }}
                                 </p>
                                 <InputError class="mt-2 text-xs" :message="form.errors.role" />
                             </div>
@@ -228,7 +225,7 @@ function submit() {
                             <!-- Status -->
                             <div>
                                 <label for="status" class="form-label mb-1.5">
-                                    وضعیت اولیه حساب
+                                    {{ __('admin.users.field_initial_status') }}
                                 </label>
                                 <div class="relative">
                                     <select
@@ -243,7 +240,7 @@ function submit() {
                                     </select>
                                 </div>
                                 <p class="text-[11px] text-slate-400 mt-1.5">
-                                    در وضعیت «فعال»، کاربر بلافاصله پس از تعریف قادر به ورود خواهد بود.
+                                    {{ __('admin.users.status_hint') }}
                                 </p>
                                 <InputError class="mt-2 text-xs" :message="form.errors.status" />
                             </div>
@@ -254,10 +251,10 @@ function submit() {
                                     <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                     </svg>
-                                    <span>استاندارد امنیت سازمانی ۲۰۲۶</span>
+                                    <span>{{ __('admin.users.security_badge') }}</span>
                                 </div>
                                 <p class="text-[11px] text-indigo-700/80 dark:text-indigo-400 leading-relaxed">
-                                    گذرواژه به صورت هش‌شده با الگوریتم Bcrypt ذخیره شده و تمامی نشست‌های ورودی در گزارش‌های نظارتی ادمین لاگ می‌گردند.
+                                    {{ __('admin.users.security_notice') }}
                                 </p>
                             </div>
                         </div>
@@ -268,9 +265,7 @@ function submit() {
                         <Link
                             :href="route('admin.users.index')"
                             class="px-6 py-3 rounded-2xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            انصراف و بازگشت
-                        </Link>
+                        >{{ __('admin.users.cancel_and_back') }}</Link>
 
                         <button
                             type="submit"
@@ -284,7 +279,7 @@ function submit() {
                             <svg v-else class="w-4 h-4 text-white/90 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                             </svg>
-                            <span>ثبت و صدور دسترسی حساب کاربری</span>
+                            <span>{{ __('admin.users.submit_create') }}</span>
                         </button>
                     </div>
                 </form>

@@ -97,7 +97,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head :title="'فاکتور پرداخت ' + deposit.tracking_code" />
+    <Head :title="__('user.wallet.deposit_invoice_title', { code: deposit.tracking_code })" />
 
     <UserLayout>
         <div class="space-y-4 max-w-xl mx-auto pb-10">
@@ -110,7 +110,7 @@ onUnmounted(() => {
                     <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                     </svg>
-                    <span>بازگشت به پروفایل</span>
+                    <span>{{ __('user.wallet.back_to_profile') }}</span>
                 </Link>
 
                 <div class="text-left" dir="ltr">
@@ -127,10 +127,9 @@ onUnmounted(() => {
                     ✓
                 </div>
                 <div>
-                    <h2 class="text-base font-black text-slate-900 dark:text-white">واریز با موفقیت تأیید شد!</h2>
+                    <h2 class="text-base font-black text-slate-900 dark:text-white">{{ __('user.wallet.deposit_success_title') }}</h2>
                     <p class="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                        مبلغ <strong class="text-emerald-600 dark:text-emerald-400 font-bold">{{ deposit.actual_amount }} TRX</strong> در شبکه تأیید شد و
-                        <strong class="text-indigo-600 dark:text-indigo-400 font-bold">{{ deposit.coin_amount }} واحد اعتبار</strong> به کیف پول شما واریز گردید.
+                        {{ __('user.wallet.deposit_success_desc', { amount: deposit.actual_amount, coins: deposit.coin_amount }) }}
                     </p>
                 </div>
                 <div class="pt-2">
@@ -138,7 +137,7 @@ onUnmounted(() => {
                         :href="route('profile.edit')"
                         class="inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
                     >
-                        <span>مشاهده موجودی در حساب کاربری</span>
+                        <span>{{ __('user.wallet.view_balance_in_account') }}</span>
                         <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
@@ -151,10 +150,10 @@ onUnmounted(() => {
                 <!-- 1. Invoice Header & Tracking & Status -->
                 <div class="space-y-2 pb-4 border-b border-slate-100 dark:border-slate-800 text-center">
                     <h1 class="text-base font-black text-slate-900 dark:text-white">
-                        فاکتور شارژ حساب کاربری
+                        {{ __('user.wallet.deposit_invoice_heading') }}
                     </h1>
                     <div class="flex items-center justify-center gap-2 flex-wrap text-xs">
-                        <span class="text-slate-500 dark:text-slate-400">کد رهگیری:</span>
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('user.wallet.tracking_code_label') }}</span>
                         <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-lg border border-indigo-200/60 dark:border-indigo-800/40">
                             {{ deposit.tracking_code }}
                         </span>
@@ -170,13 +169,13 @@ onUnmounted(() => {
                     <div class="p-3 bg-white rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm inline-block">
                         <QrCode :value="deposit.deposit_address" :size="170" />
                     </div>
-                    <span class="text-[11px] text-slate-400 dark:text-slate-500">اسکن جهت انتقال سریع از کیف پول یا صرافی</span>
+                    <span class="text-[11px] text-slate-400 dark:text-slate-500">{{ __('user.wallet.scan_qr') }}</span>
                 </div>
 
                 <!-- 3. Deposit Address & Copy Button (Directly Below QR) -->
                 <div class="space-y-2">
                     <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 text-center">
-                        آدرس اختصاصی کیف پول واریز (شبکه {{ deposit.network }})
+                        {{ __('user.wallet.dedicated_address', { network: deposit.network }) }}
                     </label>
 
                     <div
@@ -200,23 +199,23 @@ onUnmounted(() => {
                         <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        <span>{{ copied ? 'آدرس کیف پول کپی شد!' : 'کپی آدرس واریز' }}</span>
+                        <span>{{ copied ? __('user.wallet.address_copied') : __('user.wallet.copy_address') }}</span>
                     </button>
                 </div>
 
                 <!-- 4. Payment Amount (Directly Below Address) -->
                 <div class="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-500/25 flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block">مبلغ قابل واریز:</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block">{{ __('user.wallet.payable_amount') }}</span>
                         <span class="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
                             {{ deposit.requested_amount }} TRX
                         </span>
                     </div>
 
                     <div class="text-left" dir="rtl">
-                        <span class="text-xs text-slate-500 dark:text-slate-400 block">افزایش اعتبار:</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400 block">{{ __('user.wallet.credit_increase') }}</span>
                         <span class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            {{ deposit.coin_amount }} واحد اعتبار
+                            {{ __('user.wallet.credit_units_val', { amount: deposit.coin_amount }) }}
                         </span>
                     </div>
                 </div>
@@ -225,25 +224,25 @@ onUnmounted(() => {
                 <div v-if="deposit.status === 'verifying'" class="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-600 dark:text-blue-400 space-y-1">
                     <p class="font-bold flex items-center gap-1.5">
                         <span class="animate-spin inline-block">🔄</span>
-                        <span>در حال استعلام خودکار از شبکه ترون...</span>
+                        <span>{{ __('user.wallet.querying_tron') }}</span>
                     </p>
                     <p class="text-[11px] text-slate-600 dark:text-slate-300">
-                        سیستم به طور خودکار تراکنش شما را طی ۳ مرحله با فواصل زمانی ۳۰ دقیقه‌ای بررسی می‌کند. نیازی به باز نگه داشتن صفحه نیست.
+                        {{ __('user.wallet.querying_tron_desc') }}
                     </p>
                 </div>
 
                 <div v-else-if="deposit.status === 'manual_review'" class="p-3.5 rounded-2xl bg-orange-500/10 border border-orange-500/25 text-xs text-orange-600 dark:text-orange-400 space-y-1">
                     <p class="font-bold flex items-center gap-1.5">
                         <span>⚠️</span>
-                        <span>تراکنش در صف بررسی دستی راهبر:</span>
+                        <span>{{ __('user.wallet.manual_review_queue') }}</span>
                     </p>
                     <p class="text-[11px] text-slate-600 dark:text-slate-300">
-                        تراکنش پس از ۳ مرحله استعلام اولیه در انتظار تایید کارشناس مالی سامانه قرار گرفته است و به زودی پس از تطبیق دستی تأیید خواهد شد.
+                        {{ __('user.wallet.manual_review_desc') }}
                     </p>
                 </div>
 
                 <div v-else-if="deposit.failure_reason && !deposit.is_completed" class="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/25 text-xs text-rose-500 space-y-1">
-                    <span class="font-bold block">پیام سامانه:</span>
+                    <span class="font-bold block">{{ __('user.wallet.system_message') }}</span>
                     <p class="text-[11px]">{{ deposit.failure_reason }}</p>
                 </div>
 
@@ -252,13 +251,13 @@ onUnmounted(() => {
                     <form @submit.prevent="submitTx" class="space-y-3">
                         <div>
                             <label class="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1.5">
-                                کد رهگیری تراکنش (TX Hash / Hash) <span class="text-rose-500">*</span>
+                                {{ __('user.wallet.tx_hash_label') }} <span class="text-rose-500">*</span>
                             </label>
                             <input
                                 v-model="txForm.tx_hash"
                                 type="text"
                                 required
-                                placeholder="کد رهگیری یا هش تراکنش را از کیف پول خود کپی کرده و اینجا وارد کنید..."
+                                :placeholder="__('user.wallet.tx_hash_placeholder')"
                                 class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none text-slate-900 dark:text-white"
                             />
                             <p v-if="txForm.errors.tx_hash" class="text-rose-500 text-[11px] mt-1">{{ txForm.errors.tx_hash }}</p>
@@ -272,8 +271,8 @@ onUnmounted(() => {
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span v-if="txForm.processing">در حال ثبت و استعلام...</span>
-                            <span v-else>{{ deposit.tx_hash ? 'به‌روزرسانی کد رهگیری و بررسی مجدد' : 'ثبت کد رهگیری و بررسی تراکنش' }}</span>
+                            <span v-if="txForm.processing">{{ __('user.wallet.submitting_hash') }}</span>
+                            <span>{{ deposit.tx_hash ? __('user.wallet.update_hash') : __('user.wallet.submit_hash') }}</span>
                         </button>
                     </form>
                 </div>

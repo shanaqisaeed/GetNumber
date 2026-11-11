@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import InputError from '@/Components/InputError.vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 interface Props {
     settings: {
@@ -23,7 +24,12 @@ interface Props {
     isEnabled: boolean;
 }
 
+const { __ } = useTrans();
+
 const props = defineProps<Props>();
+
+const ldapExtWarning = computed(() => __('admin.settings.ldap_ext_warning_desc', { ext: '<code class="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">extension=ldap</code>' }));
+const searchFilterHelp = computed(() => __('admin.settings.search_filter_help', { login: '<code class="text-purple-500">{login}</code>' }));
 
 const form = useForm({
     host: props.settings.host || '',
@@ -58,7 +64,7 @@ const runConnectionTest = async () => {
     } catch (e: any) {
         testResult.value = {
             success: false,
-            message: e?.response?.data?.message || 'خطا در برقراری ارتباط با وب‌سرور جهت تست LDAP.',
+            message: e?.response?.data?.message || __('admin.settings.ldap_ajax_error'),
         };
     } finally {
         isTesting.value = false;
@@ -67,7 +73,7 @@ const runConnectionTest = async () => {
 </script>
 
 <template>
-    <Head title="تنظیمات سرویس سازمانی LDAP" />
+    <Head :title="__('admin.settings.head_title_ldap')" />
 
     <AdminLayout>
         <template #header>
@@ -79,11 +85,11 @@ const runConnectionTest = async () => {
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="text-base font-black text-slate-900 dark:text-white">پیکربندی سرور LDAP / Active Directory</h1>
-                        <span v-if="isEnabled" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">درگاه فعال</span>
-                        <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 border border-slate-500/20">درگاه خاموش</span>
+                        <h1 class="text-base font-black text-slate-900 dark:text-white">{{ __('admin.settings.ldap_title') }}</h1>
+                        <span v-if="isEnabled" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">{{ __('admin.settings.gateway_active') }}</span>
+                        <span v-else class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 border border-slate-500/20">{{ __('admin.settings.gateway_inactive') }}</span>
                     </div>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">اتصال زنده به سرور دایرکتوری سازمانی و نگاشت خصوصیات کاربری</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.ldap_desc') }}</p>
                 </div>
             </div>
         </template>
@@ -95,8 +101,8 @@ const runConnectionTest = async () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <div>
-                    <span class="font-bold block">ماژول PHP LDAP فعال نمی‌باشد!</span>
-                    <span>جهت استفاده از قابلیت ورود پرسنلی از طریق LDAP، لطفاً اکستنشن <code class="bg-amber-100 dark:bg-amber-900 px-1 py-0.5 rounded">extension=ldap</code> را در php.ini سرور فعال فرمایید.</span>
+                    <span class="font-bold block">{{ __('admin.settings.ldap_ext_warning_title') }}</span>
+                    <span v-html="ldapExtWarning"></span>
                 </div>
             </div>
 
@@ -113,7 +119,7 @@ const runConnectionTest = async () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
                 <div>
-                    <span class="font-bold block">{{ testResult.success ? 'تست اتصال موفقیت‌آمیز بود' : 'تست اتصال ناموفق' }}</span>
+                    <span class="font-bold block">{{ testResult.success ? __('admin.settings.ldap_test_success') : __('admin.settings.ldap_test_failed') }}</span>
                     <span>{{ testResult.message }}</span>
                 </div>
             </div>
@@ -124,7 +130,7 @@ const runConnectionTest = async () => {
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <div class="flex items-center gap-2.5">
                             <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                            <h2 class="text-sm font-black text-slate-900 dark:text-white">مشخصات سرور و اتصال شبکه</h2>
+                            <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.server_specs_title') }}</h2>
                         </div>
                         <button
                             type="button"
@@ -136,14 +142,14 @@ const runConnectionTest = async () => {
                             <svg v-else class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
-                            <span>تست اتصال به سرور</span>
+                            <span>{{ __('admin.settings.test_connection') }}</span>
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="md:col-span-2">
                             <label for="host" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                آدرس سرور (Host):
+                                {{ __('admin.settings.host_label') }}
                             </label>
                             <input
                                 id="host"
@@ -159,7 +165,7 @@ const runConnectionTest = async () => {
 
                         <div>
                             <label for="port" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                پورت (Port):
+                                {{ __('admin.settings.port_label') }}
                             </label>
                             <input
                                 id="port"
@@ -176,23 +182,23 @@ const runConnectionTest = async () => {
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="encryption" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                نوع رمزنگاری اتصال (Encryption):
+                                {{ __('admin.settings.encryption_label') }}
                             </label>
                             <select
                                 id="encryption"
                                 v-model="form.encryption"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                             >
-                                <option value="none">بدون رمزنگاری (None - Port 389)</option>
-                                <option value="tls">اتصال امن StartTLS (Port 389)</option>
-                                <option value="ssl">اتصال کامل SSL/LDAPS (Port 636)</option>
+                                <option value="none">{{ __('admin.settings.enc_none') }}</option>
+                                <option value="tls">{{ __('admin.settings.enc_tls') }}</option>
+                                <option value="ssl">{{ __('admin.settings.enc_ssl') }}</option>
                             </select>
                             <InputError class="mt-1" :message="form.errors.encryption" />
                         </div>
 
                         <div>
                             <label for="base_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                ریشه جستجو (Base DN):
+                                {{ __('admin.settings.base_dn_label') }}
                             </label>
                             <input
                                 id="base_dn"
@@ -211,14 +217,14 @@ const runConnectionTest = async () => {
                 <!-- Service Account Authentication (Bind) -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
                     <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <h2 class="text-sm font-black text-slate-900 dark:text-white">حساب سرویس اتصال (Bind DN)</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">مشخصات کاربر سرویس جهت جستجوی اطلاعات در دایرکتوری (در صورت اتصال ناشناس خالی بگذارید)</p>
+                        <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.bind_dn_title') }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.bind_dn_desc') }}</p>
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label for="bind_dn" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                شناسه کامل کاربر سرویس (Bind DN):
+                                {{ __('admin.settings.bind_dn_label') }}
                             </label>
                             <input
                                 id="bind_dn"
@@ -233,7 +239,7 @@ const runConnectionTest = async () => {
 
                         <div>
                             <label for="bind_password" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                رمز عبور کاربر سرویس (Bind Password):
+                                {{ __('admin.settings.bind_password_label') }}
                             </label>
                             <input
                                 id="bind_password"
@@ -251,13 +257,13 @@ const runConnectionTest = async () => {
                 <!-- User Search & Attribute Mapping -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
                     <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <h2 class="text-sm font-black text-slate-900 dark:text-white">فیلتر جستجو و نگاشت خصوصیات کاربری</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تعیین نحوه یافتن رکورد کاربر و استخراج ایمیل و نام</p>
+                        <h2 class="text-sm font-black text-slate-900 dark:text-white">{{ __('admin.settings.mapping_title') }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.mapping_desc') }}</p>
                     </div>
 
                     <div>
                         <label for="search_filter" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            فیلتر جستجوی کاربر (Search Filter):
+                            {{ __('admin.settings.search_filter_label') }}
                         </label>
                         <input
                             id="search_filter"
@@ -267,14 +273,14 @@ const runConnectionTest = async () => {
                             class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-mono text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                             required
                         />
-                        <span class="text-[10px] text-slate-400 mt-1 block">مقدار <code class="text-purple-500">{login}</code> با مقدار ورودی کاربر جایگزین می‌شود.</span>
+                        <span class="text-[10px] text-slate-400 mt-1 block" v-html="searchFilterHelp"></span>
                         <InputError class="mt-1" :message="form.errors.search_filter" />
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label for="uid_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                ویژگی شناسه (UID):
+                                {{ __('admin.settings.uid_attr') }}
                             </label>
                             <input
                                 id="uid_attribute"
@@ -290,7 +296,7 @@ const runConnectionTest = async () => {
 
                         <div>
                             <label for="email_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                ویژگی ایمیل (Email):
+                                {{ __('admin.settings.email_attr') }}
                             </label>
                             <input
                                 id="email_attribute"
@@ -306,7 +312,7 @@ const runConnectionTest = async () => {
 
                         <div>
                             <label for="name_attribute" class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                ویژگی نام کامل (Full Name):
+                                {{ __('admin.settings.name_attr') }}
                             </label>
                             <input
                                 id="name_attribute"
@@ -324,8 +330,8 @@ const runConnectionTest = async () => {
                     <!-- Auto Provisioning Toggle -->
                     <div class="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
                         <div>
-                            <h3 class="text-xs font-bold text-slate-900 dark:text-white">ایجاد خودکار کاربر در اولین ورود (JIT Provisioning)</h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">در صورت ورود موفق کارمند سازمان که قبلاً در سامانه حساب ندارد، به صورت خودکار حساب محلی برای وی ایجاد گردد</p>
+                            <h3 class="text-xs font-bold text-slate-900 dark:text-white">{{ __('admin.settings.jit_title') }}</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.settings.jit_desc') }}</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" v-model="form.auto_create_user" class="sr-only peer">
@@ -341,12 +347,12 @@ const runConnectionTest = async () => {
                         :disabled="form.processing"
                         class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-black text-xs shadow-md shadow-purple-500/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
                     >
-                        <span v-if="form.processing">در حال ذخیره‌سازی...</span>
+                        <span v-if="form.processing">{{ __('admin.settings.saving') }}</span>
                         <template v-else>
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>ذخیره تنظیمات LDAP</span>
+                            <span>{{ __('admin.settings.save_ldap') }}</span>
                         </template>
                     </button>
                 </div>

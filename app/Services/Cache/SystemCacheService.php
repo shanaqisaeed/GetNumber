@@ -526,19 +526,53 @@ class SystemCacheService implements SystemCacheServiceInterface
         $cacheKey = "user:{$user->id}:dashboard_stats";
 
         $stats = Cache::get($cacheKey);
-        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats)) {
+        if ($stats instanceof \__PHP_Incomplete_Class || ! is_array($stats) || ! isset($stats['metrics']['standard_numbers'])) {
             Cache::forget($cacheKey);
 
             $activeCount = $this->getUserActiveNumbersCount($user->id);
             $maxQuota = (int) \App\Models\SystemSetting::get('max_lines_per_user', PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER);
             $userPhoneIds = $user->phoneNumbers()->pluck('id');
 
+            $standardNumbers = PhoneNumber::where('user_id', $user->id)
+                ->where('status', PhoneNumberStatus::Allocated)
+                ->where('type', PhoneNumberType::UserStandard)
+                ->count();
+            $serviceNumbers = PhoneNumber::where('user_id', $user->id)
+                ->where('status', PhoneNumberStatus::Allocated)
+                ->where('type', PhoneNumberType::UserService)
+                ->count();
+
             $totalMessages = Message::whereIn('phone_number_id', $userPhoneIds)->count();
+            $inboundMessages = Message::whereIn('phone_number_id', $userPhoneIds)
+                ->where('direction', MessageDirection::Inbound)
+                ->count();
+            $outboundMessages = Message::whereIn('phone_number_id', $userPhoneIds)
+                ->where('direction', MessageDirection::Outbound)
+                ->count();
+            $todayMessages = Message::whereIn('phone_number_id', $userPhoneIds)
+                ->whereDate('server_received_at', today())
+                ->count();
             $unreadMessages = Message::whereIn('phone_number_id', $userPhoneIds)
                 ->where('direction', MessageDirection::Inbound)
                 ->where('processing_status', MessageProcessingStatus::Received)
                 ->count();
+
             $pendingRequests = $this->getUserPendingRequestsCount($user->id);
+            $approvedRequests = NumberRequest::where('user_id', $user->id)
+                ->where('status', NumberRequestStatus::Approved)
+                ->count();
+
+            $activeTokens = ApiToken::where('user_id', $user->id)
+                ->where('status', ApiTokenStatus::Active)
+                ->count();
+            $totalTokens = ApiToken::where('user_id', $user->id)->count();
+
+            $openTickets = \App\Models\Ticket::where('user_id', $user->id)
+                ->where('status', '!=', \App\Enums\TicketStatus::Closed)
+                ->count();
+            $answeredTickets = \App\Models\Ticket::where('user_id', $user->id)
+                ->where('status', \App\Enums\TicketStatus::Answered)
+                ->count();
 
             $stats = [
                 'quota' => [
@@ -549,8 +583,18 @@ class SystemCacheService implements SystemCacheServiceInterface
                 ],
                 'metrics' => [
                     'total_messages' => $totalMessages,
+                    'inbound_messages' => $inboundMessages,
+                    'outbound_messages' => $outboundMessages,
+                    'today_messages' => $todayMessages,
                     'unread_messages' => $unreadMessages,
                     'pending_requests' => $pendingRequests,
+                    'approved_requests' => $approvedRequests,
+                    'standard_numbers' => $standardNumbers,
+                    'service_numbers' => $serviceNumbers,
+                    'active_tokens' => $activeTokens,
+                    'total_tokens' => $totalTokens,
+                    'open_tickets' => $openTickets,
+                    'answered_tickets' => $answeredTickets,
                 ],
             ];
             Cache::put($cacheKey, $stats, self::TTL_DASHBOARD);

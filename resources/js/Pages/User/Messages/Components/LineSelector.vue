@@ -67,20 +67,20 @@ const selectLine = (id: number) => {
                 </div>
                 <div>
                     <div class="flex items-center gap-1.5">
-                        <span class="text-[11px] font-black text-slate-900 dark:text-white">سیم‌کارت فعال خطوط</span>
+                        <span class="text-[11px] font-black text-slate-900 dark:text-white">{{ __('user.messages.active_sim') }}</span>
                         <span class="px-1.5 py-0.2 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-mono font-bold">
                             SIM {{ currentSimIndex }}
                         </span>
                         <span
                             v-if="currentLineUnreadCount > 0"
                             class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black shadow-md shadow-rose-500/30 animate-pulse"
-                            title="پیام جدید روی این خط"
+                            :title="__('user.messages.new_message_on_line')"
                         >
-                            {{ currentLineUnreadCount }} پیام جدید
+                            {{ __('user.messages.new_messages_count', { count: currentLineUnreadCount }) }}
                         </span>
                     </div>
                     <span class="text-[10px] text-slate-500 dark:text-slate-400 font-medium block">
-                        فرستنده و گیرنده پیامک‌ها
+                        {{ __('user.messages.inbound_outbound_role') }}
                     </span>
                 </div>
             </div>
@@ -93,7 +93,7 @@ const selectLine = (id: number) => {
                     :title="connectionLabel"
                 >
                     <span class="w-1.5 h-1.5 rounded-full" :class="connectionStatusDotClass"></span>
-                    <span>{{ isWebSocketActive ? 'زنده (WebSocket)' : 'همگام‌سازی خودکار' }}</span>
+                    <span>{{ isWebSocketActive ? __('user.messages.websocket_live') : __('user.messages.auto_sync') }}</span>
                 </div>
 
                 <button
@@ -105,11 +105,11 @@ const selectLine = (id: number) => {
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                     </svg>
-                    <span>تعویض خط</span>
+                    <span>{{ __('user.messages.switch_line') }}</span>
                     <span
                         v-if="otherLinesTotalUnreadCount > 0"
                         class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono text-[9px] font-black shadow-sm shadow-rose-500/40 animate-pulse"
-                        title="پیام جدید در سایر خطوط"
+                        :title="__('user.messages.new_message_other_lines')"
                     >
                         {{ otherLinesTotalUnreadCount }}
                     </span>
@@ -120,7 +120,7 @@ const selectLine = (id: number) => {
         <!-- Current Active Line Highlight Box -->
         <div v-if="currentLine" class="mt-3 p-3 rounded-2xl bg-indigo-50/70 dark:bg-slate-950/60 border border-indigo-200/80 dark:border-indigo-500/25 flex items-center justify-between">
             <div class="min-w-0">
-                <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">عنوان خط فعال:</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-medium">{{ __('user.messages.current_line_title') }}</span>
                 <span class="text-xs font-black text-slate-900 dark:text-white truncate block">
                     {{ currentLine.effective_title }}
                 </span>
@@ -150,7 +150,7 @@ const selectLine = (id: number) => {
                 <span
                     v-if="(sim.unread_count || 0) > 0"
                     class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black shadow-sm shadow-rose-500/40 animate-pulse"
-                    title="پیام نخوانده"
+                    :title="__('user.messages.unread_message_title')"
                 >
                     {{ sim.unread_count }}
                 </span>
@@ -159,7 +159,7 @@ const selectLine = (id: number) => {
         </div>
 
         <div v-else-if="lines.length === 0" class="mt-3 text-xs text-rose-500 font-bold">
-            هیچ خط فعال سازمانی یافت نشد. لطفاً از بخش «خطوط من» شماره جدید تخصیص دهید.
+            {{ __('user.messages.no_lines_found') }}
         </div>
     </div>
 
@@ -176,7 +176,7 @@ const selectLine = (id: number) => {
                             <line x1="8" y1="14.5" x2="16" y2="14.5"/>
                         </svg>
                     </div>
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تعویض خط / سیم‌کارت فرستنده</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.messages.switch_line_modal_title') }}</h3>
                 </div>
                 <button type="button" @click="isSimSwitcherModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
             </div>
@@ -209,7 +209,7 @@ const selectLine = (id: number) => {
                                     v-if="(sim.unread_count || 0) > 0"
                                     class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black shadow-sm shadow-rose-500/30 animate-pulse"
                                 >
-                                    {{ sim.unread_count }} پیام جدید
+                                    {{ __('user.messages.new_messages_count', { count: sim.unread_count }) }}
                                 </span>
                             </div>
                             <div dir="ltr" class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 text-right">
@@ -219,9 +219,7 @@ const selectLine = (id: number) => {
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <span v-if="selectedLineId === sim.id" class="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">
-                            فعال
-                        </span>
+                        <span v-if="selectedLineId === sim.id" class="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{{ __('user.messages.line_active') }}</span>
                         <div
                             class="w-5 h-5 rounded-full border-2 flex items-center justify-center"
                             :class="selectedLineId === sim.id ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'"
@@ -233,9 +231,7 @@ const selectLine = (id: number) => {
             </div>
 
             <div class="flex justify-end pt-2 border-t border-slate-200 dark:border-white/10">
-                <button type="button" @click="isSimSwitcherModalOpen = false" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                    بستن
-                </button>
+                <button type="button" @click="isSimSwitcherModalOpen = false" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.messages.close') }}</button>
             </div>
         </div>
     </div>

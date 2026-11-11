@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 const isModalOpen = ref(false);
 const password = ref('');
@@ -14,7 +15,7 @@ const showToast = (msg: string) => {
 
 const logoutOtherSessions = async () => {
     if (!password.value) {
-        passwordError.value = 'ورود کلمه عبور الزامی است.';
+        passwordError.value = __('ui.profile.legacy.pass_required');
         return;
     }
 
@@ -34,14 +35,14 @@ const logoutOtherSessions = async () => {
 
         const data = await res.json();
         if (res.ok && data.success) {
-            showToast('تمام نشست‌های فعال روی سایر دستگاه‌ها با موفقیت لغو شدند');
+            showToast(__('ui.profile.legacy.all_terminated'));
             isModalOpen.value = false;
             password.value = '';
         } else {
-            passwordError.value = data.errors?.password?.[0] || data.message || 'کلمه عبور وارد شده اشتباه است.';
+            passwordError.value = data.errors?.password?.[0] || data.message || __('ui.profile.sessions.wrong_password');
         }
     } catch {
-        passwordError.value = 'خطا در ارتباط با سرور.';
+        passwordError.value = __('ui.profile.sessions.server_error');
     } finally {
         isLoading.value = false;
     }
@@ -59,10 +60,10 @@ const logoutOtherSessions = async () => {
                 <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
-                <span>مدیریت نشست‌های فعال روی سایر دستگاه‌ها</span>
+                <span>{{ __("ui.profile.legacy.sessions_title") }}</span>
             </h4>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                در صورت نیاز می‌توانید تمام نشست‌های فعال حساب خود روی سایر مرورگرها و دستگاه‌ها را لغو کنید.
+                {{ __("ui.profile.legacy.sessions_desc") }}
             </p>
         </div>
 
@@ -71,7 +72,7 @@ const logoutOtherSessions = async () => {
             @click="isModalOpen = true; password = ''; passwordError = null;"
             class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 transition-colors"
         >
-            خروج از تمام دستگاه‌های دیگر
+            {{ __("ui.profile.legacy.logout_all") }}
         </button>
 
         <!-- Modal -->
@@ -81,16 +82,16 @@ const logoutOtherSessions = async () => {
             @click.self="isModalOpen = false"
         >
             <div class="glass-card !p-5 w-full max-w-sm shadow-2xl relative space-y-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
-                <h4 class="text-sm font-black">تایید خروج از سایر نشست‌ها</h4>
+                <h4 class="text-sm font-black">{{ __("ui.profile.legacy.confirm_title") }}</h4>
                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                    جهت تایید، لطفاً کلمه عبور فعلی خود را وارد فرمایید:
+                    {{ __("ui.profile.legacy.confirm_prompt") }}
                 </p>
 
                 <input
                     v-model="password"
                     @keydown.enter.prevent="logoutOtherSessions"
                     type="password"
-                    placeholder="کلمه عبور فعلی..."
+                    :placeholder="__('ui.profile.legacy.pass_placeholder')"
                     class="w-full glass-input !py-2.5 !px-3 !text-xs !rounded-xl bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
                 />
 
@@ -101,17 +102,15 @@ const logoutOtherSessions = async () => {
                         type="button"
                         @click="isModalOpen = false"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400"
-                    >
-                        انصراف
-                    </button>
+                    >{{ __('ui.profile.legacy.cancel') }}</button>
                     <button
                         type="button"
                         @click="logoutOtherSessions"
                         :disabled="isLoading || !password"
                         class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
                     >
-                        <span v-if="isLoading">در حال پردازش...</span>
-                        <span v-else>خروج از سایر دستگاه‌ها</span>
+                        <span v-if="isLoading">{{ __("ui.profile.legacy.processing") }}</span>
+                        <span v-else>{{ __("ui.profile.legacy.logout_others") }}</span>
                     </button>
                 </div>
             </div>

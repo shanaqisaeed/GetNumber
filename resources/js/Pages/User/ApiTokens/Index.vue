@@ -58,12 +58,12 @@ const copySecretToClipboard = async () => {
     try {
         await navigator.clipboard.writeText(revealedSecret.value);
         isCopied.value = true;
-        showToast('کلید امنیتی در کلیپ‌بورد کپی شد');
+        showToast(__('user.tokens.key_copied'));
         setTimeout(() => {
             isCopied.value = false;
         }, 3000);
     } catch {
-        showToast('کلید کپی شد');
+        showToast(__('user.tokens.token_copied'));
     }
 };
 
@@ -207,7 +207,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <UserLayout>
-        <Head title="کلیدهای وب‌سرویس من (API)" />
+        <Head :title="__('user.tokens.page_title')" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">
@@ -230,28 +230,28 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <!-- 1. Header Banner -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
-                    <span class="wallet-title">کلیدهای ارتباطی وب‌سرویس</span>
+                    <span class="wallet-title">{{ __('user.tokens.header_title') }}</span>
                     <span class="wallet-chip bg-cyan-500/15 border-cyan-500/35 text-cyan-600 dark:text-cyan-400">
                         REST API v1
                     </span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    تولید توکن‌های امن رمزنگاری‌شده (SHA-256) جهت اتصال نرم‌افزارها و سامانه‌های خارجی به خطوط سازمانی.
+                    {{ __('user.tokens.header_desc') }}
                 </div>
 
                 <!-- Stats Pill Row -->
                 <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 text-center">
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">کل توکن‌ها</span>
+                        <span class="text-[10px] text-slate-500 dark:text-slate-400 block font-bold">{{ __('user.tokens.total_tokens') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.total }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">فعال</span>
+                        <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold">{{ __('user.tokens.active') }}</span>
                         <span class="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400">{{ stats.active }}</span>
                     </div>
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                        <span class="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">منقضی/باطل</span>
+                        <span class="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">{{ __('user.tokens.revoked') }}</span>
                         <span class="text-sm font-black font-mono text-rose-600 dark:text-rose-400">{{ stats.revoked }}</span>
                     </div>
                 </div>
@@ -265,7 +265,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                         </svg>
-                        <span>مشاهده مستندات وب‌سرویس API</span>
+                        <span>{{ __('user.tokens.view_docs') }}</span>
                     </a>
                     <button
                         type="button"
@@ -275,7 +275,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>تولید کلید جدید (API Token)</span>
+                        <span>{{ __('user.tokens.create_btn') }}</span>
                     </button>
                 </div>
             </div>
@@ -316,7 +316,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Metadata Row -->
                     <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-500 dark:text-slate-400 pt-1">
                         <div>
-                            <span>تاریخ ایجاد:</span>
+                            <span>{{ __('user.tokens.created_at') }}</span>
                             <span class="font-mono text-slate-700 dark:text-slate-300 mr-1">{{ token.created_at }}</span>
                         </div>
                         <div class="text-left" dir="ltr">
@@ -332,10 +332,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="openRotateModal(token)"
                             class="font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 transition-colors"
-                        >
-                            تغییر و تمدید کلید
-                        </button>
-                        <span v-else class="text-[10px] text-rose-500 dark:text-rose-400 font-semibold">غیرفعال‌شده</span>
+                        >{{ __('user.tokens.rotate_btn') }}</button>
+                        <span v-else class="text-[10px] text-rose-500 dark:text-rose-400 font-semibold">{{ __('user.tokens.revoked_badge') }}</span>
 
                         <div class="flex items-center gap-2.5">
                             <button
@@ -343,16 +341,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 type="button"
                                 @click="openRevokeModal(token)"
                                 class="font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 transition-colors"
-                            >
-                                باطل‌سازی
-                            </button>
+                            >{{ __('user.tokens.revoke_btn') }}</button>
                             <button
                                 type="button"
                                 @click="openDeleteModal(token)"
                                 class="font-bold text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-                            >
-                                حذف
-                            </button>
+                            >{{ __('user.tokens.delete_btn') }}</button>
                         </div>
                     </div>
                 </div>
@@ -366,9 +360,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">هنوز کلیدی تولید نکرده‌اید</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.tokens.no_tokens_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                        برای دسترسی برنامه‌نویسی به خطوط و ارسال خودکار پیامک از طریق API، کلید اختصاصی بسازید.
+                        {{ __('user.tokens.no_tokens_desc') }}
                     </p>
                 </div>
                 <button
@@ -379,14 +373,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>تولید اولین کلید API</span>
+                    <span>{{ __('user.tokens.create_first') }}</span>
                 </button>
             </div>
 
             <!-- 3. Quick Integration Guide -->
             <div class="glass-card !p-4 space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-white/10">
-                    <span class="text-xs font-bold text-slate-900 dark:text-white">راهنمای فراخوانی وب‌سرویس</span>
+                    <span class="text-xs font-bold text-slate-900 dark:text-white">{{ __('user.tokens.integration_guide') }}</span>
                     <div class="flex gap-1 text-[10px]">
                         <button
                             type="button"
@@ -424,9 +418,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
 
                 <div class="text-center space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">کلید API با موفقیت تولید شد</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.tokens.created_modal_title') }}</h3>
                     <p class="text-xs text-amber-700 dark:text-amber-300">
-                        توجه: این کلید به دلایل امنیتی فقط همین یک‌بار به شما نمایش داده می‌شود. لطفاً آن را ذخیره فرمایید.
+                        {{ __('user.tokens.created_modal_warning') }}
                     </p>
                 </div>
 
@@ -444,7 +438,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
-                        <span>{{ isCopied ? 'کپی شد!' : 'کپی کلید در کلیپ‌بورد' }}</span>
+                        <span>{{ isCopied ? __('user.tokens.copied') : __('user.tokens.copy_token') }}</span>
                     </button>
                 </div>
 
@@ -453,9 +447,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         type="button"
                         @click="closeSecretModal"
                         class="glass-pill !py-2 !px-6 !text-xs font-bold text-slate-700 dark:text-slate-300"
-                    >
-                        متوجه شدم و ذخیره کردم
-                    </button>
+                    >{{ __('user.tokens.understood') }}</button>
                 </div>
             </div>
         </div>
@@ -464,17 +456,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         <div v-if="isCreateModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeCreateModal">
             <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تولید کلید جدید (API Token)</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.tokens.modal_create_title') }}</h3>
                     <button type="button" @click="closeCreateModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
                 </div>
 
                 <form @submit.prevent="submitCreate" class="space-y-3.5">
                     <div>
-                        <label class="form-label">نام یا شناسه کلید:</label>
+                        <label class="form-label">{{ __('user.tokens.token_name_label') }}</label>
                         <input
                             type="text"
                             v-model="createForm.name"
-                            placeholder="مثال: سرور اصلی یا فروشگاه اینترنتی"
+                            :placeholder="__('user.tokens.token_name_placeholder')"
                             required
                             :disabled="createForm.processing"
                             class="form-input !py-2 !text-xs"
@@ -482,22 +474,20 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </div>
 
                     <div>
-                        <label class="form-label">مدت اعتبار:</label>
+                        <label class="form-label">{{ __('user.tokens.expiry_label') }}</label>
                         <select
                             v-model="createForm.expires_days"
                             class="form-select !py-2 !text-xs"
                         >
-                            <option value="">نامحدود (پیشنهادی)</option>
-                            <option value="30">۳۰ روز</option>
-                            <option value="90">۹۰ روز</option>
-                            <option value="365">۱ سال</option>
+                            <option value="">{{ __('user.tokens.expiry_never') }}</option>
+                            <option value="30">{{ __('user.tokens.expiry_30') }}</option>
+                            <option value="90">{{ __('user.tokens.expiry_90') }}</option>
+                            <option value="365">{{ __('user.tokens.expiry_365') }}</option>
                         </select>
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeCreateModal" :disabled="createForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                            انصراف
-                        </button>
+                        <button type="button" @click="closeCreateModal" :disabled="createForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.tokens.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="createForm.processing"
@@ -507,7 +497,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                             </svg>
-                            <span>{{ createForm.processing ? 'در حال ایجاد...' : 'تولید کلید' }}</span>
+                            <span>{{ createForm.processing ? __('user.tokens.generating') : __('user.tokens.generate') }}</span>
                         </button>
                     </div>
                 </form>
@@ -523,15 +513,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">تمدید و تغییر رمز کلید</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.tokens.rotate_modal_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        رمز قبلی فوراً باطل شده و یک رشته کلید جدید صادر می‌گردد.
+                        {{ __('user.tokens.rotate_modal_desc') }}
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeRotateModal" :disabled="rotateProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        انصراف
-                    </button>
+                    <button type="button" @click="closeRotateModal" :disabled="rotateProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRotate"
@@ -542,7 +530,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ rotateProcessing ? 'در حال تمدید...' : 'تأیید و صدور رمز جدید' }}</span>
+                        <span>{{ rotateProcessing ? __('user.tokens.rotating') : __('user.tokens.confirm_rotate') }}</span>
                     </button>
                 </div>
             </div>
@@ -557,15 +545,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">باطل‌سازی کلید API</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.tokens.revoke_modal_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        دسترسی این کلید به وب‌سرویس فوراً قطع خواهد شد.
+                        {{ __('user.tokens.revoke_modal_desc') }}
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeRevokeModal" :disabled="revokeProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        انصراف
-                    </button>
+                    <button type="button" @click="closeRevokeModal" :disabled="revokeProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRevoke"
@@ -576,7 +562,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ revokeProcessing ? 'در حال باطل‌سازی...' : 'باطل‌سازی قطعی' }}</span>
+                        <span>{{ revokeProcessing ? __('user.tokens.revoking') : __('user.tokens.confirm_revoke') }}</span>
                     </button>
                 </div>
             </div>
@@ -591,15 +577,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </svg>
                 </div>
                 <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">حذف رکورد کلید</h3>
+                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.tokens.delete_modal_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        آیا از حذف این کلید اطمینان دارید؟ این عمل غیرقابل بازگشت است.
+                        {{ __('user.tokens.delete_modal_desc') }}
                     </p>
                 </div>
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeDeleteModal" :disabled="deleteProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">
-                        انصراف
-                    </button>
+                    <button type="button" @click="closeDeleteModal" :disabled="deleteProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmDelete"
@@ -610,7 +594,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}</span>
+                        <span>{{ deleteProcessing ? __('user.tokens.deleting') : __('user.tokens.confirm_delete') }}</span>
                     </button>
                 </div>
             </div>

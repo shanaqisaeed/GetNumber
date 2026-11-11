@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { __ } from '@/Composables/useTrans';
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
@@ -51,7 +52,7 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 const showIncomingToast = (msg: RealtimeMessagePayload) => {
     toastNotification.value = {
-        title: `پیامک جدید از ${msg.peer_number || msg.sender}`,
+        title: __('ui.layouts.user.new_sms_toast', { sender: msg.peer_number || msg.sender }),
         body: msg.body.length > 55 ? msg.body.slice(0, 52) + '...' : msg.body,
         peer: msg.peer_number || msg.sender,
         lineId: msg.phone_number_id,
@@ -88,21 +89,21 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
 
 const navItems = computed(() => [
     {
-        name: 'پیشخوان',
+        name: computed(() => __('ui.layouts.user.nav.dashboard')),
         route: 'dashboard',
         href: route('dashboard'),
         active: route().current('dashboard'),
         icon: 'home',
     },
     {
-        name: 'خطوط من',
+        name: computed(() => __('ui.layouts.user.nav.numbers')),
         route: 'numbers.*',
         href: route('numbers.index'),
         active: route().current('numbers.*'),
         icon: 'phone',
     },
     {
-        name: 'پیامک‌ها',
+        name: computed(() => __('ui.layouts.user.nav.messages')),
         route: 'messages.*',
         href: route('messages.index'),
         active: route().current('messages.*'),
@@ -110,14 +111,14 @@ const navItems = computed(() => [
         badge: liveUnreadCount.value,
     },
     {
-        name: 'درخواست‌ها',
+        name: computed(() => __('ui.layouts.user.nav.requests')),
         route: 'requests.*',
         href: route('requests.index'),
         active: route().current('requests.*'),
         icon: 'requests',
     },
     {
-        name: 'پروفایل',
+        name: computed(() => __('ui.layouts.user.nav.profile')),
         route: 'profile.*',
         href: route('profile.edit'),
         active: route().current('profile.*') || route().current('api-tokens.*') || route().current('tickets.*') || route().current('wallet.*'),
@@ -152,7 +153,7 @@ const navItems = computed(() => [
                         class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-[11px] font-bold text-white transition-all shadow-sm"
                         @click="toastNotification = null"
                     >
-                        مشاهده
+                        {{ __('ui.layouts.user.view_action') }}
                     </Link>
                     <button @click="toastNotification = null" class="p-1 text-slate-400 hover:text-white text-xs">
                         ✕
@@ -184,7 +185,7 @@ const navItems = computed(() => [
                     <div class="truncate">
                         <div class="flex items-center gap-1.5">
                             <span class="text-xs sm:text-sm font-extrabold text-[var(--text-primary)] truncate">
-                                {{ user?.name || 'کاربر گرامی' }}
+                                {{ user?.name || __('ui.layouts.user.default_user_name') }}
                             </span>
                             <span
                                 class="w-2 h-2 rounded-full transition-all shrink-0 cursor-help"
@@ -196,7 +197,7 @@ const navItems = computed(() => [
                             <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
                             </svg>
-                            <span>{{ user?.is_admin ? 'راهبر ارشد سیستم' : 'کاربر سازمانی فعال' }}</span>
+                            <span>{{ user?.is_admin ? __('ui.layouts.user.role_admin') : __('ui.layouts.user.role_user') }}</span>
                         </div>
                     </div>
                 </div>
@@ -208,7 +209,7 @@ const navItems = computed(() => [
                         v-if="user?.is_admin"
                         :href="route('admin.dashboard')"
                         class="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-500 flex items-center justify-center hover:bg-rose-500/25 transition-all"
-                        title="ورود به پنل مدیریت"
+                        :title="__('ui.layouts.user.nav.switch_to_admin')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -223,8 +224,8 @@ const navItems = computed(() => [
                         type="button"
                         @click="toggleTheme"
                         class="app-theme-toggle-btn !w-9 !h-9 !rounded-xl"
-                        :title="isDark ? 'تغییر به پوسته روشن' : 'تغییر به پوسته تیره'"
-                        aria-label="تغییر پوسته تاریک و روشن"
+                        :title="isDark ? __('ui.layouts.user.theme_light') : __('ui.layouts.user.theme_dark')"
+                        :aria-label="__('ui.layouts.user.theme_toggle_aria')"
                     >
                         <!-- Sun Icon (shown in dark mode) -->
                         <svg v-if="isDark" class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -249,8 +250,8 @@ const navItems = computed(() => [
                         type="button"
                         @click="isMoreMenuOpen = !isMoreMenuOpen"
                         class="w-9 h-9 rounded-xl glass-card !p-0 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-indigo-500/40 transition-all"
-                        title="منوی امکانات و خدمات"
-                        aria-label="امکانات سامانه"
+                        :title="__('ui.layouts.user.services_menu_title')"
+                        :aria-label="__('ui.layouts.user.services_menu_aria')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
@@ -263,7 +264,7 @@ const navItems = computed(() => [
             <main class="flex-1 pt-2 pb-36 relative z-10">
                 <!-- Global Breadcrumb Navigation -->
                 <div class="mb-2.5 px-0.5">
-                    <Breadcrumb homeRoute="dashboard" homeLabel="پیشخوان" />
+                    <Breadcrumb homeRoute="dashboard" :homeLabel="__('ui.layouts.user.nav.dashboard')" />
                 </div>
 
                 <!-- Global Flash Notifications -->
@@ -302,7 +303,7 @@ const navItems = computed(() => [
         <nav class="phone-dock-bar">
             <Link
                 v-for="item in navItems"
-                :key="item.name"
+                :key="typeof item.name === 'function' || typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name"
                 :href="item.href"
                 class="dock-item"
                 :class="{ active: item.active }"
@@ -340,7 +341,7 @@ const navItems = computed(() => [
                     <circle cx="12" cy="7" r="4"></circle>
                 </svg>
 
-                <span>{{ item.name }}</span>
+                <span>{{ typeof item.name === 'function' || typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name }}</span>
             </Link>
         </nav>
 
@@ -351,7 +352,7 @@ const navItems = computed(() => [
                     <div class="flex items-center justify-between pb-3 border-b border-white/10 dark:border-white/10">
                         <span class="text-xs font-extrabold text-[var(--text-primary)] flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
-                            خدمات و تنظیمات سامانه
+                            {{ __('ui.layouts.user.nav.services_menu') }}
                         </span>
                         <button @click="isMoreMenuOpen = false" class="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1">
                             ✕
@@ -371,7 +372,7 @@ const navItems = computed(() => [
                                 </svg>
                             </div>
                             <div class="flex-1 flex items-center justify-between">
-                                <span>کیف پول و گردش حساب</span>
+                                <span>{{ __('ui.layouts.user.nav.wallet') }}</span>
                                 <span class="font-mono text-xs text-amber-500 font-black">{{ $page.props.auth?.wallet_balance || '0' }} COIN</span>
                             </div>
                         </Link>
@@ -386,7 +387,7 @@ const navItems = computed(() => [
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
                                 </svg>
                             </div>
-                            <span>تیکت‌های پشتیبانی</span>
+                            <span>{{ __('ui.layouts.user.nav.tickets') }}</span>
                         </Link>
 
                         <Link
@@ -399,7 +400,7 @@ const navItems = computed(() => [
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                                 </svg>
                             </div>
-                            <span>کلیدهای API</span>
+                            <span>{{ __('ui.layouts.user.nav.api_tokens') }}</span>
                         </Link>
 
                         <Link
@@ -412,7 +413,7 @@ const navItems = computed(() => [
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 </svg>
                             </div>
-                            <span>تنظیمات پروفایل</span>
+                            <span>{{ __('ui.layouts.user.nav.profile_settings') }}</span>
                         </Link>
 
                         <Link
@@ -427,7 +428,7 @@ const navItems = computed(() => [
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                                 </svg>
                             </div>
-                            <span>خروج از سامانه</span>
+                            <span>{{ __('ui.layouts.user.nav.logout') }}</span>
                         </Link>
                     </div>
                 </div>

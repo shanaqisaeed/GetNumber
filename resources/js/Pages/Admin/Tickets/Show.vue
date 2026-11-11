@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -72,6 +73,8 @@ interface TicketData {
     messages: MessageItem[];
 }
 
+const { __ } = useTrans();
+
 const props = defineProps<{
     ticket: TicketData;
     staffMembers: StaffMember[];
@@ -96,7 +99,7 @@ function onFileSelect(e: Event) {
 
     const files = Array.from(target.files);
     if (replyForm.attachments.length + files.length > 5) {
-        fileError.value = 'حداکثر تا ۵ فایل می‌توانید پیوست نمایید.';
+        fileError.value = __('admin.tickets.max_files_error');
         return;
     }
 
@@ -104,11 +107,11 @@ function onFileSelect(e: Event) {
     for (const f of files) {
         const ext = f.name.split('.').pop()?.toLowerCase();
         if (!ext || !allowed.includes(ext)) {
-            fileError.value = `پسوند «${f.name}» غیرمجاز است. فرمت‌های مجاز: JPG, PNG, PDF, ZIP, TXT.`;
+            fileError.value = __('admin.tickets.ext_error', { name: f.name });
             return;
         }
         if (f.size > 5 * 1024 * 1024) {
-            fileError.value = `حجم فایل «${f.name}» بیش از ۵ مگابایت است.`;
+            fileError.value = __('admin.tickets.size_error', { name: f.name });
             return;
         }
         replyForm.attachments.push(f);
@@ -151,7 +154,7 @@ function changeAssignment() {
 </script>
 
 <template>
-    <Head :title="`رسیدگی به تیکت: ${ticket.ticket_number}`" />
+    <Head :title="__('admin.tickets.head_title_show', { number: ticket.ticket_number })" />
 
     <AdminLayout>
         <template #header>
@@ -160,7 +163,7 @@ function changeAssignment() {
                     <Link
                         :href="route('admin.tickets.index')"
                         class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors"
-                        title="بازگشت به فهرست تیکت‌ها"
+                        :title="__('admin.tickets.back_to_list')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -206,7 +209,7 @@ function changeAssignment() {
                                             : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                                     ]"
                                 >
-                                    {{ msg.is_staff_reply ? 'کارشناس' : 'کاربر' }}
+                                    {{ msg.is_staff_reply ? __('admin.tickets.role_staff') : __('admin.tickets.role_user') }}
                                 </div>
                                 <div>
                                     <div class="flex items-center gap-2">
@@ -233,7 +236,7 @@ function changeAssignment() {
 
                         <!-- Attachments Cards -->
                         <div v-if="msg.attachments && msg.attachments.length > 0" class="pt-3 border-t" :class="msg.is_staff_reply ? 'border-indigo-100 dark:border-indigo-900/40' : 'border-slate-100 dark:border-slate-800'">
-                            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">فایل‌های پیوست:</p>
+                            <p class="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2">{{ __('admin.tickets.attachments_label') }}</p>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <a
                                     v-for="att in msg.attachments"
@@ -260,13 +263,13 @@ function changeAssignment() {
 
                 <!-- Staff Reply Box -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                    <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-3">ارسال پاسخ کارشناس به مشترک</h3>
+                    <h3 class="text-sm font-bold text-slate-900 dark:text-white mb-3">{{ __('admin.tickets.reply_box_title') }}</h3>
 
                     <form @submit.prevent="submitStaffReply" class="space-y-4">
                         <textarea
                             v-model="replyForm.message"
                             rows="5"
-                            placeholder="متن پاسخ کارشناسی، راهنمایی یا اقدام انجام‌شده را در این بخش درج فرمایید..."
+                            :placeholder="__('admin.tickets.reply_placeholder')"
                             class="form-textarea w-full text-xs p-3.5 leading-relaxed"
                             required
                         ></textarea>
@@ -282,9 +285,9 @@ function changeAssignment() {
                                     <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                                     </svg>
-                                    <span>پیوست فایل</span>
+                                    <span>{{ __('admin.tickets.attach_file') }}</span>
                                 </button>
-                                <span class="text-[11px] text-slate-400">JPG, PNG, PDF, ZIP (حداکثر ۵MB)</span>
+                                <span class="text-[11px] text-slate-400">{{ __('admin.tickets.attach_hint') }}</span>
                                 <input
                                     ref="fileInputRef"
                                     type="file"
@@ -304,7 +307,7 @@ function changeAssignment() {
                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                 </svg>
-                                <span>{{ replyForm.processing ? 'در حال ارسال...' : 'ارسال پاسخ و اطلاع مشترک' }}</span>
+                                <span>{{ replyForm.processing ? __('admin.tickets.sending_reply') : __('admin.tickets.send_reply_btn') }}</span>
                             </button>
                         </div>
 
@@ -331,12 +334,12 @@ function changeAssignment() {
                 <!-- Status & Assignment Card -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-5">
                     <h3 class="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
-                        مدیریت تیکت و واگذاری
+                        {{ __('admin.tickets.manage_assignment') }}
                     </h3>
 
                     <!-- Status Change -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">وضعیت تیکت</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.tickets.ticket_status') }}</label>
                         <select
                             v-model="selectedStatus"
                             @change="changeStatus"
@@ -348,13 +351,13 @@ function changeAssignment() {
 
                     <!-- Assign Agent -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">کارشناس مسئول</label>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.tickets.assigned_agent') }}</label>
                         <select
                             v-model="selectedAgent"
                             @change="changeAssignment"
                             class="form-select w-full text-xs py-2.5"
                         >
-                            <option value="">بدون کارشناس (ارجاع به صف عمومی)</option>
+                            <option value="">{{ __('admin.tickets.unassigned_queue') }}</option>
                             <option v-for="staff in staffMembers" :key="staff.id" :value="staff.id">
                                 {{ staff.name }} ({{ staff.role_label }})
                             </option>
@@ -364,19 +367,19 @@ function changeAssignment() {
                     <!-- Department & Priority Badges -->
                     <div class="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-400">دپارتمان:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.dept') }}</span>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="ticket.department_badge">
                                 {{ ticket.department_label }}
                             </span>
                         </div>
                         <div class="flex justify-between items-center">
-                            <span class="text-slate-400">اولویت:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.priority') }}</span>
                             <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="ticket.priority_badge">
                                 {{ ticket.priority_label }}
                             </span>
                         </div>
                         <div v-if="ticket.phone_number" class="flex justify-between items-center">
-                            <span class="text-slate-400">خط مرتبط:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.related_line') }}</span>
                             <span class="font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
                                 {{ ticket.phone_number.formatted_number }}
                             </span>
@@ -387,20 +390,20 @@ function changeAssignment() {
                 <!-- Customer Details Card -->
                 <div class="p-6 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-3">
                     <h3 class="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
-                        مشخصات مشترک
+                        {{ __('admin.tickets.subscriber_info') }}
                     </h3>
 
                     <div class="space-y-2 text-xs">
                         <div class="flex justify-between">
-                            <span class="text-slate-400">نام مشترک:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.subscriber_name') }}</span>
                             <span class="font-bold text-slate-900 dark:text-white">{{ ticket.user.name }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-400">شناسه کاربری:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.user_id') }}</span>
                             <span class="font-mono text-slate-700 dark:text-slate-300" dir="ltr">@{{ ticket.user.username }}</span>
                         </div>
                         <div class="flex justify-between">
-                            <span class="text-slate-400">تاریخ عضویت:</span>
+                            <span class="text-slate-400">{{ __('admin.tickets.member_since') }}</span>
                             <span class="font-mono text-slate-500" dir="ltr">{{ ticket.user.created_at }}</span>
                         </div>
                     </div>
@@ -409,9 +412,7 @@ function changeAssignment() {
                         <Link
                             :href="route('admin.audit-logs.index', { user_id: ticket.user.id })"
                             class="w-full text-center py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-colors"
-                        >
-                            مشاهده لاگ‌های امنیتی کاربر
-                        </Link>
+                        >{{ __('admin.tickets.view_user_security_logs') }}</Link>
                     </div>
                 </div>
             </div>

@@ -24,12 +24,12 @@ const { toggleTheme } = useTheme();
         <div class="w-full max-w-xl sm:max-w-2xl lg:max-w-3xl relative z-10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-2xl border border-slate-200/90 dark:border-white/10 rounded-3xl sm:rounded-4xl shadow-2xl p-4 sm:p-8 transition-all my-auto">
             <!-- Top Header Bar with Brand Link and Direct Theme Switcher -->
             <div class="flex items-center justify-between mb-5">
-                <Link href="/" class="glass-pill text-indigo-600 dark:text-indigo-400 font-bold hover:opacity-85 transition-opacity" title="بازگشت به صفحه اصلی">
+                <Link href="/" class="glass-pill text-indigo-600 dark:text-indigo-400 font-bold hover:opacity-85 transition-opacity" :title="__('ui.layouts.auth.back_to_home')">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                         <polyline points="9 22 9 12 15 12 15 22"></polyline>
                     </svg>
-                    <span>بازگشت به صفحه اصلی</span>
+                    <span>{{ __('ui.layouts.auth.back_to_home') }}</span>
                 </Link>
 
                 <div class="flex items-center gap-2">
@@ -38,7 +38,7 @@ const { toggleTheme } = useTheme();
                         type="button"
                         class="app-theme-toggle-btn cursor-pointer"
                         @click="toggleTheme"
-                        title="تغییر تم تاریک / روشن"
+                        :title="__('ui.layouts.auth.theme_toggle')"
                     >
                         <svg class="theme-icon-sun w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="5"></circle>

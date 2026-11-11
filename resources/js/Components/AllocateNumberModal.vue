@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useForm, usePage, Link } from '@inertiajs/vue3';
 import axios from 'axios';
+import { __ } from '@/Composables/useTrans';
 
 export interface PrefixItem {
     id: number;
@@ -281,48 +282,48 @@ const fullPreviewNumber = computed(() => {
 // Comprehensive analysis narrative for Step 3
 const rondAnalysisDetails = computed(() => {
     const tier = checkResult.value?.rond?.tier || 'regular';
-    const pattern = checkResult.value?.rond?.pattern || 'عادی';
+    const pattern = checkResult.value?.rond?.pattern || __('ui.components.allocate_number_modal.pattern_regular');
 
     if (tier === 'golden_rond') {
         return {
-            title: 'رتبه طلایی مخابراتی (Golden Tier)',
+            title: __('ui.components.allocate_number_modal.tier_golden_title'),
             badgeClass: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40',
             icon: '👑',
-            summary: 'این شماره بالاترین امتیاز شاخص رند بودن را کسب نموده است.',
-            explanation: `الگوی تشخیص داده شده: «${pattern}». چینش ارقام در این خط از بالاترین سطح تقارن، هماهنگی یا تکرار برخوردار است که در مارکتینگ سازمانی موجب به خاطرسپاری ناخودآگاه در اولین مشاهده یا شنیدار مخاطب می‌شود.`,
+            summary: __('ui.components.allocate_number_modal.tier_golden_summary'),
+            explanation: __('ui.components.allocate_number_modal.tier_golden_desc', { pattern }),
             benefits: [
-                'ماندگاری ۱۰۰٪ در ذهن مشتریان و مخاطبان',
-                'ایده‌آل برای تبلیغات بنری، محیطی و تیزرهای ویدیویی',
-                'ایجاد حس اعتبار تجاری و کلاس کاری رده‌بالا',
+                __('ui.components.allocate_number_modal.benefit_golden_1'),
+                __('ui.components.allocate_number_modal.benefit_golden_2'),
+                __('ui.components.allocate_number_modal.benefit_golden_3'),
             ],
         };
     }
 
     if (tier === 'semi_rond') {
         return {
-            title: 'رتبه نیمه‌رند موزون (Semi-Rond Tier)',
+            title: __('ui.components.allocate_number_modal.tier_semi_title'),
             badgeClass: 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/40',
             icon: '💎',
-            summary: 'این شماره دارای ساختار رند موزون با خوانش صوتی بسیار روان است.',
-            explanation: `الگوی تشخیص داده شده: «${pattern}». ارقام این خط دارای وزن آهنگین دو به دو یا پله‌های متقارن هستند که تلفظ را سریع کرده و احتمال اشتباه در شماره‌گیری را به حداقل می‌رساند.`,
+            summary: __('ui.components.allocate_number_modal.tier_semi_summary'),
+            explanation: __('ui.components.allocate_number_modal.tier_semi_desc', { pattern }),
             benefits: [
-                'تلفظ روان و آهنگین در مرکز تماس و مکالمات تلفنی',
-                'ارزش تجاری مناسب در مقایسه با تعرفه مصوب',
-                'مطلوب برای کسب‌وکارهای در حال توسعه و استارتاپ‌ها',
+                __('ui.components.allocate_number_modal.benefit_semi_1'),
+                __('ui.components.allocate_number_modal.benefit_semi_2'),
+                __('ui.components.allocate_number_modal.benefit_semi_3'),
             ],
         };
     }
 
     return {
-        title: 'خط استاندارد غیررند (Standard Regular Tier)',
+        title: __('ui.components.allocate_number_modal.tier_regular_title'),
         badgeClass: 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30',
         icon: '📱',
-        summary: 'این خط با شماره‌گذاری عمومی و با حداقل تعرفه اقتصادی محاسبه می‌گردد.',
-        explanation: 'ارقام تخصیص‌یافته در دامنه رند مخابراتی قرار نمی‌گیرند و خط با کمترین هزینه پایه‌ای سامانه جهت استفاده روزمره و ارتباطات عمومی تحویل داده می‌شود.',
+        summary: __('ui.components.allocate_number_modal.tier_regular_summary'),
+        explanation: __('ui.components.allocate_number_modal.tier_regular_desc'),
         benefits: [
-            'مقرون‌به‌صرفه‌ترین تعرفه دریافت خط',
-            'امکان دریافت کلیه خدمات پیامک و ارتباطی سامانه',
-            'بدون هزینه مازاد برندینگ',
+            __('ui.components.allocate_number_modal.benefit_reg_1'),
+            __('ui.components.allocate_number_modal.benefit_reg_2'),
+            __('ui.components.allocate_number_modal.benefit_reg_3'),
         ],
     };
 });
@@ -335,7 +336,7 @@ const submitAllocation = () => {
         onSuccess: () => {
             termsAccepted.value = false;
             form.reset();
-            emit('success', 'خط ۹ رقمی جدید با موفقیت خریداری و به حساب شما تخصیص یافت.');
+            emit('success', __('ui.components.allocate_number_modal.success_message'));
             emit('close');
         },
     });
@@ -367,9 +368,9 @@ const submitAllocation = () => {
                                 📱
                             </div>
                             <div>
-                                <h3 class="font-black text-base text-slate-900 dark:text-white">دریافت و رزرو خط ۹ رقمی</h3>
+                                <h3 class="font-black text-base text-slate-900 dark:text-white">{{ __("ui.components.allocate_number_modal.title") }}</h3>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    فرآیند ۳ مرحله‌ای: انتخاب پیش‌شماره، انتخاب شماره و تأیید نهایی
+                                    {{ __("ui.components.allocate_number_modal.subtitle") }}
                                 </p>
                             </div>
                         </div>
@@ -377,7 +378,7 @@ const submitAllocation = () => {
                             type="button"
                             @click="handleClose"
                             class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                            aria-label="بستن پنجره"
+                            :aria-label="__('ui.components.allocate_number_modal.close_aria')"
                         >
                             ✕
                         </button>
@@ -398,10 +399,10 @@ const submitAllocation = () => {
                                     : (currentStep > 1 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
                             >
                                 <span v-if="currentStep > 1">✓</span>
-                                <span v-else>۱</span>
+                                <span v-else>1</span>
                             </div>
                             <span :class="currentStep === 1 ? 'text-indigo-600 dark:text-indigo-400 font-black' : (currentStep > 1 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
-                                ۱. انتخاب پیش‌شماره
+                                {{ __('ui.components.allocate_number_modal.step_1') }}
                             </span>
                         </div>
 
@@ -420,10 +421,10 @@ const submitAllocation = () => {
                                     : (currentStep > 2 ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-white/10 text-slate-400')"
                             >
                                 <span v-if="currentStep > 2">✓</span>
-                                <span v-else>۲</span>
+                                <span v-else>2</span>
                             </div>
                             <span :class="currentStep === 2 ? 'text-indigo-600 dark:text-indigo-400 font-black' : (currentStep > 2 ? 'text-slate-700 dark:text-slate-300' : 'text-slate-400')">
-                                ۲. شماره و تکمیل
+                                {{ __('ui.components.allocate_number_modal.step_2') }}
                             </span>
                         </div>
 
@@ -437,10 +438,10 @@ const submitAllocation = () => {
                                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                                     : 'bg-slate-100 dark:bg-white/10 text-slate-400'"
                             >
-                                <span>۳</span>
+                                <span>3</span>
                             </div>
                             <span :class="currentStep === 3 ? 'text-indigo-600 dark:text-indigo-400 font-black' : 'text-slate-400'">
-                                ۳. تأیید نهایی و پرداخت
+                                {{ __('ui.components.allocate_number_modal.step_3') }}
                             </span>
                         </div>
                     </div>
@@ -450,9 +451,9 @@ const submitAllocation = () => {
                     <!-- ============================================== -->
                     <div v-if="currentStep === 1" class="space-y-4">
                         <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                            <span>پیش‌شماره و کشور مد نظر خود را جهت تخصیص خط انتخاب نمایید:</span>
+                            <span>{{ __("ui.components.allocate_number_modal.step_1_desc") }}</span>
                             <span v-if="remainingQuota !== undefined" class="font-bold text-indigo-600 dark:text-indigo-400">
-                                سهمیه آزاد: {{ remainingQuota }} خط
+                                {{ __("ui.components.allocate_number_modal.free_quota", { count: remainingQuota }) }}
                             </span>
                         </div>
 
@@ -478,17 +479,17 @@ const submitAllocation = () => {
                                                 {{ p.prefix }}
                                             </span>
                                             <span v-if="p.is_default" class="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold px-1.5 py-0.5 rounded-md">
-                                                پیش‌فرض
+                                                {{ __('ui.components.allocate_number_modal.default_badge') }}
                                             </span>
                                         </div>
                                         <div class="flex items-center gap-2 mt-1.5 text-[11px] text-slate-500">
-                                            <span>تعرفه‌ها:</span>
-                                            <span class="text-slate-700 dark:text-slate-300 font-bold">عادی: {{ p.price_regular }}</span>
+                                            <span>{{ __("ui.components.allocate_number_modal.tariffs") }}</span>
+                                            <span class="text-slate-700 dark:text-slate-300 font-bold">{{ __("ui.components.allocate_number_modal.regular_price", { price: p.price_regular }) }}</span>
                                             <span>•</span>
-                                            <span class="text-blue-600 dark:text-blue-400 font-bold">نیمه‌رند: {{ p.price_semi_rond }}</span>
+                                            <span class="text-blue-600 dark:text-blue-400 font-bold">{{ __("ui.components.allocate_number_modal.semi_rond_price", { price: p.price_semi_rond }) }}</span>
                                             <span>•</span>
-                                            <span class="text-amber-600 dark:text-amber-400 font-bold">طلایی: {{ p.price_golden_rond }}</span>
-                                            <span>کوین</span>
+                                            <span class="text-amber-600 dark:text-amber-400 font-bold">{{ __("ui.components.allocate_number_modal.golden_rond_price", { price: p.price_golden_rond }) }}</span>
+                                            <span>{{ __("ui.components.allocate_number_modal.coin_unit") }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -510,7 +511,7 @@ const submitAllocation = () => {
                                 @click="handleClose"
                                 class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
                             >
-                                انصراف
+                                {{ __('ui.components.allocate_number_modal.cancel') }}
                             </button>
                             <button
                                 type="button"
@@ -518,7 +519,7 @@ const submitAllocation = () => {
                                 :disabled="!selectedPrefix"
                                 class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
                             >
-                                <span>مرحله بعد: جستجو و تکمیل شماره</span>
+                                <span>{{ __("ui.components.allocate_number_modal.step_next_search") }}</span>
                                 <span>←</span>
                             </button>
                         </div>
@@ -536,7 +537,7 @@ const submitAllocation = () => {
                                 class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                             >
                                 <span>→</span>
-                                <span>تغییر کشور و پیش‌شماره</span>
+                                <span>{{ __("ui.components.allocate_number_modal.change_country") }}</span>
                             </button>
                             <span class="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800">
                                 <span>{{ selectedPrefix?.flag }}</span>
@@ -548,7 +549,7 @@ const submitAllocation = () => {
                         <!-- MAIN UNIFIED PHONE NUMBER BUILDER (LTR) -->
                         <div class="space-y-2">
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                                ساختار شماره ۹ رقمی (از چپ به راست):
+                                {{ __("ui.components.allocate_number_modal.structure_title") }}
                             </label>
 
                             <div
@@ -572,7 +573,7 @@ const submitAllocation = () => {
                                         v-model="selectedSubPrefix"
                                         @change="onSubPrefixSelectChange"
                                         class="w-full h-12 pl-3 pr-7 rounded-xl bg-indigo-50/90 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 font-mono font-black text-sm border border-indigo-200 dark:border-indigo-800 shadow-xs focus:border-indigo-500 outline-none cursor-pointer appearance-none"
-                                        title="انتخاب پیش‌کد سه رقمی"
+                                        :title="__('ui.components.allocate_number_modal.subprefix_title')"
                                     >
                                         <option v-for="sub in subPrefixesList" :key="sub" :value="sub">
                                             {{ sub }}
@@ -600,7 +601,7 @@ const submitAllocation = () => {
                                         dir="ltr"
                                         placeholder="123456"
                                         class="w-full h-12 px-3.5 rounded-xl bg-white dark:bg-slate-800 font-mono font-black text-lg tracking-widest text-slate-900 dark:text-white placeholder:text-slate-300 dark:placeholder:text-slate-600 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-0 outline-none shadow-xs"
-                                        title="ورود ۶ رقم دلخواه شماره"
+                                        :title="__('ui.components.allocate_number_modal.suffix_title')"
                                     />
 
                                     <!-- Status Spinner / Indicator inside input -->
@@ -612,14 +613,14 @@ const submitAllocation = () => {
                                         <span
                                             v-else-if="suffixInput.length === 6 && checkResult?.is_available"
                                             class="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-black shadow-xs"
-                                            title="شماره آزاد است"
+                                            :title="__('ui.components.allocate_number_modal.number_available_title')"
                                         >
                                             ✓
                                         </span>
                                         <span
                                             v-else-if="suffixInput.length === 6 && checkResult && !checkResult.is_available"
                                             class="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center text-xs font-black shadow-xs"
-                                            title="شماره واگذار شده است"
+                                            :title="__('ui.components.allocate_number_modal.number_taken_title')"
                                         >
                                             ✕
                                         </span>
@@ -641,7 +642,7 @@ const submitAllocation = () => {
                                 <div class="flex items-center justify-between flex-wrap gap-2">
                                     <span class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-400">
                                         <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">✓</span>
-                                        شماره آزاد و آماده واگذاری آنی می‌باشد
+                                        {{ __("ui.components.allocate_number_modal.number_ready_desc") }}
                                     </span>
                                     <span
                                         class="px-2.5 py-0.5 rounded-full text-[11px] font-black border"
@@ -662,9 +663,9 @@ const submitAllocation = () => {
                                         </span>
                                     </div>
                                     <div class="text-left">
-                                        <span class="text-[10px] text-slate-500 block">تعرفه خط:</span>
+                                        <span class="text-[10px] text-slate-500 block">{{ __("ui.components.allocate_number_modal.line_tariff") }}</span>
                                         <span class="text-base font-black text-indigo-600 dark:text-indigo-400">
-                                            {{ checkResult.price }} کوین (TRX)
+                                            {{ checkResult.price }} {{ __("ui.components.allocate_number_modal.coin_trx") }}
                                         </span>
                                     </div>
                                 </div>
@@ -674,7 +675,7 @@ const submitAllocation = () => {
                                     @click="goToStep3"
                                     class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                 >
-                                    <span>مرحله بعد: مشاهده جزئیات رند و تأیید نهایی</span>
+                                    <span>{{ __("ui.components.allocate_number_modal.step_next_confirm") }}</span>
                                     <span>←</span>
                                 </button>
                             </div>
@@ -683,12 +684,12 @@ const submitAllocation = () => {
                             <div v-else class="space-y-3 animate-in fade-in duration-200">
                                 <div class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-500/30 text-xs text-rose-700 dark:text-rose-400 flex items-center gap-2">
                                     <span class="text-base">⚠️</span>
-                                    <span>شماره درخواستی ({{ fullPreviewNumber }}) قبلاً واگذار شده است. گزینه‌های آزاد جایگزین را از زیر انتخاب فرمایید:</span>
+                                    <span>{{ __("ui.components.allocate_number_modal.taken_notice", { number: fullPreviewNumber }) }}</span>
                                 </div>
 
                                 <div v-if="checkResult.suggestions && checkResult.suggestions.length > 0" class="space-y-2">
                                     <span class="text-xs font-bold text-slate-700 dark:text-slate-300 block">
-                                        پیشنهاد همین ۶ رقم با سایر پیش‌کدهای آزاد:
+                                        {{ __("ui.components.allocate_number_modal.alt_subprefixes") }}
                                     </span>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                                         <div
@@ -706,8 +707,8 @@ const submitAllocation = () => {
                                                 </span>
                                             </div>
                                             <div class="text-left">
-                                                <span class="text-[10px] font-bold text-emerald-600">انتخاب</span>
-                                                <span class="text-[9px] text-slate-400 block">{{ sug.price }} کوین</span>
+                                                <span class="text-[10px] font-bold text-emerald-600">{{ __("ui.components.allocate_number_modal.select") }}</span>
+                                                <span class="text-[9px] text-slate-400 block">{{ sug.price }} {{ __("ui.components.allocate_number_modal.coin_unit") }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -721,10 +722,10 @@ const submitAllocation = () => {
                                 <span class="font-bold flex items-center gap-1.5">
                                     <span>⚡</span>
                                     <span v-if="suffixInput.length > 0">
-                                        تکمیل خودکار از بین شماره‌های آماده دارای «{{ suffixInput }}»:
+                                        {{ __("ui.components.allocate_number_modal.sug_with_digits", { digits: suffixInput }) }}
                                     </span>
                                     <span v-else>
-                                        انتخاب بین شماره‌های آماده و آزاد استخر:
+                                        {{ __("ui.components.allocate_number_modal.pool_selection") }}
                                     </span>
                                 </span>
                                 <button
@@ -732,7 +733,7 @@ const submitAllocation = () => {
                                     @click="loadPoolSuggestions(suffixInput)"
                                     class="text-indigo-600 hover:underline text-[11px] cursor-pointer flex items-center gap-1"
                                 >
-                                    <span>بروزرسانی</span>
+                                    <span>{{ __("ui.components.allocate_number_modal.refresh") }}</span>
                                     <span :class="isLoadingPool ? 'animate-spin' : ''">↻</span>
                                 </button>
                             </div>
@@ -761,13 +762,13 @@ const submitAllocation = () => {
                                         <div class="flex items-center gap-2 text-[10px] text-slate-500">
                                             <span>{{ pool.rond?.tier_label }}</span>
                                             <span>•</span>
-                                            <span class="font-bold text-slate-700 dark:text-slate-300">{{ pool.price }} کوین</span>
+                                            <span class="font-bold text-slate-700 dark:text-slate-300">{{ pool.price }} {{ __("ui.components.allocate_number_modal.coin_unit") }}</span>
                                         </div>
                                     </div>
 
                                     <div class="text-left shrink-0">
                                         <span class="px-2 py-1 rounded-xl bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-all text-[11px] font-bold inline-flex items-center gap-1">
-                                            <span>تکمیل</span>
+                                            <span>{{ __("ui.components.allocate_number_modal.complete") }}</span>
                                             <span>↵</span>
                                         </span>
                                     </div>
@@ -775,7 +776,7 @@ const submitAllocation = () => {
                             </div>
 
                             <div v-else-if="!isLoadingPool" class="p-3 rounded-2xl bg-slate-100/70 dark:bg-white/5 text-center text-xs text-slate-500">
-                                شماره‌ای منطبق با این ارقام یافت نشد؛ می‌توانید ارقام را دستی تا ۶ رقم تکمیل نمایید.
+                                {{ __("ui.components.allocate_number_modal.not_found") }}
                             </div>
                         </div>
 
@@ -786,7 +787,7 @@ const submitAllocation = () => {
                                 @click="goToStep1"
                                 class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
                             >
-                                → مرحله قبل (تغییر کشور)
+                                {{ __("ui.components.allocate_number_modal.step_prev_country") }}
                             </button>
                             <button
                                 type="button"
@@ -794,7 +795,7 @@ const submitAllocation = () => {
                                 :disabled="!checkResult || !checkResult.is_available"
                                 class="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-lg shadow-indigo-600/25 transition-all disabled:opacity-50 inline-flex items-center gap-1.5 cursor-pointer"
                             >
-                                <span>مرحله بعد: بررسی و تأیید نهایی</span>
+                                <span>{{ __("ui.components.allocate_number_modal.step_next_review") }}</span>
                                 <span>←</span>
                             </button>
                         </div>
@@ -808,13 +809,13 @@ const submitAllocation = () => {
                             <!-- Selected Number Showcase Banner -->
                             <div class="p-4 rounded-3xl bg-linear-to-br from-indigo-500/10 via-purple-500/10 to-transparent border border-indigo-500/25 text-center space-y-1.5">
                                 <span class="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                                    شماره اختصاصی ۹ رقمی برگزیده:
+                                    {{ __("ui.components.allocate_number_modal.selected_number_title") }}
                                 </span>
                                 <div dir="ltr" class="text-2xl sm:text-3xl font-mono font-black text-indigo-600 dark:text-indigo-400 tracking-wider">
                                     {{ checkResult?.formatted }}
                                 </div>
                                 <div class="flex items-center justify-center gap-2 flex-wrap text-xs text-slate-600 dark:text-slate-400 pt-0.5">
-                                    <span>کشور: {{ selectedPrefix?.flag }} {{ selectedPrefix?.country_name || selectedPrefix?.name }}</span>
+                                    <span>{{ __("ui.components.allocate_number_modal.country_label", { flag: selectedPrefix?.flag || "", name: selectedPrefix?.country_name || selectedPrefix?.name || "" }) }}</span>
                                     <span>•</span>
                                     <span
                                         class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
@@ -828,34 +829,34 @@ const submitAllocation = () => {
                             <!-- Financial Invoice & Wallet Balance -->
                             <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-500/20 space-y-2.5 text-xs">
                                 <div class="flex items-center justify-between">
-                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">هزینه قطعی فعال‌سازی:</span>
+                                    <span class="text-slate-600 dark:text-slate-400 font-semibold">{{ __("ui.components.allocate_number_modal.activation_cost") }}</span>
                                     <span class="text-base font-black text-indigo-600 dark:text-indigo-400">
-                                        {{ currentRequiredCost }} کوین (TRX)
+                                        {{ currentRequiredCost }} {{ __("ui.components.allocate_number_modal.coin_trx") }}
                                     </span>
                                 </div>
 
                                 <div class="flex items-center justify-between pt-2 border-t border-indigo-200/60 dark:border-indigo-500/15">
-                                    <span class="text-slate-600 dark:text-slate-400">موجودی کیف پول شما:</span>
+                                    <span class="text-slate-600 dark:text-slate-400">{{ __("ui.components.allocate_number_modal.wallet_balance") }}</span>
                                     <span class="font-mono font-bold text-slate-800 dark:text-slate-200">
-                                        {{ userBalance.toFixed(2) }} کوین
+                                        {{ userBalance.toFixed(2) }} {{ __("ui.components.allocate_number_modal.coin_unit") }}
                                     </span>
                                 </div>
 
                                 <div class="flex items-center justify-between pt-1 border-t border-indigo-200/60 dark:border-indigo-500/15">
-                                    <span class="text-slate-600 dark:text-slate-400">مانده حساب پس از خرید:</span>
+                                    <span class="text-slate-600 dark:text-slate-400">{{ __("ui.components.allocate_number_modal.remaining_balance") }}</span>
                                     <span
                                         dir="ltr"
                                         class="font-mono font-bold"
                                         :class="hasInsufficientBalance ? 'text-rose-600' : 'text-emerald-600'"
                                     >
-                                        {{ (userBalance - currentRequiredCost).toFixed(2) }} کوین
+                                        {{ (userBalance - currentRequiredCost).toFixed(2) }} {{ __("ui.components.allocate_number_modal.coin_unit") }}
                                     </span>
                                 </div>
 
                                 <div v-if="hasInsufficientBalance" class="pt-2 flex items-center justify-between bg-rose-500/10 p-2.5 rounded-xl text-rose-600 dark:text-rose-400 text-[11px] font-bold">
-                                    <span>⚠️ موجودی کیف پول برای پرداخت این سفارش کافی نمی‌باشد.</span>
+                                    <span>{{ __("ui.components.allocate_number_modal.insufficient_balance") }}</span>
                                     <Link :href="route('profile.edit')" class="underline hover:text-rose-700">
-                                        شارژ حساب ←
+                                        {{ __("ui.components.allocate_number_modal.recharge_wallet") }}
                                     </Link>
                                 </div>
                             </div>
@@ -868,7 +869,7 @@ const submitAllocation = () => {
                                     class="rounded-lg border-slate-300 dark:border-white/20 text-indigo-600 focus:ring-indigo-500 mt-0.5 cursor-pointer"
                                 />
                                 <span class="leading-relaxed select-none">
-                                    قوانین و مقررات استفاده از خطوط مجازی و سیاست‌های ضداسپم سامانه را مطالعه نموده و می‌پذیرم.
+                                    {{ __("ui.components.allocate_number_modal.terms_agreement") }}
                                 </span>
                             </label>
 
@@ -880,7 +881,7 @@ const submitAllocation = () => {
                                     :disabled="form.processing"
                                     class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition-all cursor-pointer"
                                 >
-                                    → بازگشت به جستجو
+                                    {{ __("ui.components.allocate_number_modal.back_to_search") }}
                                 </button>
                                 <button
                                     type="submit"
@@ -891,7 +892,7 @@ const submitAllocation = () => {
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                                     </svg>
-                                    <span>{{ form.processing ? 'در حال فعال‌سازی خط...' : 'پرداخت و دریافت آنی خط' }}</span>
+                                    <span>{{ form.processing ? __('ui.components.allocate_number_modal.activating') : __('ui.components.allocate_number_modal.pay_and_activate') }}</span>
                                 </button>
                             </div>
                         </form>

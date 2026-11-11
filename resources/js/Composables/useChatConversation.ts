@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { __ } from './useTrans';
 
 export interface ChatMessage {
     id: number;
@@ -157,7 +158,7 @@ export function useChatConversation() {
             direction: 'outbound',
             body,
             server_received_at: new Date().toISOString(),
-            server_received_at_formatted: 'هم‌اکنون',
+            server_received_at_formatted: __('ui.composables.chat.just_now'),
             processing_status: 'pending',
             is_optimistic: true,
         };
@@ -199,7 +200,7 @@ export function useChatConversation() {
                 }
                 return true;
             } else {
-                const errMsg = data.message || data.results?.[0]?.reason || 'خطا در ارسال پیامک';
+                const errMsg = data.message || data.results?.[0]?.reason || __('ui.composables.chat.send_error');
                 if (target) {
                     target.processing_status = 'failed';
                     target.error_message = errMsg;
@@ -211,9 +212,9 @@ export function useChatConversation() {
             const target = messages.value.find(m => m.client_message_id === tempId);
             if (target) {
                 target.processing_status = 'failed';
-                target.error_message = 'خطای اتصال به سرور';
+                target.error_message = __('ui.composables.chat.connection_error');
             }
-            if (onError) onError('خطای ارتباط با سرور');
+            if (onError) onError(__('ui.composables.chat.network_error'));
             return false;
         }
     };
@@ -257,15 +258,15 @@ export function useChatConversation() {
                 failedMsg.is_optimistic = false;
                 if (onSuccess) onSuccess(failedMsg);
             } else {
-                const errMsg = data.message || 'خطا در ارسال مجدد';
+                const errMsg = data.message || __('ui.composables.chat.resend_error');
                 failedMsg.processing_status = 'failed';
                 failedMsg.error_message = errMsg;
                 if (onError) onError(errMsg);
             }
         } catch {
             failedMsg.processing_status = 'failed';
-            failedMsg.error_message = 'خطای اتصال';
-            if (onError) onError('خطای ارتباط با سرور');
+            failedMsg.error_message = __('ui.composables.chat.connection_fail');
+            if (onError) onError(__('ui.composables.chat.network_error'));
         }
     };
 

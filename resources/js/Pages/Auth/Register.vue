@@ -57,7 +57,7 @@ const submit = () => {
 
 <template>
     <AuthLayout>
-        <Head title="ثبت‌نام در سامانه" />
+        <Head :title="__('ui.auth.register.head_title')" />
 
         <!-- Header Brand & Title -->
         <div class="text-center mb-6">
@@ -69,14 +69,14 @@ const submit = () => {
                     <line x1="23" y1="11" x2="17" y2="11"></line>
                 </svg>
             </div>
-            <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">ایجاد حساب کاربری جدید</h1>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">تخصیص آنی شماره‌های سازمانی و فعال‌سازی درگاه پیامکی</p>
+            <h1 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{{ __('ui.auth.register.title') }}</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ __('ui.auth.register.subtitle') }}</p>
         </div>
 
         <!-- Registration Method Selector -->
         <div class="mb-5">
             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                شیوه ثبت‌نام مورد نظر خود را انتخاب فرمایید:
+                {{ __('ui.auth.register.method_prompt') }}
             </label>
             <div class="grid grid-cols-2 gap-2 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 text-xs font-bold">
                 <button
@@ -91,7 +91,7 @@ const submit = () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <span>ثبت‌نام با شناسه کاربری</span>
+                    <span>{{ __('ui.auth.register.method_username') }}</span>
                 </button>
 
                 <button
@@ -106,7 +106,7 @@ const submit = () => {
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    <span>ثبت‌نام با پست الکترونیک (ایمیل)</span>
+                    <span>{{ __('ui.auth.register.method_email') }}</span>
                 </button>
             </div>
         </div>
@@ -117,10 +117,10 @@ const submit = () => {
                 <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span>پرسنل سازمانی دارای حساب LDAP یا Keycloak نیاز به ثبت‌نام ندارند.</span>
+                <span>{{ __('ui.auth.register.org_notice') }}</span>
             </div>
             <Link :href="route('login')" class="font-bold underline shrink-0 hover:text-amber-600">
-                ورود سازمانی
+                {{ __('ui.auth.register.org_login') }}
             </Link>
         </div>
 
@@ -129,7 +129,7 @@ const submit = () => {
             <!-- Full Name (Mandatory) -->
             <div class="space-y-1.5">
                 <label for="name" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    نام و نام خانوادگی:
+                    {{ __('ui.auth.register.name_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -142,7 +142,7 @@ const submit = () => {
                         type="text"
                         v-model="form.name"
                         class="w-full pr-10 pl-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
-                        placeholder="مثال: سعید قاسمی"
+                        :placeholder="__('ui.auth.register.name_placeholder')"
                         required
                         autofocus
                         autocomplete="name"
@@ -154,7 +154,7 @@ const submit = () => {
             <!-- Option A: Username (Mandatory if chosen) -->
             <div v-if="selectedMethod === 'username'" class="space-y-1.5">
                 <label for="username" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    شناسه کاربری دلخواه (انگلیسی):
+                    {{ __('ui.auth.register.username_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -173,14 +173,14 @@ const submit = () => {
                         autocomplete="username"
                     />
                 </div>
-                <span class="text-[10px] text-slate-400 block">حداقل ۳ کاراکتر شامل حروف انگلیسی، ارقام، خط تیره یا آندرلاین</span>
+                <span class="text-[10px] text-slate-400 block">{{ __('ui.auth.register.username_hint') }}</span>
                 <InputError class="mt-1" :message="form.errors.username" />
             </div>
 
             <!-- Option B: Email (Mandatory if chosen) -->
             <div v-if="selectedMethod === 'email'" class="space-y-1.5">
                 <label for="email" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    نشانی پست الکترونیک (ایمیل معتبر):
+                    {{ __('ui.auth.register.email_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -206,7 +206,7 @@ const submit = () => {
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div class="space-y-1.5">
                     <label for="password" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        کلمه عبور:
+                        {{ __('ui.auth.register.password_label') }}
                     </label>
                     <div class="relative">
                         <input
@@ -214,7 +214,7 @@ const submit = () => {
                             :type="showPassword ? 'text' : 'password'"
                             v-model="form.password"
                             class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
-                            placeholder="حداقل ۸ نویسه..."
+                            :placeholder="__('ui.auth.register.password_placeholder')"
                             required
                             dir="ltr"
                             autocomplete="new-password"
@@ -225,7 +225,7 @@ const submit = () => {
 
                 <div class="space-y-1.5">
                     <label for="password_confirmation" class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        تکرار کلمه عبور:
+                        {{ __('ui.auth.register.password_confirmation_label') }}
                     </label>
                     <div class="relative">
                         <input
@@ -233,7 +233,7 @@ const submit = () => {
                             :type="showPassword ? 'text' : 'password'"
                             v-model="form.password_confirmation"
                             class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/80 text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none dark:text-white"
-                            placeholder="تکرار رمز عبور..."
+                            :placeholder="__('ui.auth.register.password_confirmation_placeholder')"
                             required
                             dir="ltr"
                             autocomplete="new-password"
@@ -250,9 +250,9 @@ const submit = () => {
                     :disabled="form.processing"
                     class="w-full py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-black text-sm shadow-md shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
-                    <span v-if="form.processing">در حال ساخت حساب کاربری...</span>
+                    <span v-if="form.processing">{{ __('ui.auth.register.processing') }}</span>
                     <template v-else>
-                        <span>تکمیل ثبت‌نام و ورود به پنل</span>
+                        <span>{{ __('ui.auth.register.submit_button') }}</span>
                         <svg class="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
@@ -263,9 +263,9 @@ const submit = () => {
 
         <!-- Footer Link: Already registered -->
         <div class="mt-6 pt-5 border-t border-slate-200/80 dark:border-slate-800 flex items-center justify-between text-xs">
-            <span class="text-slate-500 dark:text-slate-400">قبلاً حساب کاربری ایجاد کرده‌اید؟</span>
+            <span class="text-slate-500 dark:text-slate-400">{{ __('ui.auth.register.has_account') }}</span>
             <Link :href="route('login')" class="font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
-                ورود به حساب کاربری
+                {{ __('ui.auth.register.login_link') }}
             </Link>
         </div>
     </AuthLayout>

@@ -2,6 +2,7 @@
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 interface AttachmentItem {
     id: number;
@@ -73,7 +74,7 @@ function onFileSelect(e: Event) {
 
     const files = Array.from(target.files);
     if (replyForm.attachments.length + files.length > 5) {
-        fileError.value = 'حداکثر می‌توانید تا ۵ فایل پیوست نمایید.';
+        fileError.value = __('user.tickets.file_max_count');
         return;
     }
 
@@ -81,11 +82,11 @@ function onFileSelect(e: Event) {
     for (const f of files) {
         const ext = f.name.split('.').pop()?.toLowerCase();
         if (!ext || !allowed.includes(ext)) {
-            fileError.value = `پسوند «${f.name}» غیرمجاز است. فرمت‌های مجاز: JPG, PNG, PDF, ZIP, TXT.`;
+            fileError.value = __('user.tickets.file_invalid_ext', { name: f.name });
             return;
         }
         if (f.size > 5 * 1024 * 1024) {
-            fileError.value = `حجم فایل «${f.name}» بیش از سقف ۵ مگابایت است.`;
+            fileError.value = __('user.tickets.file_max_size', { name: f.name });
             return;
         }
         replyForm.attachments.push(f);
@@ -112,7 +113,7 @@ function submitReply() {
 }
 
 function closeTicket() {
-    if (!confirm('آیا از بستن این تیکت اطمینان دارید؟')) return;
+    if (!confirm(__('user.tickets.confirm_close'))) return;
     router.post(route('tickets.close', props.ticket.id), {}, {
         preserveScroll: true,
     });
@@ -120,7 +121,7 @@ function closeTicket() {
 </script>
 
 <template>
-    <Head :title="`تیکت #${ticket.ticket_number}: ${ticket.subject}`" />
+    <Head :title="__('user.tickets.show_title', { number: ticket.ticket_number, subject: ticket.subject })" />
 
     <UserLayout>
         <div class="space-y-4">
@@ -130,7 +131,7 @@ function closeTicket() {
                     <Link
                         :href="route('tickets.index')"
                         class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white flex items-center justify-center shrink-0 transition-colors"
-                        title="بازگشت به لیست تیکت‌ها"
+                        :title="__('user.tickets.back_to_list')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
@@ -155,15 +156,11 @@ function closeTicket() {
                         type="button"
                         @click="closeTicket"
                         class="text-[10px] font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 border border-rose-300 dark:border-rose-500/30 px-2.5 py-1 rounded-xl hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                    >
-                        بستن تیکت
-                    </button>
+                    >{{ __('user.tickets.close_ticket') }}</button>
                     <span
                         v-else
                         class="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-xl"
-                    >
-                        بسته‌شده
-                    </span>
+                    >{{ __('user.tickets.is_closed') }}</span>
                 </div>
             </div>
 
@@ -209,7 +206,7 @@ function closeTicket() {
                                         : 'bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white'
                                 ]"
                             >
-                                {{ msg.is_staff_reply ? 'تیم' : 'شما' }}
+                                {{ msg.is_staff_reply ? __('user.tickets.staff_team') : __('user.tickets.you') }}
                             </div>
                             <div class="flex items-center gap-1.5">
                                 <span class="text-xs font-black text-slate-900 dark:text-white">{{ msg.user.name }}</span>
@@ -234,7 +231,7 @@ function closeTicket() {
 
                     <!-- Attachments -->
                     <div v-if="msg.attachments && msg.attachments.length > 0" class="pt-2 border-t border-slate-200/60 dark:border-white/5 space-y-1.5">
-                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">پیوست‌ها:</span>
+                        <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">{{ __('user.tickets.attachments') }}</span>
                         <div class="flex flex-wrap gap-1.5">
                             <a
                                 v-for="att in msg.attachments"
@@ -256,13 +253,13 @@ function closeTicket() {
 
             <!-- 4. Reply Box (If not closed) -->
             <div v-if="!ticket.is_closed" class="glass-card !p-3.5 space-y-3 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
-                <span class="text-xs font-black text-slate-900 dark:text-white block">ارسال پاسخ جدید:</span>
+                <span class="text-xs font-black text-slate-900 dark:text-white block">{{ __('user.tickets.send_reply') }}</span>
 
                 <form @submit.prevent="submitReply" class="space-y-3">
                     <textarea
                         v-model="replyForm.message"
                         rows="3"
-                        placeholder="متن پاسخ یا توضیحات تکمیلی را بنویسید..."
+                        :placeholder="__('user.tickets.reply_placeholder')"
                         class="glass-input !p-3 !text-xs w-full resize-none leading-relaxed bg-slate-100/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         required
                     ></textarea>
@@ -278,7 +275,7 @@ function closeTicket() {
                             <svg class="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                             </svg>
-                            <span>پیوست فایل</span>
+                            <span>{{ __('user.tickets.attach_file') }}</span>
                         </button>
 
                         <input
@@ -295,7 +292,7 @@ function closeTicket() {
                             :disabled="replyForm.processing"
                             class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            {{ replyForm.processing ? 'در حال ارسال...' : 'ارسال پاسخ' }}
+                            {{ replyForm.processing ? __('user.tickets.sending_reply') : __('user.tickets.reply_btn') }}
                         </button>
                     </div>
 
@@ -317,8 +314,8 @@ function closeTicket() {
 
             <!-- Closed Notice -->
             <div v-else class="glass-card !p-4 text-center text-xs text-slate-500 dark:text-slate-400 space-y-1 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                <p class="font-bold text-slate-800 dark:text-slate-200">این تیکت بسته‌شده است.</p>
-                <p>جهت پیگیری موضوعات جدید، لطفاً یک تیکت پشتیبانی جدید ایجاد نمایید.</p>
+                <p class="font-bold text-slate-800 dark:text-slate-200">{{ __('user.tickets.closed_notice') }}</p>
+                <p>{{ __('user.tickets.closed_subnotice') }}</p>
             </div>
         </div>
     </UserLayout>

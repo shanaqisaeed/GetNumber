@@ -1,5 +1,6 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { getEchoInstance, subscribeConnectionState, ConnectionState } from '@/echo';
+import { __ } from './useTrans';
 
 export interface RealtimeMessagePayload {
     id: number;
@@ -62,16 +63,16 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
     const connectionLabel = computed(() => {
         switch (connectionState.value) {
             case 'connected':
-                return 'اتصال بلادرنگ';
+                return __('ui.composables.realtime.connected');
             case 'connecting':
-                return 'در حال برقراری ارتباط...';
+                return __('ui.composables.realtime.connecting');
             case 'polling':
             case 'unavailable':
             case 'failed':
-                return 'به‌روزرسانی خودکار (Polling)';
+                return __('ui.composables.realtime.polling');
             case 'disconnected':
             default:
-                return 'قطع ارتباط';
+                return __('ui.composables.realtime.disconnected');
         }
     });
 

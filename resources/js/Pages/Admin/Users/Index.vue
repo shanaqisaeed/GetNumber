@@ -91,7 +91,7 @@ function clearFilters() {
 }
 
 function changeStatus(user: UserItem, newStatus: string) {
-    if (!confirm(`آیا از تغییر وضعیت حساب کاربری «${user.username}» به حالت «${formatStatus(newStatus)}» اطمینان دارید؟`)) {
+    if (!confirm(__('admin.users.confirm_status_change', { username: user.username, status: formatStatus(newStatus) }))) {
         return;
     }
 
@@ -103,13 +103,13 @@ function changeStatus(user: UserItem, newStatus: string) {
 }
 
 function formatRole(r: string): string {
-    return r === 'admin' ? 'راهبر ارشد' : 'کاربر سازمانی';
+    return r === 'admin' ? __('admin.users.role_admin') : __('admin.users.role_user');
 }
 
 function formatStatus(s: string): string {
-    if (s === 'active') return 'فعال';
-    if (s === 'suspended') return 'تعلیق‌شده';
-    return 'غیرفعال';
+    if (s === 'active') return __('admin.users.status_active');
+    if (s === 'suspended') return __('admin.users.status_suspended');
+    return __('admin.users.status_inactive');
 }
 
 // Edit User Modal State
@@ -176,7 +176,7 @@ const walletTargetUser = ref<UserItem | null>(null);
 const walletForm = useForm({
     action: 'credit', // 'credit' | 'debit' | 'set'
     amount: '',
-    reason: 'تنظیم موجودی توسط راهبر ارشد سامانه',
+    reason: __('admin.users.balance_adjust_reason'),
 });
 
 function openWalletModal(user: UserItem) {
@@ -184,7 +184,7 @@ function openWalletModal(user: UserItem) {
     walletForm.reset();
     walletForm.action = 'credit';
     walletForm.amount = '';
-    walletForm.reason = 'شارژ اعتبار توسط راهبر سامانه';
+    walletForm.reason = __('admin.users.balance_topup_reason');
     walletForm.clearErrors();
     isWalletModalOpen.value = true;
 }
@@ -221,11 +221,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
-    <Head title="مدیریت کاربران و دسترسی‌ها" />
+    <Head :title="__('admin.users.head_title')" />
 
     <AdminLayout>
         <template #header>
-            <h1 class="text-base font-bold text-slate-900 dark:text-white">مدیریت کاربران و دسترسی‌ها</h1>
+            <h1 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.users.main_title') }}</h1>
         </template>
 
         <div class="space-y-6">
@@ -234,10 +234,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                        مدیریت کاربران و سطوح دسترسی
+                        {{ __('admin.users.main_title') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        نظارت، ویرایش مشخصات هویتی، تغییر شناسه، بررسی خطوط و مدیریت وضعیت حساب‌های کاربری
+                        {{ __('admin.users.subtitle') }}
                     </p>
                 </div>
 
@@ -248,7 +248,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>تعریف حساب کاربری جدید</span>
+                    <span>{{ __('admin.users.create_btn') }}</span>
                 </Link>
             </div>
 
@@ -256,7 +256,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block mb-1">کل کاربران سامانه</span>
+                        <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.total_users') }}</span>
                         <span dir="ltr" class="text-2xl font-black font-mono text-slate-900 dark:text-white block text-right">{{ stats.total }}</span>
                     </div>
                     <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center">
@@ -268,7 +268,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block mb-1">کاربران فعال</span>
+                        <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.active_users') }}</span>
                         <span dir="ltr" class="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 block text-right">{{ stats.active }}</span>
                     </div>
                     <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -280,7 +280,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block mb-1">حساب‌های تعلیق‌شده</span>
+                        <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.suspended_users') }}</span>
                         <span dir="ltr" class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 block text-right">{{ stats.suspended }}</span>
                     </div>
                     <div class="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -292,7 +292,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
-                        <span class="text-xs text-slate-400 font-bold block mb-1">راهبران سامانه</span>
+                        <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.admin_users') }}</span>
                         <span dir="ltr" class="text-2xl font-black font-mono text-rose-600 dark:text-rose-400 block text-right">{{ stats.admins }}</span>
                     </div>
                     <div class="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -312,7 +312,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="text"
                             v-model="search"
                             @keyup.enter="applyFilters"
-                            placeholder="جستجو در شناسه، نام، نام کاربری یا شماره تلفن تخصیص‌یافته..."
+                            :placeholder="__('admin.users.search_placeholder')"
                             class="w-full pr-10 pl-4 py-2.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 outline-none"
                         />
                         <svg class="w-4 h-4 text-slate-400 absolute right-3 top-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -327,7 +327,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @change="applyFilters"
                             class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
-                            <option value="">همه نقش‌ها</option>
+                            <option value="">{{ __('admin.users.all_roles') }}</option>
                             <option v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</option>
                         </select>
                     </div>
@@ -339,7 +339,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @change="applyFilters"
                             class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
-                            <option value="">همه وضعیت‌ها</option>
+                            <option value="">{{ __('admin.users.all_statuses') }}</option>
                             <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                         </select>
                     </div>
@@ -351,9 +351,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @change="applyFilters"
                             class="form-select !text-xs !py-2.5 !rounded-xl w-full"
                         >
-                            <option value="">وضعیت خطوط</option>
-                            <option value="yes">دارای خط سازمانی</option>
-                            <option value="no">فاقد خط سازمانی</option>
+                            <option value="">{{ __('admin.users.lines_status') }}</option>
+                            <option value="yes">{{ __('admin.users.has_lines') }}</option>
+                            <option value="no">{{ __('admin.users.no_lines') }}</option>
                         </select>
                     </div>
                 </div>
@@ -361,17 +361,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <!-- Sort and Filter Action Buttons -->
                 <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800/80">
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400 font-bold">مرتب‌سازی:</span>
+                        <span class="text-xs text-slate-400 font-bold">{{ __('admin.users.sort_label') }}</span>
                         <select
                             v-model="sort"
                             @change="applyFilters"
                             class="form-select !py-1.5 !px-3 !text-xs !rounded-xl w-auto"
                         >
-                            <option value="newest">جدیدترین کاربران</option>
-                            <option value="oldest">قدیمی‌ترین کاربران</option>
-                            <option value="name">بر اساس نام (الفبا)</option>
-                            <option value="username">بر اساس شناسه کاربری</option>
-                            <option value="numbers_count">بیشترین تعداد خطوط</option>
+                            <option value="newest">{{ __('admin.users.sort_newest') }}</option>
+                            <option value="oldest">{{ __('admin.users.sort_oldest') }}</option>
+                            <option value="name">{{ __('admin.users.sort_name') }}</option>
+                            <option value="username">{{ __('admin.users.sort_username') }}</option>
+                            <option value="numbers_count">{{ __('admin.users.sort_numbers_count') }}</option>
                         </select>
                     </div>
 
@@ -380,18 +380,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="applyFilters"
                             class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white transition-colors cursor-pointer"
-                        >
-                            اعمال فیلترها
-                        </button>
+                        >{{ __('admin.users.apply_filters') }}</button>
 
                         <button
                             v-if="search || role || status || hasNumbers || sort !== 'newest'"
                             type="button"
                             @click="clearFilters"
                             class="px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
-                        >
-                            حذف فیلترها
-                        </button>
+                        >{{ __('admin.users.clear_filters') }}</button>
                     </div>
                 </div>
             </div>
@@ -402,15 +398,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <table class="w-full text-right text-xs">
                         <thead>
                             <tr class="bg-slate-50/70 dark:bg-slate-800/40 text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                                <th class="py-3.5 px-5 font-bold">شناسه</th>
-                                <th class="py-3.5 px-5 font-bold">نام کاربر / سازمان</th>
-                                <th class="py-3.5 px-5 font-bold">شناسه کاربری</th>
-                                <th class="py-3.5 px-5 font-bold">نقش</th>
-                                <th class="py-3.5 px-5 font-bold">وضعیت حساب</th>
-                                <th class="py-3.5 px-5 font-bold text-center">خطوط سازمانی</th>
-                                <th class="py-3.5 px-5 font-bold text-center">موجودی اعتبار</th>
-                                <th class="py-3.5 px-5 font-bold">تاریخ ایجاد</th>
-                                <th class="py-3.5 px-5 font-bold text-left">عملیات مدیریت</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_id') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_name') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_username') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_role') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_status') }}</th>
+                                <th class="py-3.5 px-5 font-bold text-center">{{ __('admin.users.th_lines') }}</th>
+                                <th class="py-3.5 px-5 font-bold text-center">{{ __('admin.users.th_balance') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_created') }}</th>
+                                <th class="py-3.5 px-5 font-bold text-left">{{ __('admin.users.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -456,12 +452,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                                 ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100'
                                                 : 'bg-slate-100 dark:bg-slate-800/60 text-slate-400 hover:text-slate-600'
                                         ]"
-                                        title="مشاهده فهرست شماره‌ها"
+                                        :title="__('admin.users.view_numbers_tooltip')"
                                     >
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                         </svg>
-                                        <span>{{ user.phone_numbers_count }} خط</span>
+                                        <span>{{ __('admin.users.lines_count', { count: user.phone_numbers_count }) }}</span>
                                     </button>
                                 </td>
                                 <td class="py-4 px-5 text-center">
@@ -469,10 +465,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         type="button"
                                         @click="openWalletModal(user)"
                                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 hover:bg-amber-100 dark:hover:bg-amber-900/40"
-                                        title="شارژ یا تنظیم موجودی اعتبار این کاربر"
+                                        :title="__('admin.users.charge_balance_tooltip')"
                                     >
                                         <span class="font-mono text-xs font-black">{{ user.wallet_balance }}</span>
-                                        <span class="text-[10px]">واحد</span>
+                                        <span class="text-[10px]">{{ __('admin.users.unit') }}</span>
                                     </button>
                                 </td>
                                 <td class="py-4 px-5 text-slate-400 font-mono text-[11px]" dir="ltr">
@@ -485,12 +481,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             type="button"
                                             @click="openWalletModal(user)"
                                             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
-                                            title="شارژ یا تنظیم موجودی کاربر"
+                                            :title="__('admin.users.charge_balance_btn')"
                                         >
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
                                             </svg>
-                                            <span>اعتبار</span>
+                                            <span>{{ __('admin.users.balance_action_title') }}</span>
                                         </button>
 
                                         <!-- Edit User Button (Requirement 2) -->
@@ -498,12 +494,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             type="button"
                                             @click="openEditModal(user)"
                                             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 transition-colors cursor-pointer"
-                                            title="ویرایش کامل مشخصات و شناسه"
+                                            :title="__('admin.users.edit_user_tooltip')"
                                         >
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
-                                            <span>ویرایش</span>
+                                            <span>{{ __('admin.users.edit') }}</span>
                                         </button>
 
                                         <!-- Suspend / Activate Button -->
@@ -512,25 +508,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             type="button"
                                             @click="changeStatus(user, 'suspended')"
                                             class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 transition-colors cursor-pointer"
-                                            title="تعلیق حساب"
-                                        >
-                                            تعلیق
-                                        </button>
+                                            :title="__('admin.users.suspend_tooltip')"
+                                        >{{ __('admin.users.suspend') }}</button>
                                         <button
                                             v-if="user.status === 'suspended' || user.status === 'inactive'"
                                             type="button"
                                             @click="changeStatus(user, 'active')"
                                             class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors cursor-pointer"
-                                            title="فعال‌سازی مجدد"
-                                        >
-                                            فعال‌سازی
-                                        </button>
+                                            :title="__('admin.users.activate_tooltip')"
+                                        >{{ __('admin.users.activate') }}</button>
 
                                         <!-- User Audit Trail Link -->
                                         <Link
                                             :href="route('admin.audit-logs.index', { user_id: user.id })"
                                             class="p-1 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                            title="مشاهده گزارش ممیزی و امنیت این کاربر"
+                                            :title="__('admin.users.audit_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -542,7 +534,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                             <tr v-if="users.data.length === 0">
                                 <td colspan="9" class="py-12 text-center text-slate-400">
-                                    هیچ حساب کاربری مطابق با فیلترهای جستجو یافت نشد.
+                                    {{ __('admin.users.no_users_found') }}
                                 </td>
                             </tr>
                         </tbody>
@@ -552,7 +544,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <!-- Pagination Footer -->
                 <div v-if="users.last_page > 1" class="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
                     <div>
-                        نمایش صفحه {{ users.current_page }} از {{ users.last_page }} (مجموع {{ users.total }} کاربر)
+                        {{ __('admin.users.pagination_summary', { current: users.current_page, last: users.last_page, total: users.total }) }}
                     </div>
                     <div class="flex items-center gap-1">
                         <Link
@@ -577,10 +569,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>مدیریت و ویرایش مشخصات حساب کاربری</span>
+                            <span>{{ __('admin.users.modal_edit_title') }}</span>
                         </h3>
                         <span class="text-xs text-slate-400 block mt-0.5">
-                            شناسه سیستمی: #{{ editingUser.id }}
+                            {{ __('admin.users.system_id', { id: editingUser.id }) }}
                         </span>
                     </div>
                     <button @click="closeEditModal" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
@@ -602,7 +594,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Name -->
                     <div>
                         <label class="form-label mb-1.5">
-                            نام کاربر / عنوان سازمانی <span class="text-rose-500">*</span>
+                            {{ __('admin.users.name_label') }} <span class="text-rose-500">*</span>
                         </label>
                         <input
                             v-model="editForm.name"
@@ -619,9 +611,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="form-label">
-                                شناسه کاربری (نام کاربری) <span class="text-rose-500">*</span>
+                                {{ __('admin.users.username_label') }} <span class="text-rose-500">*</span>
                             </label>
-                            <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">قابل ویرایش توسط مدیریت</span>
+                            <span class="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">{{ __('admin.users.username_editable_badge') }}</span>
                         </div>
                         <input
                             v-model="editForm.username"
@@ -639,7 +631,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div class="grid grid-cols-2 gap-3">
                         <div>
                             <label class="form-label mb-1.5">
-                                نقش کاربری <span class="text-rose-500">*</span>
+                                {{ __('admin.users.role_label') }} <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 v-model="editForm.role"
@@ -654,7 +646,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                         <div>
                             <label class="form-label mb-1.5">
-                                وضعیت حساب <span class="text-rose-500">*</span>
+                                {{ __('admin.users.status_label') }} <span class="text-rose-500">*</span>
                             </label>
                             <select
                                 v-model="editForm.status"
@@ -672,15 +664,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="form-label">
-                                تغییر کلمه عبور
+                                {{ __('admin.users.change_password_label') }}
                             </label>
-                            <span class="text-[11px] text-slate-400">اختیاری - در صورت عدم نیاز خالی بگذارید</span>
+                            <span class="text-[11px] text-slate-400">{{ __('admin.users.password_optional') }}</span>
                         </div>
                         <input
                             v-model="editForm.password"
                             type="password"
                             dir="ltr"
-                            placeholder="حداقل ۶ کاراکتر"
+                            :placeholder="__('admin.users.password_min_placeholder')"
                             class="form-input w-full font-mono text-left"
                         />
                         <span v-if="editForm.errors.password" class="text-xs text-rose-500 block mt-1">
@@ -693,9 +685,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="closeEditModal"
                             class="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.users.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="editForm.processing"
@@ -705,7 +695,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span>{{ editForm.processing ? 'در حال ثبت...' : 'ذخیره تغییرات حساب' }}</span>
+                            <span>{{ editForm.processing ? __('admin.users.saving') : __('admin.users.save_changes') }}</span>
                         </button>
                     </div>
                 </form>
@@ -718,10 +708,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>فهرست خطوط سازمانی تخصیص‌یافته</span>
+                            <span>{{ __('admin.users.modal_numbers_title') }}</span>
                         </h3>
                         <span class="text-xs text-slate-400 block mt-0.5">
-                            کاربر: {{ selectedUserForNumbers.name }} (@{{ selectedUserForNumbers.username }})
+                            {{ __('admin.users.user_info', { name: selectedUserForNumbers.name, username: selectedUserForNumbers.username }) }}
                         </span>
                     </div>
                     <button @click="closeNumbersModal" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
@@ -736,12 +726,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <table class="w-full text-right text-xs">
                             <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">
                                 <tr>
-                                    <th class="py-3 px-4">شماره خط</th>
-                                    <th class="py-3 px-4">نوع</th>
-                                    <th class="py-3 px-4">وضعیت</th>
-                                    <th class="py-3 px-4">عنوان سرویس</th>
-                                    <th class="py-3 px-4">تاریخ تخصیص</th>
-                                    <th class="py-3 px-4 text-left">عملیات</th>
+                                    <th class="py-3 px-4">{{ __('admin.users.th_num_number') }}</th>
+                                    <th class="py-3 px-4">{{ __('admin.users.th_num_type') }}</th>
+                                    <th class="py-3 px-4">{{ __('admin.users.th_num_status') }}</th>
+                                    <th class="py-3 px-4">{{ __('admin.users.th_num_service') }}</th>
+                                    <th class="py-3 px-4">{{ __('admin.users.th_num_allocated') }}</th>
+                                    <th class="py-3 px-4 text-left">{{ __('admin.users.th_num_actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -770,7 +760,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             :href="route('admin.numbers.index', { search: num.number })"
                                             class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
-                                            <span>مدیریت خط</span>
+                                            <span>{{ __('admin.users.manage_line') }}</span>
                                             <svg class="w-3.5 h-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                             </svg>
@@ -787,9 +777,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <h4 class="text-sm font-bold text-slate-800 dark:text-white">هیچ خطی به این کاربر تخصیص نیافته است</h4>
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-white">{{ __('admin.users.no_lines_for_user') }}</h4>
                         <p class="text-xs text-slate-400 mt-1">
-                            می‌توانید از طریق بخش مدیریت خطوط سازمانی، شماره دلخواه را مستقیماً به این حساب تخصیص دهید.
+                            {{ __('admin.users.no_lines_for_user_desc') }}
                         </p>
                     </div>
 
@@ -798,9 +788,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="closeNumbersModal"
                             class="px-5 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                        >
-                            بستن
-                        </button>
+                        >{{ __('admin.users.close') }}</button>
                     </div>
                 </div>
             </div>
@@ -812,7 +800,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>مدیریت و تنظیم موجودی اعتبار کاربر</span>
+                            <span>{{ __('admin.users.modal_balance_title') }}</span>
                         </h3>
                         <span class="text-xs text-slate-400 block mt-0.5">
                             {{ walletTargetUser.name }} (@{{ walletTargetUser.username }})
@@ -829,10 +817,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Current Balance Indicator -->
                     <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between">
                         <div>
-                            <span class="text-xs text-amber-800 dark:text-amber-300 font-bold block">موجودی فعلی حساب کاربر:</span>
+                            <span class="text-xs text-amber-800 dark:text-amber-300 font-bold block">{{ __('admin.users.current_balance_label') }}</span>
                             <span class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-0.5 block">
                                 {{ walletTargetUser.wallet_balance }}
-                                <span class="text-xs font-bold mr-1">واحد اعتبار</span>
+                                <span class="text-xs font-bold mr-1">{{ __('admin.users.credit_units') }}</span>
                             </span>
                         </div>
                         <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center text-lg">
@@ -842,7 +830,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                     <!-- Action Type Selector -->
                     <div>
-                        <label class="form-label mb-1.5 font-bold">نوع عملیات:</label>
+                        <label class="form-label mb-1.5 font-bold">{{ __('admin.users.operation_type') }}</label>
                         <div class="grid grid-cols-3 gap-2">
                             <button
                                 type="button"
@@ -852,7 +840,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                                     : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
                             >
-                                + شارژ (افزایش)
+                                {{ __('admin.users.op_increase') }}
                             </button>
                             <button
                                 type="button"
@@ -862,7 +850,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
                                     : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
                             >
-                                - کسر اعتبار
+                                {{ __('admin.users.op_decrease') }}
                             </button>
                             <button
                                 type="button"
@@ -872,7 +860,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                                     : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
                             >
-                                = تنظیم مستقیم
+                                {{ __('admin.users.op_set') }}
                             </button>
                         </div>
                     </div>
@@ -880,7 +868,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Amount -->
                     <div>
                         <label class="form-label mb-1.5 font-bold">
-                            {{ walletForm.action === 'set' ? 'موجودی دقیق جدید (واحد)' : 'مقدار اعتبار (واحد)' }}
+                            {{ walletForm.action === 'set' ? __('admin.users.amount_set_label') : __('admin.users.amount_delta_label') }}
                             <span class="text-rose-500">*</span>
                         </label>
                         <input
@@ -889,7 +877,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             step="0.0001"
                             min="0"
                             required
-                            placeholder="مثال: 50.0000"
+                            :placeholder="__('admin.users.amount_placeholder')"
                             class="form-input w-full font-mono text-left"
                             dir="ltr"
                         />
@@ -901,13 +889,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Reason / Note -->
                     <div>
                         <label class="form-label mb-1.5 font-bold">
-                            دلیل / توضیحات تراکنش <span class="text-rose-500">*</span>
+                            {{ __('admin.users.reason_label') }} <span class="text-rose-500">*</span>
                         </label>
                         <input
                             v-model="walletForm.reason"
                             type="text"
                             required
-                            placeholder="علت تغییر یا شارژ موجودی کاربر..."
+                            :placeholder="__('admin.users.reason_placeholder')"
                             class="form-input w-full text-xs"
                         />
                         <span v-if="walletForm.errors.reason" class="text-xs text-rose-500 block mt-1">
@@ -920,16 +908,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             type="button"
                             @click="closeWalletModal"
                             class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.users.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="walletForm.processing"
                             class="px-5 py-2 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white transition-all shadow-md shadow-amber-600/20 disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                         >
-                            <span v-if="walletForm.processing">در حال اعمال...</span>
-                            <span v-else>ثبت و اعمال تغییرات</span>
+                            <span v-if="walletForm.processing">{{ __('admin.users.applying') }}</span>
+                            <span v-else>{{ __('admin.users.apply_balance_changes') }}</span>
                         </button>
                     </div>
                 </form>

@@ -122,14 +122,14 @@ async function copyPayload() {
 </script>
 
 <template>
-    <Head title="گزارش رویدادها و ممیزی سیستم" />
+    <Head :title="__('admin.audit.page_title')" />
 
     <AdminLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-base font-bold text-slate-900 dark:text-white">گزارش رویدادها، امنیت و ممیزی سیستم</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">پایش کلیه رخدادهای حساس، تغییرات خطوط، صدور توکن‌ها و دسترسی‌های کاربران</p>
+                    <h1 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.audit.heading') }}</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.audit.subheading') }}</p>
                 </div>
             </div>
         </template>
@@ -138,7 +138,7 @@ async function copyPayload() {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">کل رخدادهای ثبت‌شده</p>
+                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.audit.total_events') }}</p>
                     <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ stats.total }}</p>
                 </div>
                 <div class="w-11 h-11 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
@@ -150,7 +150,7 @@ async function copyPayload() {
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">رخدادهای امروز</p>
+                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.audit.today_events') }}</p>
                     <p class="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{{ stats.today }}</p>
                 </div>
                 <div class="w-11 h-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
@@ -162,7 +162,7 @@ async function copyPayload() {
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">عملیات خطوط سازمانی</p>
+                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.audit.enterprise_line_actions') }}</p>
                     <p class="text-2xl font-black text-rose-600 dark:text-rose-400 mt-1">{{ stats.number_events }}</p>
                 </div>
                 <div class="w-11 h-11 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center">
@@ -174,7 +174,7 @@ async function copyPayload() {
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">رویدادهای امنیتی و کاربری</p>
+                    <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.audit.security_events') }}</p>
                     <p class="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">{{ stats.security_events }}</p>
                 </div>
                 <div class="w-11 h-11 rounded-xl bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
@@ -190,13 +190,13 @@ async function copyPayload() {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                 <!-- Search input -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">جستجو در رخدادها</label>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.audit.search_label') }}</label>
                     <div class="relative">
                         <input
                             v-model="search"
                             @keydown.enter="applyFilters"
                             type="text"
-                            placeholder="شناسه، آی‌پی، نام یا نام کاربری..."
+                            :placeholder="__('admin.audit.search_placeholder')"
                             class="w-full text-xs rounded-xl bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder-slate-400 focus:border-rose-500 focus:ring-rose-500 pl-8 pr-3 py-2"
                         />
                         <button
@@ -213,7 +213,7 @@ async function copyPayload() {
 
                 <!-- Action filter -->
                 <div>
-                    <label class="form-label mb-1.5">نوع رخداد</label>
+                    <label class="form-label mb-1.5">{{ __('admin.audit.event_type_label') }}</label>
                     <select
                         v-model="action"
                         @change="applyFilters"
@@ -227,7 +227,7 @@ async function copyPayload() {
 
                 <!-- Date from -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">از تاریخ</label>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.audit.from_date_label') }}</label>
                     <input
                         v-model="dateFrom"
                         @change="applyFilters"
@@ -238,7 +238,7 @@ async function copyPayload() {
 
                 <!-- Date to & Clear Button -->
                 <div>
-                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">تا تاریخ</label>
+                    <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.audit.to_date_label') }}</label>
                     <div class="flex gap-2">
                         <input
                             v-model="dateTo"
@@ -250,10 +250,8 @@ async function copyPayload() {
                             type="button"
                             @click="clearFilters"
                             class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors shrink-0"
-                            title="حذف فیلترها"
-                        >
-                            پاکسازی
-                        </button>
+                            :title="__('admin.audit.clear_filters_title')"
+                        >{{ __('admin.audit.clear') }}</button>
                     </div>
                 </div>
             </div>
@@ -263,23 +261,23 @@ async function copyPayload() {
         <div class="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden mb-6">
             <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                 <div>
-                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">فهرست رخدادهای سیستمی</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">نمایش آخرین رخدادها با جزئیات کامل لاگ و امضای امنیتی</p>
+                    <h2 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.audit.events_list_title') }}</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ __('admin.audit.events_list_subtitle') }}</p>
                 </div>
-                <span class="text-xs font-bold text-slate-400">مجموع: {{ logs.total }} رخداد</span>
+                <span class="text-xs font-bold text-slate-400">{{ __('admin.audit.total_count', { total: logs.total }) }}</span>
             </div>
 
             <div class="overflow-x-auto">
                 <table class="w-full text-right text-xs">
                     <thead>
                         <tr class="bg-slate-50 dark:bg-slate-800/40 text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                            <th class="py-3 px-4 font-bold">شناسه</th>
-                            <th class="py-3 px-4 font-bold">عنوان / نوع رخداد</th>
-                            <th class="py-3 px-4 font-bold">موجودیت هدف</th>
-                            <th class="py-3 px-4 font-bold">کاربر مجری</th>
-                            <th class="py-3 px-4 font-bold">آدرس IP</th>
-                            <th class="py-3 px-4 font-bold">زمان وقوع</th>
-                            <th class="py-3 px-4 font-bold text-center">جزئیات Payload</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_id') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_title_type') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_target') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_actor') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_ip') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.audit.th_time') }}</th>
+                            <th class="py-3 px-4 font-bold text-center">{{ __('admin.audit.th_payload') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -325,11 +323,9 @@ async function copyPayload() {
                                     <span
                                         v-if="log.user.is_admin"
                                         class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30"
-                                    >
-                                        راهبر
-                                    </span>
+                                    >{{ __('admin.audit.actor_admin') }}</span>
                                 </div>
-                                <span v-else class="text-slate-400 font-medium">سامانه خودکار</span>
+                                <span v-else class="text-slate-400 font-medium">{{ __('admin.audit.actor_auto') }}</span>
                             </td>
 
                             <!-- IP Address -->
@@ -359,9 +355,9 @@ async function copyPayload() {
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
-                                    <span>مشاهده Payload</span>
+                                    <span>{{ __('admin.audit.view_payload') }}</span>
                                 </button>
-                                <span v-else class="text-slate-400 text-[11px]">بدون متادیتا</span>
+                                <span v-else class="text-slate-400 text-[11px]">{{ __('admin.audit.no_metadata') }}</span>
                             </td>
                         </tr>
 
@@ -371,8 +367,8 @@ async function copyPayload() {
                                 <svg class="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                 </svg>
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">هیچ رویدادی با این شرایط یافت نشد.</p>
-                                <p class="text-xs text-slate-400 mt-1">می‌توانید فیلترهای جستجو را پاکسازی کنید.</p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">{{ __('admin.audit.no_events_found') }}</p>
+                                <p class="text-xs text-slate-400 mt-1">{{ __('admin.audit.no_events_desc') }}</p>
                             </td>
                         </tr>
                     </tbody>
@@ -385,7 +381,7 @@ async function copyPayload() {
                 class="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between"
             >
                 <div class="text-xs text-slate-400">
-                    نمایش صفحه {{ logs.current_page }} از {{ logs.last_page }}
+                    {{ __('admin.audit.page_indicator', { current: logs.current_page, last: logs.last_page }) }}
                 </div>
                 <div class="flex items-center gap-1">
                     <Link
@@ -426,7 +422,7 @@ async function copyPayload() {
                         </div>
                         <div>
                             <h3 class="text-sm font-bold text-slate-900 dark:text-white">
-                                بررسی متادیتا و Payload رویداد #{{ selectedLog.id }}
+                                {{ __('admin.audit.modal_title', { id: selectedLog.id }) }}
                             </h3>
                             <p class="text-xs text-slate-400 mt-0.5">
                                 {{ selectedLog.action_label }} ({{ selectedLog.action }})
@@ -447,25 +443,25 @@ async function copyPayload() {
                 <!-- Event Quick Info Grid -->
                 <div class="px-5 py-3 bg-slate-50/70 dark:bg-slate-800/30 border-b border-slate-100 dark:border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                     <div>
-                        <span class="text-slate-400 block text-[10px]">کاربر مجری</span>
+                        <span class="text-slate-400 block text-[10px]">{{ __('admin.audit.modal_actor') }}</span>
                         <span class="font-bold text-slate-800 dark:text-slate-200">
-                            {{ selectedLog.user ? selectedLog.user.username : 'سیستم' }}
+                            {{ selectedLog.user ? selectedLog.user.username : __('admin.audit.modal_actor_system') }}
                         </span>
                     </div>
                     <div>
-                        <span class="text-slate-400 block text-[10px]">آدرس IP</span>
+                        <span class="text-slate-400 block text-[10px]">{{ __('admin.audit.modal_ip') }}</span>
                         <span class="font-mono text-slate-800 dark:text-slate-200" dir="ltr">
                             {{ selectedLog.ip_address || '—' }}
                         </span>
                     </div>
                     <div>
-                        <span class="text-slate-400 block text-[10px]">موجودیت</span>
+                        <span class="text-slate-400 block text-[10px]">{{ __('admin.audit.modal_entity') }}</span>
                         <span class="font-bold text-slate-800 dark:text-slate-200">
                             {{ selectedLog.entity_type || '—' }}
                         </span>
                     </div>
                     <div>
-                        <span class="text-slate-400 block text-[10px]">زمان ثبت</span>
+                        <span class="text-slate-400 block text-[10px]">{{ __('admin.audit.modal_created_at') }}</span>
                         <span class="font-mono text-slate-800 dark:text-slate-200 text-[11px]" dir="ltr">
                             {{ selectedLog.created_at }}
                         </span>
@@ -475,7 +471,7 @@ async function copyPayload() {
                 <!-- JSON Content Viewer -->
                 <div class="flex-1 p-5 overflow-y-auto">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">محتوای ساختاریافته (JSON Payload)</span>
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('admin.audit.modal_payload_heading') }}</span>
                         <button
                             type="button"
                             @click="copyPayload"
@@ -485,7 +481,7 @@ async function copyPayload() {
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
-                            <span>{{ copySuccess ? 'کپی شد!' : 'کپی JSON' }}</span>
+                            <span>{{ copySuccess ? __('admin.audit.copied') : __('admin.audit.copy_json') }}</span>
                         </button>
                     </div>
 
@@ -498,9 +494,7 @@ async function copyPayload() {
                         type="button"
                         @click="closeInspectModal"
                         class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-colors"
-                    >
-                        بستن
-                    </button>
+                    >{{ __('admin.audit.close') }}</button>
                 </div>
             </div>
         </div>

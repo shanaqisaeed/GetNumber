@@ -33,7 +33,7 @@ const submit = () => {
 
 <template>
     <AuthLayout>
-        <Head title="احراز هویت دومرحله‌ای" />
+        <Head :title="__('ui.auth.two_factor.head_title')" />
 
         <!-- Header -->
         <div class="text-center mb-5">
@@ -42,9 +42,9 @@ const submit = () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
             </div>
-            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">احراز هویت دومرحله‌ای</h1>
+            <h1 class="text-xl font-black text-slate-900 dark:text-white tracking-tight">{{ __('ui.auth.two_factor.title') }}</h1>
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                {{ isRecovery ? 'لطفاً یکی از کدهای بازیابی اضطراری خود را وارد کنید' : 'کد ۶ رقمی نمایش داده شده در برنامه Authenticator را وارد کنید' }}
+                {{ isRecovery ? __('ui.auth.two_factor.recovery_prompt') : __('ui.auth.two_factor.code_prompt') }}
             </p>
         </div>
 
@@ -53,7 +53,7 @@ const submit = () => {
             <form @submit.prevent="submit" class="space-y-4">
                 <!-- 1. Normal TOTP 6-digit mode -->
                 <div v-if="!isRecovery" class="glass-input-wrapper">
-                    <label for="code" class="glass-label">کد ۶ رقمی یکبار مصرف</label>
+                    <label for="code" class="glass-label">{{ __('ui.auth.two_factor.code_label') }}</label>
                     <div class="glass-input-box">
                         <div class="glass-input-icon">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,7 +78,7 @@ const submit = () => {
 
                 <!-- 2. Recovery Code Mode -->
                 <div v-else class="glass-input-wrapper">
-                    <label for="recovery_code" class="glass-label">کد بازیابی اضطراری</label>
+                    <label for="recovery_code" class="glass-label">{{ __('ui.auth.two_factor.recovery_code_label') }}</label>
                     <div class="glass-input-box">
                         <div class="glass-input-icon">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -109,7 +109,7 @@ const submit = () => {
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span>تایید و ورود به حساب</span>
+                    <span>{{ __('ui.auth.two_factor.submit_button') }}</span>
                 </button>
 
                 <!-- Toggle Mode Button -->
@@ -119,7 +119,7 @@ const submit = () => {
                         @click="toggleRecovery"
                         class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
                     >
-                        {{ isRecovery ? 'استفاده از کد ۶ رقمی اپلیکیشن Authenticator' : 'استفاده از کد بازیابی اضطراری (Backup Code)' }}
+                        {{ isRecovery ? __('ui.auth.two_factor.use_code') : __('ui.auth.two_factor.use_recovery') }}
                     </button>
                 </div>
 
@@ -129,7 +129,7 @@ const submit = () => {
                         :href="route('login')"
                         class="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                     >
-                        بازگشت به صفحه ورود
+                        {{ __('ui.auth.two_factor.back_to_login') }}
                     </Link>
                 </div>
             </form>

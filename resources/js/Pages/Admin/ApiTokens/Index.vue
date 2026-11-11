@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
@@ -58,6 +59,7 @@ const props = defineProps<{
     plainTextToken?: string | null;
 }>();
 
+const { __ } = useTrans();
 const page = usePage();
 const currentAuthUser = computed(() => page.props.auth?.user);
 
@@ -347,7 +349,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
 <template>
     <AdminLayout>
-        <Head title="نظارت و مدیریت کلیدهای وب‌سرویس سامانه" />
+        <Head :title="__('admin.tokens.head_title')" />
 
         <div class="space-y-6">
             <!-- Header Section -->
@@ -359,10 +361,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                             </svg>
                         </span>
-                        <h1 class="text-xl font-black text-slate-900 dark:text-white">نظارت و مدیریت کلیدهای ارتباطی (API Tokens)</h1>
+                        <h1 class="text-xl font-black text-slate-900 dark:text-white">{{ __('admin.tokens.page_title') }}</h1>
                     </div>
                     <p class="text-sm text-slate-500 dark:text-slate-400 leading-relaxed pr-10">
-                        صدور کلیدهای راهبری با حداکثر دسترسی‌ها، مشاهده، ردگیری آدرس IP، تعویض و ابطال کلیدهای وب‌سرویس در سراسر سامانه.
+                        {{ __('admin.tokens.page_desc') }}
                     </p>
                 </div>
 
@@ -375,7 +377,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        <span>صدور کلید جدید (راهبر / کاربر)</span>
+                        <span>{{ __('admin.tokens.create_btn') }}</span>
                     </button>
                 </div>
             </div>
@@ -384,7 +386,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">کل کلیدهای سامانه</p>
+                        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">{{ __('admin.tokens.total_tokens') }}</p>
                         <p class="text-2xl font-black text-slate-900 dark:text-white mt-1.5">{{ stats.total }}</p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-100 dark:border-indigo-900/50">
@@ -396,7 +398,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">کلیدهای فعال</p>
+                        <p class="text-xs font-semibold text-emerald-600 dark:text-emerald-400">{{ __('admin.tokens.active_tokens') }}</p>
                         <p class="text-2xl font-black text-slate-900 dark:text-white mt-1.5">{{ stats.active }}</p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-100 dark:border-emerald-900/50">
@@ -408,7 +410,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
                     <div>
-                        <p class="text-xs font-semibold text-rose-600 dark:text-rose-400">کلیدهای باطل‌شده</p>
+                        <p class="text-xs font-semibold text-rose-600 dark:text-rose-400">{{ __('admin.tokens.revoked_tokens') }}</p>
                         <p class="text-2xl font-black text-slate-900 dark:text-white mt-1.5">{{ stats.revoked }}</p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-100 dark:border-rose-900/50">
@@ -426,7 +428,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="جستجو بر اساس نام کلید، پیشوند توکن، نام یا نام کاربری..."
+                            :placeholder="__('admin.tokens.search_placeholder')"
                             class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                         />
                         <div class="absolute left-3 top-2.5 text-slate-400 pointer-events-none">
@@ -441,9 +443,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             v-model="statusFilter"
                             class="form-select w-full py-2 text-xs rounded-xl"
                         >
-                            <option value="">همه وضعیت‌ها</option>
-                            <option value="active">فعال</option>
-                            <option value="revoked">باطل‌شده</option>
+                            <option value="">{{ __('admin.tokens.all_statuses') }}</option>
+                            <option value="active">{{ __('admin.tokens.status_active') }}</option>
+                            <option value="revoked">{{ __('admin.tokens.status_revoked') }}</option>
                         </select>
                     </div>
 
@@ -451,17 +453,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <button
                             type="submit"
                             class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition shadow-sm"
-                        >
-                            اعمال فیلتر
-                        </button>
+                        >{{ __('admin.tokens.apply_filter') }}</button>
                         <button
                             type="button"
                             @click="resetFilter"
                             class="py-2 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold transition"
-                            title="بازنشانی"
-                        >
-                            لغو
-                        </button>
+                            :title="__('admin.tokens.reset_tooltip')"
+                        >{{ __('admin.tokens.reset_btn') }}</button>
                     </div>
                 </form>
             </div>
@@ -470,11 +468,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
             <div class="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
                 <div class="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <div>
-                        <h2 class="font-black text-slate-900 dark:text-white text-base">کلیه کلیدهای وب‌سرویس سامانه</h2>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">کلیدهای رمزنگاری‌شده با الگوریتم SHA-256 ذخیره می‌گردند.</p>
+                        <h2 class="font-black text-slate-900 dark:text-white text-base">{{ __('admin.tokens.table_heading') }}</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.tokens.table_subheading') }}</p>
                     </div>
                     <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        مجموع: {{ tokens.total }} رکورد
+                        {{ __('admin.tokens.total_records', { total: tokens.total }) }}
                     </span>
                 </div>
 
@@ -485,17 +483,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                     </div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">هیچ کلید ارتباطی یافت نشد</h3>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tokens.no_tokens_title') }}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
-                        هیچ کلیدی متناسب با فیلترهای انتخابی در سیستم ثبت نشده است.
+                        {{ __('admin.tokens.no_tokens_desc') }}
                     </p>
                     <button
                         type="button"
                         @click="openCreateModal"
                         class="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition"
-                    >
-                        صدور کلید جدید
-                    </button>
+                    >{{ __('admin.tokens.issue_token') }}</button>
                 </div>
 
                 <!-- Table Content -->
@@ -503,15 +499,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <table class="w-full text-right text-sm">
                         <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-xs font-bold border-b border-slate-200 dark:border-slate-800">
                             <tr>
-                                <th class="py-3.5 px-4">کاربر مالک کلید</th>
-                                <th class="py-3.5 px-4">عنوان سامانه متصل</th>
-                                <th class="py-3.5 px-4">پیشوند و شناسه</th>
-                                <th class="py-3.5 px-4">سطح دسترسی (Abilities)</th>
-                                <th class="py-3.5 px-4">وضعیت</th>
-                                <th class="py-3.5 px-4">آخرین فراخوانی / IP</th>
-                                <th class="py-3.5 px-4">انقضا</th>
-                                <th class="py-3.5 px-4">تاریخ صدور</th>
-                                <th class="py-3.5 px-4 text-center">عملیات نظارتی</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_owner') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_system') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_prefix_id') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_abilities') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_status') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_last_used') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_expires') }}</th>
+                                <th class="py-3.5 px-4">{{ __('admin.tokens.th_created') }}</th>
+                                <th class="py-3.5 px-4 text-center">{{ __('admin.tokens.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
@@ -531,9 +527,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         <div>
                                             <div class="flex items-center gap-1.5">
                                                 <p class="font-bold text-slate-900 dark:text-white text-xs">{{ token.user.name }}</p>
-                                                <span v-if="token.user.is_admin" class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
-                                                    راهبر
-                                                </span>
+                                                <span v-if="token.user.is_admin" class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">{{ __('admin.tokens.badge_admin') }}</span>
                                             </div>
                                             <p class="text-[11px] text-slate-500 font-mono dir-ltr">@{{ token.user.username }}</p>
                                         </div>
@@ -552,7 +546,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         v-if="token.has_full_access"
                                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-gradient-to-r from-purple-500/20 to-indigo-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30"
                                     >
-                                        <span>★ حداکثر دسترسی‌ها (*)</span>
+                                        <span>{{ __('admin.tokens.max_abilities') }}</span>
                                     </span>
                                     <div v-else class="flex flex-wrap gap-1 max-w-xs">
                                         <span
@@ -577,24 +571,24 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                         <p class="text-slate-700 dark:text-slate-300 font-medium">{{ token.last_used_at }}</p>
                                         <p v-if="token.last_used_ip" class="text-[11px] text-slate-400 font-mono dir-ltr">IP: {{ token.last_used_ip }}</p>
                                     </div>
-                                    <span v-else class="text-slate-400 italic">بدون فراخوانی</span>
+                                    <span v-else class="text-slate-400 italic">{{ __('admin.tokens.never_used') }}</span>
                                 </td>
                                 <td class="py-4 px-4 text-xs text-slate-500 dark:text-slate-400">
                                     <span v-if="token.expires_at">{{ token.expires_at }}</span>
-                                    <span v-else class="text-slate-400">دائمی</span>
+                                    <span v-else class="text-slate-400">{{ __('admin.tokens.permanent') }}</span>
                                 </td>
                                 <td class="py-4 px-4 text-xs text-slate-500 dark:text-slate-400 font-mono">
                                     {{ token.created_at }}
                                 </td>
                                 <td class="py-4 px-4 text-center">
                                     <div class="flex items-center justify-center gap-1.5">
-                                        <!-- Rotate (تعویض کلید) -->
+                                        
                                         <button
                                             v-if="token.is_active"
                                             type="button"
                                             @click="openRotateModal(token)"
                                             class="p-1.5 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/60 rounded-lg transition"
-                                            title="تعویض کلید (Rotate)"
+                                            :title="__('admin.tokens.rotate_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -607,7 +601,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             type="button"
                                             @click="openRevokeModal(token)"
                                             class="p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/60 rounded-lg transition"
-                                            title="ابطال دسترسی"
+                                            :title="__('admin.tokens.revoke_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -619,7 +613,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             type="button"
                                             @click="openDeleteModal(token)"
                                             class="p-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition"
-                                            title="حذف کلید"
+                                            :title="__('admin.tokens.delete_tooltip')"
                                         >
                                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -635,7 +629,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                 <!-- Pagination Footer -->
                 <div v-if="tokens.links && tokens.links.length > 3" class="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
                     <p class="text-xs text-slate-500 dark:text-slate-400">
-                        نمایش صفحه {{ tokens.current_page }} از {{ tokens.last_page }}
+                        {{ __('admin.tokens.pagination_summary', { current: tokens.current_page, last: tokens.last_page }) }}
                     </p>
                     <div class="flex items-center gap-1">
                         <template v-for="(link, index) in tokens.links" :key="index">
@@ -671,21 +665,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-black text-slate-900 dark:text-white">کلید دسترسی با موفقیت صادر گردید!</h3>
+                        <h3 class="text-lg font-black text-slate-900 dark:text-white">{{ __('admin.tokens.modal_created_title') }}</h3>
                         <p class="text-xs text-rose-600 dark:text-rose-400 font-bold mt-1">
-                            هشدار امنیتی: این کلید به صورت SHA-256 هش شده و تنها همین یک‌بار نمایش داده می‌شود!
+                            {{ __('admin.tokens.modal_created_warning') }}
                         </p>
                     </div>
                 </div>
 
                 <div class="overflow-y-auto flex-1 space-y-4">
                     <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                        مقدار توکن خام زیر را کپی کرده و در محل امنی ذخیره فرمایید. این کلید دارای حداکثر اختیارات وب‌سرویس بوده و پس از بستن این پنجره امکان مشاهده مجدد آن وجود نخواهد داشت.
+                        {{ __('admin.tokens.modal_created_desc') }}
                     </p>
 
                     <div class="bg-slate-950 rounded-2xl p-4 border border-indigo-500/40 relative group">
                         <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
-                            <span class="font-bold text-indigo-400">کلید دسترسی خام (Secret Token):</span>
+                            <span class="font-bold text-indigo-400">{{ __('admin.tokens.label_raw_token') }}</span>
                             <span class="font-mono text-[11px] text-slate-500">SHA-256 Hashed on Server</span>
                         </div>
 
@@ -695,7 +689,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
 
                         <div class="mt-3 flex items-center justify-between">
                             <span class="text-[11px] text-slate-400">
-                                {{ isCopied ? 'کلید با موفقیت در کلیپ‌بورد کپی شد!' : 'روی دکمه مقابل کلیک کنید:' }}
+                                {{ isCopied ? __('admin.tokens.copied_success') : __('admin.tokens.click_to_copy') }}
                             </span>
                             <button
                                 type="button"
@@ -709,7 +703,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 </svg>
-                                <span>{{ isCopied ? 'کپی شد ✓' : 'کپی کلید' }}</span>
+                                <span>{{ isCopied ? '✓' : __('admin.tokens.copy_btn') }}</span>
                             </button>
                         </div>
                     </div>
@@ -720,9 +714,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         type="button"
                         @click="closeSecretModal"
                         class="w-full py-3 px-4 rounded-xl font-bold text-sm text-white bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 dark:hover:bg-slate-700 border border-slate-700 transition cursor-pointer"
-                    >
-                        کلید را در محل امن ذخیره کردم و پنجره را می‌بندم
-                    </button>
+                    >{{ __('admin.tokens.close_and_save') }}</button>
                 </div>
             </div>
         </div>
@@ -741,7 +733,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
                         </span>
-                        <h3 class="font-bold text-base text-slate-900 dark:text-white">صدور کلید ارتباطی جدید (راهبر / کاربر)</h3>
+                        <h3 class="font-bold text-base text-slate-900 dark:text-white">{{ __('admin.tokens.modal_create_title') }}</h3>
                     </div>
                     <button
                         type="button"
@@ -758,7 +750,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Owner Selection: Admin or User -->
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-2">
-                            تعیین مالک کلید دسترسی:
+                            {{ __('admin.tokens.target_account_type') }}
                         </label>
                         <div class="grid grid-cols-2 gap-3">
                             <button
@@ -771,8 +763,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <span v-if="tokenOwnerType === 'admin'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 </span>
                                 <div>
-                                    <p class="text-xs font-black">حساب راهبر ارشد</p>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">صدور برای خودتان با حداکثر اختیارات</p>
+                                    <p class="text-xs font-black">{{ __('admin.tokens.admin_account_title') }}</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.tokens.admin_account_desc') }}</p>
                                 </div>
                             </button>
 
@@ -786,8 +778,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     <span v-if="tokenOwnerType === 'user'" class="w-1.5 h-1.5 rounded-full bg-white"></span>
                                 </span>
                                 <div>
-                                    <p class="text-xs font-black">کاربر مشخص در سیستم</p>
-                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">صدور به نام یک کاربر معین</p>
+                                    <p class="text-xs font-black">{{ __('admin.tokens.user_account_title') }}</p>
+                                    <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.tokens.user_account_desc') }}</p>
                                 </div>
                             </button>
                         </div>
@@ -796,7 +788,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- User Selector (when tokenOwnerType === 'user') -->
                     <div v-if="tokenOwnerType === 'user'" class="space-y-2 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                            جستجو و انتخاب کاربر مالک <span class="text-rose-500">*</span>
+                            {{ __('admin.tokens.select_owner_user') }} <span class="text-rose-500">*</span>
                         </label>
 
                         <!-- Selected User Tag -->
@@ -807,14 +799,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 </div>
                                 <div>
                                     <p class="text-xs font-bold text-indigo-900 dark:text-indigo-200">{{ selectedUser.name }}</p>
-                                    <p class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 dir-ltr">@{{ selectedUser.username }} (شناسه: {{ selectedUser.id }})</p>
+                                    <p class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 dir-ltr">@{{ selectedUser.username }} ({{ __('admin.tokens.user_id_prefix', { id: selectedUser.id }) }})</p>
                                 </div>
                             </div>
                             <button
                                 type="button"
                                 @click="clearSelectedUser"
                                 class="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition"
-                                title="تغییر کاربر"
+                                :title="__('admin.tokens.change_user')"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -828,11 +820,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 v-model="userSearchQuery"
                                 @input="onUserSearchInput"
                                 type="text"
-                                placeholder="نام، نام کاربری یا شناسه کاربر را تایپ کنید..."
+                                :placeholder="__('admin.tokens.user_search_placeholder')"
                                 class="form-input w-full"
                             />
                             <div v-if="isSearchingUser" class="absolute left-3 top-2.5 text-xs text-slate-400">
-                                در حال جستجو...
+                                {{ __('admin.tokens.searching') }}
                             </div>
 
                             <!-- Dropdown Results -->
@@ -853,7 +845,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                             <p class="text-[10px] font-mono text-slate-400 dir-ltr">@{{ u.username }}</p>
                                         </div>
                                     </div>
-                                    <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">انتخاب</span>
+                                    <span class="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">{{ __('admin.tokens.select_btn') }}</span>
                                 </button>
                             </div>
                         </div>
@@ -865,12 +857,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Token Name -->
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            عنوان کلید دسترسی یا نام سامانه متصل <span class="text-rose-500">*</span>
+                            {{ __('admin.tokens.token_title_label') }} <span class="text-rose-500">*</span>
                         </label>
                         <input
                             v-model="createForm.name"
                             type="text"
-                            placeholder="مثال: سرور مرکزی ERP، وب‌سرویس مدیریت خطوط، سیستم گزارش‌گیری"
+                            :placeholder="__('admin.tokens.token_title_placeholder')"
                             class="form-input w-full"
                             required
                         />
@@ -884,7 +876,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                                 <span class="text-purple-600 dark:text-purple-400">★</span>
-                                <span>سطوح دسترسی و اختیارات (Abilities):</span>
+                                <span>{{ __('admin.tokens.abilities_heading') }}</span>
                             </label>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input
@@ -893,12 +885,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                     type="checkbox"
                                     class="w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300"
                                 />
-                                <span class="text-xs font-black text-purple-700 dark:text-purple-300">حداکثر دسترسی‌ها (*)</span>
+                                <span class="text-xs font-black text-purple-700 dark:text-purple-300">{{ __('admin.tokens.max_abilities_badge') }}</span>
                             </label>
                         </div>
 
                         <div v-if="createForm.has_all_abilities" class="p-2.5 rounded-xl bg-purple-100/70 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/80 text-[11px] text-purple-800 dark:text-purple-200 font-medium leading-relaxed">
-                            این کلید دارای اختیارات تام راهبری (`*`) بوده و می‌تواند به تمامی اندپوینت‌ها و متدهای وب‌سرویس (استعلام شماره‌ها، تخصیص خطوط، مدیریت کاربران و خواندن و نوشتن پیام‌ها) دسترسی کامل داشته باشد.
+                            {{ __('admin.tokens.max_abilities_desc') }}
                         </div>
 
                         <!-- Granular abilities when not '*' -->
@@ -927,18 +919,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     <!-- Expiration -->
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            مدت زمان اعتبار کلید
+                            {{ __('admin.tokens.token_validity_label') }}
                         </label>
                         <select
                             v-model="createForm.expires_days"
                             class="form-select w-full"
                         >
-                            <option value="">دائمی (بدون انقضا - توصیه برای سرورهای مدیریتی و زیرساختی)</option>
-                            <option value="30">۳۰ روز (یک ماه)</option>
-                            <option value="60">۶۰ روز (دو ماه)</option>
-                            <option value="90">۹۰ روز (سه ماه)</option>
-                            <option value="180">۱۸۰ روز (شش ماه)</option>
-                            <option value="365">۳۶۵ روز (یک سال)</option>
+                            <option value="">{{ __('admin.tokens.expire_permanent') }}</option>
+                            <option value="30">{{ __('admin.tokens.expire_30') }}</option>
+                            <option value="60">{{ __('admin.tokens.expire_60') }}</option>
+                            <option value="90">{{ __('admin.tokens.expire_90') }}</option>
+                            <option value="180">{{ __('admin.tokens.expire_180') }}</option>
+                            <option value="365">{{ __('admin.tokens.expire_365') }}</option>
                         </select>
                     </div>
 
@@ -947,9 +939,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             type="button"
                             @click="closeCreateModal"
                             class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                        >
-                            انصراف
-                        </button>
+                        >{{ __('admin.tokens.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="createForm.processing || (tokenOwnerType === 'user' && !createForm.user_id)"
@@ -959,7 +949,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                             </svg>
-                            <span>{{ createForm.processing ? 'در حال صدور...' : 'تولید و صدور کلید دسترسی' }}</span>
+                            <span>{{ createForm.processing ? __('admin.tokens.issuing') : __('admin.tokens.issue_submit') }}</span>
                         </button>
                     </div>
                 </form>
@@ -979,10 +969,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">تعویض کلید دسترسی (Rotate)</h3>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tokens.modal_rotate_title') }}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                        آیا از تعویض کلید <span class="font-bold text-slate-900 dark:text-white">«{{ tokenToRotate.name }}»</span> متعلق به کاربر <span class="font-bold text-slate-900 dark:text-white">{{ tokenToRotate.user.name }}</span> اطمینان دارید؟
-                        با این اقدام، رمز عبور توکن فعلی بلافاصله نامعتبر شده و توکن جدیدی صادر و نمایش داده خواهد شد.
+                        {{ __('admin.tokens.rotate_confirm_text', { name: tokenToRotate.name, user: tokenToRotate.user.name }) }}
+                        {{ __('admin.tokens.rotate_warning_text') }}
                     </p>
                 </div>
                 <div class="flex items-center justify-end gap-3 pt-2">
@@ -990,9 +980,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         type="button"
                         @click="closeRotateModal"
                         class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                    >
-                        انصراف
-                    </button>
+                    >{{ __('admin.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRotate"
@@ -1003,7 +991,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ rotateProcessing ? 'در حال تعویض...' : 'تأیید و صدور کلید جدید' }}</span>
+                        <span>{{ rotateProcessing ? __('admin.tokens.rotating') : __('admin.tokens.confirm_rotate_btn') }}</span>
                     </button>
                 </div>
             </div>
@@ -1022,9 +1010,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">ابطال دسترسی کلید کاربر</h3>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tokens.modal_revoke_title') }}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                        آیا از ابطال کلید <span class="font-bold text-slate-900 dark:text-white">«{{ tokenToRevoke.name }}»</span> متعلق به کاربر <span class="font-bold text-slate-900 dark:text-white">{{ tokenToRevoke.user.name }}</span> اطمینان دارید؟
+                        {{ __('admin.tokens.revoke_confirm_text', { name: tokenToRevoke.name, user: tokenToRevoke.user.name }) }}
                     </p>
                 </div>
                 <div class="flex items-center justify-end gap-3 pt-2">
@@ -1032,9 +1020,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         type="button"
                         @click="closeRevokeModal"
                         class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                    >
-                        انصراف
-                    </button>
+                    >{{ __('admin.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRevoke"
@@ -1045,7 +1031,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ revokeProcessing ? 'در حال ابطال...' : 'تایید ابطال' }}</span>
+                        <span>{{ revokeProcessing ? __('admin.tokens.revoking') : __('admin.tokens.confirm_revoke_btn') }}</span>
                     </button>
                 </div>
             </div>
@@ -1064,9 +1050,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-base font-bold text-slate-900 dark:text-white">حذف کامل کلید</h3>
+                    <h3 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tokens.modal_delete_title') }}</h3>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                        آیا از حذف دائم رکورد کلید <span class="font-bold text-slate-900 dark:text-white">«{{ tokenToDelete.name }}»</span> اطمینان دارید؟
+                        {{ __('admin.tokens.delete_confirm_text', { name: tokenToDelete.name }) }}
                     </p>
                 </div>
                 <div class="flex items-center justify-end gap-3 pt-2">
@@ -1074,9 +1060,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                         type="button"
                         @click="closeDeleteModal"
                         class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                    >
-                        انصراف
-                    </button>
+                    >{{ __('admin.tokens.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmDelete"
@@ -1087,7 +1071,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                         </svg>
-                        <span>{{ deleteProcessing ? 'در حال حذف...' : 'حذف قطعی' }}</span>
+                        <span>{{ deleteProcessing ? __('admin.tokens.deleting') : __('admin.tokens.confirm_delete_btn') }}</span>
                     </button>
                 </div>
             </div>

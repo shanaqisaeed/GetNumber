@@ -55,6 +55,29 @@ class HandleInertiaRequests extends Middleware
             ],
             'locale' => fn () => app()->getLocale(),
             'dir' => fn () => app()->getLocale() === 'fa' ? 'rtl' : 'ltr',
+            'translations' => fn () => $this->resolveTranslations(),
         ];
+    }
+
+    /**
+     * Resolve all translation dictionaries from the lang folder for the active locale.
+     */
+    protected function resolveTranslations(): array
+    {
+        $locale = app()->getLocale();
+        $translations = [];
+        $dir = lang_path($locale);
+
+        if (is_dir($dir)) {
+            $files = glob("{$dir}/*.php");
+            if ($files) {
+                foreach ($files as $file) {
+                    $key = basename($file, '.php');
+                    $translations[$key] = require $file;
+                }
+            }
+        }
+
+        return $translations;
     }
 }

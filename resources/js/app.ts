@@ -6,8 +6,9 @@ import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, DefineComponent, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { initTheme } from './Composables/useTheme';
+import { __, setTranslations } from './Composables/useTrans';
 
-// Sync application language and direction automatically on navigation
+// Sync application language, direction, and translations automatically on navigation
 router.on('navigate', (event) => {
     const pageProps = event.detail.page.props as any;
     if (pageProps.locale) {
@@ -16,10 +17,16 @@ router.on('navigate', (event) => {
     if (pageProps.dir) {
         document.documentElement.dir = pageProps.dir;
     }
+    if (pageProps.translations) {
+        setTranslations(pageProps.translations);
+    }
 });
 
 // Initialize theme immediately to prevent any flash of unstyled theme
 initTheme();
+
+(window as any).__ = __;
+(window as any).$t = __;
 
 const appName = import.meta.env.VITE_APP_NAME || 'GetNumber';
 
@@ -69,8 +76,14 @@ createInertiaApp({
         if (initialProps?.dir) {
             document.documentElement.dir = initialProps.dir;
         }
+        if (initialProps?.translations) {
+            setTranslations(initialProps.translations);
+        }
 
         const vueApp = createApp({ render: () => h(App, props) });
+
+        vueApp.config.globalProperties.__ = __;
+        vueApp.config.globalProperties.$t = __;
 
         vueApp.config.errorHandler = (err, instance, info) => {
             console.error('Unhandled Vue Error:', err, info);

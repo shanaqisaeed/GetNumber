@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
@@ -49,6 +50,8 @@ interface PaginationLink {
     label: string;
     active: boolean;
 }
+
+const { __ } = useTrans();
 
 const props = defineProps<{
     tickets: {
@@ -110,14 +113,14 @@ function clearFilters() {
 </script>
 
 <template>
-    <Head title="میز کار و کارتابل تیکت‌های پشتیبانی" />
+    <Head :title="__('admin.tickets.head_title')" />
 
     <AdminLayout>
         <template #header>
             <div class="flex items-center justify-between">
                 <div>
-                    <h1 class="text-base font-bold text-slate-900 dark:text-white">میز خدمت و مدیریت تیکت‌های پشتیبانی</h1>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">رسیدگی به تیکت‌های مشترکین، واگذاری به کارشناسان و پاسخ‌گویی امن</p>
+                    <h1 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tickets.header_title') }}</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('admin.tickets.header_subtitle') }}</p>
                 </div>
             </div>
         </template>
@@ -125,32 +128,32 @@ function clearFilters() {
         <!-- KPI Cards -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 mb-6">
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">کل تیکت‌ها</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.total_tickets') }}</p>
                 <p class="text-xl font-black text-slate-900 dark:text-white mt-1">{{ stats.total }}</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">در انتظار کارشناس</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.pending_agent') }}</p>
                 <p class="text-xl font-black text-amber-600 dark:text-amber-400 mt-1">{{ stats.open }}</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">در حال بررسی</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.in_progress') }}</p>
                 <p class="text-xl font-black text-sky-600 dark:text-sky-400 mt-1">{{ stats.in_progress }}</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">پاسخ داده‌شده</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.answered') }}</p>
                 <p class="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-1">{{ stats.answered }}</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">بدون کارشناس</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.unassigned') }}</p>
                 <p class="text-xl font-black text-rose-600 dark:text-rose-400 mt-1">{{ stats.unassigned }}</p>
             </div>
 
             <div class="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">بسته‌شده</p>
+                <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ __('admin.tickets.closed') }}</p>
                 <p class="text-xl font-black text-slate-500 dark:text-slate-400 mt-1">{{ stats.closed }}</p>
             </div>
         </div>
@@ -160,66 +163,66 @@ function clearFilters() {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 <!-- Search -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">جستجو</label>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">{{ __('admin.tickets.search_label') }}</label>
                     <input
                         v-model="search"
                         @keydown.enter="applyFilters"
                         type="text"
-                        placeholder="شماره تیکت، موضوع یا نام کاربر..."
+                        :placeholder="__('admin.tickets.search_placeholder')"
                         class="form-input w-full text-xs py-2"
                     />
                 </div>
 
                 <!-- Department -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">دپارتمان</label>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">{{ __('admin.tickets.dept_label') }}</label>
                     <select
                         v-model="department"
                         @change="applyFilters"
                         class="form-select w-full text-xs py-2"
                     >
-                        <option value="">همه دپارتمان‌ها</option>
+                        <option value="">{{ __('admin.tickets.all_depts') }}</option>
                         <option v-for="d in departments" :key="d.value" :value="d.value">{{ d.label }}</option>
                     </select>
                 </div>
 
                 <!-- Status -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">وضعیت</label>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">{{ __('admin.tickets.status_label') }}</label>
                     <select
                         v-model="status"
                         @change="applyFilters"
                         class="form-select w-full text-xs py-2"
                     >
-                        <option value="">همه وضعیت‌ها</option>
+                        <option value="">{{ __('admin.tickets.all_statuses') }}</option>
                         <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                     </select>
                 </div>
 
                 <!-- Priority -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">اولویت</label>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">{{ __('admin.tickets.priority_label') }}</label>
                     <select
                         v-model="priority"
                         @change="applyFilters"
                         class="form-select w-full text-xs py-2"
                     >
-                        <option value="">همه اولویت‌ها</option>
+                        <option value="">{{ __('admin.tickets.all_priorities') }}</option>
                         <option v-for="p in priorities" :key="p.value" :value="p.value">{{ p.label }}</option>
                     </select>
                 </div>
 
                 <!-- Assigned To & Clear -->
                 <div>
-                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">کارشناس مسئول</label>
+                    <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">{{ __('admin.tickets.agent_label') }}</label>
                     <div class="flex gap-2">
                         <select
                             v-model="assignedTo"
                             @change="applyFilters"
                             class="form-select w-full text-xs py-2"
                         >
-                            <option value="">همه کارشناسان</option>
-                            <option value="unassigned">بدون کارشناس</option>
+                            <option value="">{{ __('admin.tickets.all_agents') }}</option>
+                            <option value="unassigned">{{ __('admin.tickets.unassigned') }}</option>
                             <option v-for="staff in staffMembers" :key="staff.id" :value="staff.id">
                                 {{ staff.name }} (@{{ staff.username }})
                             </option>
@@ -229,7 +232,7 @@ function clearFilters() {
                             type="button"
                             @click="clearFilters"
                             class="px-2.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-rose-500 text-xs font-bold shrink-0 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition"
-                            title="پاکسازی فیلترها"
+                            :title="__('admin.tickets.clear_filters')"
                         >
                             ✕
                         </button>
@@ -244,15 +247,15 @@ function clearFilters() {
                 <table class="w-full text-right text-xs">
                     <thead>
                         <tr class="bg-slate-50 dark:bg-slate-800/40 text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                            <th class="py-3 px-4 font-bold">شناسه</th>
-                            <th class="py-3 px-4 font-bold">موضوع تیکت</th>
-                            <th class="py-3 px-4 font-bold">کاربر متقاضی</th>
-                            <th class="py-3 px-4 font-bold">دپارتمان</th>
-                            <th class="py-3 px-4 font-bold">اولویت</th>
-                            <th class="py-3 px-4 font-bold">وضعیت</th>
-                            <th class="py-3 px-4 font-bold">کارشناس</th>
-                            <th class="py-3 px-4 font-bold">آخرین اقدام</th>
-                            <th class="py-3 px-4 font-bold text-center">عملیات</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_id') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_subject') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_user') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_dept') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_priority') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_status') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_agent') }}</th>
+                            <th class="py-3 px-4 font-bold">{{ __('admin.tickets.th_last_action') }}</th>
+                            <th class="py-3 px-4 font-bold text-center">{{ __('admin.tickets.th_actions') }}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -298,7 +301,7 @@ function clearFilters() {
                                 <span v-if="ticket.assigned_agent" class="inline-flex items-center gap-1 font-medium text-slate-800 dark:text-slate-200">
                                     <span>{{ ticket.assigned_agent.name }}</span>
                                 </span>
-                                <span v-else class="text-rose-500 font-medium text-[11px]">بدون کارشناس</span>
+                                <span v-else class="text-rose-500 font-medium text-[11px]">{{ __('admin.tickets.unassigned') }}</span>
                             </td>
                             <td class="py-3.5 px-4 text-slate-400">
                                 <span class="block font-mono text-[10px]" dir="ltr">{{ ticket.last_reply_at }}</span>
@@ -309,7 +312,7 @@ function clearFilters() {
                                     :href="route('admin.tickets.show', ticket.id)"
                                     class="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-bold text-xs transition-colors"
                                 >
-                                    <span>پاسخ و مدیریت</span>
+                                    <span>{{ __('admin.tickets.reply_manage') }}</span>
                                     <svg class="w-3.5 h-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                     </svg>
@@ -319,7 +322,7 @@ function clearFilters() {
 
                         <tr v-if="tickets.data.length === 0">
                             <td colspan="9" class="py-12 text-center text-slate-400">
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">هیچ تیکتی با این مشخصات یافت نشد.</p>
+                                <p class="text-sm font-bold text-slate-700 dark:text-slate-300">{{ __('admin.tickets.no_tickets_found') }}</p>
                             </td>
                         </tr>
                     </tbody>
@@ -332,7 +335,7 @@ function clearFilters() {
                 class="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between"
             >
                 <div class="text-xs text-slate-400">
-                    نمایش صفحه {{ tickets.current_page }} از {{ tickets.last_page }}
+                    {{ __('admin.tickets.pagination_summary', { current: tickets.current_page, last: tickets.last_page }) }}
                 </div>
                 <div class="flex items-center gap-1">
                     <Link

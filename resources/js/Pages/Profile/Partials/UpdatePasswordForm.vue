@@ -2,6 +2,7 @@
 import InputError from '@/Components/InputError.vue';
 import { useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 const passwordInput = ref<HTMLInputElement | null>(null);
 const currentPasswordInput = ref<HTMLInputElement | null>(null);
@@ -31,10 +32,10 @@ const passwordScore = computed(() => {
 const passwordStrengthText = computed(() => {
     const score = passwordScore.value;
     if (score === 0) return '';
-    if (score <= 25) return 'ضعیف';
-    if (score <= 50) return 'متوسط';
-    if (score <= 75) return 'خوب و مطمئن';
-    return 'بسیار قوی و ایمن';
+    if (score <= 25) return __('ui.profile.security.strength_weak');
+    if (score <= 50) return __('ui.profile.security.strength_medium');
+    if (score <= 75) return __('ui.profile.security.strength_good');
+    return __('ui.profile.security.strength_strong');
 });
 
 const passwordStrengthColor = computed(() => {
@@ -73,10 +74,10 @@ const updatePassword = () => {
             </div>
             <div>
                 <h3 class="font-black text-sm text-slate-900 dark:text-white">
-                    امنیت و کلمه عبور
+                    {{ __('ui.profile.security.title') }}
                 </h3>
                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    بروزرسانی گذرواژه جهت محافظت از دسترسی‌های سازمانی
+                    {{ __('ui.profile.security.desc') }}
                 </p>
             </div>
         </header>
@@ -85,7 +86,7 @@ const updatePassword = () => {
             <!-- Current Password -->
             <div class="space-y-1.5">
                 <label for="current_password" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    کلمه عبور فعلی
+                    {{ __('ui.profile.security.current_password_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -99,7 +100,7 @@ const updatePassword = () => {
                         v-model="form.current_password"
                         :type="showCurrentPassword ? 'text' : 'password'"
                         autocomplete="current-password"
-                        placeholder="کلمه عبور فعال فعلی"
+                        :placeholder="__('ui.profile.security.current_password_placeholder')"
                         dir="ltr"
                         class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
@@ -107,7 +108,7 @@ const updatePassword = () => {
                         type="button"
                         @click="showCurrentPassword = !showCurrentPassword"
                         class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        title="نمایش/پنهان گذرواژه"
+                        :title="__('ui.profile.security.toggle_password')"
                     >
                         <svg v-if="!showCurrentPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -124,7 +125,7 @@ const updatePassword = () => {
             <!-- New Password -->
             <div class="space-y-1.5">
                 <label for="password" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    کلمه عبور جدید
+                    {{ __('ui.profile.security.new_password_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -138,7 +139,7 @@ const updatePassword = () => {
                         v-model="form.password"
                         :type="showNewPassword ? 'text' : 'password'"
                         autocomplete="new-password"
-                        placeholder="حداقل ۸ نویسه امن"
+                        :placeholder="__('ui.profile.security.new_password_placeholder')"
                         dir="ltr"
                         class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
@@ -146,7 +147,7 @@ const updatePassword = () => {
                         type="button"
                         @click="showNewPassword = !showNewPassword"
                         class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        title="نمایش/پنهان گذرواژه"
+                        :title="__('ui.profile.security.toggle_password')"
                     >
                         <svg v-if="!showNewPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -161,7 +162,7 @@ const updatePassword = () => {
                 <!-- Password Strength Visual Indicator -->
                 <div v-if="form.password" class="mt-2 space-y-1">
                     <div class="flex items-center justify-between text-[10px]">
-                        <span class="text-slate-500">کیفیت امنیتی گذرواژه:</span>
+                        <span class="text-slate-500">{{ __('ui.profile.security.quality_label') }}</span>
                         <span class="font-bold text-slate-700 dark:text-slate-300">{{ passwordStrengthText }}</span>
                     </div>
                     <div class="w-full h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
@@ -179,7 +180,7 @@ const updatePassword = () => {
             <!-- Password Confirmation -->
             <div class="space-y-1.5">
                 <label for="password_confirmation" class="block text-xs font-bold text-slate-800 dark:text-slate-200">
-                    تکرار کلمه عبور جدید
+                    {{ __('ui.profile.security.confirm_password_label') }}
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-400">
@@ -192,7 +193,7 @@ const updatePassword = () => {
                         v-model="form.password_confirmation"
                         :type="showConfirmPassword ? 'text' : 'password'"
                         autocomplete="new-password"
-                        placeholder="تکرار کلمه عبور جدید"
+                        :placeholder="__('ui.profile.security.confirm_password_placeholder')"
                         dir="ltr"
                         class="w-full pr-10 pl-10 py-2.5 text-xs font-medium rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/80 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all"
                     />
@@ -200,7 +201,7 @@ const updatePassword = () => {
                         type="button"
                         @click="showConfirmPassword = !showConfirmPassword"
                         class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
-                        title="نمایش/پنهان گذرواژه"
+                        :title="__('ui.profile.security.toggle_password')"
                     >
                         <svg v-if="!showConfirmPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -228,7 +229,7 @@ const updatePassword = () => {
                     <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
-                    <span>بروزرسانی گذرواژه</span>
+                    <span>{{ __('ui.profile.security.update_button') }}</span>
                 </button>
 
                 <Transition
@@ -244,7 +245,7 @@ const updatePassword = () => {
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <span>گذرواژه با موفقیت تغییر یافت.</span>
+                        <span>{{ __('ui.profile.security.updated_success') }}</span>
                     </div>
                 </Transition>
             </div>

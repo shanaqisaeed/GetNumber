@@ -2,6 +2,7 @@
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 interface UserNumber {
     id: number;
@@ -35,7 +36,7 @@ function onFileSelect(e: Event) {
 
     const files = Array.from(target.files);
     if (form.attachments.length + files.length > 5) {
-        fileError.value = 'حداکثر می‌توانید تا ۵ فایل پیوست نمایید.';
+        fileError.value = __('user.tickets.file_max_count');
         return;
     }
 
@@ -43,11 +44,11 @@ function onFileSelect(e: Event) {
     for (const f of files) {
         const ext = f.name.split('.').pop()?.toLowerCase();
         if (!ext || !allowed.includes(ext)) {
-            fileError.value = `پسوند فایل «${f.name}» مجاز نمی‌باشد. فرمت‌های مجاز: JPG, PNG, PDF, ZIP, TXT.`;
+            fileError.value = __('user.tickets.file_invalid_ext', { name: f.name });
             return;
         }
         if (f.size > 5 * 1024 * 1024) {
-            fileError.value = `حجم فایل «${f.name}» بیش از سقف ۵ مگابایت است.`;
+            fileError.value = __('user.tickets.file_max_size', { name: f.name });
             return;
         }
         form.attachments.push(f);
@@ -64,9 +65,9 @@ function removeAttachment(index: number) {
 
 function formatFileSize(bytes: number): string {
     if (bytes >= 1048576) {
-        return (bytes / 1048576).toFixed(1) + ' مگابایت';
+        return __('user.tickets.mb', { size: (bytes / 1048576).toFixed(1) });
     }
-    return (bytes / 1024).toFixed(0) + ' کیلوبایت';
+    return __('user.tickets.kb', { size: (bytes / 1024).toFixed(0) });
 }
 
 function submit() {
@@ -77,7 +78,7 @@ function submit() {
 </script>
 
 <template>
-    <Head title="ثبت تیکت پشتیبانی جدید" />
+    <Head :title="__('user.tickets.create_title')" />
 
     <UserLayout>
         <div class="space-y-4">
@@ -87,15 +88,15 @@ function submit() {
                     <Link
                         :href="route('tickets.index')"
                         class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white flex items-center justify-center shrink-0 transition-colors"
-                        title="بازگشت به لیست تیکت‌ها"
+                        :title="__('user.tickets.back_to_list')"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7" />
                         </svg>
                     </Link>
                     <div class="min-w-0">
-                        <h1 class="text-xs font-black text-slate-900 dark:text-white">ثبت تیکت پشتیبانی جدید</h1>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">پاسخگویی سریع توسط تیم پشتیبانی فنی</p>
+                        <h1 class="text-xs font-black text-slate-900 dark:text-white">{{ __('user.tickets.create_title') }}</h1>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 truncate">{{ __('user.tickets.create_subtitle') }}</p>
                     </div>
                 </div>
             </div>
@@ -105,12 +106,12 @@ function submit() {
                 <!-- Subject -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        موضوع تیکت <span class="text-rose-500">*</span>
+                        {{ __('user.tickets.subject_label') }} <span class="text-rose-500">*</span>
                     </label>
                     <input
                         v-model="form.subject"
                         type="text"
-                        placeholder="عنوان خلاصه (مثال: بررسی اختلال وب‌هوک)"
+                        :placeholder="__('user.tickets.subject_placeholder')"
                         class="glass-input !py-2.5 !text-xs w-full bg-slate-100/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         required
                     />
@@ -121,7 +122,7 @@ function submit() {
                 <div class="grid grid-cols-2 gap-2.5">
                     <div>
                         <label class="form-label">
-                            دپارتمان <span class="text-rose-500">*</span>
+                            {{ __('user.tickets.dept_label') }} <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.department"
@@ -134,7 +135,7 @@ function submit() {
 
                     <div>
                         <label class="form-label">
-                            اولویت <span class="text-rose-500">*</span>
+                            {{ __('user.tickets.priority_label') }} <span class="text-rose-500">*</span>
                         </label>
                         <select
                             v-model="form.priority"
@@ -149,13 +150,13 @@ function submit() {
                 <!-- Optional Linked Number -->
                 <div v-if="userNumbers.length > 0">
                     <label class="form-label">
-                        خط سازمانی مرتبط (اختیاری):
+                        {{ __('user.tickets.line_label') }}
                     </label>
                     <select
                         v-model="form.phone_number_id"
                         class="form-select !py-2.5 !text-xs w-full"
                     >
-                        <option :value="null">بدون اتصال به خط مشخص</option>
+                        <option :value="null">{{ __('user.tickets.no_line_selected') }}</option>
                         <option v-for="num in userNumbers" :key="num.id" :value="num.id">
                             {{ num.formatted_number }} - {{ num.display_title }}
                         </option>
@@ -165,12 +166,12 @@ function submit() {
                 <!-- Message -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        شرح درخواست یا پیام <span class="text-rose-500">*</span>
+                        {{ __('user.tickets.desc_label') }} <span class="text-rose-500">*</span>
                     </label>
                     <textarea
                         v-model="form.message"
                         rows="5"
-                        placeholder="متن پیام و جزئیات دقیق مسئله را بنویسید..."
+                        :placeholder="__('user.tickets.desc_placeholder')"
                         class="glass-input !p-3 !text-xs w-full resize-none leading-relaxed bg-slate-100/90 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         required
                     ></textarea>
@@ -180,7 +181,7 @@ function submit() {
                 <!-- Attachments Dropzone -->
                 <div>
                     <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                        پیوست تصویر یا سند (اختیاری):
+                        {{ __('user.tickets.attachment_label') }}
                     </label>
 
                     <div
@@ -190,8 +191,8 @@ function submit() {
                         <svg class="w-6 h-6 mx-auto text-indigo-600 dark:text-indigo-400 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                         </svg>
-                        <p class="text-xs font-bold text-slate-800 dark:text-white">برای انتخاب فایل کلیک کنید</p>
-                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">JPG, PNG, PDF, ZIP (حداکثر ۵ فایل تا ۵ مگابایت)</p>
+                        <p class="text-xs font-bold text-slate-800 dark:text-white">{{ __('user.tickets.click_to_upload') }}</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('user.tickets.allowed_formats') }}</p>
                         <input
                             ref="fileInputRef"
                             type="file"
@@ -225,15 +226,13 @@ function submit() {
                     <Link
                         :href="route('tickets.index')"
                         class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300"
-                    >
-                        انصراف
-                    </Link>
+                    >{{ __('user.numbers.cancel') }}</Link>
                     <button
                         type="submit"
                         :disabled="form.processing"
                         class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
                     >
-                        {{ form.processing ? 'در حال ثبت...' : 'ارسال و ثبت تیکت' }}
+                        {{ form.processing ? __('user.tickets.submitting') : __('user.tickets.submit_btn') }}
                     </button>
                 </div>
             </form>

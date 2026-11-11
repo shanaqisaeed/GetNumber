@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 interface SessionItem {
     id: string;
@@ -46,7 +47,7 @@ const showToast = (msg: string) => {
 
 // Terminate a single specific session
 const terminateSession = async (sessionId: string) => {
-    if (!confirm('آیا از خاتمه دادن به این نشست و خروج این دستگاه از حساب اطمینان دارید؟')) {
+    if (!confirm(__('ui.profile.sessions.confirm_terminate'))) {
         return;
     }
 
@@ -64,17 +65,17 @@ const terminateSession = async (sessionId: string) => {
 
         const data = await res.json();
         if (res.ok && data.success) {
-            showToast('نشست دستگاه انتخابی با موفقیت لغو شد و کاربر از آن خارج گردید.');
+            showToast(__('ui.profile.sessions.session_terminated'));
             if (data.sessions) {
                 updateSessions(data.sessions);
             } else {
                 sessionsList.value = sessionsList.value.filter(s => s.id !== sessionId);
             }
         } else {
-            alert(data.message || 'خطا در لغو نشست.');
+            alert(data.message || __('ui.profile.sessions.terminate_error'));
         }
     } catch {
-        alert('خطا در ارتباط با سرور.');
+        alert(__('ui.profile.sessions.server_error'));
     } finally {
         terminatingSessionId.value = null;
     }
@@ -83,7 +84,7 @@ const terminateSession = async (sessionId: string) => {
 // Terminate all other sessions across devices
 const logoutOtherSessions = async () => {
     if (props.hasPassword && !password.value) {
-        passwordError.value = 'ورود کلمه عبور فعلی الزامی است.';
+        passwordError.value = __('ui.profile.sessions.password_required');
         return;
     }
 
@@ -103,7 +104,7 @@ const logoutOtherSessions = async () => {
 
         const data = await res.json();
         if (res.ok && data.success) {
-            showToast('تمامی نشست‌های فعال روی سایر دستگاه‌ها با موفقیت لغو و خارج شدند.');
+            showToast(__('ui.profile.sessions.all_other_terminated'));
             isModalOpen.value = false;
             password.value = '';
             if (data.sessions) {
@@ -112,10 +113,10 @@ const logoutOtherSessions = async () => {
                 sessionsList.value = sessionsList.value.filter(s => s.is_current_device);
             }
         } else {
-            passwordError.value = data.errors?.password?.[0] || data.message || 'کلمه عبور وارد شده اشتباه است.';
+            passwordError.value = data.errors?.password?.[0] || data.message || __('ui.profile.sessions.wrong_password');
         }
     } catch {
-        passwordError.value = 'خطا در برقراری ارتباط با سرور.';
+        passwordError.value = __('ui.profile.sessions.server_error');
     } finally {
         isLoading.value = false;
     }
@@ -131,8 +132,8 @@ const logoutOtherSessions = async () => {
 
         <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 flex-wrap gap-3">
             <div>
-                <h3 class="text-sm font-black text-slate-900 dark:text-white">دستگاه‌های متصل به حساب</h3>
-                <p class="text-xs text-slate-400 mt-0.5">مشاهده و مدیریت نشست‌های فعال</p>
+                <h3 class="text-sm font-black text-slate-900 dark:text-white">{{ __('ui.profile.sessions.title') }}</h3>
+                <p class="text-xs text-slate-400 mt-0.5">{{ __('ui.profile.sessions.subtitle') }}</p>
             </div>
 
             <button
@@ -143,7 +144,7 @@ const logoutOtherSessions = async () => {
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>خروج از تمام دستگاه‌های دیگر</span>
+                <span>{{ __('ui.profile.sessions.logout_all_others') }}</span>
             </button>
         </div>
 
@@ -192,7 +193,7 @@ const logoutOtherSessions = async () => {
                                 class="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
                             >
                                 <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                این دستگاه (نشست جاری)
+                                {{ __('ui.profile.sessions.current_device') }}
                             </span>
                         </div>
 
@@ -213,17 +214,17 @@ const logoutOtherSessions = async () => {
                         :disabled="terminatingSessionId === session.id"
                         class="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/50 border border-rose-200 dark:border-rose-900/60 transition-all cursor-pointer"
                     >
-                        {{ terminatingSessionId === session.id ? 'در حال قطع...' : 'قطع این نشست' }}
+                        {{ terminatingSessionId === session.id ? __('ui.profile.sessions.terminating') : __('ui.profile.sessions.terminate') }}
                     </button>
                     <span v-else class="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold px-3 py-1.5">
-                        نشست فعال
+                        {{ __('ui.profile.sessions.active_badge') }}
                     </span>
                 </div>
             </div>
 
             <!-- Empty state -->
             <div v-if="sessionsList.length === 0" class="p-6 text-center text-xs text-slate-400">
-                هیچ نشست فعالی در سیستم یافت نشد.
+                {{ __('ui.profile.sessions.empty') }}
             </div>
         </div>
 
@@ -241,18 +242,18 @@ const logoutOtherSessions = async () => {
                         </svg>
                     </div>
                     <div>
-                        <h4 class="text-sm font-black">خروج قطعی از تمام دستگاه‌های دیگر</h4>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">ابطال کلیه نشست‌های فعال به جز این دستگاه</p>
+                        <h4 class="text-sm font-black">{{ __('ui.profile.sessions.modal_title') }}</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('ui.profile.sessions.modal_subtitle') }}</p>
                     </div>
                 </div>
 
                 <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    با تایید این عملیات، تمامی نشست‌های فعال این حساب روی سایر رایانه‌ها، مرورگرها و تلفن‌های همراه به صورت قطعی لغو شده و مجدداً به صفحه ورود هدایت خواهند شد.
+                    {{ __('ui.profile.sessions.modal_desc') }}
                 </p>
 
                 <div v-if="hasPassword" class="space-y-1.5">
                     <label class="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                        کلمه عبور فعلی حساب جهت تایید امنیتی:
+                        {{ __('ui.profile.sessions.password_prompt') }}
                     </label>
                     <input
                         v-model="password"
@@ -272,7 +273,7 @@ const logoutOtherSessions = async () => {
                         @click="isModalOpen = false"
                         class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                        انصراف
+                        {{ __('ui.profile.sessions.cancel') }}
                     </button>
                     <button
                         type="button"
@@ -280,8 +281,8 @@ const logoutOtherSessions = async () => {
                         :disabled="isLoading || (hasPassword && !password)"
                         class="px-5 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
                     >
-                        <span v-if="isLoading">در حال خروج از سایر دستگاه‌ها...</span>
-                        <span v-else>تایید و خروج از همه</span>
+                        <span v-if="isLoading">{{ __('ui.profile.sessions.logging_out') }}</span>
+                        <span v-else>{{ __('ui.profile.sessions.confirm_logout') }}</span>
                     </button>
                 </div>
             </div>

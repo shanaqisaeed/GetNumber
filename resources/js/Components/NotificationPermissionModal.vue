@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useWebNotifications, SubscribeResult } from '@/Composables/useWebNotifications';
 import { onMounted, onUnmounted, ref } from 'vue';
+import { __ } from '@/Composables/useTrans';
 
 const emit = defineEmits<{
     (e: 'activated', result: SubscribeResult): void;
@@ -92,7 +93,7 @@ const handleConfirm = async () => {
             localStorage.setItem('notification_permission_handled', 'granted');
             sessionStorage.removeItem('notification_prompt_dismissed');
         } catch {}
-        showLocalNotification('سامانه GetNumber', 'welcome');
+        showLocalNotification(__('ui.components.notifications_modal.test_sender'), 'welcome');
     }
 
     showToast(result.message);
@@ -115,7 +116,7 @@ const handleRecheck = async () => {
     if (isPermissionGranted.value) {
         await handleConfirm();
     } else {
-        showToast('هنوز مجوز اعلان در تنظیمات مرورگر روی Allow قرار نگرفته است.');
+        showToast(__('ui.components.notifications_modal.not_allowed_warning'));
     }
 };
 </script>
@@ -177,12 +178,14 @@ const handleRecheck = async () => {
                             <div>
                                 <div class="flex items-center gap-2">
                                     <h3 class="text-sm md:text-base font-black text-slate-900 dark:text-white">
-                                        دریافت اعلان پیامک‌های جدید
+                                        {{ __('ui.components.notifications_modal.title') }}
                                     </h3>
-                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">پیشنهادی</span>
+                                    <span class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                        {{ __('ui.components.notifications_modal.recommended') }}
+                                    </span>
                                 </div>
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                    اطلاع‌رسانی فوری بر روی مرورگر
+                                    {{ __('ui.components.notifications_modal.subtitle') }}
                                 </p>
                             </div>
                         </div>
@@ -191,7 +194,7 @@ const handleRecheck = async () => {
                             type="button"
                             @click="handleDismiss"
                             class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
-                            aria-label="بستن"
+                            :aria-label="__('ui.components.notifications_modal.close')"
                         >
                             ✕
                         </button>
@@ -202,23 +205,22 @@ const handleRecheck = async () => {
                         <div class="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs leading-relaxed space-y-2">
                             <div class="flex items-center gap-2 font-black text-sm text-amber-600 dark:text-amber-400">
                                 <span>⚠️</span>
-                                <span>مجوز اعلان در مرورگر مسدود (Block) است</span>
+                                <span>{{ __('ui.components.notifications_modal.blocked_title') }}</span>
                             </div>
-                            <p>
-                                برای فعال‌سازی اعلان‌ها، لطفاً روی آیکون <strong>قفل (یا تنظیمات سایت)</strong> در ابتدای نوار آدرس مرورگر کلیک کنید، گزینه <strong>Notifications</strong> را روی <strong>Allow</strong> قرار دهید و سپس روی دکمه «بررسی مجدد» بزنید.
-                            </p>
+                            <p v-html="__('ui.components.notifications_modal.blocked_description')"></p>
                         </div>
                     </div>
 
                     <!-- Body: Normal Prompt -->
                     <div v-else class="space-y-3">
                         <p class="text-xs md:text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                            آیا مایلید هنگام رسیدن پیامک جدید (حتی در صورت بسته بودن این صفحه یا مرورگر) اعلان سیستم بر روی دستگاه خود دریافت کنید؟
+                            {{ __('ui.components.notifications_modal.prompt_text') }}
                         </p>
                         <div class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800/40 text-[11px] text-slate-600 dark:text-slate-300 flex items-start gap-2.5">
                             <span class="text-indigo-500 dark:text-indigo-400 text-sm shrink-0">🔒</span>
                             <span class="leading-relaxed">
-                                <strong>حفظ حریم خصوصی:</strong> متن پیامک‌ها به هیچ‌وجه در اعلان نمایش داده نمی‌شود و صرفاً نام یا شماره فرستنده اطلاع داده خواهد شد.
+                                <strong>{{ __('ui.components.notifications_modal.privacy_badge') }}</strong>
+                                {{ __('ui.components.notifications_modal.privacy_text') }}
                             </span>
                         </div>
                     </div>
@@ -230,7 +232,7 @@ const handleRecheck = async () => {
                             @click="handleDismiss"
                             class="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
                         >
-                            خیر، بعداً
+                            {{ __('ui.components.notifications_modal.later_button') }}
                         </button>
 
                         <button
@@ -240,7 +242,7 @@ const handleRecheck = async () => {
                             class="px-5 py-2.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 rounded-xl shadow-lg shadow-amber-500/25 transition-all flex items-center gap-2 cursor-pointer"
                         >
                             <span>🔄</span>
-                            <span>بررسی مجدد مجوز</span>
+                            <span>{{ __('ui.components.notifications_modal.recheck_button') }}</span>
                         </button>
 
                         <button
@@ -254,7 +256,7 @@ const handleRecheck = async () => {
                             <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
                             </svg>
-                            <span>بله، فعال‌سازی اعلان</span>
+                            <span>{{ __('ui.components.notifications_modal.enable_button') }}</span>
                         </button>
                     </div>
                 </div>
