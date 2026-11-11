@@ -445,8 +445,28 @@ class MultiServicePlatformTest extends TestCase
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $targetUser = User::factory()->create(['account_tier' => 'individual']);
 
+        $customIdDef = ServiceDefinition::where('key', 'custom_id')->firstOrFail();
+        ServiceResourceAllocation::create([
+            'user_id' => $targetUser->id,
+            'service_definition_id' => $customIdDef->id,
+            'service_key' => 'custom_id',
+            'channel_type' => 'handle_id',
+            'resource_identifier' => '@testuser99',
+            'display_title' => 'Test Handle',
+            'account_tier' => 'individual',
+            'tier_badge' => 'standard',
+            'status' => 'active',
+            'total_quota' => 1,
+            'used_quota' => 1,
+        ]);
+
+        // Verify both /admin/users and /dashboard load cleanly when user has active service allocations
         $this->actingAs($admin)
             ->get(route('admin.users.index'))
+            ->assertOk();
+
+        $this->actingAs($targetUser)
+            ->get(route('dashboard'))
             ->assertOk();
 
         $this->actingAs($admin)
