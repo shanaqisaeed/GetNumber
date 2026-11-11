@@ -8,6 +8,8 @@ use App\Exceptions\NumberAllocationException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\StoreNumberRequestRequest;
 use App\Models\NumberRequest;
+use App\Services\Numbers\NumberSearchAndSuggestionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -16,11 +18,12 @@ use Inertia\Response;
 class NumberRequestController extends Controller
 {
     public function __construct(
-        protected NumberRequestServiceInterface $requestService
+        protected NumberRequestServiceInterface $requestService,
+        protected NumberSearchAndSuggestionService $searchService
     ) {}
 
     /**
-     * Display a listing of user's service number requests.
+     * Display a listing of user's service number requests & Enterprise Hub.
      */
     public function index(Request $request): Response
     {
@@ -28,7 +31,6 @@ class NumberRequestController extends Controller
 
         $query = NumberRequest::with(['allocatedNumber.prefix', 'reviewer', 'prefix'])
             ->where('user_id', $user->id);
-
 
         if ($request->filled('search')) {
             $search = trim($request->input('search'));
@@ -85,18 +87,30 @@ class NumberRequestController extends Controller
             'rejected' => NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Rejected)->count(),
         ];
 
-        $availablePoolNumbers = \App\Models\PhoneNumber::select('id', 'number', 'rond_tier', 'rond_pattern')
-            ->where('status', \App\Enums\PhoneNumberStatus::Available)
-            ->where('type', \App\Enums\PhoneNumberType::UserService)
-            ->orderBy('number')
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'number' => $p->number,
-                'length' => strlen($p->number),
-                'rond_tier' => $p->rond_tier ?? 'regular',
-                'rond_pattern' => $p->rond_pattern,
-            ]);
+        // Rich shortcode suggestions across all lengths (4 to 8 digits)
+        $availablePoolNumbers = [];
+        foreach ([4, 5, 6, 7, 8] as $len) {
+            $items = $this->searchService->getShortcodeSuggestions(
+                prefixId: null,
+                length: $len,
+                seedNumber: null,
+                limit: 8
+            );
+            foreach ($items as $idx => $item) {
+                $availablePoolNumbers[] = [
+                    'id' => ($len * 100) + $idx,
+                    'number' => $item['number'],
+                    'formatted_number' => $item['formatted_number'],
+                    'length' => $len,
+                    'rond_tier' => $item['rond_tier'] ?? 'regular',
+                    'rond_tier_label' => $item['rond_tier_label'] ?? null,
+                    'rond_pattern' => $item['rond_pattern'] ?? null,
+                    'is_rond' => $item['is_rond'] ?? false,
+                    'price' => $item['price'] ?? null,
+                    'source' => $item['source'] ?? 'smart',
+                ];
+            }
+        }
 
         /** @var \App\Services\Catalog\ServiceRegistry $serviceRegistry */
         $serviceRegistry = app(\App\Contracts\Services\ServiceRegistryInterface::class);
@@ -147,8 +161,52 @@ class NumberRequestController extends Controller
                 'country_name',
                 'country_code',
                 'flag',
+                'sms_price_per_segment',
                 'is_default',
             ]),
+        ]);
+    }
+
+    /**
+     * Check real-time availability of an Enterprise Shortcode (4..8 digits) and return smart suggestions.
+     */
+    public function checkAvailability(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'prefix_id' => ['nullable', 'integer'],
+            'requested_length' => ['required', 'integer', 'between:4,8'],
+            'preferred_number' => ['required', 'string', 'max:12'],
+        ]);
+
+        $result = $this->searchService->checkAndSuggestShortcode(
+            prefixId: isset($validated['prefix_id']) ? (int) $validated['prefix_id'] : null,
+            length: (int) $validated['requested_length'],
+            preferredNumber: (string) $validated['preferred_number']
+        );
+
+        return response()->json($result);
+    }
+
+    /**
+     * Fetch smart shortcode suggestions for a given digit length and prefix.
+     */
+    public function suggestions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'prefix_id' => ['nullable', 'integer'],
+            'requested_length' => ['required', 'integer', 'between:4,8'],
+            'seed' => ['nullable', 'string', 'max:12'],
+        ]);
+
+        $suggestions = $this->searchService->getShortcodeSuggestions(
+            prefixId: isset($validated['prefix_id']) ? (int) $validated['prefix_id'] : null,
+            length: (int) $validated['requested_length'],
+            seedNumber: $validated['seed'] ?? null,
+            limit: 8
+        );
+
+        return response()->json([
+            'suggestions' => $suggestions,
         ]);
     }
 

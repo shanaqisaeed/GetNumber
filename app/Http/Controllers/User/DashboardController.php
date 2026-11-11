@@ -106,8 +106,38 @@ class DashboardController extends Controller
             ->latest('id')
             ->first();
 
+        $customIdsCount = $user->activeServiceAllocations()->where('resource_type', 'handle_id')->count();
+        $web3Allocations = $user->activeServiceAllocations()->where('resource_type', 'web3_domain_suite')->get();
+        $web3DomainsCount = $web3Allocations->count();
+        $web3QuotaTotal = (int) $web3Allocations->sum('quota_total');
+        $web3QuotaUsed = (int) $web3Allocations->sum('quota_used');
+
+        $recentAllocations = $user->activeServiceAllocations()
+            ->with('serviceDefinition:id,key,title_key')
+            ->whereIn('resource_type', ['handle_id', 'web3_domain_suite'])
+            ->latest('id')
+            ->limit(4)
+            ->get()
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'service_key' => $a->serviceDefinition?->key ?? $a->resource_type,
+                'service_title' => $a->serviceDefinition ? __($a->serviceDefinition->title_key) : $a->resource_type,
+                'identifier' => $a->identifier,
+                'display_title' => $a->display_title,
+                'quota_total' => $a->quota_total,
+                'quota_used' => $a->quota_used,
+            ]);
+
         return Inertia::render('Dashboard', [
             'quota' => $quota,
+            'service_summary' => [
+                'phone_lines_count' => $quota['active'],
+                'custom_ids_count' => $customIdsCount,
+                'web3_domains_count' => $web3DomainsCount,
+                'web3_quota_total' => $web3QuotaTotal,
+                'web3_quota_used' => $web3QuotaUsed,
+                'recent_allocations' => $recentAllocations,
+            ],
             'stats' => [
                 'active_numbers' => $quota['active'],
                 'standard_numbers' => $metrics['standard_numbers'] ?? 0,

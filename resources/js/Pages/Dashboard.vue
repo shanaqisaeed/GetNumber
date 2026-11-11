@@ -81,8 +81,26 @@ interface WalletInfo {
     pending_deposit?: PendingDepositSummary | null;
 }
 
+interface ServiceSummary {
+    phone_lines_count: number;
+    custom_ids_count: number;
+    web3_domains_count: number;
+    web3_quota_total: number;
+    web3_quota_used: number;
+    recent_allocations?: Array<{
+        id: number;
+        service_key: string;
+        service_title: string;
+        identifier: string;
+        display_title?: string | null;
+        quota_total: number;
+        quota_used: number;
+    }>;
+}
+
 const props = defineProps<{
     quota: Quota;
+    service_summary?: ServiceSummary;
     stats: Stats;
     recent_numbers: RecentNumber[];
     unread_messages: UnreadSenderSummary[];
@@ -194,16 +212,15 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
 
                     <!-- Dual Primary Action Buttons -->
                     <div class="grid grid-cols-2 gap-2 pt-1">
-                        <button
-                            type="button"
-                            @click="isAllocateModalOpen = true"
+                        <Link
+                            :href="route('numbers.index')"
                             class="w-full py-2.5 px-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold shadow-md shadow-indigo-600/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95"
                         >
                             <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
                             <span class="truncate">{{ __('dashboard.get_new_number_btn') }}</span>
-                        </button>
+                        </Link>
 
                         <Link
                             :href="route('wallet.deposit.create')"
@@ -215,6 +232,90 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                             <span class="truncate">{{ __('dashboard.charge_wallet_btn') }}</span>
                         </Link>
                     </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- EXPLICIT MULTI-SERVICE PLATFORM SHOWCASE                                  -->
+            <!-- ========================================================================= -->
+            <div class="p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <div>
+                            <h2 class="text-xs font-black text-slate-900 dark:text-white">{{ __('dashboard.services_showcase_heading') }}</h2>
+                            <p class="text-[10px] text-slate-400 mt-0.5">{{ __('dashboard.services_showcase_subtitle') }}</p>
+                        </div>
+                    </div>
+                    <Link
+                        :href="route('numbers.index')"
+                        class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition-colors shrink-0"
+                    >
+                        <span>+ {{ __('dashboard.get_new_number_btn') }}</span>
+                    </Link>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2.5">
+                    <!-- 1. Communication Lines -->
+                    <Link
+                        :href="route('numbers.index')"
+                        class="p-3 rounded-2xl bg-slate-50 hover:bg-indigo-50/40 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 hover:border-indigo-500/30 flex items-center justify-between gap-3 transition-all"
+                    >
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <span class="text-xs font-black text-slate-900 dark:text-white block">{{ __('catalog.services.phone_line.title') }}</span>
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{{ __('catalog.services.phone_line.subtitle') }}</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-mono text-xs font-black shrink-0" dir="ltr">
+                            {{ props.service_summary?.phone_lines_count ?? props.quota.active }} / {{ props.quota.max }}
+                        </span>
+                    </Link>
+
+                    <!-- 2. Custom ID (@handle) -->
+                    <Link
+                        :href="route('numbers.index')"
+                        class="p-3 rounded-2xl bg-slate-50 hover:bg-blue-50/40 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 hover:border-blue-500/30 flex items-center justify-between gap-3 transition-all"
+                    >
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0 font-mono font-black text-sm">
+                                @
+                            </div>
+                            <div class="min-w-0">
+                                <span class="text-xs font-black text-slate-900 dark:text-white block">{{ __('catalog.services.custom_id.title') }}</span>
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{{ __('catalog.services.custom_id.subtitle') }}</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 font-mono text-xs font-black shrink-0" dir="ltr">
+                            {{ props.service_summary?.custom_ids_count ?? 0 }}
+                        </span>
+                    </Link>
+
+                    <!-- 3. Web3 Email & Domain Suite -->
+                    <Link
+                        :href="route('numbers.index')"
+                        class="p-3 rounded-2xl bg-slate-50 hover:bg-purple-50/40 dark:bg-slate-800/50 dark:hover:bg-slate-800 border border-slate-200/70 dark:border-slate-800 hover:border-purple-500/30 flex items-center justify-between gap-3 transition-all"
+                    >
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                                </svg>
+                            </div>
+                            <div class="min-w-0">
+                                <span class="text-xs font-black text-slate-900 dark:text-white block">{{ __('catalog.services.web3_email_package.title') }}</span>
+                                <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate">{{ __('catalog.services.web3_email_package.subtitle') }}</span>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 font-mono text-xs font-black shrink-0" dir="ltr">
+                            {{ props.service_summary?.web3_domains_count ?? 0 }} ({{ props.service_summary?.web3_quota_used ?? 0 }}/{{ props.service_summary?.web3_quota_total ?? 0 }})
+                        </span>
+                    </Link>
                 </div>
             </div>
 
@@ -358,6 +459,35 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                     </Link>
                 </div>
 
+                <!-- Active Custom IDs & Web3 Domain Allocations -->
+                <div v-if="props.service_summary?.recent_allocations && props.service_summary.recent_allocations.length > 0" class="space-y-2">
+                    <div
+                        v-for="alloc in props.service_summary.recent_allocations"
+                        :key="'alloc-' + alloc.id"
+                        class="p-3 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-800/40 flex items-center justify-between gap-2.5"
+                    >
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5 mb-1">
+                                <span class="px-2 py-0.5 rounded text-[9px] font-bold bg-indigo-500/15 text-indigo-700 dark:text-indigo-300">
+                                    {{ alloc.service_title }}
+                                </span>
+                                <span v-if="alloc.quota_total > 1" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400" dir="ltr">
+                                    {{ alloc.quota_used }}/{{ alloc.quota_total }} Quota
+                                </span>
+                            </div>
+                            <div class="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400" dir="ltr">
+                                {{ alloc.identifier }}
+                            </div>
+                        </div>
+                        <Link
+                            :href="route('numbers.index')"
+                            class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 transition-colors shrink-0"
+                        >
+                            {{ __('dashboard.view_all_lines') }}
+                        </Link>
+                    </div>
+                </div>
+
                 <!-- Number Cards -->
                 <div v-if="props.recent_numbers && props.recent_numbers.length > 0" class="space-y-2.5">
                     <div
@@ -419,16 +549,15 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                 </div>
 
                 <!-- Empty State -->
-                <div v-else class="py-6 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800">
+                <div v-else-if="!props.service_summary?.recent_allocations?.length" class="py-6 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-800">
                     <p class="text-xs font-bold text-slate-800 dark:text-slate-200">{{ __('dashboard.no_lines_yet_title') }}</p>
                     <p class="text-[11px] text-slate-400 mt-1 max-w-xs mx-auto">{{ __('dashboard.no_lines_yet_desc') }}</p>
-                    <button
-                        type="button"
-                        @click="isAllocateModalOpen = true"
+                    <Link
+                        :href="route('numbers.index')"
                         class="mt-3 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
                     >
                         <span>+ {{ __('dashboard.get_first_line_btn') }}</span>
-                    </button>
+                    </Link>
                 </div>
             </div>
 
@@ -533,9 +662,8 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                 </div>
 
                 <div class="grid grid-cols-2 gap-2 pt-1">
-                    <button
-                        type="button"
-                        @click="isAllocateModalOpen = true"
+                    <Link
+                        :href="route('numbers.index')"
                         class="p-3 rounded-2xl bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 text-start flex items-center gap-2.5 transition-colors cursor-pointer group"
                     >
                         <div class="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
@@ -546,7 +674,7 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                         <div class="min-w-0">
                             <span class="text-xs font-bold text-slate-800 dark:text-slate-200 block truncate">{{ __('dashboard.action_new_line_title') }}</span>
                         </div>
-                    </button>
+                    </Link>
 
                     <Link
                         :href="route('requests.index')"

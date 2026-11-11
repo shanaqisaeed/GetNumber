@@ -18,6 +18,9 @@ const form = useForm({
     password: '',
     role: 'user',
     status: 'active',
+    account_tier: 'individual',
+    organization_name: '',
+    enterprise_contract_code: '',
 });
 
 function submit() {
@@ -243,6 +246,54 @@ function submit() {
                                     {{ __('admin.users.status_hint') }}
                                 </p>
                                 <InputError class="mt-2 text-xs" :message="form.errors.status" />
+                            </div>
+
+                            <!-- Account Tier & Enterprise Settings -->
+                            <div class="p-4 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 space-y-4">
+                                <div>
+                                    <label for="account_tier" class="form-label mb-1.5">
+                                        {{ __('admin.users.account_tier_label') }}
+                                    </label>
+                                    <select
+                                        id="account_tier"
+                                        v-model="form.account_tier"
+                                        class="form-select block w-full px-4 py-3 text-sm font-medium rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none cursor-pointer"
+                                    >
+                                        <option value="individual">{{ __('admin.users.tier_individual') }}</option>
+                                        <option value="enterprise">{{ __('admin.users.tier_enterprise') }}</option>
+                                    </select>
+                                    <InputError class="mt-2 text-xs" :message="form.errors.account_tier" />
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label for="organization_name" class="form-label mb-1">
+                                            {{ __('admin.users.organization_name_label') }}
+                                        </label>
+                                        <input
+                                            id="organization_name"
+                                            v-model="form.organization_name"
+                                            type="text"
+                                            :placeholder="__('admin.users.organization_name_ph')"
+                                            class="form-input w-full text-xs"
+                                        />
+                                        <InputError class="mt-1 text-xs" :message="form.errors.organization_name" />
+                                    </div>
+                                    <div>
+                                        <label for="enterprise_contract_code" class="form-label mb-1">
+                                            {{ __('admin.users.contract_code_label') }}
+                                        </label>
+                                        <input
+                                            id="enterprise_contract_code"
+                                            v-model="form.enterprise_contract_code"
+                                            type="text"
+                                            dir="ltr"
+                                            placeholder="ENT-2026-001"
+                                            class="form-input w-full text-xs font-mono text-left"
+                                        />
+                                        <InputError class="mt-1 text-xs" :message="form.errors.enterprise_contract_code" />
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Modern Security Checklist Card -->

@@ -22,13 +22,17 @@ class UserController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = User::withCount('phoneNumbers')->with([
+        $query = User::withCount(['phoneNumbers', 'serviceAllocations'])->with([
             'wallet',
             'phoneNumbers' => function ($q) {
                 $q->select('id', 'user_id', 'phone_prefix_id', 'number', 'type', 'status', 'display_title', 'allocated_at')
                   ->latest('id');
             },
             'phoneNumbers.prefix',
+            'serviceAllocations' => function ($q) {
+                $q->with('serviceDefinition:id,key,title_key')
+                  ->latest('id');
+            },
         ]);
 
         if ($request->filled('search')) {
@@ -39,8 +43,13 @@ class UserController extends Controller
                 }
                 $q->orWhere('name', 'like', "%{$search}%")
                   ->orWhere('username', 'like', "%{$search}%")
+                  ->orWhere('organization_name', 'like', "%{$search}%")
+                  ->orWhere('enterprise_contract_code', 'like', "%{$search}%")
                   ->orWhereHas('phoneNumbers', function ($pq) use ($search) {
                       $pq->where('number', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('serviceAllocations', function ($sq) use ($search) {
+                      $sq->where('identifier', 'like', "%{$search}%");
                   });
             });
         }
@@ -49,15 +58,21 @@ class UserController extends Controller
             $query->where('role', $request->input('role'));
         }
 
+        if ($request->filled('account_tier')) {
+            $query->where('account_tier', $request->input('account_tier'));
+        }
+
         if ($request->filled('status')) {
             $query->where('status', $request->input('status'));
         }
 
         if ($request->filled('has_numbers')) {
             if ($request->input('has_numbers') === 'yes') {
-                $query->has('phoneNumbers');
+                $query->where(function ($q) {
+                    $q->has('phoneNumbers')->orHas('serviceAllocations');
+                });
             } elseif ($request->input('has_numbers') === 'no') {
-                $query->doesntHave('phoneNumbers');
+                $query->doesntHave('phoneNumbers')->doesntHave('serviceAllocations');
             }
         }
 
@@ -78,10 +93,14 @@ class UserController extends Controller
                 'name' => $u->name,
                 'username' => $u->username,
                 'role' => $u->role->value,
+                'account_tier' => $u->account_tier ?? 'individual',
+                'organization_name' => $u->organization_name,
+                'enterprise_contract_code' => $u->enterprise_contract_code,
                 'status' => $u->status->value,
                 'created_at' => $u->created_at->format('Y/m/d H:i'),
                 'wallet_balance' => (string) ($u->wallet?->balance ?? '0.0000'),
                 'phone_numbers_count' => $u->phone_numbers_count,
+                'service_allocations_count' => $u->service_allocations_count,
                 'phone_numbers' => $u->phoneNumbers->map(fn ($p) => [
                     'id' => $p->id,
                     'number' => $p->number,
@@ -95,13 +114,26 @@ class UserController extends Controller
                     'display_title' => $p->display_title,
                     'allocated_at' => $p->allocated_at?->format('Y/m/d H:i'),
                 ]),
+                'service_allocations' => $u->serviceAllocations->map(fn ($a) => [
+                    'id' => $a->id,
+                    'service_key' => $a->serviceDefinition?->key,
+                    'service_title' => $a->serviceDefinition ? __($a->serviceDefinition->title_key) : $a->resource_type,
+                    'resource_type' => $a->resource_type,
+                    'identifier' => $a->identifier,
+                    'display_title' => $a->display_title,
+                    'status' => $a->status,
+                    'quota_total' => $a->quota_total,
+                    'quota_used' => $a->quota_used,
+                    'allocated_at' => $a->allocated_at?->format('Y/m/d H:i'),
+                ]),
             ]);
 
         $stats = app(\App\Contracts\SystemCacheServiceInterface::class)->getAdminUsersStats();
+        $stats['enterprise'] = User::where('account_tier', 'enterprise')->count();
 
         return Inertia::render('Admin/Users/Index', [
             'users' => $users,
-            'filters' => $request->only(['search', 'role', 'status', 'has_numbers', 'sort']),
+            'filters' => $request->only(['search', 'role', 'account_tier', 'status', 'has_numbers', 'sort']),
             'stats' => $stats,
             'roles' => [
                 ['value' => UserRole::User->value, 'label' => UserRole::User->label()],
@@ -146,6 +178,9 @@ class UserController extends Controller
             'password' => ['required', 'string', Password::defaults()],
             'role' => ['required', Rule::enum(UserRole::class)],
             'status' => ['required', Rule::enum(UserStatus::class)],
+            'account_tier' => ['nullable', 'string', 'in:individual,enterprise'],
+            'organization_name' => ['nullable', 'string', 'max:160'],
+            'enterprise_contract_code' => ['nullable', 'string', 'max:64'],
         ], [
             'name.required' => __('controllers.admin.users.val_name_required'),
             'username.required' => __('controllers.admin.users.val_username_required'),
@@ -161,12 +196,16 @@ class UserController extends Controller
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'status' => $validated['status'],
+            'account_tier' => $validated['account_tier'] ?? 'individual',
+            'organization_name' => $validated['organization_name'] ?? null,
+            'enterprise_contract_code' => $validated['enterprise_contract_code'] ?? null,
         ]);
 
         AuditLog::record('user_created', $newUser, $request->user(), [
             'username' => $newUser->username,
             'name' => $newUser->name,
             'role' => $newUser->role->value,
+            'account_tier' => $newUser->account_tier,
             'status' => $newUser->status->value,
         ]);
 
@@ -218,6 +257,9 @@ class UserController extends Controller
             ],
             'role' => ['required', Rule::enum(UserRole::class)],
             'status' => ['required', Rule::enum(UserStatus::class)],
+            'account_tier' => ['nullable', 'string', 'in:individual,enterprise'],
+            'organization_name' => ['nullable', 'string', 'max:160'],
+            'enterprise_contract_code' => ['nullable', 'string', 'max:64'],
             'password' => ['nullable', 'string', 'min:6'],
         ], [
             'name.required' => __('controllers.admin.users.val_name_required'),
@@ -245,6 +287,16 @@ class UserController extends Controller
             'status' => $validated['status'],
         ];
 
+        if (array_key_exists('account_tier', $validated) && $validated['account_tier'] !== null) {
+            $updateData['account_tier'] = $validated['account_tier'];
+        }
+        if (array_key_exists('organization_name', $validated)) {
+            $updateData['organization_name'] = $validated['organization_name'];
+        }
+        if (array_key_exists('enterprise_contract_code', $validated)) {
+            $updateData['enterprise_contract_code'] = $validated['enterprise_contract_code'];
+        }
+
         if (!empty($validated['password'])) {
             $updateData['password'] = Hash::make($validated['password']);
         }
@@ -253,6 +305,7 @@ class UserController extends Controller
             'name' => $user->name,
             'username' => $user->username,
             'role' => $user->role->value,
+            'account_tier' => $user->account_tier,
             'status' => $user->status->value,
         ];
 
@@ -264,6 +317,7 @@ class UserController extends Controller
             'updated' => [
                 'name' => $user->name,
                 'role' => $user->role->value,
+                'account_tier' => $user->account_tier,
                 'status' => $user->status->value,
                 'password_changed' => !empty($validated['password']),
             ],

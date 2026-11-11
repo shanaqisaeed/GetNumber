@@ -33,6 +33,7 @@ return [
             'nav' => [
                 'dashboard' => 'پیشخوان مدیریت',
                 'users' => 'مدیریت کاربران و دسترسی‌ها',
+                'services' => 'مدیریت سرویس‌ها و تعرفه‌ها',
                 'numbers' => 'مدیریت خطوط',
                 'prefixes' => 'مدیریت پیش‌شماره‌ها',
                 'requests' => 'بررسی درخواست‌های سرشماره',
@@ -122,6 +123,7 @@ return [
             'profile_security' => 'پروفایل و تنظیمات امنیتی',
             'api_tokens' => 'کلیدهای ارتباطی و وب‌سرویس',
             'admin_users' => 'مدیریت کاربران و دسترسی‌ها',
+            'admin_services' => 'مدیریت سرویس‌ها و تعرفه‌ها',
             'admin_numbers' => 'مدیریت خطوط و سرشماره‌ها',
             'admin_prefixes' => 'مدیریت پیش‌شماره‌ها',
             'admin_requests' => 'بررسی درخواست‌های سرشماره',
@@ -233,7 +235,13 @@ return [
             'back_to_search' => '→ بازگشت به جستجو',
             'activating' => 'در حال فعال‌سازی خط...',
             'pay_and_activate' => 'پرداخت و دریافت آنی خط',
+            'refresh_suggestions' => 'پیشنهادهای جدید',
+            'similar_suggestions' => 'پیشنهاد سرشماره‌های آزاد مشابه:',
         ],
+    ],
+    'allocate_modal' => [
+        'refresh_suggestions' => 'پیشنهادهای جدید',
+        'similar_suggestions' => 'پیشنهاد سرشماره‌های آزاد مشابه:',
     ],
     'auth' => [
         'verify_email' => [

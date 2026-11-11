@@ -33,6 +33,7 @@ return [
             'nav' => [
                 'dashboard' => 'Admin Dashboard',
                 'users' => 'User Management & Access',
+                'services' => 'Services & Tariffs',
                 'numbers' => 'Number Management',
                 'prefixes' => 'Prefix Management',
                 'requests' => 'Number Requests Review',
@@ -122,6 +123,7 @@ return [
             'profile_security' => 'Profile & Security Settings',
             'api_tokens' => 'API Keys & Web Services',
             'admin_users' => 'User Management & Access',
+            'admin_services' => 'Services & Tariffs Management',
             'admin_numbers' => 'Lines & Numbers Management',
             'admin_prefixes' => 'Prefix Management',
             'admin_requests' => 'Number Requests Review',
@@ -233,7 +235,13 @@ return [
             'back_to_search' => '→ Back to search',
             'activating' => 'Activating number...',
             'pay_and_activate' => 'Pay & Activate Instantly',
+            'refresh_suggestions' => 'New Suggestions',
+            'similar_suggestions' => 'Available similar shortcode suggestions:',
         ],
+    ],
+    'allocate_modal' => [
+        'refresh_suggestions' => 'New Suggestions',
+        'similar_suggestions' => 'Available similar shortcode suggestions:',
     ],
     'auth' => [
         'verify_email' => [

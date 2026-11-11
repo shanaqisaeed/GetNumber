@@ -71,6 +71,15 @@ class NumberRequestService implements NumberRequestServiceInterface
             if (strlen((string) $cleanPreferred) !== $requestedLength) {
                 throw new InvalidNumberRequestException(__('services.number_requests.preferred_length_mismatch', ['length' => $requestedLength]));
             }
+
+            $alreadyAllocated = PhoneNumber::query()
+                ->where('number', $cleanPreferred)
+                ->where('status', '!=', PhoneNumberStatus::Available)
+                ->exists();
+
+            if ($alreadyAllocated) {
+                throw new InvalidNumberRequestException(__('catalog.validation.already_allocated', ['identifier' => $cleanPreferred]));
+            }
         }
 
         $rond = $cleanPreferred ? $this->rondDetector->detect($cleanPreferred) : ['is_rond' => false, 'tier' => 'regular'];

@@ -23,6 +23,8 @@ class PhonePrefix extends Model
         'price_regular',
         'price_semi_rond',
         'price_golden_rond',
+        'sms_price_per_segment',
+        'inbound_sms_price',
         'is_default',
         'is_active',
     ];
@@ -36,7 +38,53 @@ class PhonePrefix extends Model
             'price_regular' => 'decimal:4',
             'price_semi_rond' => 'decimal:4',
             'price_golden_rond' => 'decimal:4',
+            'sms_price_per_segment' => 'decimal:4',
+            'inbound_sms_price' => 'decimal:4',
         ];
+    }
+
+    /**
+     * Get the outbound SMS price per segment for this prefix.
+     */
+    public function getSmsRatePerSegment(): string
+    {
+        return (string) ($this->sms_price_per_segment ?: SystemSetting::get('sms_price_per_segment', '0.0500'));
+    }
+
+    /**
+     * Resolve a PhonePrefix model from a raw phone number or prefix ID.
+     */
+    public static function resolveForNumber(?string $rawNumber = null, ?int $prefixId = null): ?self
+    {
+        if ($prefixId !== null) {
+            $found = static::find($prefixId);
+            if ($found) {
+                return $found;
+            }
+        }
+
+        if ($rawNumber !== null && trim($rawNumber) !== '') {
+            $raw = trim($rawNumber);
+            if (str_starts_with($raw, '+') || str_starts_with($raw, '00')) {
+                $clean = preg_replace('/^(\+|00)/', '', $raw);
+                $prefixes = static::query()
+                    ->orderByRaw('LENGTH(clean_prefix) DESC')
+                    ->get();
+                foreach ($prefixes as $prefix) {
+                    if ($prefix->clean_prefix !== '' && str_starts_with($clean, $prefix->clean_prefix)) {
+                        return $prefix;
+                    }
+                }
+            }
+
+            $digits = preg_replace('/\D/', '', static::stripPrefix($raw));
+            $phoneRecord = PhoneNumber::with('prefix')->where('number', $digits)->first();
+            if ($phoneRecord && $phoneRecord->prefix) {
+                return $phoneRecord->prefix;
+            }
+        }
+
+        return static::getDefaultPrefix();
     }
 
     /**

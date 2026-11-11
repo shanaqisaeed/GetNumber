@@ -109,6 +109,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'index'])->name('requests.index');
     Route::post('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'store'])->name('requests.store');
+    Route::post('/requests/check-availability', [\App\Http\Controllers\User\NumberRequestController::class, 'checkAvailability'])->name('requests.check_availability');
+    Route::get('/requests/suggestions', [\App\Http\Controllers\User\NumberRequestController::class, 'suggestions'])->name('requests.suggestions');
     Route::delete('/requests/{numberRequest}', [\App\Http\Controllers\User\NumberRequestController::class, 'destroy'])->name('requests.destroy');
 
     // Multi-Service Platform & Enterprise Portal Routes (Phase 1)
@@ -228,6 +230,16 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/prefixes', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'store'])->name('prefixes.store');
     Route::patch('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'update'])->name('prefixes.update');
     Route::delete('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'destroy'])->name('prefixes.destroy');
+
+    // Admin Multi-Service Catalog, Tariff Pricing & Subscriber Service Management
+    Route::get('/services', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'index'])->name('services.index');
+    Route::patch('/services/definitions/{definition}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateDefinition'])->name('services.definitions.update');
+    Route::post('/services/plans', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'storePlan'])->name('services.plans.store');
+    Route::patch('/services/plans/{plan}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updatePlan'])->name('services.plans.update');
+    Route::delete('/services/plans/{plan}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'destroyPlan'])->name('services.plans.destroy');
+    Route::post('/services/allocations', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'allocateToUser'])->name('services.allocations.store');
+    Route::patch('/services/allocations/{allocation}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateAllocation'])->name('services.allocations.update');
+    Route::delete('/services/allocations/{allocation}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'destroyAllocation'])->name('services.allocations.destroy');
 
     // Admin API Token Management & Oversight
     Route::get('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'index'])->name('api-tokens.index');

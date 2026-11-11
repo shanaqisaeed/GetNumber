@@ -51,6 +51,7 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
 
         // Admin Routes
         'admin.users.index': [{ label: __('ui.components.breadcrumb.admin_users') }],
+        'admin.services.index': [{ label: __('ui.components.breadcrumb.admin_services') }],
         'admin.numbers.index': [{ label: __('ui.components.breadcrumb.admin_numbers') }],
         'admin.prefixes.index': [{ label: __('ui.components.breadcrumb.admin_prefixes') }],
         'admin.requests.index': [{ label: __('ui.components.breadcrumb.admin_requests') }],

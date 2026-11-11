@@ -57,6 +57,17 @@ class RondPatternDetectorService
     }
 
     /**
+     * Alias for detect() to maintain compatibility with catalog handlers.
+     */
+    public function detectTier(string $fullNumber, ?string $suffix = null): array
+    {
+        $res = $this->detect($fullNumber, $suffix);
+        $res['pattern_name'] = $res['pattern'] ?? null;
+
+        return $res;
+    }
+
+    /**
      * Evaluate a single clean numeric string.
      */
     protected function evaluateString(string $digits): array

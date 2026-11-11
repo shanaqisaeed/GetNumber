@@ -2,7 +2,7 @@
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 
 interface AllocatedNumber {
     id: number;
@@ -45,11 +45,13 @@ interface PaginationLink {
 }
 
 interface PoolNumberItem {
-    id: number;
+    id?: number | null;
     number: string;
     length: number;
     rond_tier: string;
+    rond_label?: string;
     rond_pattern?: string;
+    price?: string;
 }
 
 export interface PrefixOption {
@@ -251,12 +253,23 @@ const isNumberRond = (num: string): boolean => {
     return false;
 };
 
+const shortcodeCheckLoading = ref(false);
+const shortcodeCheckResult = ref<Record<string, any> | null>(null);
+const dynamicSuggestions = ref<PoolNumberItem[]>([]);
+const loadingSuggestions = ref(false);
+
 const currentIsRond = computed(() => {
+    if (shortcodeCheckResult.value?.rond_tier) {
+        return shortcodeCheckResult.value.rond_tier !== 'regular';
+    }
     if (!createForm.preferred_number) return false;
     return isNumberRond(createForm.preferred_number);
 });
 
 const currentPrice = computed(() => {
+    if (shortcodeCheckResult.value?.price) {
+        return shortcodeCheckResult.value.price;
+    }
     const len = createForm.requested_length;
     const tariffs = props.org_tariffs;
     if (tariffs && tariffs[len]) {
@@ -269,9 +282,71 @@ const userBalance = computed(() => Number(props.wallet?.balance || 0));
 const hasInsufficientBalance = computed(() => userBalance.value < Number(currentPrice.value));
 
 const poolNumbersForCurrentLength = computed(() => {
+    if (dynamicSuggestions.value.length > 0) {
+        return dynamicSuggestions.value;
+    }
     if (!props.available_pool_numbers) return [];
     return props.available_pool_numbers.filter((p) => p.length === createForm.requested_length);
 });
+
+const refreshShortcodeSuggestions = async () => {
+    loadingSuggestions.value = true;
+    try {
+        const res = await axios.get(route('requests.suggestions'), {
+            params: {
+                length: createForm.requested_length,
+                prefix_id: createForm.phone_prefix_id || selectedPrefix.value?.id,
+            },
+        });
+        if (res.data?.suggestions) {
+            dynamicSuggestions.value = res.data.suggestions;
+        }
+    } catch {
+        // fallback to props.available_pool_numbers
+    } finally {
+        loadingSuggestions.value = false;
+    }
+};
+
+let shortcodeCheckTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+    () => [createForm.preferred_number, createForm.requested_length],
+    ([num, len]) => {
+        if (shortcodeCheckTimer) clearTimeout(shortcodeCheckTimer);
+        shortcodeCheckResult.value = null;
+        createForm.clearErrors('preferred_number');
+
+        const clean = String(num || '').replace(/\D+/g, '');
+        if (!clean || clean.length !== Number(len)) {
+            return;
+        }
+
+        shortcodeCheckTimer = setTimeout(async () => {
+            shortcodeCheckLoading.value = true;
+            try {
+                const res = await axios.post(route('requests.check_availability'), {
+                    number: clean,
+                    length: Number(len),
+                    prefix_id: createForm.phone_prefix_id || selectedPrefix.value?.id,
+                });
+                shortcodeCheckResult.value = res.data;
+            } catch (e: any) {
+                if (e.response?.data) {
+                    shortcodeCheckResult.value = e.response.data;
+                }
+            } finally {
+                shortcodeCheckLoading.value = false;
+            }
+        }, 250);
+    }
+);
+
+watch(
+    () => createForm.requested_length,
+    () => {
+        dynamicSuggestions.value = [];
+    }
+);
 
 const pickPoolNumber = (pNum: string) => {
     createForm.preferred_number = pNum;
@@ -281,6 +356,8 @@ const openCreateModal = () => {
     createStep.value = 1;
     politicalTermsAccepted.value = false;
     countrySearch.value = '';
+    shortcodeCheckResult.value = null;
+    dynamicSuggestions.value = [];
     createForm.reset();
     createForm.phone_prefix_id = (props.active_prefixes?.find((p) => p.is_default) || props.active_prefixes?.[0])?.id || null;
     createForm.requested_length = 4;
@@ -303,6 +380,10 @@ const goToStep2 = () => {
 const goToStep3 = () => {
     if (createForm.preferred_number && createForm.preferred_number.length !== createForm.requested_length) {
         createForm.setError('preferred_number', __('user.requests.length_error', { length: createForm.requested_length }));
+        return;
+    }
+    if (shortcodeCheckResult.value && shortcodeCheckResult.value.is_available === false) {
+        createForm.setError('preferred_number', shortcodeCheckResult.value.message || __('ui.allocate_modal.already_allocated'));
         return;
     }
     createForm.clearErrors('preferred_number');
@@ -490,72 +571,103 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </button>
                 </div>
 
-                <!-- 3 Exclusive Enterprise Service Offerings -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                <!-- 3 Exclusive Enterprise Service Offerings (Full-Width Stacked Cards for UserLayout) -->
+                <div class="grid grid-cols-1 gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <!-- Service 1: 4-8 Digit Organizational Lines -->
-                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-purple-500/30 flex flex-col justify-between space-y-3">
-                        <div class="space-y-1.5">
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400">
-                                {{ __('catalog.ui.enterprise_exclusive_badge') }}
-                            </span>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                                {{ __('catalog.services.phone_line.enterprise_title') }}
-                            </h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                {{ __('catalog.services.phone_line.enterprise_desc') }}
-                            </p>
+                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-purple-500/30 space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                        {{ __('catalog.services.phone_line.enterprise_title') }}
+                                    </h3>
+                                    <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30 shrink-0">
+                                        {{ __('catalog.ui.enterprise_exclusive_badge') }}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    {{ __('catalog.services.phone_line.enterprise_desc') }}
+                                </p>
+                            </div>
                         </div>
-                        <button
-                            type="button"
-                            @click="openCreateModal"
-                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
-                        >
-                            {{ __('user.requests.create_btn') }}
-                        </button>
+                        <div class="flex justify-end pt-1">
+                            <button
+                                type="button"
+                                @click="openCreateModal"
+                                class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
+                            >
+                                {{ __('user.requests.create_btn') }}
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Service 2: Short 4+ Char Enterprise Custom IDs -->
-                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-indigo-500/30 flex flex-col justify-between space-y-3">
-                        <div class="space-y-1.5">
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
-                                {{ __('catalog.ui.min_id_length_rule', { min: 4 }) }}
-                            </span>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                                {{ __('catalog.services.custom_id.enterprise_title') }}
-                            </h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                {{ __('catalog.services.custom_id.enterprise_desc') }}
-                            </p>
+                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-indigo-500/30 space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex items-center justify-center shrink-0 font-mono font-black text-base">
+                                @
+                            </div>
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                        {{ __('catalog.services.custom_id.enterprise_title') }}
+                                    </h3>
+                                    <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shrink-0">
+                                        {{ __('catalog.ui.min_id_length_rule', { min: 4 }) }}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    {{ __('catalog.services.custom_id.enterprise_desc') }}
+                                </p>
+                            </div>
                         </div>
-                        <button
-                            type="button"
-                            @click="openEnterpriseServiceModal('custom_id')"
-                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
-                        >
-                            {{ __('catalog.ui.submit_enterprise_order') }}
-                        </button>
+                        <div class="flex justify-end pt-1">
+                            <button
+                                type="button"
+                                @click="openEnterpriseServiceModal('custom_id')"
+                                class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
+                            >
+                                {{ __('catalog.ui.submit_enterprise_order') }}
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Service 3: High-Volume Web3 Organizational Email Packages -->
-                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-amber-500/30 flex flex-col justify-between space-y-3">
-                        <div class="space-y-1.5">
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
-                                50 / 100 / 500 Quota (.dao, .org3, .web3)
-                            </span>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                                {{ __('catalog.services.web3_email_package.enterprise_title') }}
-                            </h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                {{ __('catalog.services.web3_email_package.enterprise_desc') }}
-                            </p>
+                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-amber-500/30 space-y-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 flex items-center justify-center shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 min-w-0 space-y-1">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                        {{ __('catalog.services.web3_email_package.enterprise_title') }}
+                                    </h3>
+                                    <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0" dir="ltr">
+                                        50 / 100 / 500 Quota (.dao, .org3, .web3)
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                    {{ __('catalog.services.web3_email_package.enterprise_desc') }}
+                                </p>
+                            </div>
                         </div>
-                        <button
-                            type="button"
-                            @click="openEnterpriseServiceModal('web3_email_package')"
-                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
-                        >
-                            {{ __('catalog.ui.submit_enterprise_order') }}
-                        </button>
+                        <div class="flex justify-end pt-1">
+                            <button
+                                type="button"
+                                @click="openEnterpriseServiceModal('web3_email_package')"
+                                class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
+                            >
+                                {{ __('catalog.ui.submit_enterprise_order') }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1017,29 +1129,42 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </div>
 
                             <!-- Pool Suggestions for Selected Length -->
-                            <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-2">
-                                <div class="flex items-center justify-between">
+                            <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-500/20 space-y-2.5">
+                                <div class="flex items-center justify-between gap-2">
                                     <span class="text-[11px] font-black text-purple-800 dark:text-purple-300">
                                         {{ __('user.requests.pool_numbers_title', { length: createForm.requested_length }) }}
                                     </span>
-                                    <span class="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
-                                        {{ __('user.requests.available_count', { count: poolNumbersForCurrentLength.length }) }}
-                                    </span>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] text-purple-600 dark:text-purple-400 font-bold">
+                                            {{ __('user.requests.available_count', { count: poolNumbersForCurrentLength.length }) }}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            @click="refreshShortcodeSuggestions"
+                                            :disabled="loadingSuggestions"
+                                            class="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-700 dark:text-purple-300 transition-colors cursor-pointer"
+                                        >
+                                            ↻ {{ __('ui.allocate_modal.refresh_suggestions') }}
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <div v-if="poolNumbersForCurrentLength.length > 0" class="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pt-0.5">
+                                <div v-if="poolNumbersForCurrentLength.length > 0" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5 max-h-40 overflow-y-auto pt-0.5">
                                     <button
                                         v-for="pool in poolNumbersForCurrentLength"
-                                        :key="pool.id"
+                                        :key="pool.number"
                                         type="button"
                                         @click="pickPoolNumber(pool.number)"
-                                        class="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer flex items-center gap-1"
+                                        class="px-2.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all cursor-pointer flex items-center justify-between gap-1"
                                         :class="createForm.preferred_number === pool.number
                                             ? 'bg-purple-600 text-white border-purple-600 shadow-sm'
                                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10 hover:border-purple-400 hover:bg-purple-50/40'"
                                     >
-                                        <span>{{ pool.number }}</span>
-                                        <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[10px] text-amber-500" :title="__('user.requests.rond_number_title')">★</span>
+                                        <div class="flex items-center gap-1" dir="ltr">
+                                            <span>{{ pool.number }}</span>
+                                            <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[10px] text-amber-500" :title="pool.rond_label || __('user.requests.rond_number_title')">★</span>
+                                        </div>
+                                        <span v-if="pool.price" class="text-[10px] opacity-80 font-mono" dir="ltr">{{ pool.price }}</span>
                                     </button>
                                 </div>
                                 <div v-else class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed py-1">
@@ -1082,6 +1207,33 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <p v-if="createForm.errors.preferred_number" class="text-xs text-rose-500 font-bold mt-1">
                                     {{ createForm.errors.preferred_number }}
                                 </p>
+
+                                <!-- Taken Number Alert & Alternative Suggestions (Only shown when unavailable) -->
+                                <div
+                                    v-if="shortcodeCheckResult && shortcodeCheckResult.is_available === false"
+                                    class="mt-2.5 p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 space-y-2 text-xs"
+                                >
+                                    <div class="text-rose-600 dark:text-rose-400 font-bold">
+                                        ⚠️ {{ shortcodeCheckResult.message }}
+                                    </div>
+                                    <div v-if="shortcodeCheckResult.suggestions && shortcodeCheckResult.suggestions.length > 0" class="space-y-1.5">
+                                        <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 block">
+                                            {{ __('ui.allocate_modal.similar_suggestions') }}
+                                        </span>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            <button
+                                                v-for="sug in shortcodeCheckResult.suggestions"
+                                                :key="sug.number"
+                                                type="button"
+                                                @click="pickPoolNumber(sug.number)"
+                                                dir="ltr"
+                                                class="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-500/30 text-purple-600 dark:text-purple-300 font-mono text-xs font-bold hover:border-purple-500 cursor-pointer"
+                                            >
+                                                {{ sug.number }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Live Price Estimation Box -->

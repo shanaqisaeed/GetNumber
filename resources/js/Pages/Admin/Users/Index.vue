@@ -17,16 +17,34 @@ interface UserPhoneNumber {
     allocated_at: string | null;
 }
 
+interface UserServiceAllocation {
+    id: number;
+    service_key: string | null;
+    service_title: string;
+    resource_type: string;
+    identifier: string;
+    display_title: string | null;
+    status: string;
+    quota_total: number;
+    quota_used: number;
+    allocated_at: string | null;
+}
+
 interface UserItem {
     id: number;
     name: string;
     username: string;
     role: string;
+    account_tier: string;
+    organization_name: string | null;
+    enterprise_contract_code: string | null;
     status: string;
     created_at: string;
     wallet_balance: string;
     phone_numbers_count: number;
+    service_allocations_count: number;
     phone_numbers: UserPhoneNumber[];
+    service_allocations: UserServiceAllocation[];
 }
 
 interface PaginationLink {
@@ -46,6 +64,7 @@ const props = defineProps<{
     filters: {
         search?: string;
         role?: string;
+        account_tier?: string;
         status?: string;
         has_numbers?: string;
         sort?: string;
@@ -55,6 +74,7 @@ const props = defineProps<{
         active: number;
         suspended: number;
         admins: number;
+        enterprise?: number;
     };
     roles: Array<{ value: string; label: string }>;
     statuses: Array<{ value: string; label: string }>;
@@ -63,6 +83,7 @@ const props = defineProps<{
 // Search & filter states
 const search = ref(props.filters.search || '');
 const role = ref(props.filters.role || '');
+const accountTier = ref(props.filters.account_tier || '');
 const status = ref(props.filters.status || '');
 const hasNumbers = ref(props.filters.has_numbers || '');
 const sort = ref(props.filters.sort || 'newest');
@@ -73,6 +94,7 @@ function applyFilters() {
         {
             search: search.value || undefined,
             role: role.value || undefined,
+            account_tier: accountTier.value || undefined,
             status: status.value || undefined,
             has_numbers: hasNumbers.value || undefined,
             sort: sort.value !== 'newest' ? sort.value : undefined,
@@ -84,6 +106,7 @@ function applyFilters() {
 function clearFilters() {
     search.value = '';
     role.value = '';
+    accountTier.value = '';
     status.value = '';
     hasNumbers.value = '';
     sort.value = 'newest';
@@ -120,6 +143,9 @@ const editForm = useForm({
     name: '',
     username: '',
     role: 'user',
+    account_tier: 'individual',
+    organization_name: '',
+    enterprise_contract_code: '',
     status: 'active',
     password: '',
 });
@@ -130,6 +156,9 @@ function openEditModal(user: UserItem) {
     editForm.name = user.name;
     editForm.username = user.username;
     editForm.role = user.role;
+    editForm.account_tier = user.account_tier || 'individual';
+    editForm.organization_name = user.organization_name || '';
+    editForm.enterprise_contract_code = user.enterprise_contract_code || '';
     editForm.status = user.status;
     editForm.password = '';
     editForm.clearErrors();
@@ -253,7 +282,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
 
             <!-- Stats Metric Cards -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
                     <div>
                         <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.total_users') }}</span>
@@ -274,6 +303,18 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400 font-bold block mb-1">{{ __('admin.users.enterprise_users') }}</span>
+                        <span dir="ltr" class="text-2xl font-black font-mono text-purple-600 dark:text-purple-400 block text-right">{{ stats.enterprise ?? 0 }}</span>
+                    </div>
+                    <div class="w-12 h-12 rounded-2xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
                         </svg>
                     </div>
                 </div>
@@ -305,8 +346,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
             <!-- Comprehensive Search & Filter Bar -->
             <div class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/80 dark:border-slate-800/80 p-5 shadow-sm space-y-3">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                    <!-- Search Input (Searches name, username, ID, and phone number) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+                    <!-- Search Input (Searches name, username, ID, organization, and service identifier) -->
                     <div class="lg:col-span-2 relative">
                         <input
                             type="text"
@@ -332,6 +373,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </select>
                     </div>
 
+                    <!-- Account Tier Filter -->
+                    <div>
+                        <select
+                            v-model="accountTier"
+                            @change="applyFilters"
+                            class="form-select !text-xs !py-2.5 !rounded-xl w-full"
+                        >
+                            <option value="">{{ __('admin.users.all_tiers') }}</option>
+                            <option value="individual">{{ __('admin.users.tier_individual') }}</option>
+                            <option value="enterprise">{{ __('admin.users.tier_enterprise') }}</option>
+                        </select>
+                    </div>
+
                     <!-- Status Filter -->
                     <div>
                         <select
@@ -344,7 +398,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </select>
                     </div>
 
-                    <!-- Line Ownership Filter -->
+                    <!-- Line / Service Ownership Filter -->
                     <div>
                         <select
                             v-model="hasNumbers"
@@ -383,7 +437,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         >{{ __('admin.users.apply_filters') }}</button>
 
                         <button
-                            v-if="search || role || status || hasNumbers || sort !== 'newest'"
+                            v-if="search || role || accountTier || status || hasNumbers || sort !== 'newest'"
                             type="button"
                             @click="clearFilters"
                             class="px-3 py-2 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
@@ -402,6 +456,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_name') }}</th>
                                 <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_username') }}</th>
                                 <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_role') }}</th>
+                                <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_tier') }}</th>
                                 <th class="py-3.5 px-5 font-bold">{{ __('admin.users.th_status') }}</th>
                                 <th class="py-3.5 px-5 font-bold text-center">{{ __('admin.users.th_lines') }}</th>
                                 <th class="py-3.5 px-5 font-bold text-center">{{ __('admin.users.th_balance') }}</th>
@@ -412,7 +467,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
                             <tr v-for="user in users.data" :key="user.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                                 <td class="py-4 px-5 text-slate-400 font-mono text-[11px]">{{ user.id }}</td>
-                                <td class="py-4 px-5 font-bold text-slate-900 dark:text-white">{{ user.name }}</td>
+                                <td class="py-4 px-5">
+                                    <div class="font-bold text-slate-900 dark:text-white">{{ user.name }}</div>
+                                    <div v-if="user.organization_name" class="text-[10px] text-purple-600 dark:text-purple-400 font-semibold mt-0.5">
+                                        🏢 {{ user.organization_name }}
+                                    </div>
+                                </td>
                                 <td class="py-4 px-5 font-mono text-slate-700 dark:text-slate-300" dir="ltr">@{{ user.username }}</td>
                                 <td class="py-4 px-5">
                                     <span
@@ -421,6 +481,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     >
                                         {{ formatRole(user.role) }}
                                     </span>
+                                </td>
+                                <td class="py-4 px-5">
+                                    <div class="flex flex-col gap-1 items-start">
+                                        <span
+                                            class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold"
+                                            :class="user.account_tier === 'enterprise'
+                                                ? 'bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-800'
+                                                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
+                                        >
+                                            {{ user.account_tier === 'enterprise' ? __('admin.users.tier_enterprise') : __('admin.users.tier_individual') }}
+                                        </span>
+                                        <span v-if="user.enterprise_contract_code" class="text-[10px] font-mono text-slate-400" dir="ltr">
+                                            {{ user.enterprise_contract_code }}
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="py-4 px-5">
                                     <span
@@ -448,16 +523,16 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                         @click="openNumbersModal(user)"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer"
                                         :class="[
-                                            user.phone_numbers_count > 0
+                                            (user.service_allocations_count > 0 || user.phone_numbers_count > 0)
                                                 ? 'bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100'
                                                 : 'bg-slate-100 dark:bg-slate-800/60 text-slate-400 hover:text-slate-600'
                                         ]"
                                         :title="__('admin.users.view_numbers_tooltip')"
                                     >
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6z" />
                                         </svg>
-                                        <span>{{ __('admin.users.lines_count', { count: user.phone_numbers_count }) }}</span>
+                                        <span>{{ __('admin.users.services_count', { count: Math.max(user.service_allocations_count || 0, user.phone_numbers_count || 0) }) }}</span>
                                     </button>
                                 </td>
                                 <td class="py-4 px-5 text-center">
@@ -533,7 +608,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </tr>
 
                             <tr v-if="users.data.length === 0">
-                                <td colspan="9" class="py-12 text-center text-slate-400">
+                                <td colspan="10" class="py-12 text-center text-slate-400">
                                     {{ __('admin.users.no_users_found') }}
                                 </td>
                             </tr>
@@ -563,7 +638,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
         </div>
 
-        <!-- Full User Edit Modal (Requirement 2: Full management, change username, role, status, password) -->
+        <!-- Full User Edit Modal (Requirement 2: Full management, change username, role, account_tier, organization, status, password) -->
         <div v-if="isEditModalOpen && editingUser" @click.self="closeEditModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4">
             <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-lg rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
@@ -660,6 +735,45 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
                     </div>
 
+                    <!-- Account Tier, Organization & Enterprise Contract Code -->
+                    <div class="p-4 rounded-2xl bg-purple-50/40 dark:bg-purple-950/20 border border-purple-200/60 dark:border-purple-800/40 space-y-3">
+                        <div>
+                            <label class="form-label mb-1.5">
+                                {{ __('admin.users.account_tier_label') }}
+                            </label>
+                            <select v-model="editForm.account_tier" class="form-select w-full">
+                                <option value="individual">{{ __('admin.users.tier_individual') }}</option>
+                                <option value="enterprise">{{ __('admin.users.tier_enterprise') }}</option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label class="form-label mb-1">
+                                    {{ __('admin.users.organization_name_label') }}
+                                </label>
+                                <input
+                                    v-model="editForm.organization_name"
+                                    type="text"
+                                    :placeholder="__('admin.users.organization_name_ph')"
+                                    class="form-input w-full text-xs"
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label mb-1">
+                                    {{ __('admin.users.contract_code_label') }}
+                                </label>
+                                <input
+                                    v-model="editForm.enterprise_contract_code"
+                                    type="text"
+                                    dir="ltr"
+                                    placeholder="ENT-2026-001"
+                                    class="form-input w-full text-xs font-mono text-left"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- New Password (Optional) -->
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
@@ -702,9 +816,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
         </div>
 
-        <!-- User Numbers Modal (Requirement 2: View numbers belonging to user) -->
+        <!-- User Services & Numbers Modal -->
         <div v-if="isNumbersModalOpen && selectedUserForNumbers" @click.self="closeNumbersModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-start sm:items-center justify-center p-3 sm:p-4">
-            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-2xl rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-3xl rounded-3xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 max-h-[calc(100dvh-2.5rem)] flex flex-col my-auto responsive-modal-scroll-card">
                 <div class="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
                     <div>
                         <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -714,15 +828,71 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             {{ __('admin.users.user_info', { name: selectedUserForNumbers.name, username: selectedUserForNumbers.username }) }}
                         </span>
                     </div>
-                    <button @click="closeNumbersModal" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <Link
+                            :href="route('admin.services.index', { tab: 'allocations', user_id: selectedUserForNumbers.id })"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-sm transition-colors"
+                        >
+                            <span>{{ __('admin.users.manage_subscriber_services') }}</span>
+                        </Link>
+                        <button @click="closeNumbersModal" type="button" class="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="p-6 overflow-y-auto flex-1">
+                <div class="p-6 overflow-y-auto flex-1 space-y-6">
+                    <!-- Multi-Service Resource Allocations -->
+                    <div v-if="selectedUserForNumbers.service_allocations && selectedUserForNumbers.service_allocations.length > 0">
+                        <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 mb-3">{{ __('admin.users.allocated_services_heading') }}</h4>
+                        <div class="overflow-x-auto rounded-2xl border border-slate-100 dark:border-slate-800">
+                            <table class="w-full text-right text-xs">
+                                <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">
+                                    <tr>
+                                        <th class="py-2.5 px-4">{{ __('admin.services.th_identifier') }}</th>
+                                        <th class="py-2.5 px-4">{{ __('admin.services.th_service') }}</th>
+                                        <th class="py-2.5 px-4 text-center">{{ __('admin.services.th_quota') }}</th>
+                                        <th class="py-2.5 px-4 text-center">{{ __('admin.services.th_status') }}</th>
+                                        <th class="py-2.5 px-4">{{ __('admin.users.th_num_allocated') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <tr v-for="alloc in selectedUserForNumbers.service_allocations" :key="alloc.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                        <td class="py-2.5 px-4 font-mono font-bold text-slate-900 dark:text-white" dir="ltr">
+                                            {{ alloc.identifier }}
+                                            <div v-if="alloc.display_title" class="text-[10px] font-sans text-slate-400">{{ alloc.display_title }}</div>
+                                        </td>
+                                        <td class="py-2.5 px-4 font-bold text-indigo-600 dark:text-indigo-400">
+                                            {{ alloc.service_title }}
+                                        </td>
+                                        <td class="py-2.5 px-4 text-center font-mono">
+                                            <span v-if="alloc.resource_type === 'web3_domain_suite'" class="px-2 py-0.5 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 font-bold">
+                                                {{ alloc.quota_used }} / {{ alloc.quota_total }}
+                                            </span>
+                                            <span v-else class="text-slate-400">1 / 1</span>
+                                        </td>
+                                        <td class="py-2.5 px-4 text-center">
+                                            <span
+                                                class="px-2 py-0.5 rounded text-[10px] font-bold"
+                                                :class="alloc.status === 'active' ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400' : 'bg-slate-100 text-slate-500'"
+                                            >
+                                                {{ alloc.status }}
+                                            </span>
+                                        </td>
+                                        <td class="py-2.5 px-4 font-mono text-slate-400" dir="ltr">
+                                            {{ alloc.allocated_at || '—' }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Phone Numbers Table -->
                     <div v-if="selectedUserForNumbers.phone_numbers && selectedUserForNumbers.phone_numbers.length > 0" class="overflow-x-auto">
+                        <h4 class="text-xs font-black text-slate-700 dark:text-slate-300 mb-3">{{ __('admin.users.allocated_lines_heading') }}</h4>
                         <table class="w-full text-right text-xs">
                             <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-bold border-b border-slate-100 dark:border-slate-800">
                                 <tr>
@@ -771,7 +941,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </table>
                     </div>
 
-                    <div v-else class="text-center py-10">
+                    <div v-if="(!selectedUserForNumbers.phone_numbers || selectedUserForNumbers.phone_numbers.length === 0) && (!selectedUserForNumbers.service_allocations || selectedUserForNumbers.service_allocations.length === 0)" class="text-center py-10">
                         <div class="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mx-auto mb-3">
                             <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />

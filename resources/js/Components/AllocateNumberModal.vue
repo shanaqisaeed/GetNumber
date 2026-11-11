@@ -634,15 +634,14 @@ const submitAllocation = () => {
 
                         <!-- LIVE AVAILABILITY STATUS (WHEN 6 DIGITS ENTERED) -->
                         <div v-if="suffixInput.length === 6 && checkResult">
-                            <!-- 1. SUCCESS CARD -->
+                            <!-- 1. TARIFF & SELECTION CARD -->
                             <div
                                 v-if="checkResult.is_available"
-                                class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-3 animate-in fade-in duration-200"
+                                class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in duration-200"
                             >
                                 <div class="flex items-center justify-between flex-wrap gap-2">
-                                    <span class="inline-flex items-center gap-1.5 text-xs font-black text-emerald-700 dark:text-emerald-400">
-                                        <span class="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">✓</span>
-                                        {{ __("ui.components.allocate_number_modal.number_ready_desc") }}
+                                    <span dir="ltr" class="text-lg font-mono font-black text-slate-900 dark:text-white">
+                                        {{ checkResult.formatted || checkResult.number }}
                                     </span>
                                     <span
                                         class="px-2.5 py-0.5 rounded-full text-[11px] font-black border"
@@ -656,24 +655,17 @@ const submitAllocation = () => {
                                     </span>
                                 </div>
 
-                                <div class="flex items-center justify-between pt-1 flex-wrap gap-3">
-                                    <div>
-                                        <span dir="ltr" class="text-lg font-mono font-black text-slate-900 dark:text-white block">
-                                            {{ checkResult.formatted }}
-                                        </span>
-                                    </div>
-                                    <div class="text-left">
-                                        <span class="text-[10px] text-slate-500 block">{{ __("ui.components.allocate_number_modal.line_tariff") }}</span>
-                                        <span class="text-base font-black text-indigo-600 dark:text-indigo-400">
-                                            {{ checkResult.price }} {{ __("ui.components.allocate_number_modal.coin_trx") }}
-                                        </span>
-                                    </div>
+                                <div class="flex items-center justify-between pt-1 flex-wrap gap-3 border-t border-slate-200/70 dark:border-slate-700/70">
+                                    <span class="text-xs text-slate-500 font-bold">{{ __("ui.components.allocate_number_modal.line_tariff") }}</span>
+                                    <span class="text-base font-black text-indigo-600 dark:text-indigo-400 font-mono" dir="ltr">
+                                        {{ checkResult.price }} {{ __("ui.components.allocate_number_modal.coin_trx") }}
+                                    </span>
                                 </div>
 
                                 <button
                                     type="button"
                                     @click="goToStep3"
-                                    class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-md shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                    class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-md shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                 >
                                     <span>{{ __("ui.components.allocate_number_modal.step_next_confirm") }}</span>
                                     <span>←</span>

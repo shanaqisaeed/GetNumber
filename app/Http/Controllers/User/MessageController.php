@@ -121,6 +121,11 @@ class MessageController extends Controller
                 'type_label' => $p->type->label(),
                 'badge_class' => $p->type->badgeClasses(),
                 'unread_count' => (int) ($unreadCounts[$p->id] ?? 0),
+                'phone_prefix_id' => $p->phone_prefix_id,
+                'prefix_code' => $p->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
+                'sms_rate_per_segment' => $p->prefix?->getSmsRatePerSegment()
+                    ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
+                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
             ]),
             'currentNumber' => $currentNumber ? [
                 'id' => $currentNumber->id,
@@ -131,6 +136,11 @@ class MessageController extends Controller
                 'type_label' => $currentNumber->type->label(),
                 'badge_class' => $currentNumber->type->badgeClasses(),
                 'unread_count' => (int) ($unreadCounts[$currentNumber->id] ?? 0),
+                'phone_prefix_id' => $currentNumber->phone_prefix_id,
+                'prefix_code' => $currentNumber->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
+                'sms_rate_per_segment' => $currentNumber->prefix?->getSmsRatePerSegment()
+                    ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
+                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
             ] : null,
             'conversations' => $conversations,
             'activePeer' => $activePeer,
@@ -149,8 +159,12 @@ class MessageController extends Controller
             ]),
             'stats' => $stats,
             'smsTariff' => [
-                'rate_per_segment' => (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+                'rate_per_segment' => $currentNumber?->prefix?->getSmsRatePerSegment()
+                    ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
+                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+                'prefix_code' => $currentNumber?->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
                 'currency' => 'COIN',
+                'by_prefix' => \App\Models\PhonePrefix::active()->get(['id', 'prefix', 'country_name', 'flag', 'sms_price_per_segment', 'inbound_sms_price']),
             ],
             'search' => $request->input('search', ''),
         ]);
@@ -315,12 +329,31 @@ class MessageController extends Controller
         $validated = $request->validate([
             'body' => ['nullable', 'string', 'max:5000'],
             'destinations_count' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'from_number_id' => ['nullable', 'integer', 'exists:phone_numbers,id'],
+            'prefix_id' => ['nullable', 'integer', 'exists:phone_prefixes,id'],
+            'destination_number' => ['nullable', 'string', 'max:50'],
         ]);
 
         $body = (string) ($validated['body'] ?? '');
         $destCount = (int) ($validated['destinations_count'] ?? 1);
+        $prefixId = isset($validated['prefix_id']) ? (int) $validated['prefix_id'] : null;
+        $numberForPrefix = $validated['destination_number'] ?? null;
 
-        $calculation = $calculator->calculate($body, $destCount);
+        if (! $prefixId && ! empty($validated['from_number_id'])) {
+            $fromNumber = PhoneNumber::with('prefix')->find((int) $validated['from_number_id']);
+            if ($fromNumber) {
+                $prefixId = $fromNumber->phone_prefix_id;
+                $numberForPrefix = $numberForPrefix ?: $fromNumber->number;
+            }
+        }
+
+        $calculation = $calculator->calculate(
+            text: $body,
+            destinationsCount: $destCount,
+            ratePerSegment: null,
+            prefixId: $prefixId,
+            numberForPrefix: $numberForPrefix
+        );
 
         return response()->json([
             'success' => true,

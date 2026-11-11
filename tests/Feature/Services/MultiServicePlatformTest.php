@@ -8,12 +8,19 @@ use App\Contracts\Services\ServiceStrategyInterface;
 use App\Contracts\WalletServiceInterface;
 use App\DTOs\Services\ServiceOrderRequestData;
 use App\DTOs\Services\ServiceValidationResultData;
+use App\Enums\PhoneNumberStatus;
+use App\Enums\PhoneNumberType;
+use App\Enums\UserRole;
+use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 use App\Models\ServiceDefinition;
 use App\Models\ServiceOrder;
 use App\Models\ServicePlan;
 use App\Models\ServiceResourceAllocation;
 use App\Models\User;
 use App\Services\Catalog\ServicePurchaseOrchestrator;
+use App\Services\Numbers\NumberSearchAndSuggestionService;
+use App\Services\SmsSegmentCalculatorService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -275,6 +282,182 @@ class MultiServicePlatformTest extends TestCase
         // Verify double-entry financial ledger remains 100% balanced
         $reconciliation = app(FinancialReconciliationServiceInterface::class)->reconcileUser($user);
         $this->assertTrue($reconciliation['is_balanced'] ?? $reconciliation['is_healthy'] ?? true);
+    }
+
+    public function test_admin_service_management_tariffs_plans_and_direct_subscriber_provisioning(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $subscriber = User::factory()->create(['account_tier' => 'enterprise', 'organization_name' => 'GoldenSource']);
+
+        // 1. Admin views /admin/services
+        $this->actingAs($admin)
+            ->get(route('admin.services.index'))
+            ->assertOk();
+
+        // 2. Admin updates custom_id tariff rates
+        $customIdDef = ServiceDefinition::where('key', 'custom_id')->firstOrFail();
+        $this->actingAs($admin)
+            ->patch(route('admin.services.definitions.update', $customIdDef->id), [
+                'is_active' => true,
+                'is_purchasable' => true,
+                'requires_approval_for_enterprise' => false,
+                'available_for_roles' => ['individual', 'enterprise'],
+                'pricing_config' => [
+                    'standard_base_price' => '22.5000',
+                    'semi_rond_price' => '45.0000',
+                    'golden_rond_price' => '95.0000',
+                    'enterprise_short_4_price' => '250.0000',
+                    'enterprise_short_5_price' => '140.0000',
+                ],
+            ])
+            ->assertRedirect();
+
+        $this->assertEquals('22.5000', $customIdDef->fresh()->pricing_config['standard_base_price']);
+
+        // 3. Admin creates a new ServicePlan
+        $this->actingAs($admin)
+            ->post(route('admin.services.plans.store'), [
+                'service_definition_id' => $customIdDef->id,
+                'code' => 'id_vip_custom_pack',
+                'target_tier' => 'enterprise',
+                'base_price' => '120.0000',
+                'quota_units' => 5,
+                'is_active' => true,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('service_plans', [
+            'code' => 'id_vip_custom_pack',
+            'base_price' => '120.0000',
+        ]);
+
+        // 4. Admin directly provisions a Web3 domain package to the subscriber
+        $this->actingAs($admin)
+            ->post(route('admin.services.allocations.store'), [
+                'user_id' => $subscriber->id,
+                'service_key' => 'web3_email_package',
+                'resource_identifier' => 'goldensource.dao',
+                'display_title' => 'Enterprise DAO Domain',
+                'account_tier' => 'enterprise',
+                'total_quota' => 100,
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('service_resource_allocations', [
+            'user_id' => $subscriber->id,
+            'service_key' => 'web3_email_package',
+            'resource_identifier' => 'goldensource.dao',
+            'total_quota' => 100,
+            'status' => 'active',
+        ]);
+    }
+
+    public function test_per_prefix_sms_tariff_calculation_and_admin_update(): void
+    {
+        $prefix = PhonePrefix::updateOrCreate(
+            ['prefix' => '+85'],
+            [
+                'name' => 'Iran',
+                'country_code' => 'IR',
+                'country_name' => 'Iran',
+                'flag' => '🇮🇷',
+                'sub_prefixes' => ['000', '912'],
+                'price_regular' => 25,
+                'price_semi_rond' => 50,
+                'price_golden_rond' => 100,
+                'sms_price_per_segment' => 0.3500,
+                'inbound_sms_price' => 0.0500,
+                'is_active' => true,
+                'is_default' => true,
+            ]
+        );
+
+        $calculator = app(SmsSegmentCalculatorService::class);
+        $metrics = $calculator->calculate('Hello World', 1, null, $prefix->id);
+
+        $this->assertEquals(1, $metrics['segment_count']);
+        $this->assertEquals('0.3500', $metrics['rate_per_segment']);
+        $this->assertEquals('0.3500', $metrics['total_cost']);
+    }
+
+    public function test_number_search_and_enterprise_shortcode_availability_detects_taken_numbers_and_provides_suggestions(): void
+    {
+        $prefix = PhonePrefix::updateOrCreate(
+            ['prefix' => '+85'],
+            [
+                'name' => 'Iran',
+                'country_code' => 'IR',
+                'country_name' => 'Iran',
+                'flag' => '🇮🇷',
+                'sub_prefixes' => ['000', '111'],
+                'price_regular' => 25,
+                'price_semi_rond' => 50,
+                'price_golden_rond' => 100,
+                'sms_price_per_segment' => 0.1500,
+                'inbound_sms_price' => 0.0000,
+                'is_active' => true,
+                'is_default' => true,
+            ]
+        );
+
+        $owner = User::factory()->create(['account_tier' => 'enterprise']);
+
+        // Allocate a 9-digit number (even without phone_prefix_id set) and a 4-digit shortcode
+        PhoneNumber::create([
+            'number' => '000123456',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $owner->id,
+        ]);
+
+        PhoneNumber::create([
+            'number' => '4050',
+            'type' => PhoneNumberType::UserService,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $owner->id,
+        ]);
+
+        $searchService = app(NumberSearchAndSuggestionService::class);
+
+        // 1. 9-digit check must strictly report is_available = false for allocated number
+        $check9 = $searchService->checkAndSuggest((int) $prefix->id, '000', '123456');
+        $this->assertFalse($check9['is_available']);
+        $this->assertNotEmpty($check9['suggestions']);
+
+        // 2. Shortcode check must strictly report is_available = false for allocated 4050 and return suggestions
+        $check4 = $searchService->checkAndSuggestShortcode((int) $prefix->id, 4, '4050');
+        $this->assertFalse($check4['is_available']);
+        $this->assertNotEmpty($check4['suggestions']);
+
+        // 3. Enterprise shortcode suggestions endpoint returns available suggestions for length 5
+        $this->actingAs($owner)
+            ->getJson(route('requests.suggestions', ['requested_length' => 5, 'prefix_id' => $prefix->id]))
+            ->assertOk()
+            ->assertJsonStructure(['suggestions']);
+    }
+
+    public function test_admin_user_management_updates_account_tier_and_organization_metadata(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $targetUser = User::factory()->create(['account_tier' => 'individual']);
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.update', $targetUser->id), [
+                'name' => 'GoldenSource Corp',
+                'username' => 'goldensource_corp',
+                'role' => 'user',
+                'status' => 'active',
+                'account_tier' => 'enterprise',
+                'organization_name' => 'GoldenSource Holding',
+                'enterprise_contract_code' => 'ENT-2026-999',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $freshUser = $targetUser->fresh();
+        $this->assertEquals('enterprise', $freshUser->account_tier);
+        $this->assertEquals('GoldenSource Holding', $freshUser->organization_name);
+        $this->assertEquals('ENT-2026-999', $freshUser->enterprise_contract_code);
     }
 }
 

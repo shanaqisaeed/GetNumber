@@ -33,6 +33,8 @@ class PhonePrefixController extends Controller
                 'price_regular' => (string) ($p->price_regular ?? '1.0000'),
                 'price_semi_rond' => (string) ($p->price_semi_rond ?? '5.0000'),
                 'price_golden_rond' => (string) ($p->price_golden_rond ?? '20.0000'),
+                'sms_price_per_segment' => (string) ($p->sms_price_per_segment ?? '0.0500'),
+                'inbound_sms_price' => (string) ($p->inbound_sms_price ?? '0.0000'),
                 'is_default' => (bool) $p->is_default,
                 'is_active' => (bool) $p->is_active,
                 'numbers_count' => (int) $p->phone_numbers_count,
@@ -66,6 +68,8 @@ class PhonePrefixController extends Controller
             'price_regular' => ['nullable', 'numeric', 'min:0'],
             'price_semi_rond' => ['nullable', 'numeric', 'min:0'],
             'price_golden_rond' => ['nullable', 'numeric', 'min:0'],
+            'sms_price_per_segment' => ['nullable', 'numeric', 'min:0'],
+            'inbound_sms_price' => ['nullable', 'numeric', 'min:0'],
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
         ], [
@@ -102,6 +106,8 @@ class PhonePrefixController extends Controller
             'price_regular' => $validated['price_regular'] ?? '1.0000',
             'price_semi_rond' => $validated['price_semi_rond'] ?? '5.0000',
             'price_golden_rond' => $validated['price_golden_rond'] ?? '20.0000',
+            'sms_price_per_segment' => $validated['sms_price_per_segment'] ?? '0.0500',
+            'inbound_sms_price' => $validated['inbound_sms_price'] ?? '0.0000',
             'is_default' => $isDefault,
             'is_active' => $isActive,
         ]);
@@ -113,6 +119,7 @@ class PhonePrefixController extends Controller
             payload: [
                 'prefix' => $prefix->prefix,
                 'name' => $prefix->name,
+                'sms_price_per_segment' => $prefix->sms_price_per_segment,
                 'is_default' => $prefix->is_default,
                 'is_active' => $prefix->is_active,
             ]
@@ -127,7 +134,7 @@ class PhonePrefixController extends Controller
     public function update(Request $request, PhonePrefix $prefix): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:100'],
+            'name' => ['nullable', 'string', 'max:100'],
             'country_name' => ['nullable', 'string', 'max:100'],
             'country_code' => ['nullable', 'string', 'max:10'],
             'flag' => ['nullable', 'string', 'max:32'],
@@ -135,10 +142,10 @@ class PhonePrefixController extends Controller
             'price_regular' => ['nullable', 'numeric', 'min:0'],
             'price_semi_rond' => ['nullable', 'numeric', 'min:0'],
             'price_golden_rond' => ['nullable', 'numeric', 'min:0'],
+            'sms_price_per_segment' => ['nullable', 'numeric', 'min:0'],
+            'inbound_sms_price' => ['nullable', 'numeric', 'min:0'],
             'is_default' => ['boolean'],
             'is_active' => ['boolean'],
-        ], [
-            'name.required' => __('controllers.admin.phone_prefixes.val_name_required'),
         ]);
 
         $isDefault = (bool) ($validated['is_default'] ?? $prefix->is_default);
@@ -159,7 +166,7 @@ class PhonePrefixController extends Controller
             : $prefix->sub_prefixes;
 
         $prefix->update([
-            'name' => trim($validated['name']),
+            'name' => ! empty($validated['name']) ? trim($validated['name']) : (! empty($validated['country_name']) ? trim($validated['country_name']) : $prefix->name),
             'country_name' => ! empty($validated['country_name']) ? trim($validated['country_name']) : $prefix->country_name,
             'country_code' => ! empty($validated['country_code']) ? strtoupper(trim($validated['country_code'])) : $prefix->country_code,
             'flag' => ! empty($validated['flag']) ? trim($validated['flag']) : $prefix->flag,
@@ -167,6 +174,8 @@ class PhonePrefixController extends Controller
             'price_regular' => $validated['price_regular'] ?? $prefix->price_regular,
             'price_semi_rond' => $validated['price_semi_rond'] ?? $prefix->price_semi_rond,
             'price_golden_rond' => $validated['price_golden_rond'] ?? $prefix->price_golden_rond,
+            'sms_price_per_segment' => $validated['sms_price_per_segment'] ?? $prefix->sms_price_per_segment,
+            'inbound_sms_price' => $validated['inbound_sms_price'] ?? $prefix->inbound_sms_price,
             'is_default' => $isDefault,
             'is_active' => $isActive,
         ]);

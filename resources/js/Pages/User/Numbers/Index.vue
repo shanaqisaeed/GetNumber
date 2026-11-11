@@ -488,30 +488,56 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     {{ __('catalog.module_subtitle') }}
                 </p>
 
-                <!-- 4 Multi-Service KPI Summary Pills -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
-                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.phone_lines_count') }}</div>
-                        <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5">
-                            {{ quota.active }} <span class="text-xs font-normal text-slate-400">/ {{ quota.max }}</span>
+                <!-- 4 Multi-Service KPI Summary Pills (2x2 Grid for UserLayout width) -->
+                <div class="grid grid-cols-2 gap-2.5 mt-4">
+                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.phone_lines_count') }}</div>
+                            <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5" dir="ltr">
+                                {{ quota.active }} <span class="text-xs font-normal text-slate-400">/ {{ quota.max }}</span>
+                            </div>
+                        </div>
+                        <div class="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
                         </div>
                     </div>
-                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.custom_ids_count') }}</div>
-                        <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
-                            {{ customIdAllocations.length }}
+                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.custom_ids_count') }}</div>
+                            <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5" dir="ltr">
+                                {{ customIdAllocations.length }}
+                            </div>
+                        </div>
+                        <div class="w-9 h-9 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 font-mono font-black text-sm">
+                            @
                         </div>
                     </div>
-                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.web3_domains_count') }}</div>
-                        <div class="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5">
-                            {{ web3Allocations.length }}
+                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.web3_domains_count') }}</div>
+                            <div class="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5" dir="ltr">
+                                {{ web3Allocations.length }}
+                            </div>
+                        </div>
+                        <div class="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                            </svg>
                         </div>
                     </div>
-                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.total_sub_accounts_quota') }}</div>
-                        <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
-                            {{ usedWeb3Quota }} <span class="text-xs font-normal text-slate-400">/ {{ totalWeb3Quota }}</span>
+                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                        <div>
+                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.total_sub_accounts_quota') }}</div>
+                            <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5" dir="ltr">
+                                {{ usedWeb3Quota }} <span class="text-xs font-normal text-slate-400">/ {{ totalWeb3Quota }}</span>
+                            </div>
+                        </div>
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
                         </div>
                     </div>
                 </div>
@@ -550,64 +576,89 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
             </div>
 
-            <!-- 2. Registered Multi-Service Catalog Cards (Strategy / Plugin Registry) -->
-            <div v-if="service_catalog && service_catalog.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <!-- 2. Registered Multi-Service Catalog Cards (Full-Width Stacked Cards for Crisp Readability) -->
+            <div v-if="service_catalog && service_catalog.length > 0" class="grid grid-cols-1 gap-3">
                 <div
                     v-for="service in service_catalog"
                     :key="service.key"
-                    class="glass-card !p-4 flex flex-col justify-between space-y-3 bg-white/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all"
+                    class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs"
                 >
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between gap-2">
-                            <span
-                                class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
-                                :class="service.is_active && service.is_purchasable
-                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'"
-                            >
-                                {{ service.is_active && service.is_purchasable ? __('catalog.flags.purchasable') : __('catalog.flags.not_purchasable') }}
-                            </span>
-                            <span class="text-[10px] font-mono text-slate-400" dir="ltr">
-                                {{ service.channel_type }}
-                            </span>
+                    <div class="flex items-start gap-3.5">
+                        <!-- Service Icon Box -->
+                        <div
+                            class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border"
+                            :class="{
+                                'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25': service.key === 'phone_line',
+                                'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25': service.key === 'custom_id',
+                                'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25': service.key === 'web3_email_package'
+                            }"
+                        >
+                            <svg v-if="service.key === 'phone_line'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span v-else-if="service.key === 'custom_id'" class="font-mono font-black text-lg">@</span>
+                            <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
+                            </svg>
                         </div>
 
-                        <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                            {{ service.title }}
-                        </h3>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            {{ service.description }}
-                        </p>
+                        <div class="flex-1 min-w-0 space-y-1.5">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                                    {{ service.title }}
+                                </h3>
+                                <span
+                                    class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0"
+                                    :class="service.is_active && service.is_purchasable
+                                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'"
+                                >
+                                    {{ service.is_active && service.is_purchasable ? __('catalog.flags.purchasable') : __('catalog.flags.not_purchasable') }}
+                                </span>
+                            </div>
 
-                        <!-- Active Business Policy Chips -->
-                        <div class="flex flex-wrap gap-1.5 pt-1">
-                            <span
-                                v-if="service.active_policy?.min_length"
-                                class="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold"
-                            >
-                                {{ __('catalog.ui.min_id_length_rule', { min: service.active_policy.min_length }) }}
-                            </span>
-                            <span
-                                v-if="service.active_policy?.discount_percent > 0"
-                                class="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-                            >
-                                {{ __('catalog.ui.enterprise_discount_rule', { discount: service.active_policy.discount_percent }) }}
-                            </span>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                {{ service.description }}
+                            </p>
+
+                            <!-- Active Business Policy Chips -->
+                            <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                                <span
+                                    v-if="service.active_policy?.min_length"
+                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold"
+                                >
+                                    {{ __('catalog.ui.min_id_length_rule', { min: service.active_policy.min_length }) }}
+                                </span>
+                                <span
+                                    v-if="service.active_policy?.discount_percent > 0"
+                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                                >
+                                    {{ __('catalog.ui.enterprise_discount_rule', { discount: service.active_policy.discount_percent }) }}
+                                </span>
+                                <span
+                                    v-if="service.plans && service.plans.length > 0"
+                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-mono font-bold"
+                                    dir="ltr"
+                                >
+                                    {{ service.plans[0].final_price }} TRX
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="pt-2 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                    <div class="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
                         <Link
                             :href="route('requests.index')"
-                            class="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                            class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
                         >
-                            {{ __('catalog.tiers.enterprise') }} ←
+                            <span>{{ __('catalog.tiers.enterprise') }}</span>
+                            <span>←</span>
                         </Link>
                         <button
                             type="button"
                             @click="openServicePurchaseModal(service.key)"
                             :disabled="!service.is_active || !service.is_purchasable"
-                            class="glass-btn-primary !w-auto !py-1.5 !px-3.5 !text-xs !rounded-xl disabled:opacity-40"
+                            class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
                             {{ __('catalog.ui.buy_new_service') }}
                         </button>

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\PhonePrefix;
 use App\Models\SystemSetting;
 
 class SmsSegmentCalculatorService
@@ -33,16 +34,33 @@ class SmsSegmentCalculatorService
      *     max_per_segment: int,
      *     chars_remaining_in_segment: int,
      *     rate_per_segment: string,
+     *     prefix_id: int|null,
+     *     prefix_code: string|null,
      *     currency: string,
      *     estimated_cost: string,
      *     destinations_count: int,
      *     total_cost: string
      * }
      */
-    public function calculate(string $text, int $destinationsCount = 1, ?string $ratePerSegment = null): array
-    {
+    public function calculate(
+        string $text,
+        int $destinationsCount = 1,
+        ?string $ratePerSegment = null,
+        ?int $prefixId = null,
+        ?string $numberForPrefix = null
+    ): array {
         $destinationsCount = max(1, $destinationsCount);
-        $rate = $ratePerSegment ?? (string) SystemSetting::get('sms_price_per_segment', self::DEFAULT_RATE_PER_SEGMENT);
+
+        $resolvedPrefix = null;
+        if ($prefixId !== null || ($numberForPrefix !== null && trim($numberForPrefix) !== '')) {
+            $resolvedPrefix = PhonePrefix::resolveForNumber($numberForPrefix, $prefixId);
+        } elseif ($ratePerSegment === null) {
+            $resolvedPrefix = PhonePrefix::getDefaultPrefix();
+        }
+
+        $rate = $ratePerSegment
+            ?? ($resolvedPrefix?->getSmsRatePerSegment())
+            ?? (string) SystemSetting::get('sms_price_per_segment', self::DEFAULT_RATE_PER_SEGMENT);
 
         $charCount = mb_strlen($text, 'UTF-8');
         if ($charCount === 0) {
@@ -54,6 +72,8 @@ class SmsSegmentCalculatorService
                 'max_per_segment' => 160,
                 'chars_remaining_in_segment' => 160,
                 'rate_per_segment' => $rate,
+                'prefix_id' => $resolvedPrefix?->id,
+                'prefix_code' => $resolvedPrefix?->prefix,
                 'currency' => 'COIN',
                 'estimated_cost' => '0.0000',
                 'destinations_count' => $destinationsCount,
@@ -117,6 +137,8 @@ class SmsSegmentCalculatorService
             'max_per_segment' => $maxPerSegment,
             'chars_remaining_in_segment' => max(0, $charsRemaining),
             'rate_per_segment' => $rate,
+            'prefix_id' => $resolvedPrefix?->id,
+            'prefix_code' => $resolvedPrefix?->prefix,
             'currency' => 'COIN',
             'estimated_cost' => $singleCost,
             'destinations_count' => $destinationsCount,

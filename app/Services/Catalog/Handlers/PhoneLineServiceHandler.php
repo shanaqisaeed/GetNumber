@@ -14,16 +14,20 @@ use App\Models\ServiceDefinition;
 use App\Models\ServiceOrder;
 use App\Models\ServicePlan;
 use App\Models\ServiceResourceAllocation;
+use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\Numbers\NumberSearchAndSuggestionService;
 use App\Services\Numbers\RondPatternDetectorService;
 
 class PhoneLineServiceHandler extends AbstractServiceHandler
 {
     public function __construct(
         BusinessRuleEngineInterface $ruleEngine,
-        protected RondPatternDetectorService $rondDetector
+        protected RondPatternDetectorService $rondDetector,
+        protected ?NumberSearchAndSuggestionService $searchService = null
     ) {
         parent::__construct($ruleEngine);
+        $this->searchService = $searchService ?? app(NumberSearchAndSuggestionService::class);
     }
 
     public function serviceKey(): string
@@ -69,22 +73,31 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
                 $errors[] = __('catalog.validation.invalid_phone_length', ['length' => strlen($rawNumber)]);
             }
 
+            $shortcodeSuggestions = $this->searchService->getShortcodeSuggestions(
+                prefixId: isset($payload['prefix_id']) ? (int) $payload['prefix_id'] : null,
+                length: $requestedLength,
+                seedNumber: $rawNumber !== '' ? $rawNumber : null,
+                limit: 6
+            );
+
             $candidateNumber = $rawNumber !== ''
                 ? $rawNumber
-                : str_pad((string) random_int(10 ** ($requestedLength - 1), (10 ** $requestedLength) - 1), $requestedLength, '0', STR_PAD_LEFT);
+                : (($shortcodeSuggestions[0]['number'] ?? null) ?: str_pad((string) random_int(10 ** ($requestedLength - 1), (10 ** $requestedLength) - 1), $requestedLength, '0', STR_PAD_LEFT));
 
-            $isAvailable = ! PhoneNumber::query()
-                ->where('number', $candidateNumber)
-                ->where('status', PhoneNumberStatus::Allocated)
-                ->exists() && ! $this->isIdentifierAllocated($candidateNumber);
+            $isAvailable = ! $this->searchService->isNumberTaken($candidateNumber)
+                && ! $this->isIdentifierAllocated($candidateNumber);
 
             if (! $isAvailable && $rawNumber !== '') {
                 $errors[] = __('catalog.validation.already_allocated', ['identifier' => $candidateNumber]);
             }
 
+            $rondAnalysis = $this->rondDetector->detect($candidateNumber);
             $pricingConfig = $definition->pricing_config ?? config('service_policies.services.phone_line.pricing_config', []);
             $lengthPrices = $pricingConfig['shortcode_length_prices'] ?? [];
-            $basePrice = (string) ($lengthPrices[$requestedLength] ?? $plan?->base_price ?? '150.0000');
+            $basePrice = (string) ($lengthPrices[$requestedLength]
+                ?? SystemSetting::getOrgNumberPrice($requestedLength, (bool) ($rondAnalysis['is_rond'] ?? false))
+                ?? $plan?->base_price
+                ?? '150.0000');
 
             $priceData = $this->ruleEngine->calculateDiscountedPrice($basePrice, $policy);
 
@@ -100,11 +113,14 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
                 quotaUnits: 1,
                 requiresApproval: (bool) $definition->requires_approval_for_enterprise,
                 errors: $errors,
-                suggestions: ! $isAvailable ? $this->generateSuggestions($candidateNumber) : [],
+                suggestions: array_map(fn ($item) => $item['number'], $shortcodeSuggestions),
                 metadata: [
                     'allocation_mode' => 'enterprise_shortcode',
                     'requested_length' => $requestedLength,
+                    'rond_tier' => $rondAnalysis['tier'] ?? 'regular',
+                    'rond_pattern' => $rondAnalysis['pattern'] ?? null,
                     'discount_percent' => $priceData['discount_percent'],
+                    'rich_suggestions' => $shortcodeSuggestions,
                 ]
             );
         }
@@ -122,32 +138,32 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
             $errors[] = __('catalog.validation.invalid_phone_length', ['length' => strlen($rawNumber)]);
         }
 
-        if ($rawNumber === '') {
-            $availablePool = PhoneNumber::query()
-                ->where('type', PhoneNumberType::UserStandard)
-                ->where('status', PhoneNumberStatus::Available)
-                ->value('number');
+        $poolSuggestions = $this->searchService->getPoolSuggestions(
+            prefixId: $prefix?->id ?? 1,
+            subPrefix: strlen($rawNumber) >= 3 ? substr($rawNumber, 0, 3) : null,
+            limit: 6
+        );
 
-            $rawNumber = $availablePool ?: str_pad((string) random_int(100000, 999999999), 9, '0', STR_PAD_LEFT);
+        if ($rawNumber === '') {
+            $rawNumber = ($poolSuggestions[0]['number'] ?? null)
+                ?: str_pad((string) random_int(910000000, 999999999), 9, '0', STR_PAD_LEFT);
         }
 
-        $isAvailable = ! PhoneNumber::query()
-            ->where('number', $rawNumber)
-            ->where('status', PhoneNumberStatus::Allocated)
-            ->exists() && ! $this->isIdentifierAllocated($rawNumber);
+        $isAvailable = ! $this->searchService->isNumberTaken($rawNumber)
+            && ! $this->isIdentifierAllocated($rawNumber);
 
         if (! $isAvailable) {
             $errors[] = __('catalog.validation.already_allocated', ['identifier' => $rawNumber]);
         }
 
-        $rondAnalysis = $this->rondDetector->detectTier($rawNumber);
+        $rondAnalysis = $this->rondDetector->detect($rawNumber);
         $rondTier = $rondAnalysis['tier'] ?? 'regular';
 
         $pricingConfig = $definition->pricing_config ?? config('service_policies.services.phone_line.pricing_config', []);
         $basePrice = match ($rondTier) {
-            'golden_rond' => (string) ($prefix?->golden_rond_price ?? $pricingConfig['golden_rond_base'] ?? '100.0000'),
-            'semi_rond' => (string) ($prefix?->semi_rond_price ?? $pricingConfig['semi_rond_base'] ?? '50.0000'),
-            default => (string) ($prefix?->regular_price ?? $pricingConfig['standard_9digit_base'] ?? '25.0000'),
+            'golden_rond' => (string) ($prefix?->price_golden_rond ?? $pricingConfig['golden_rond_base'] ?? '100.0000'),
+            'semi_rond' => (string) ($prefix?->price_semi_rond ?? $pricingConfig['semi_rond_base'] ?? '50.0000'),
+            default => (string) ($prefix?->price_regular ?? $pricingConfig['standard_9digit_base'] ?? '25.0000'),
         };
 
         $badge = match ($rondTier) {
@@ -170,15 +186,16 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
             quotaUnits: 1,
             requiresApproval: false,
             errors: $errors,
-            suggestions: ! $isAvailable ? $this->generateSuggestions(substr($rawNumber, 0, 7)) : [],
+            suggestions: array_map(fn ($item) => $item['number'], $poolSuggestions),
             metadata: [
                 'allocation_mode' => 'standard_9digit',
                 'prefix_id' => $prefix?->id,
-                'prefix_code' => $prefix?->prefix_code ?? '0900',
-                'country_code' => $prefix?->country_code ?? '+98',
+                'prefix_code' => $prefix?->prefix ?? '+85',
+                'country_code' => $prefix?->country_code ?? 'IR',
                 'rond_tier' => $rondTier,
-                'rond_pattern' => $rondAnalysis['pattern_name'] ?? null,
+                'rond_pattern' => $rondAnalysis['pattern'] ?? null,
                 'discount_percent' => $priceData['discount_percent'],
+                'rich_suggestions' => $poolSuggestions,
             ]
         );
     }
@@ -199,13 +216,15 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
 
             $numberRequest = NumberRequest::create([
                 'user_id' => $user->id,
+                'phone_prefix_id' => $validation->metadata['prefix_id'] ?? PhonePrefix::getDefaultPrefix()?->id,
                 'requested_length' => $requestedLength,
                 'service_title' => $displayTitle,
                 'description' => (string) ($payload['description'] ?? $displayTitle),
                 'preferred_number' => $validation->normalizedIdentifier,
-                'communication_mode' => (string) ($payload['communication_mode'] ?? 'two_way'),
-                'tariff_price' => $validation->finalAmount,
-                'held_amount' => $order->held_amount,
+                'is_rond' => ($validation->metadata['rond_tier'] ?? 'regular') !== 'regular',
+                'rond_tier' => $validation->metadata['rond_tier'] ?? 'regular',
+                'accepts_incoming_sms' => ($payload['communication_mode'] ?? 'two_way') === 'two_way',
+                'held_amount' => $order->held_amount ?: $validation->finalAmount,
                 'status' => NumberRequestStatus::Pending,
             ]);
 
@@ -221,14 +240,13 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
         $phone = PhoneNumber::updateOrCreate(
             ['number' => $validation->normalizedIdentifier],
             [
-                'prefix_id' => $validation->metadata['prefix_id'] ?? null,
+                'phone_prefix_id' => $validation->metadata['prefix_id'] ?? PhonePrefix::getDefaultPrefix()?->id,
                 'type' => $phoneType,
                 'rond_tier' => $validation->metadata['rond_tier'] ?? 'regular',
-                'purchase_price' => $validation->finalAmount,
-                'is_free_quota' => bccomp($validation->finalAmount, '0.0000', 4) === 0,
+                'rond_pattern' => $validation->metadata['rond_pattern'] ?? null,
                 'status' => PhoneNumberStatus::Allocated,
                 'display_title' => $displayTitle,
-                'communication_mode' => 'two_way',
+                'accepts_incoming_sms' => true,
                 'user_id' => $user->id,
                 'allocated_at' => now(),
                 'released_at' => null,
@@ -281,4 +299,3 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
         return true;
     }
 }
-

@@ -16,6 +16,8 @@ interface PrefixItem {
     price_regular: string | number;
     price_semi_rond: string | number;
     price_golden_rond: string | number;
+    sms_price_per_segment: string | number;
+    inbound_sms_price: string | number;
     is_default: boolean;
     is_active: boolean;
     numbers_count: number;
@@ -53,6 +55,8 @@ const createForm = useForm({
     price_regular: '1.0000',
     price_semi_rond: '5.0000',
     price_golden_rond: '20.0000',
+    sms_price_per_segment: '0.0500',
+    inbound_sms_price: '0.0000',
     is_default: false,
     is_active: true,
 });
@@ -66,10 +70,15 @@ const openCreateModal = () => {
     createForm.price_regular = '1.0000';
     createForm.price_semi_rond = '5.0000';
     createForm.price_golden_rond = '20.0000';
+    createForm.sms_price_per_segment = '0.0500';
+    createForm.inbound_sms_price = '0.0000';
     isCreateModalOpen.value = true;
 };
 
 const submitCreate = () => {
+    if (!createForm.name && createForm.country_name) {
+        createForm.name = createForm.country_name;
+    }
     createForm.post(route('admin.prefixes.store'), {
         preserveScroll: true,
         onSuccess: () => {
@@ -91,6 +100,8 @@ const editForm = useForm({
     price_regular: '1.0000',
     price_semi_rond: '5.0000',
     price_golden_rond: '20.0000',
+    sms_price_per_segment: '0.0500',
+    inbound_sms_price: '0.0000',
     is_default: false,
     is_active: true,
 });
@@ -107,6 +118,8 @@ const openEditModal = (prefix: PrefixItem) => {
     editForm.price_regular = String(prefix.price_regular || '1.0000');
     editForm.price_semi_rond = String(prefix.price_semi_rond || '5.0000');
     editForm.price_golden_rond = String(prefix.price_golden_rond || '20.0000');
+    editForm.sms_price_per_segment = String(prefix.sms_price_per_segment || '0.0500');
+    editForm.inbound_sms_price = String(prefix.inbound_sms_price || '0.0000');
     editForm.is_default = prefix.is_default;
     editForm.is_active = prefix.is_active;
     isEditModalOpen.value = true;
@@ -114,6 +127,9 @@ const openEditModal = (prefix: PrefixItem) => {
 
 const submitEdit = () => {
     if (!editingPrefix.value) return;
+    if (!editForm.name && editForm.country_name) {
+        editForm.name = editForm.country_name;
+    }
     editForm.patch(route('admin.prefixes.update', editingPrefix.value.id), {
         preserveScroll: true,
         onSuccess: () => {
@@ -133,6 +149,8 @@ const toggleStatus = (prefix: PrefixItem) => {
         price_regular: prefix.price_regular,
         price_semi_rond: prefix.price_semi_rond,
         price_golden_rond: prefix.price_golden_rond,
+        sms_price_per_segment: prefix.sms_price_per_segment,
+        inbound_sms_price: prefix.inbound_sms_price,
         is_default: prefix.is_default,
         is_active: !prefix.is_active,
     }, {
@@ -151,6 +169,8 @@ const setAsDefault = (prefix: PrefixItem) => {
         price_regular: prefix.price_regular,
         price_semi_rond: prefix.price_semi_rond,
         price_golden_rond: prefix.price_golden_rond,
+        sms_price_per_segment: prefix.sms_price_per_segment,
+        inbound_sms_price: prefix.inbound_sms_price,
         is_default: true,
         is_active: true,
     }, {
@@ -252,6 +272,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                 <th class="p-3.5">{{ __('admin.prefixes.th_prefix') }}</th>
                                 <th class="p-3.5">{{ __('admin.prefixes.th_precodes') }}</th>
                                 <th class="p-3.5">{{ __('admin.prefixes.th_tariffs') }}</th>
+                                <th class="p-3.5">{{ __('admin.prefixes.th_sms_tariff') }}</th>
                                 <th class="p-3.5">{{ __('admin.prefixes.th_lines') }}</th>
                                 <th class="p-3.5">{{ __('admin.prefixes.th_status') }}</th>
                                 <th class="p-3.5">{{ __('admin.prefixes.th_default') }}</th>
@@ -296,6 +317,12 @@ const deletePrefix = (prefix: PrefixItem) => {
                                         <span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 font-black" :title="__('admin.prefixes.tier_golden')">
                                             {{ prefix.price_golden_rond }}
                                         </span>
+                                    </div>
+                                </td>
+                                <td class="p-3.5 font-mono" dir="ltr">
+                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-400">
+                                        <span>{{ prefix.sms_price_per_segment }}</span>
+                                        <span class="text-[9px] font-bold opacity-80">TRX / SMS</span>
                                     </div>
                                 </td>
                                 <td class="p-3.5">
@@ -464,6 +491,35 @@ const deletePrefix = (prefix: PrefixItem) => {
                             </div>
                         </div>
 
+                        <!-- Per-Prefix SMS Tariff -->
+                        <div class="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 space-y-2">
+                            <span class="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">{{ __('admin.prefixes.sms_pricing_label') }}</span>
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <label class="text-[11px] text-emerald-700 dark:text-emerald-400 block mb-1 font-bold">{{ __('admin.prefixes.sms_outbound_rate') }}</label>
+                                    <input
+                                        v-model="createForm.sms_price_per_segment"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.sms_inbound_rate') }}</label>
+                                    <input
+                                        v-model="createForm.inbound_sms_price"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="flex items-center gap-4 pt-1">
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input v-model="createForm.is_active" type="checkbox" class="rounded text-rose-600 focus:ring-rose-500" />
@@ -573,6 +629,35 @@ const deletePrefix = (prefix: PrefixItem) => {
                                         v-model="editForm.price_golden_rond"
                                         type="number"
                                         step="0.0001"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Per-Prefix SMS Tariff -->
+                        <div class="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 space-y-2">
+                            <span class="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">{{ __('admin.prefixes.sms_pricing_label') }}</span>
+                            <div class="grid grid-cols-2 gap-2.5">
+                                <div>
+                                    <label class="text-[11px] text-emerald-700 dark:text-emerald-400 block mb-1 font-bold">{{ __('admin.prefixes.sms_outbound_rate') }}</label>
+                                    <input
+                                        v-model="editForm.sms_price_per_segment"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
+                                        dir="ltr"
+                                        class="form-input w-full font-mono text-center"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.sms_inbound_rate') }}</label>
+                                    <input
+                                        v-model="editForm.inbound_sms_price"
+                                        type="number"
+                                        step="0.0001"
+                                        min="0"
                                         dir="ltr"
                                         class="form-input w-full font-mono text-center"
                                     />
