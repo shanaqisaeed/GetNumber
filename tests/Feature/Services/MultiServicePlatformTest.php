@@ -57,6 +57,10 @@ class MultiServicePlatformTest extends TestCase
         $this->assertContains('web3_email_package', $keys);
 
         $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertOk();
+
+        $this->actingAs($user)
             ->get(route('services.index'))
             ->assertOk();
 
@@ -440,6 +444,10 @@ class MultiServicePlatformTest extends TestCase
     {
         $admin = User::factory()->create(['role' => UserRole::Admin]);
         $targetUser = User::factory()->create(['account_tier' => 'individual']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.users.index'))
+            ->assertOk();
 
         $this->actingAs($admin)
             ->patch(route('admin.users.update', $targetUser->id), [

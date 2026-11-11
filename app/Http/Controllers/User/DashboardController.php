@@ -106,26 +106,26 @@ class DashboardController extends Controller
             ->latest('id')
             ->first();
 
-        $customIdsCount = $user->activeServiceAllocations()->where('resource_type', 'handle_id')->count();
-        $web3Allocations = $user->activeServiceAllocations()->where('resource_type', 'web3_domain_suite')->get();
+        $customIdsCount = $user->activeServiceAllocations()->where('service_key', 'custom_id')->count();
+        $web3Allocations = $user->activeServiceAllocations()->where('service_key', 'web3_email_package')->get();
         $web3DomainsCount = $web3Allocations->count();
-        $web3QuotaTotal = (int) $web3Allocations->sum('quota_total');
-        $web3QuotaUsed = (int) $web3Allocations->sum('quota_used');
+        $web3QuotaTotal = (int) $web3Allocations->sum('total_quota');
+        $web3QuotaUsed = (int) $web3Allocations->sum('used_quota');
 
         $recentAllocations = $user->activeServiceAllocations()
-            ->with('serviceDefinition:id,key,title_key')
-            ->whereIn('resource_type', ['handle_id', 'web3_domain_suite'])
+            ->with('serviceDefinition')
+            ->whereIn('service_key', ['custom_id', 'web3_email_package'])
             ->latest('id')
             ->limit(4)
             ->get()
             ->map(fn ($a) => [
                 'id' => $a->id,
-                'service_key' => $a->serviceDefinition?->key ?? $a->resource_type,
-                'service_title' => $a->serviceDefinition ? __($a->serviceDefinition->title_key) : $a->resource_type,
-                'identifier' => $a->identifier,
+                'service_key' => $a->serviceDefinition?->key ?? $a->service_key,
+                'service_title' => $a->serviceDefinition?->title ?? $a->service_key,
+                'identifier' => $a->resource_identifier,
                 'display_title' => $a->display_title,
-                'quota_total' => $a->quota_total,
-                'quota_used' => $a->quota_used,
+                'quota_total' => $a->total_quota,
+                'quota_used' => $a->used_quota,
             ]);
 
         return Inertia::render('Dashboard', [

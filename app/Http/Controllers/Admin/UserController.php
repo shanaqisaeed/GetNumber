@@ -30,7 +30,7 @@ class UserController extends Controller
             },
             'phoneNumbers.prefix',
             'serviceAllocations' => function ($q) {
-                $q->with('serviceDefinition:id,key,title_key')
+                $q->with('serviceDefinition')
                   ->latest('id');
             },
         ]);
@@ -49,7 +49,7 @@ class UserController extends Controller
                       $pq->where('number', 'like', "%{$search}%");
                   })
                   ->orWhereHas('serviceAllocations', function ($sq) use ($search) {
-                      $sq->where('identifier', 'like', "%{$search}%");
+                      $sq->where('resource_identifier', 'like', "%{$search}%");
                   });
             });
         }
@@ -116,14 +116,14 @@ class UserController extends Controller
                 ]),
                 'service_allocations' => $u->serviceAllocations->map(fn ($a) => [
                     'id' => $a->id,
-                    'service_key' => $a->serviceDefinition?->key,
-                    'service_title' => $a->serviceDefinition ? __($a->serviceDefinition->title_key) : $a->resource_type,
-                    'resource_type' => $a->resource_type,
-                    'identifier' => $a->identifier,
+                    'service_key' => $a->serviceDefinition?->key ?? $a->service_key,
+                    'service_title' => $a->serviceDefinition?->title ?? $a->service_key,
+                    'resource_type' => $a->channel_type,
+                    'identifier' => $a->resource_identifier,
                     'display_title' => $a->display_title,
                     'status' => $a->status,
-                    'quota_total' => $a->quota_total,
-                    'quota_used' => $a->quota_used,
+                    'quota_total' => $a->total_quota,
+                    'quota_used' => $a->used_quota,
                     'allocated_at' => $a->allocated_at?->format('Y/m/d H:i'),
                 ]),
             ]);
