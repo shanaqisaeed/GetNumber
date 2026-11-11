@@ -75,9 +75,51 @@ class PhoneNumberController extends Controller
 
         $activeCount = app(\App\Contracts\SystemCacheServiceInterface::class)->getUserActiveNumbersCount($user->id);
 
+        /** @var \App\Services\Catalog\ServiceRegistry $serviceRegistry */
+        $serviceRegistry = app(\App\Contracts\Services\ServiceRegistryInterface::class);
+        $serviceRegistry->syncUserLegacyPhoneAllocations($user);
+        $serviceCatalog = $serviceRegistry->getCatalogForUser($user, 'services');
+
+        $serviceAllocations = \App\Models\ServiceResourceAllocation::query()
+            ->with(['subResources', 'serviceDefinition'])
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->orderByDesc('allocated_at')
+            ->get()
+            ->map(fn (\App\Models\ServiceResourceAllocation $item) => [
+                'id' => $item->id,
+                'uuid' => $item->uuid,
+                'service_key' => $item->service_key,
+                'service_title' => $item->serviceDefinition?->title ?? $item->service_key,
+                'channel_type' => $item->channel_type,
+                'resource_identifier' => $item->resource_identifier,
+                'display_title' => $item->display_title ?: $item->resource_identifier,
+                'account_tier' => $item->account_tier,
+                'tier_badge' => $item->tier_badge,
+                'tier_label' => __('catalog.tiers_badges.' . $item->tier_badge),
+                'total_quota' => $item->total_quota,
+                'used_quota' => $item->used_quota,
+                'remaining_quota' => $item->remainingQuota(),
+                'phone_number_id' => $item->phone_number_id,
+                'capabilities' => $item->capabilities ?? [],
+                'metadata' => $item->metadata ?? [],
+                'sub_resources' => $item->subResources->map(fn ($sub) => [
+                    'id' => $sub->id,
+                    'sub_identifier' => $sub->sub_identifier,
+                    'full_address' => $sub->full_address,
+                    'display_name' => $sub->display_name,
+                    'status' => $sub->status,
+                ])->values()->all(),
+                'allocated_at' => $item->allocated_at?->format('Y/m/d H:i'),
+            ]);
+
         return Inertia::render('User/Numbers/Index', [
             'numbers' => $numbers,
-            'filters' => $request->only(['search', 'type']),
+            'service_catalog' => $serviceCatalog,
+            'service_allocations' => $serviceAllocations,
+            'account_tier' => $user->effectiveServiceTier(),
+            'organization_name' => $user->organization_name,
+            'filters' => $request->only(['search', 'type', 'service_key']),
             'quota' => [
                 'active' => $activeCount,
                 'max' => (int) \App\Models\SystemSetting::get('max_lines_per_user', \App\Services\PhoneNumberAllocationService::DEFAULT_MAX_QUOTA_PER_USER),

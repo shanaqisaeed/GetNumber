@@ -33,6 +33,10 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_confirmed_at',
         'trust_tier',
         'risk_score',
+        'account_tier',
+        'organization_name',
+        'enterprise_contract_code',
+        'enterprise_settings',
     ];
 
     /**
@@ -63,6 +67,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
             'risk_score' => 'integer',
+            'enterprise_settings' => 'array',
         ];
     }
 
@@ -345,5 +350,57 @@ class User extends Authenticatable implements MustVerifyEmail
     public function unlinkIdentity(string $provider): bool
     {
         return (bool) $this->identities()->where('provider', $provider)->delete();
+    }
+
+    /**
+     * Determine the effective service tier ('individual' or 'enterprise') for the BusinessRuleEngine.
+     */
+    public function effectiveServiceTier(): string
+    {
+        if ($this->isAdmin() || $this->account_tier === 'enterprise') {
+            return 'enterprise';
+        }
+
+        return 'individual';
+    }
+
+    /**
+     * Check whether the user is configured as an enterprise account.
+     */
+    public function isEnterpriseTier(): bool
+    {
+        return $this->account_tier === 'enterprise' || $this->isAdmin();
+    }
+
+    /**
+     * Multi-service orders placed by this user.
+     */
+    public function serviceOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ServiceOrder::class);
+    }
+
+    /**
+     * Multi-service resource allocations owned by this user.
+     */
+    public function serviceAllocations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ServiceResourceAllocation::class);
+    }
+
+    /**
+     * Active multi-service resource allocations owned by this user.
+     */
+    public function activeServiceAllocations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ServiceResourceAllocation::class)->where('status', 'active');
+    }
+
+    /**
+     * Sub-resources (e.g., Web3 sub-accounts) owned by this user.
+     */
+    public function serviceSubResources(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ServiceSubResource::class);
     }
 }

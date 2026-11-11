@@ -1,0 +1,441 @@
+<?php
+
+use App\Services\Catalog\Handlers\CustomIdServiceHandler;
+use App\Services\Catalog\Handlers\PhoneLineServiceHandler;
+use App\Services\Catalog\Handlers\Web3EmailPackageServiceHandler;
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Default Account Tier
+    |--------------------------------------------------------------------------
+    */
+    'default_tier' => 'individual',
+
+    'supported_tiers' => [
+        'individual',
+        'enterprise',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global Reserved Identifiers
+    |--------------------------------------------------------------------------
+    */
+    'global_reserved_identifiers' => [
+        'admin',
+        'administrator',
+        'system',
+        'root',
+        'support',
+        'security',
+        'getnumber',
+        'official',
+        'postmaster',
+        'hostmaster',
+        'webmaster',
+        'abuse',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Multi-Service Catalog & Policy Definitions (Phase 1)
+    |--------------------------------------------------------------------------
+    */
+    'services' => [
+        'phone_line' => [
+            'key' => 'phone_line',
+            'driver_class' => PhoneLineServiceHandler::class,
+            'category' => 'communication',
+            'channel_type' => 'sms_line',
+            'icon' => 'phone',
+            'sort_order' => 10,
+            'is_active' => true,
+            'is_purchasable' => true,
+            'requires_approval_for_enterprise' => true,
+            'available_for_roles' => ['individual', 'enterprise'],
+            'translation_prefix' => 'catalog.services.phone_line',
+            'form_schema' => [
+                'version' => '1.0',
+                'fields' => [
+                    [
+                        'name' => 'allocation_mode',
+                        'type' => 'select',
+                        'required' => false,
+                        'default' => 'standard_9digit',
+                        'label_key' => 'catalog.schemas.phone_line.allocation_mode_label',
+                        'hint_key' => 'catalog.schemas.phone_line.allocation_mode_hint',
+                        'options' => [
+                            ['value' => 'standard_9digit', 'label_key' => 'catalog.schemas.phone_line.mode_standard', 'tiers' => ['individual', 'enterprise']],
+                            ['value' => 'enterprise_shortcode', 'label_key' => 'catalog.schemas.phone_line.mode_shortcode', 'tiers' => ['enterprise']],
+                        ],
+                    ],
+                    [
+                        'name' => 'prefix_id',
+                        'type' => 'prefix_selector',
+                        'required' => false,
+                        'visible_when' => ['allocation_mode' => 'standard_9digit'],
+                        'label_key' => 'catalog.schemas.phone_line.prefix_label',
+                        'hint_key' => 'catalog.schemas.phone_line.prefix_hint',
+                    ],
+                    [
+                        'name' => 'preferred_number',
+                        'type' => 'text',
+                        'required' => false,
+                        'dir' => 'ltr',
+                        'label_key' => 'catalog.schemas.phone_line.preferred_number_label',
+                        'placeholder_key' => 'catalog.schemas.phone_line.preferred_number_placeholder',
+                        'hint_key' => 'catalog.schemas.phone_line.preferred_number_hint',
+                    ],
+                    [
+                        'name' => 'requested_length',
+                        'type' => 'select',
+                        'required' => false,
+                        'visible_when' => ['allocation_mode' => 'enterprise_shortcode'],
+                        'label_key' => 'catalog.schemas.phone_line.requested_length_label',
+                        'options' => [
+                            ['value' => 4, 'label_key' => 'catalog.schemas.phone_line.length_4', 'tiers' => ['enterprise']],
+                            ['value' => 5, 'label_key' => 'catalog.schemas.phone_line.length_5', 'tiers' => ['enterprise']],
+                            ['value' => 6, 'label_key' => 'catalog.schemas.phone_line.length_6', 'tiers' => ['enterprise']],
+                            ['value' => 7, 'label_key' => 'catalog.schemas.phone_line.length_7', 'tiers' => ['enterprise']],
+                            ['value' => 8, 'label_key' => 'catalog.schemas.phone_line.length_8', 'tiers' => ['enterprise']],
+                        ],
+                    ],
+                    [
+                        'name' => 'display_title',
+                        'type' => 'text',
+                        'required' => false,
+                        'max_length' => 80,
+                        'label_key' => 'catalog.schemas.common.display_title_label',
+                        'placeholder_key' => 'catalog.schemas.common.display_title_placeholder',
+                    ],
+                ],
+            ],
+            'validation_policies' => [
+                'individual' => [
+                    'allowed_lengths' => [9],
+                    'min_length' => 9,
+                    'max_length' => 9,
+                    'pattern' => '/^[0-9]{9}$/',
+                    'allow_custom_shortcode' => false,
+                    'max_active_resources' => 5,
+                    'discount_percent' => 0,
+                    'fulfillment_mode' => 'instant',
+                ],
+                'enterprise' => [
+                    'allowed_lengths' => [4, 5, 6, 7, 8, 9],
+                    'min_length' => 4,
+                    'max_length' => 9,
+                    'pattern' => '/^[1-9][0-9]{3,7}$|^[0-9]{9}$/',
+                    'allow_custom_shortcode' => true,
+                    'max_active_resources' => 50,
+                    'discount_percent' => 15,
+                    'fulfillment_mode' => 'hybrid',
+                ],
+            ],
+            'pricing_config' => [
+                'currency' => 'TRX',
+                'standard_9digit_base' => '25.0000',
+                'semi_rond_base' => '50.0000',
+                'golden_rond_base' => '100.0000',
+                'shortcode_length_prices' => [
+                    4 => '500.0000',
+                    5 => '300.0000',
+                    6 => '150.0000',
+                    7 => '80.0000',
+                    8 => '40.0000',
+                ],
+            ],
+            'plans' => [
+                [
+                    'code' => 'line_standard_9d',
+                    'target_tier' => 'individual',
+                    'billing_mode' => 'one_time',
+                    'base_price' => '25.0000',
+                    'quota_units' => 1,
+                    'sort_order' => 10,
+                    'metadata' => ['allocation_mode' => 'standard_9digit', 'digits' => 9],
+                ],
+                [
+                    'code' => 'line_enterprise_shortcode_6d',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'contract',
+                    'base_price' => '150.0000',
+                    'quota_units' => 1,
+                    'sort_order' => 20,
+                    'metadata' => ['allocation_mode' => 'enterprise_shortcode', 'digits' => 6],
+                ],
+                [
+                    'code' => 'line_enterprise_shortcode_4d',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'contract',
+                    'base_price' => '500.0000',
+                    'quota_units' => 1,
+                    'sort_order' => 30,
+                    'metadata' => ['allocation_mode' => 'enterprise_shortcode', 'digits' => 4],
+                ],
+            ],
+        ],
+
+        'custom_id' => [
+            'key' => 'custom_id',
+            'driver_class' => CustomIdServiceHandler::class,
+            'category' => 'identity',
+            'channel_type' => 'handle_id',
+            'icon' => 'at-symbol',
+            'sort_order' => 20,
+            'is_active' => true,
+            'is_purchasable' => true,
+            'requires_approval_for_enterprise' => false,
+            'available_for_roles' => ['individual', 'enterprise'],
+            'translation_prefix' => 'catalog.services.custom_id',
+            'form_schema' => [
+                'version' => '1.0',
+                'fields' => [
+                    [
+                        'name' => 'handle',
+                        'type' => 'handle_input',
+                        'prefix_symbol' => '@',
+                        'required' => true,
+                        'dir' => 'ltr',
+                        'label_key' => 'catalog.schemas.custom_id.handle_label',
+                        'placeholder_key' => 'catalog.schemas.custom_id.handle_placeholder',
+                        'hint_key' => 'catalog.schemas.custom_id.handle_hint',
+                    ],
+                    [
+                        'name' => 'display_title',
+                        'type' => 'text',
+                        'required' => false,
+                        'max_length' => 80,
+                        'label_key' => 'catalog.schemas.common.display_title_label',
+                        'placeholder_key' => 'catalog.schemas.common.display_title_placeholder',
+                    ],
+                ],
+            ],
+            'validation_policies' => [
+                'individual' => [
+                    'min_length' => 6,
+                    'max_length' => 24,
+                    'pattern' => '/^[a-z][a-z0-9_]*[a-z0-9]$/i',
+                    'allow_consecutive_underscores' => false,
+                    'allow_short_rond' => false,
+                    'max_active_resources' => 3,
+                    'discount_percent' => 0,
+                    'fulfillment_mode' => 'instant',
+                    'reserved_words' => [
+                        'admin', 'system', 'support', 'root', 'security', 'official',
+                        'getnumber', 'wallet', 'billing', 'enterprise', 'gov', 'bank',
+                    ],
+                ],
+                'enterprise' => [
+                    'min_length' => 4,
+                    'max_length' => 32,
+                    'pattern' => '/^[a-z][a-z0-9_]*[a-z0-9]$/i',
+                    'allow_consecutive_underscores' => false,
+                    'allow_short_rond' => true,
+                    'max_active_resources' => 25,
+                    'discount_percent' => 20,
+                    'fulfillment_mode' => 'instant',
+                    'reserved_words' => [
+                        'admin', 'system', 'root', 'getnumber',
+                    ],
+                ],
+            ],
+            'pricing_config' => [
+                'currency' => 'TRX',
+                'standard_base_price' => '30.0000',
+                'semi_rond_price' => '65.0000',
+                'golden_rond_price' => '120.0000',
+                'enterprise_short_5_price' => '140.0000',
+                'enterprise_short_4_price' => '240.0000',
+            ],
+            'plans' => [
+                [
+                    'code' => 'id_standard_individual',
+                    'target_tier' => 'individual',
+                    'billing_mode' => 'one_time',
+                    'base_price' => '30.0000',
+                    'quota_units' => 1,
+                    'sort_order' => 10,
+                    'metadata' => ['min_length' => 6, 'max_length' => 24],
+                ],
+                [
+                    'code' => 'id_enterprise_short',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'contract',
+                    'base_price' => '140.0000',
+                    'quota_units' => 1,
+                    'sort_order' => 20,
+                    'metadata' => ['min_length' => 4, 'max_length' => 32, 'supports_vip_4char' => true],
+                ],
+            ],
+        ],
+
+        'web3_email_package' => [
+            'key' => 'web3_email_package',
+            'driver_class' => Web3EmailPackageServiceHandler::class,
+            'category' => 'web3_email',
+            'channel_type' => 'web3_domain_suite',
+            'icon' => 'globe-alt',
+            'sort_order' => 30,
+            'is_active' => true,
+            'is_purchasable' => true,
+            'requires_approval_for_enterprise' => false,
+            'available_for_roles' => ['individual', 'enterprise'],
+            'translation_prefix' => 'catalog.services.web3_email_package',
+            'form_schema' => [
+                'version' => '1.0',
+                'fields' => [
+                    [
+                        'name' => 'base_domain',
+                        'type' => 'domain_input',
+                        'required' => true,
+                        'dir' => 'ltr',
+                        'label_key' => 'catalog.schemas.web3_email.base_domain_label',
+                        'placeholder_key' => 'catalog.schemas.web3_email.base_domain_placeholder',
+                        'hint_key' => 'catalog.schemas.web3_email.base_domain_hint',
+                    ],
+                    [
+                        'name' => 'tld',
+                        'type' => 'select',
+                        'required' => true,
+                        'default' => 'web3',
+                        'dir' => 'ltr',
+                        'label_key' => 'catalog.schemas.web3_email.tld_label',
+                        'options' => [
+                            ['value' => 'web3', 'label_key' => 'catalog.schemas.web3_email.tld_web3', 'tiers' => ['individual', 'enterprise']],
+                            ['value' => 'trx', 'label_key' => 'catalog.schemas.web3_email.tld_trx', 'tiers' => ['individual', 'enterprise']],
+                            ['value' => 'id3', 'label_key' => 'catalog.schemas.web3_email.tld_id3', 'tiers' => ['individual', 'enterprise']],
+                            ['value' => 'dao', 'label_key' => 'catalog.schemas.web3_email.tld_dao', 'tiers' => ['enterprise']],
+                            ['value' => 'org3', 'label_key' => 'catalog.schemas.web3_email.tld_org3', 'tiers' => ['enterprise']],
+                            ['value' => 'corp', 'label_key' => 'catalog.schemas.web3_email.tld_corp', 'tiers' => ['enterprise']],
+                        ],
+                    ],
+                    [
+                        'name' => 'plan_code',
+                        'type' => 'plan_selector',
+                        'required' => true,
+                        'label_key' => 'catalog.schemas.web3_email.plan_code_label',
+                        'hint_key' => 'catalog.schemas.web3_email.plan_code_hint',
+                    ],
+                    [
+                        'name' => 'initial_sub_accounts',
+                        'type' => 'tag_list',
+                        'required' => false,
+                        'dir' => 'ltr',
+                        'label_key' => 'catalog.schemas.web3_email.initial_sub_accounts_label',
+                        'placeholder_key' => 'catalog.schemas.web3_email.initial_sub_accounts_placeholder',
+                        'hint_key' => 'catalog.schemas.web3_email.initial_sub_accounts_hint',
+                    ],
+                    [
+                        'name' => 'display_title',
+                        'type' => 'text',
+                        'required' => false,
+                        'max_length' => 80,
+                        'label_key' => 'catalog.schemas.common.display_title_label',
+                        'placeholder_key' => 'catalog.schemas.common.display_title_placeholder',
+                    ],
+                ],
+            ],
+            'validation_policies' => [
+                'individual' => [
+                    'min_length' => 6,
+                    'max_length' => 32,
+                    'pattern' => '/^[a-z0-9][a-z0-9-]*[a-z0-9]$/i',
+                    'allow_consecutive_hyphens' => false,
+                    'allowed_tlds' => ['web3', 'trx', 'id3'],
+                    'allowed_package_quotas' => [5, 10, 25],
+                    'max_active_resources' => 2,
+                    'max_total_sub_accounts' => 50,
+                    'sub_account_min_length' => 3,
+                    'sub_account_max_length' => 32,
+                    'sub_account_pattern' => '/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/i',
+                    'discount_percent' => 0,
+                    'fulfillment_mode' => 'instant',
+                    'reserved_words' => [
+                        'admin', 'system', 'support', 'root', 'security', 'official',
+                        'getnumber', 'tron', 'ethereum', 'foundation',
+                    ],
+                ],
+                'enterprise' => [
+                    'min_length' => 3,
+                    'max_length' => 40,
+                    'pattern' => '/^[a-z0-9][a-z0-9-]*[a-z0-9]$/i',
+                    'allow_consecutive_hyphens' => false,
+                    'allowed_tlds' => ['web3', 'trx', 'id3', 'dao', 'org3', 'corp'],
+                    'allowed_package_quotas' => [10, 25, 50, 100, 250, 500],
+                    'max_active_resources' => 20,
+                    'max_total_sub_accounts' => 5000,
+                    'sub_account_min_length' => 2,
+                    'sub_account_max_length' => 48,
+                    'sub_account_pattern' => '/^[a-z0-9][a-z0-9._-]*[a-z0-9]$/i',
+                    'discount_percent' => 25,
+                    'fulfillment_mode' => 'instant',
+                    'reserved_words' => [
+                        'admin', 'system', 'root', 'getnumber',
+                    ],
+                ],
+            ],
+            'pricing_config' => [
+                'currency' => 'TRX',
+                'short_domain_surcharge_3_to_5' => '90.0000',
+                'premium_tld_surcharge' => [
+                    'web3' => '0.0000',
+                    'trx' => '10.0000',
+                    'id3' => '0.0000',
+                    'dao' => '35.0000',
+                    'org3' => '30.0000',
+                    'corp' => '45.0000',
+                ],
+            ],
+            'plans' => [
+                [
+                    'code' => 'web3_pack_10',
+                    'target_tier' => 'individual',
+                    'billing_mode' => 'package',
+                    'base_price' => '60.0000',
+                    'quota_units' => 10,
+                    'sort_order' => 10,
+                    'metadata' => ['sub_accounts' => 10, 'recommended' => true],
+                ],
+                [
+                    'code' => 'web3_pack_25',
+                    'target_tier' => 'individual',
+                    'billing_mode' => 'package',
+                    'base_price' => '120.0000',
+                    'quota_units' => 25,
+                    'sort_order' => 20,
+                    'metadata' => ['sub_accounts' => 25],
+                ],
+                [
+                    'code' => 'web3_ent_pack_50',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'package',
+                    'base_price' => '200.0000',
+                    'quota_units' => 50,
+                    'sort_order' => 30,
+                    'metadata' => ['sub_accounts' => 50, 'custom_tld' => true],
+                ],
+                [
+                    'code' => 'web3_ent_pack_100',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'package',
+                    'base_price' => '350.0000',
+                    'quota_units' => 100,
+                    'sort_order' => 40,
+                    'metadata' => ['sub_accounts' => 100, 'custom_tld' => true, 'recommended' => true],
+                ],
+                [
+                    'code' => 'web3_ent_pack_500',
+                    'target_tier' => 'enterprise',
+                    'billing_mode' => 'package',
+                    'base_price' => '1200.0000',
+                    'quota_units' => 500,
+                    'sort_order' => 50,
+                    'metadata' => ['sub_accounts' => 500, 'custom_tld' => true, 'dedicated_sla' => true],
+                ],
+            ],
+        ],
+    ],
+];
+

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 
 interface AllocatedNumber {
@@ -84,7 +85,97 @@ const props = defineProps<{
     wallet?: { balance: string };
     available_pool_numbers?: PoolNumberItem[];
     active_prefixes?: PrefixOption[];
+    service_catalog?: Array<Record<string, any>>;
+    enterprise_orders?: Array<Record<string, any>>;
+    account_tier?: string;
+    organization_name?: string | null;
+    enterprise_contract_code?: string | null;
 }>();
+
+// Enterprise Tier & Organization Profile Form
+const tierForm = useForm({
+    account_tier: props.account_tier || 'individual',
+    organization_name: props.organization_name || '',
+});
+
+const toggleEnterpriseTier = (targetTier: 'individual' | 'enterprise') => {
+    tierForm.account_tier = targetTier;
+    tierForm.post(route('enterprise.tier.update'), {
+        preserveScroll: true,
+    });
+};
+
+// Enterprise Multi-Service Order Modal State
+const isEnterpriseServiceModalOpen = ref(false);
+const activeEnterpriseServiceKey = ref<'custom_id' | 'web3_email_package'>('custom_id');
+const activeEnterpriseService = computed(() =>
+    (props.service_catalog || []).find((s) => s.key === activeEnterpriseServiceKey.value) || null
+);
+
+const entOrderForm = useForm({
+    service_key: 'custom_id',
+    plan_code: 'id_enterprise_short',
+    order_context: 'enterprise',
+    handle: '',
+    base_domain: '',
+    tld: 'dao',
+    initial_sub_accounts: 'ceo, info, finance, legal',
+    display_title: '',
+});
+
+const entValidationLoading = ref(false);
+const entValidationResult = ref<Record<string, any> | null>(null);
+
+const openEnterpriseServiceModal = (serviceKey: 'custom_id' | 'web3_email_package') => {
+    activeEnterpriseServiceKey.value = serviceKey;
+    entOrderForm.reset();
+    entOrderForm.clearErrors();
+    entOrderForm.service_key = serviceKey;
+    entOrderForm.order_context = 'enterprise';
+    entOrderForm.plan_code = serviceKey === 'custom_id' ? 'id_enterprise_short' : 'web3_ent_pack_100';
+    entOrderForm.tld = 'dao';
+    entValidationResult.value = null;
+    isEnterpriseServiceModalOpen.value = true;
+};
+
+const closeEnterpriseServiceModal = () => {
+    isEnterpriseServiceModalOpen.value = false;
+    entValidationResult.value = null;
+};
+
+const validateEnterpriseOrder = async () => {
+    entValidationLoading.value = true;
+    entValidationResult.value = null;
+    try {
+        const res = await axios.post(route('services.validate'), {
+            service_key: entOrderForm.service_key,
+            plan_code: entOrderForm.plan_code,
+            order_context: 'enterprise',
+            handle: entOrderForm.handle,
+            base_domain: entOrderForm.base_domain,
+            tld: entOrderForm.tld,
+            initial_sub_accounts: entOrderForm.initial_sub_accounts,
+            display_title: entOrderForm.display_title,
+        });
+        entValidationResult.value = res.data;
+    } catch (e: any) {
+        if (e.response?.data) {
+            entValidationResult.value = e.response.data;
+        }
+    } finally {
+        entValidationLoading.value = false;
+    }
+};
+
+const submitEnterpriseServiceOrder = () => {
+    entOrderForm.post(route('services.orders.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeEnterpriseServiceModal();
+            showToast(__('dashboard.op_success'));
+        },
+    });
+};
 
 // Filter states
 const search = ref(props.filters.search || '');
@@ -324,7 +415,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
 <template>
     <UserLayout>
-        <Head :title="__('user.requests.page_title')" />
+        <Head :title="__('catalog.enterprise_hub_title')" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">
@@ -344,15 +435,128 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         </teleport>
 
         <div class="space-y-4">
-            <!-- 1. Header Banner & Action -->
+            <!-- 1. Isolated Enterprise Command Header & Tier Policy Controls -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
-                    <span class="wallet-title">{{ __('user.requests.header_title') }}</span>
-                    <span class="wallet-chip bg-purple-500/15 border-purple-500/35 text-purple-600 dark:text-purple-400">{{ __('user.requests.digits_4_to_8') }}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                        <span class="wallet-title">{{ __('catalog.enterprise_hub_title') }}</span>
+                    </div>
+                    <span
+                        class="wallet-chip"
+                        :class="account_tier === 'enterprise'
+                            ? 'bg-amber-500/20 border-amber-500/40 text-amber-600 dark:text-amber-300'
+                            : 'bg-slate-500/15 border-slate-500/30 text-slate-600 dark:text-slate-300'"
+                    >
+                        {{ account_tier === 'enterprise' ? __('catalog.tiers.enterprise_active_badge') : __('catalog.tiers.individual_active_badge') }}
+                    </span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    {{ __('user.requests.header_desc') }}
+                    {{ __('catalog.enterprise_hub_subtitle') }}
+                </div>
+
+                <!-- Enterprise Organization & Tier Switcher Row -->
+                <div class="mt-3 p-3 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-2 flex-1 min-w-[200px]">
+                        <input
+                            type="text"
+                            v-model="tierForm.organization_name"
+                            :placeholder="__('catalog.ui.organization_name_placeholder')"
+                            class="glass-input !py-1.5 !px-3 !text-xs !rounded-xl flex-1 bg-white dark:bg-slate-900"
+                        />
+                        <span v-if="enterprise_contract_code" class="text-[11px] font-mono px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-300 font-bold" dir="ltr">
+                            {{ enterprise_contract_code }}
+                        </span>
+                    </div>
+
+                    <button
+                        v-if="account_tier !== 'enterprise'"
+                        type="button"
+                        @click="toggleEnterpriseTier('enterprise')"
+                        :disabled="tierForm.processing"
+                        class="glass-btn-primary !w-auto !py-1.5 !px-4 !text-xs !rounded-xl"
+                    >
+                        {{ __('catalog.tiers.switch_to_enterprise') }}
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        @click="toggleEnterpriseTier('individual')"
+                        :disabled="tierForm.processing"
+                        class="glass-pill !py-1.5 !px-3.5 !text-xs font-bold text-slate-600 dark:text-slate-300"
+                    >
+                        {{ __('catalog.tiers.switch_to_individual') }}
+                    </button>
+                </div>
+
+                <!-- 3 Exclusive Enterprise Service Offerings -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                    <!-- Service 1: 4-8 Digit Organizational Lines -->
+                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-purple-500/30 flex flex-col justify-between space-y-3">
+                        <div class="space-y-1.5">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400">
+                                {{ __('catalog.ui.enterprise_exclusive_badge') }}
+                            </span>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                {{ __('catalog.services.phone_line.enterprise_title') }}
+                            </h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                {{ __('catalog.services.phone_line.enterprise_desc') }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="openCreateModal"
+                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
+                        >
+                            {{ __('user.requests.create_btn') }}
+                        </button>
+                    </div>
+
+                    <!-- Service 2: Short 4+ Char Enterprise Custom IDs -->
+                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-indigo-500/30 flex flex-col justify-between space-y-3">
+                        <div class="space-y-1.5">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
+                                {{ __('catalog.ui.min_id_length_rule', { min: 4 }) }}
+                            </span>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                {{ __('catalog.services.custom_id.enterprise_title') }}
+                            </h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                {{ __('catalog.services.custom_id.enterprise_desc') }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="openEnterpriseServiceModal('custom_id')"
+                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
+                        >
+                            {{ __('catalog.ui.submit_enterprise_order') }}
+                        </button>
+                    </div>
+
+                    <!-- Service 3: High-Volume Web3 Organizational Email Packages -->
+                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-amber-500/30 flex flex-col justify-between space-y-3">
+                        <div class="space-y-1.5">
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                50 / 100 / 500 Quota (.dao, .org3, .web3)
+                            </span>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                                {{ __('catalog.services.web3_email_package.enterprise_title') }}
+                            </h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                                {{ __('catalog.services.web3_email_package.enterprise_desc') }}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            @click="openEnterpriseServiceModal('web3_email_package')"
+                            class="glass-btn-primary !w-full !py-2 !text-xs !rounded-xl"
+                        >
+                            {{ __('catalog.ui.submit_enterprise_order') }}
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Stats 3-Column Pill Row -->
@@ -370,19 +574,29 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.rejected }}</span>
                     </div>
                 </div>
+            </div>
 
-                <!-- Action Button -->
-                <div class="mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 flex justify-end">
-                    <button
-                        type="button"
-                        @click="openCreateModal"
-                        class="glass-btn-primary !w-full !py-2.5 !text-xs !rounded-xl flex items-center justify-center gap-1.5"
+            <!-- Recent Enterprise Multi-Service Orders -->
+            <div v-if="enterprise_orders && enterprise_orders.length > 0" class="glass-card !p-4 space-y-2.5 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+                <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                    {{ __('catalog.ui.enterprise_orders_history') }}
+                </h3>
+                <div class="space-y-2">
+                    <div
+                        v-for="ord in enterprise_orders"
+                        :key="ord.id"
+                        class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs"
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span>{{ __('user.requests.create_btn') }}</span>
-                    </button>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-bold text-[11px] text-slate-400" dir="ltr">{{ ord.order_number }}</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200">{{ ord.service_title }}</span>
+                            <span class="font-mono font-black text-indigo-600 dark:text-indigo-400" dir="ltr">{{ ord.requested_identifier }}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">{{ ord.final_amount }} TRX</span>
+                            <span class="text-[10px] text-slate-400">{{ ord.created_at }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1292,5 +1506,154 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
             </transition>
         </teleport>
+
+        <!-- 7. Dedicated Enterprise Multi-Service Order Modal -->
+        <div
+            v-if="isEnterpriseServiceModalOpen && activeEnterpriseService"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
+            @click.self="closeEnterpriseServiceModal"
+        >
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-amber-500/30 text-slate-900 dark:text-white rounded-3xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                    <div>
+                        <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-500">
+                            {{ __('catalog.ui.enterprise_exclusive_badge') }}
+                        </span>
+                        <h3 class="font-black text-sm mt-1">{{ activeEnterpriseService.enterprise_title }}</h3>
+                    </div>
+                    <button type="button" @click="closeEnterpriseServiceModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
+                </div>
+
+                <form @submit.prevent="submitEnterpriseServiceOrder" class="space-y-4">
+                    <div v-if="activeEnterpriseServiceKey === 'custom_id'" class="space-y-2">
+                        <label class="form-label">{{ __('catalog.schemas.custom_id.handle_label') }}</label>
+                        <div class="flex items-center gap-2" dir="ltr">
+                            <span class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-black text-indigo-500">@</span>
+                            <input
+                                type="text"
+                                v-model="entOrderForm.handle"
+                                @input="entValidationResult = null"
+                                placeholder="gold"
+                                class="form-input !py-2.5 !text-xs font-mono flex-1"
+                            />
+                        </div>
+                        <p class="text-[11px] text-slate-500">{{ __('catalog.services.custom_id.enterprise_desc') }}</p>
+                    </div>
+
+                    <div v-if="activeEnterpriseServiceKey === 'web3_email_package'" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div class="sm:col-span-2">
+                                <label class="form-label">{{ __('catalog.schemas.web3_email.base_domain_label') }}</label>
+                                <input
+                                    type="text"
+                                    dir="ltr"
+                                    v-model="entOrderForm.base_domain"
+                                    @input="entValidationResult = null"
+                                    placeholder="gld"
+                                    class="form-input !py-2.5 !text-xs font-mono"
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label">{{ __('catalog.schemas.web3_email.tld_label') }}</label>
+                                <select dir="ltr" v-model="entOrderForm.tld" class="form-select !py-2.5 !text-xs font-mono w-full">
+                                    <option value="dao">.dao</option>
+                                    <option value="org3">.org3</option>
+                                    <option value="corp">.corp</option>
+                                    <option value="web3">.web3</option>
+                                    <option value="trx">.trx</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="form-label">{{ __('catalog.schemas.web3_email.plan_code_label') }}</label>
+                            <select v-model="entOrderForm.plan_code" class="form-select !py-2.5 !text-xs w-full">
+                                <option
+                                    v-for="plan in activeEnterpriseService.plans"
+                                    :key="plan.code"
+                                    :value="plan.code"
+                                >
+                                    {{ plan.title }} — {{ plan.final_price }} TRX ({{ plan.quota_units }} Quota)
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label">{{ __('catalog.schemas.web3_email.initial_sub_accounts_label') }}</label>
+                            <input
+                                type="text"
+                                dir="ltr"
+                                v-model="entOrderForm.initial_sub_accounts"
+                                class="form-input !py-2 !text-xs font-mono"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="form-label">{{ __('catalog.schemas.common.display_title_label') }}</label>
+                        <input
+                            type="text"
+                            v-model="entOrderForm.display_title"
+                            :placeholder="__('catalog.schemas.common.display_title_placeholder')"
+                            class="form-input !py-2 !text-xs"
+                        />
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <button
+                            type="button"
+                            @click="validateEnterpriseOrder"
+                            :disabled="entValidationLoading"
+                            class="glass-pill !py-2 !px-4 !text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        >
+                            {{ entValidationLoading ? __('catalog.ui.validating') : __('catalog.ui.validate_button') }}
+                        </button>
+                    </div>
+
+                    <div
+                        v-if="entValidationResult"
+                        class="p-3.5 rounded-2xl border text-xs space-y-2"
+                        :class="entValidationResult.can_proceed
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono font-black text-sm" dir="ltr">{{ entValidationResult.normalized_identifier }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20">{{ entValidationResult.tier_label }}</span>
+                        </div>
+                        <div v-if="entValidationResult.errors?.length" class="space-y-1">
+                            <p v-for="(err, i) in entValidationResult.errors" :key="i" class="text-[11px] font-bold text-rose-500">• {{ err }}</p>
+                        </div>
+                        <div v-else class="space-y-1 pt-1 border-t border-emerald-500/20">
+                            <div class="flex justify-between">
+                                <span>{{ __('catalog.ui.unit_price') }}</span>
+                                <span class="font-mono font-bold" dir="ltr">{{ entValidationResult.unit_price }} TRX</span>
+                            </div>
+                            <div v-if="Number(entValidationResult.discount_amount) > 0" class="flex justify-between text-amber-500">
+                                <span>{{ __('catalog.ui.enterprise_discount', { percent: entValidationResult.metadata?.discount_percent || 0 }) }}</span>
+                                <span class="font-mono font-bold" dir="ltr">-{{ entValidationResult.discount_amount }} TRX</span>
+                            </div>
+                            <div class="flex justify-between font-black text-sm pt-1">
+                                <span>{{ __('catalog.ui.final_payable') }}</span>
+                                <span class="font-mono" dir="ltr">{{ entValidationResult.final_amount }} TRX</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                        <button type="button" @click="closeEnterpriseServiceModal" class="glass-pill !py-2 !px-4 !text-xs">
+                            {{ __('user.requests.cancel') }}
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="entOrderForm.processing"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
+                        >
+                            {{ entOrderForm.processing ? __('catalog.ui.processing_order') : __('catalog.ui.submit_enterprise_order') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </UserLayout>
 </template>

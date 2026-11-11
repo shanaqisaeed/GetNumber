@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 
@@ -23,6 +24,79 @@ interface PhoneNumberItem {
     created_at: string;
 }
 
+interface SubResourceItem {
+    id: number;
+    sub_identifier: string;
+    full_address: string;
+    display_name: string | null;
+    status: string;
+}
+
+interface ServiceAllocationItem {
+    id: number;
+    uuid: string;
+    service_key: 'phone_line' | 'custom_id' | 'web3_email_package' | string;
+    service_title: string;
+    channel_type: string;
+    resource_identifier: string;
+    display_title: string;
+    account_tier: string;
+    tier_badge: string;
+    tier_label: string;
+    total_quota: number;
+    used_quota: number;
+    remaining_quota: number;
+    phone_number_id: number | null;
+    capabilities: Record<string, boolean>;
+    metadata: Record<string, any>;
+    sub_resources: SubResourceItem[];
+    allocated_at: string | null;
+}
+
+interface ServicePlanItem {
+    id: number;
+    code: string;
+    title: string;
+    description: string;
+    target_tier: string;
+    billing_mode: string;
+    base_price: string;
+    final_price: string;
+    discount_percent: number;
+    quota_units: number;
+    metadata: Record<string, any>;
+}
+
+interface ServiceCatalogItem {
+    id: number;
+    key: string;
+    category: string;
+    channel_type: string;
+    icon: string;
+    title: string;
+    short_title: string;
+    subtitle: string;
+    description: string;
+    enterprise_title: string;
+    enterprise_desc: string;
+    unit_label: string;
+    is_active: boolean;
+    is_purchasable: boolean;
+    requires_approval_for_enterprise: boolean;
+    available_for_roles: string[];
+    is_authorized_for_user: boolean;
+    active_policy: Record<string, any>;
+    tier_policies: {
+        individual: Record<string, any>;
+        enterprise: Record<string, any>;
+    };
+    form_schema: {
+        version: string;
+        fields: Array<Record<string, any>>;
+    };
+    plans: ServicePlanItem[];
+}
+
 interface PaginationLink {
     url: string | null;
     label: string;
@@ -39,17 +113,34 @@ interface PaginatedData<T> {
 
 const props = defineProps<{
     numbers: PaginatedData<PhoneNumberItem>;
+    service_catalog?: ServiceCatalogItem[];
+    service_allocations?: ServiceAllocationItem[];
+    account_tier?: 'individual' | 'enterprise' | string;
+    organization_name?: string | null;
     filters: {
         search?: string;
         type?: string;
+        service_key?: string;
     };
     quota: {
         active: number;
         max: number;
     };
+    wallet?: {
+        balance: string;
+        number_price_coin?: string;
+    };
     default_prefix?: string;
     active_prefixes?: PrefixItem[];
 }>();
+
+const activeTab = ref<'all' | 'phone_line' | 'custom_id' | 'web3_email_package'>('all');
+
+const allocations = computed(() => props.service_allocations || []);
+const customIdAllocations = computed(() => allocations.value.filter((a) => a.service_key === 'custom_id'));
+const web3Allocations = computed(() => allocations.value.filter((a) => a.service_key === 'web3_email_package'));
+const totalWeb3Quota = computed(() => web3Allocations.value.reduce((acc, a) => acc + a.total_quota, 0));
+const usedWeb3Quota = computed(() => web3Allocations.value.reduce((acc, a) => acc + a.used_quota, 0));
 
 // Search & Filter state
 const search = ref(props.filters.search || '');
@@ -72,15 +163,196 @@ const clearFilter = () => {
     handleFilter();
 };
 
-// Allocation Modal State
+// Legacy 9-Digit Number Allocation Modal State
 const isAllocateModalOpen = ref(false);
-
 const openAllocateModal = () => {
     isAllocateModalOpen.value = true;
 };
-
 const closeAllocateModal = () => {
     isAllocateModalOpen.value = false;
+};
+
+// Multi-Service Purchase Wizard Modal State
+const isServiceOrderModalOpen = ref(false);
+const selectedServiceKey = ref<string>('custom_id');
+const selectedService = computed(() =>
+    (props.service_catalog || []).find((s) => s.key === selectedServiceKey.value) || null
+);
+
+const availablePlansForSelectedService = computed(() => {
+    if (!selectedService.value) return [];
+    const tier = props.account_tier || 'individual';
+    return selectedService.value.plans.filter(
+        (p) => p.target_tier === tier || p.target_tier === 'individual' || tier === 'enterprise'
+    );
+});
+
+const orderForm = useForm({
+    service_key: 'custom_id',
+    plan_code: '',
+    order_context: 'services',
+    handle: '',
+    base_domain: '',
+    tld: 'web3',
+    initial_sub_accounts: 'info, support',
+    display_title: '',
+});
+
+const validationLoading = ref(false);
+const validationResult = ref<Record<string, any> | null>(null);
+
+const openServicePurchaseModal = (serviceKey: string) => {
+    if (serviceKey === 'phone_line') {
+        openAllocateModal();
+        return;
+    }
+
+    selectedServiceKey.value = serviceKey;
+    orderForm.reset();
+    orderForm.clearErrors();
+    orderForm.service_key = serviceKey;
+    orderForm.order_context = 'services';
+    validationResult.value = null;
+
+    const svc = (props.service_catalog || []).find((s) => s.key === serviceKey);
+    if (svc && svc.plans.length > 0) {
+        const tier = props.account_tier || 'individual';
+        const defaultPlan = svc.plans.find((p) => p.target_tier === tier) || svc.plans[0];
+        orderForm.plan_code = defaultPlan.code;
+    }
+
+    isServiceOrderModalOpen.value = true;
+};
+
+const closeServiceOrderModal = () => {
+    isServiceOrderModalOpen.value = false;
+    validationResult.value = null;
+};
+
+const runLiveValidation = async () => {
+    if (!selectedService.value) return;
+    validationLoading.value = true;
+    validationResult.value = null;
+
+    try {
+        const response = await axios.post(route('services.validate'), {
+            service_key: orderForm.service_key,
+            plan_code: orderForm.plan_code,
+            order_context: 'services',
+            handle: orderForm.handle,
+            base_domain: orderForm.base_domain,
+            tld: orderForm.tld,
+            initial_sub_accounts: orderForm.initial_sub_accounts,
+            display_title: orderForm.display_title,
+        });
+        validationResult.value = response.data;
+    } catch (err: any) {
+        if (err.response?.data) {
+            validationResult.value = err.response.data;
+        }
+    } finally {
+        validationLoading.value = false;
+    }
+};
+
+const applySuggestion = (suggestion: string) => {
+    if (orderForm.service_key === 'custom_id') {
+        orderForm.handle = suggestion.replace(/^@/, '');
+    } else if (orderForm.service_key === 'web3_email_package') {
+        const parts = suggestion.split('.');
+        orderForm.base_domain = parts[0] || suggestion;
+        if (parts[1]) orderForm.tld = parts[1];
+    }
+    runLiveValidation();
+};
+
+const submitServiceOrder = () => {
+    orderForm.post(route('services.orders.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            closeServiceOrderModal();
+            showToast(__('dashboard.op_success'));
+        },
+    });
+};
+
+// Web3 Sub-Account & Quota Manager Modal
+const isQuotaModalOpen = ref(false);
+const activeDomainAllocation = ref<ServiceAllocationItem | null>(null);
+const subAccountForm = useForm({
+    sub_identifier: '',
+    display_name: '',
+});
+const upgradingQuota = ref(false);
+
+const openQuotaModal = (allocation: ServiceAllocationItem) => {
+    activeDomainAllocation.value = allocation;
+    subAccountForm.reset();
+    subAccountForm.clearErrors();
+    isQuotaModalOpen.value = true;
+};
+
+const closeQuotaModal = () => {
+    isQuotaModalOpen.value = false;
+    activeDomainAllocation.value = null;
+};
+
+const submitNewSubAccount = () => {
+    if (!activeDomainAllocation.value) return;
+    subAccountForm.post(route('services.sub_accounts.store', activeDomainAllocation.value.uuid), {
+        preserveScroll: true,
+        onSuccess: () => {
+            subAccountForm.reset();
+            const refreshed = (props.service_allocations || []).find(
+                (a) => a.uuid === activeDomainAllocation.value?.uuid
+            );
+            if (refreshed) activeDomainAllocation.value = refreshed;
+        },
+    });
+};
+
+const removeSubAccount = (sub: SubResourceItem) => {
+    if (!activeDomainAllocation.value) return;
+    router.delete(
+        route('services.sub_accounts.destroy', {
+            allocation: activeDomainAllocation.value.uuid,
+            subResource: sub.id,
+        }),
+        {
+            preserveScroll: true,
+            onSuccess: () => {
+                const refreshed = (props.service_allocations || []).find(
+                    (a) => a.uuid === activeDomainAllocation.value?.uuid
+                );
+                if (refreshed) activeDomainAllocation.value = refreshed;
+            },
+        }
+    );
+};
+
+const triggerUpgradeQuota = () => {
+    if (!activeDomainAllocation.value) return;
+    upgradingQuota.value = true;
+    router.post(
+        route('services.allocations.upgrade_quota', activeDomainAllocation.value.uuid),
+        { additional_units: 10 },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                upgradingQuota.value = false;
+                const refreshed = (props.service_allocations || []).find(
+                    (a) => a.uuid === activeDomainAllocation.value?.uuid
+                );
+                if (refreshed) activeDomainAllocation.value = refreshed;
+            },
+        }
+    );
+};
+
+const releaseServiceAllocation = (allocation: ServiceAllocationItem) => {
+    router.delete(route('services.allocations.destroy', allocation.uuid), {
+        preserveScroll: true,
+    });
 };
 
 // Edit Title Modal State
@@ -147,18 +419,23 @@ const showToast = (msg: string) => {
     }, 2800);
 };
 
-// Copy phone number
+const copyText = (text: string) => {
+    navigator.clipboard.writeText(text);
+    showToast(__('catalog.ui.copied'));
+};
+
 const copyNumber = (item: PhoneNumberItem) => {
     navigator.clipboard.writeText(item.formatted_number);
     showToast(__('user.numbers.copied', { number: item.formatted_number }));
 };
 
-// Global escape key handler for modals
 const handleEscape = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         if (isEditTitleModalOpen.value) closeEditTitleModal();
         if (isReleaseModalOpen.value) closeReleaseModal();
         if (isAllocateModalOpen.value) closeAllocateModal();
+        if (isServiceOrderModalOpen.value) closeServiceOrderModal();
+        if (isQuotaModalOpen.value) closeQuotaModal();
     }
 };
 
@@ -167,7 +444,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 </script>
 
 <template>
-    <Head :title="__('user.numbers.page_title')" />
+    <Head :title="__('catalog.module_title')" />
 
     <UserLayout>
         <!-- Floating Toast Notification -->
@@ -175,7 +452,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 -translate-y-4 scale-95" enter-to-class="opacity-100 translate-y-0 scale-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 -translate-y-2 scale-95">
                 <div
                     v-if="toastMessage"
-                    class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-2xl bg-slate-900/95 dark:bg-slate-900/95 text-white border border-indigo-500/50 shadow-2xl backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold pointer-events-none"
+                    class="fixed top-6 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-2xl bg-slate-900/95 text-white border border-indigo-500/50 shadow-2xl backdrop-blur-xl flex items-center gap-2.5 text-xs font-bold pointer-events-none"
                 >
                     <div class="w-5 h-5 rounded-lg bg-emerald-500/25 text-emerald-400 flex items-center justify-center shrink-0">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -188,221 +465,705 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         </teleport>
 
         <div class="space-y-4">
-            <!-- 1. Quota Banner Card -->
+            <!-- 1. Multi-Service Platform Overview Banner -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">
                     <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                        <span class="wallet-title">{{ __('user.numbers.quota_title') }}</span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="wallet-title">{{ __('catalog.module_title') }}</span>
                     </div>
-                    <span
-                        class="wallet-chip"
-                        :class="[
-                            quota.max - quota.active > 0
-                                ? 'bg-emerald-500/15 border-emerald-500/35 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-rose-500/15 border-rose-500/35 text-rose-600 dark:text-rose-400'
-                        ]"
-                    >
-                        {{ quota.max - quota.active > 0 ? __('user.numbers.free_lines', { count: quota.max - quota.active }) : __('user.numbers.capacity_full') }}
-                    </span>
-                </div>
-
-                <div class="wallet-amount">
-                    <span>{{ quota.active }}</span>
-                    <span class="wallet-currency text-sm font-bold text-slate-500 dark:text-slate-400">/ {{ quota.max }} {{ __('dashboard.active_numbers_unit') }}</span>
-                </div>
-
-                <!-- Progress Bar -->
-                <div class="mt-3">
-                    <div class="h-2 w-full rounded-full bg-slate-200/80 dark:bg-slate-800/60 overflow-hidden p-0.5 border border-slate-300/60 dark:border-white/10">
-                        <div
-                            class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 transition-all duration-700 shadow-sm"
-                            :style="{ width: `${Math.min(100, (quota.active / quota.max) * 100)}%` }"
-                        ></div>
+                    <div class="flex items-center gap-2">
+                        <span
+                            class="wallet-chip"
+                            :class="account_tier === 'enterprise'
+                                ? 'bg-amber-500/15 border-amber-500/35 text-amber-600 dark:text-amber-400'
+                                : 'bg-indigo-500/15 border-indigo-500/35 text-indigo-600 dark:text-indigo-400'"
+                        >
+                            {{ account_tier === 'enterprise' ? __('catalog.tiers.enterprise_active_badge') : __('catalog.tiers.individual_active_badge') }}
+                        </span>
                     </div>
                 </div>
 
-                <div class="mt-4 flex items-center justify-between gap-3 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    {{ __('catalog.module_subtitle') }}
+                </p>
+
+                <!-- 4 Multi-Service KPI Summary Pills -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4">
+                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.phone_lines_count') }}</div>
+                        <div class="text-lg font-black text-slate-900 dark:text-white mt-0.5">
+                            {{ quota.active }} <span class="text-xs font-normal text-slate-400">/ {{ quota.max }}</span>
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.custom_ids_count') }}</div>
+                        <div class="text-lg font-black text-indigo-600 dark:text-indigo-400 mt-0.5">
+                            {{ customIdAllocations.length }}
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.web3_domains_count') }}</div>
+                        <div class="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                            {{ web3Allocations.length }}
+                        </div>
+                    </div>
+                    <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
+                        <div class="text-[11px] text-slate-500 dark:text-slate-400">{{ __('catalog.ui.total_sub_accounts_quota') }}</div>
+                        <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                            {{ usedWeb3Quota }} <span class="text-xs font-normal text-slate-400">/ {{ totalWeb3Quota }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Bar -->
+                <div class="mt-4 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <span class="text-[11px] text-slate-600 dark:text-slate-400">
-                        {{ __('user.numbers.system_prefix') }} <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-black" dir="ltr">{{ default_prefix || '+85' }}</strong>
+                        {{ __('user.numbers.system_prefix') }}
+                        <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-black" dir="ltr">{{ default_prefix || '+98' }}</strong>
                     </span>
 
-                    <button
-                        type="button"
-                        @click="openAllocateModal"
-                        :disabled="quota.active >= quota.max"
-                        class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span>{{ __('user.numbers.allocate_new') }}</span>
-                    </button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            @click="openAllocateModal"
+                            :disabled="quota.active >= quota.max"
+                            class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40"
+                        >
+                            <span>+ {{ __('catalog.services.phone_line.short_title') }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="openServicePurchaseModal('custom_id')"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15"
+                        >
+                            <span>+ {{ __('catalog.services.custom_id.short_title') }}</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="openServicePurchaseModal('web3_email_package')"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-purple-600 dark:text-purple-300 border border-purple-500/30 hover:bg-purple-500/15"
+                        >
+                            <span>+ {{ __('catalog.services.web3_email_package.short_title') }}</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- 2. Search & Filter Bar -->
-            <div class="glass-card !p-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                <div class="relative flex-1">
-                    <input
-                        type="text"
-                        v-model="search"
-                        @keyup.enter="handleFilter"
-                        :placeholder="__('user.numbers.search_placeholder')"
-                        class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500"
-                    />
-                    <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+            <!-- 2. Registered Multi-Service Catalog Cards (Strategy / Plugin Registry) -->
+            <div v-if="service_catalog && service_catalog.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div
+                    v-for="service in service_catalog"
+                    :key="service.key"
+                    class="glass-card !p-4 flex flex-col justify-between space-y-3 bg-white/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all"
+                >
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span
+                                class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
+                                :class="service.is_active && service.is_purchasable
+                                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'"
+                            >
+                                {{ service.is_active && service.is_purchasable ? __('catalog.flags.purchasable') : __('catalog.flags.not_purchasable') }}
+                            </span>
+                            <span class="text-[10px] font-mono text-slate-400" dir="ltr">
+                                {{ service.channel_type }}
+                            </span>
+                        </div>
+
+                        <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                            {{ service.title }}
+                        </h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            {{ service.description }}
+                        </p>
+
+                        <!-- Active Business Policy Chips -->
+                        <div class="flex flex-wrap gap-1.5 pt-1">
+                            <span
+                                v-if="service.active_policy?.min_length"
+                                class="text-[10px] px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold"
+                            >
+                                {{ __('catalog.ui.min_id_length_rule', { min: service.active_policy.min_length }) }}
+                            </span>
+                            <span
+                                v-if="service.active_policy?.discount_percent > 0"
+                                class="text-[10px] px-2 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
+                            >
+                                {{ __('catalog.ui.enterprise_discount_rule', { discount: service.active_policy.discount_percent }) }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between">
+                        <Link
+                            :href="route('requests.index')"
+                            class="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                        >
+                            {{ __('catalog.tiers.enterprise') }} ←
+                        </Link>
+                        <button
+                            type="button"
+                            @click="openServicePurchaseModal(service.key)"
+                            :disabled="!service.is_active || !service.is_purchasable"
+                            class="glass-btn-primary !w-auto !py-1.5 !px-3.5 !text-xs !rounded-xl disabled:opacity-40"
+                        >
+                            {{ __('catalog.ui.buy_new_service') }}
+                        </button>
+                    </div>
                 </div>
+            </div>
 
-                <select
-                    v-model="typeFilter"
-                    @change="handleFilter"
-                    class="form-select !py-2 !text-xs !rounded-xl w-auto"
-                >
-                    <option value="">{{ __('user.numbers.all_types') }}</option>
-                    <option value="standard">{{ __('user.numbers.type_standard') }}</option>
-                    <option value="service">{{ __('user.numbers.type_service') }}</option>
-                </select>
-
+            <!-- 3. Category Tabs -->
+            <div class="flex flex-wrap items-center gap-2">
                 <button
-                    v-if="search || typeFilter"
                     type="button"
-                    @click="clearFilter"
-                    class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
-                    :title="__('user.numbers.clear_filter')"
+                    @click="activeTab = 'all'"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
                 >
-                    ✕
+                    {{ __('catalog.tabs.all_resources') }} ({{ numbers.total + customIdAllocations.length + web3Allocations.length }})
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'phone_line'"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'phone_line' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
+                >
+                    {{ __('catalog.tabs.phone_line') }} ({{ numbers.total }})
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'custom_id'"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'custom_id' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
+                >
+                    {{ __('catalog.tabs.custom_id') }} ({{ customIdAllocations.length }})
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'web3_email_package'"
+                    class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'web3_email_package' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
+                >
+                    {{ __('catalog.tabs.web3_email_package') }} ({{ web3Allocations.length }})
                 </button>
             </div>
 
-            <!-- 3. Numbers List Cards -->
-            <div v-if="numbers.data.length > 0" class="space-y-3">
+            <!-- 4. Custom IDs (@handle) Section -->
+            <div v-if="(activeTab === 'all' || activeTab === 'custom_id') && customIdAllocations.length > 0" class="space-y-3">
                 <div
-                    v-for="item in numbers.data"
-                    :key="item.id"
+                    v-for="alloc in customIdAllocations"
+                    :key="alloc.uuid"
                     class="glass-card !p-4 hover:border-indigo-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
                 >
-                    <!-- Header Row: Type Badge, Active Status, Title -->
                     <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs" :class="item.type_badge">
-                                {{ item.type_label }}
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                                {{ __('catalog.services.custom_id.short_title') }}
                             </span>
-                            <span
-                                v-if="item.rond_tier && item.rond_tier !== 'regular'"
-                                class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
-                                :class="item.rond_tier === 'golden_rond'
-                                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
-                                    : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'"
-                            >
-                                {{ item.rond_tier_label }}
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                {{ alloc.tier_label }}
                             </span>
-                            <span class="text-xs font-black text-slate-900 dark:text-white truncate">
-                                {{ item.display_title || __('user.numbers.default_title') }}
+                            <span class="text-xs font-black text-slate-900 dark:text-white">
+                                {{ alloc.display_title }}
                             </span>
                         </div>
-
-                        <button
-                            type="button"
-                            @click="openEditTitleModal(item)"
-                            class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
-                        >{{ __('user.numbers.edit_title') }}</button>
+                        <span class="text-[10px] text-emerald-500 font-bold">{{ __('catalog.ui.channel_ready_phase2') }}</span>
                     </div>
 
-                    <!-- Monospace Number Presentation Box -->
                     <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between">
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <div class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/25">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                            </div>
-                            <div dir="ltr" class="text-left font-mono font-black text-base text-slate-900 dark:text-white tracking-wider truncate select-all">
-                                {{ item.formatted_number }}
-                            </div>
+                        <div dir="ltr" class="font-mono font-black text-base text-indigo-600 dark:text-indigo-400 select-all">
+                            {{ alloc.resource_identifier }}
                         </div>
-
-                        <!-- Copy Button -->
-                        <button
-                            type="button"
-                            @click="copyNumber(item)"
-                            class="p-2 rounded-xl glass-pill hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
-                            :title="__('user.numbers.copy_number')"
-                        >
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="copyText(alloc.resource_identifier)"
+                                class="p-2 rounded-xl glass-pill hover:text-indigo-600 text-xs font-bold"
+                            >
+                                {{ __('dashboard.copy_label') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="releaseServiceAllocation(alloc)"
+                                class="text-[11px] font-bold text-rose-500 hover:underline px-2"
+                            >
+                                {{ __('user.numbers.release_line') }}
+                            </button>
+                        </div>
                     </div>
-
-                    <!-- Actions Row -->
-                    <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
-                        <Link
-                            :href="route('messages.index', { phone_number_id: item.id })"
-                            class="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-                        >
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                            </svg>
-                            <span>{{ __('user.numbers.view_sms') }}</span>
-                        </Link>
-
-                        <button
-                            type="button"
-                            @click="openReleaseModal(item)"
-                            class="text-[11px] font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:underline transition-colors"
-                        >{{ __('user.numbers.release_line') }}</button>
-                    </div>
-                </div>
-
-                <!-- Pagination if multi-page -->
-                <div v-if="numbers.links && numbers.links.length > 3" class="flex justify-center gap-1 pt-2">
-                    <Link
-                        v-for="(link, i) in numbers.links"
-                        :key="i"
-                        :href="link.url || '#'"
-                        class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
-                        :class="[
-                            link.active ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-400',
-                            !link.url ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''
-                        ]"
-                        v-html="link.label"
-                    />
                 </div>
             </div>
 
-            <!-- Empty State -->
-            <div v-else class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                <div class="w-14 h-14 rounded-3xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 mx-auto flex items-center justify-center">
-                    <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2"></rect>
-                        <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2"></line>
-                    </svg>
+            <!-- 5. Web3 Organizational Email & Sub-Domain Packages Section -->
+            <div v-if="(activeTab === 'all' || activeTab === 'web3_email_package') && web3Allocations.length > 0" class="space-y-3">
+                <div
+                    v-for="domainAlloc in web3Allocations"
+                    :key="domainAlloc.uuid"
+                    class="glass-card !p-4 hover:border-purple-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
+                >
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                                {{ __('catalog.services.web3_email_package.short_title') }}
+                            </span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                {{ __('catalog.ui.used_quota', { used: domainAlloc.used_quota, total: domainAlloc.total_quota }) }}
+                            </span>
+                            <span class="text-xs font-black text-slate-900 dark:text-white">
+                                {{ domainAlloc.display_title }}
+                            </span>
+                        </div>
+
+                        <button
+                            type="button"
+                            @click="openQuotaModal(domainAlloc)"
+                            class="glass-btn-primary !w-auto !py-1.5 !px-3.5 !text-xs !rounded-xl"
+                        >
+                            {{ __('catalog.ui.manage_sub_accounts') }}
+                        </button>
+                    </div>
+
+                    <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
+                        <div dir="ltr" class="font-mono font-black text-base text-purple-600 dark:text-purple-400 select-all">
+                            *.{{ domainAlloc.resource_identifier }}
+                        </div>
+                        <div class="text-xs text-slate-500 dark:text-slate-400">
+                            {{ __('catalog.ui.remaining_quota', { remaining: domainAlloc.remaining_quota }) }}
+                        </div>
+                    </div>
+
+                    <!-- Sub-Accounts Pills -->
+                    <div v-if="domainAlloc.sub_resources && domainAlloc.sub_resources.length > 0" class="flex flex-wrap gap-2 pt-1">
+                        <span
+                            v-for="sub in domainAlloc.sub_resources"
+                            :key="sub.id"
+                            dir="ltr"
+                            @click="copyText(sub.full_address)"
+                            class="cursor-pointer text-xs font-mono px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20"
+                        >
+                            {{ sub.full_address }}
+                        </span>
+                    </div>
                 </div>
-                <div class="space-y-1">
+            </div>
+
+            <!-- 6. Communication Lines (Phone Numbers) Search & List -->
+            <div v-if="activeTab === 'all' || activeTab === 'phone_line'" class="space-y-3">
+                <div class="glass-card !p-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+                    <div class="relative flex-1">
+                        <input
+                            type="text"
+                            v-model="search"
+                            @keyup.enter="handleFilter"
+                            :placeholder="__('user.numbers.search_placeholder')"
+                            class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+                        />
+                        <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+
+                    <select
+                        v-model="typeFilter"
+                        @change="handleFilter"
+                        class="form-select !py-2 !text-xs !rounded-xl w-auto"
+                    >
+                        <option value="">{{ __('user.numbers.all_types') }}</option>
+                        <option value="standard">{{ __('user.numbers.type_standard') }}</option>
+                        <option value="service">{{ __('user.numbers.type_service') }}</option>
+                    </select>
+
+                    <button
+                        v-if="search || typeFilter"
+                        type="button"
+                        @click="clearFilter"
+                        class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
+                        :title="__('user.numbers.clear_filter')"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <div v-if="numbers.data.length > 0" class="space-y-3">
+                    <div
+                        v-for="item in numbers.data"
+                        :key="item.id"
+                        class="glass-card !p-4 hover:border-indigo-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
+                    >
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs" :class="item.type_badge">
+                                    {{ item.type_label }}
+                                </span>
+                                <span
+                                    v-if="item.rond_tier && item.rond_tier !== 'regular'"
+                                    class="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                                    :class="item.rond_tier === 'golden_rond'
+                                        ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                                        : 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30'"
+                                >
+                                    {{ item.rond_tier_label }}
+                                </span>
+                                <span class="text-xs font-black text-slate-900 dark:text-white truncate">
+                                    {{ item.display_title || __('user.numbers.default_title') }}
+                                </span>
+                            </div>
+
+                            <button
+                                type="button"
+                                @click="openEditTitleModal(item)"
+                                class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-md hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
+                            >{{ __('user.numbers.edit_title') }}</button>
+                        </div>
+
+                        <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/25">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                </div>
+                                <div dir="ltr" class="text-left font-mono font-black text-base text-slate-900 dark:text-white tracking-wider truncate select-all">
+                                    {{ item.formatted_number }}
+                                </div>
+                            </div>
+
+                            <button
+                                type="button"
+                                @click="copyNumber(item)"
+                                class="p-2 rounded-xl glass-pill hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                :title="__('user.numbers.copy_number')"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
+                            <Link
+                                :href="route('messages.index', { phone_number_id: item.id })"
+                                class="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                </svg>
+                                <span>{{ __('user.numbers.view_sms') }}</span>
+                            </Link>
+
+                            <button
+                                type="button"
+                                @click="openReleaseModal(item)"
+                                class="text-[11px] font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 hover:underline transition-colors"
+                            >{{ __('user.numbers.release_line') }}</button>
+                        </div>
+                    </div>
+
+                    <div v-if="numbers.links && numbers.links.length > 3" class="flex justify-center gap-1 pt-2">
+                        <Link
+                            v-for="(link, i) in numbers.links"
+                            :key="i"
+                            :href="link.url || '#'"
+                            class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                            :class="[
+                                link.active ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-400',
+                                !link.url ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''
+                            ]"
+                            v-html="link.label"
+                        />
+                    </div>
+                </div>
+
+                <div v-else class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
                     <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.numbers.no_numbers_found') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
                         {{ __('user.numbers.no_numbers_desc') }}
                     </p>
                 </div>
-                <div v-if="quota.active < quota.max" class="w-full flex justify-center pt-2">
-                    <button
-                        type="button"
-                        @click="openAllocateModal"
-                        class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-xl inline-flex items-center justify-center gap-2"
+            </div>
+        </div>
+
+        <!-- 7. Multi-Service Purchase & Rule Engine Validation Modal -->
+        <div
+            v-if="isServiceOrderModalOpen && selectedService"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
+            @click.self="closeServiceOrderModal"
+        >
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ selectedService.title }}</h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ selectedService.subtitle }}</p>
+                    </div>
+                    <button type="button" @click="closeServiceOrderModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
+                </div>
+
+                <form @submit.prevent="submitServiceOrder" class="space-y-4">
+                    <!-- Custom ID Form Inputs -->
+                    <div v-if="selectedService.key === 'custom_id'" class="space-y-3">
+                        <div>
+                            <label class="form-label">{{ __('catalog.schemas.custom_id.handle_label') }}</label>
+                            <div class="flex items-center gap-2" dir="ltr">
+                                <span class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-black text-indigo-500">@</span>
+                                <input
+                                    type="text"
+                                    v-model="orderForm.handle"
+                                    @input="validationResult = null"
+                                    :placeholder="__('catalog.schemas.custom_id.handle_placeholder')"
+                                    class="form-input !py-2.5 !text-xs font-mono flex-1"
+                                />
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-1">{{ __('catalog.schemas.custom_id.handle_hint') }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Web3 Organizational Email & Domain Package Inputs -->
+                    <div v-if="selectedService.key === 'web3_email_package'" class="space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div class="sm:col-span-2">
+                                <label class="form-label">{{ __('catalog.schemas.web3_email.base_domain_label') }}</label>
+                                <input
+                                    type="text"
+                                    dir="ltr"
+                                    v-model="orderForm.base_domain"
+                                    @input="validationResult = null"
+                                    :placeholder="__('catalog.schemas.web3_email.base_domain_placeholder')"
+                                    class="form-input !py-2.5 !text-xs font-mono"
+                                />
+                            </div>
+                            <div>
+                                <label class="form-label">{{ __('catalog.schemas.web3_email.tld_label') }}</label>
+                                <select
+                                    dir="ltr"
+                                    v-model="orderForm.tld"
+                                    @change="validationResult = null"
+                                    class="form-select !py-2.5 !text-xs font-mono w-full"
+                                >
+                                    <option
+                                        v-for="tld in (selectedService.active_policy?.allowed_tlds || ['web3', 'trx', 'id3'])"
+                                        :key="tld"
+                                        :value="tld"
+                                    >
+                                        .{{ tld }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="form-label">{{ __('catalog.schemas.web3_email.plan_code_label') }}</label>
+                            <select
+                                v-model="orderForm.plan_code"
+                                @change="validationResult = null"
+                                class="form-select !py-2.5 !text-xs w-full"
+                            >
+                                <option
+                                    v-for="plan in availablePlansForSelectedService"
+                                    :key="plan.code"
+                                    :value="plan.code"
+                                >
+                                    {{ plan.title }} — {{ plan.final_price }} TRX ({{ plan.quota_units }} Quota)
+                                </option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="form-label">{{ __('catalog.schemas.web3_email.initial_sub_accounts_label') }}</label>
+                            <input
+                                type="text"
+                                dir="ltr"
+                                v-model="orderForm.initial_sub_accounts"
+                                :placeholder="__('catalog.schemas.web3_email.initial_sub_accounts_placeholder')"
+                                class="form-input !py-2 !text-xs font-mono"
+                            />
+                            <p class="text-[11px] text-slate-500 mt-1">{{ __('catalog.schemas.web3_email.initial_sub_accounts_hint') }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Common Display Title -->
+                    <div>
+                        <label class="form-label">{{ __('catalog.schemas.common.display_title_label') }}</label>
+                        <input
+                            type="text"
+                            v-model="orderForm.display_title"
+                            :placeholder="__('catalog.schemas.common.display_title_placeholder')"
+                            class="form-input !py-2 !text-xs"
+                        />
+                    </div>
+
+                    <!-- Validate & Quote Action -->
+                    <div class="flex items-center justify-between gap-2">
+                        <button
+                            type="button"
+                            @click="runLiveValidation"
+                            :disabled="validationLoading"
+                            class="glass-pill !py-2 !px-4 !text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
+                        >
+                            {{ validationLoading ? __('catalog.ui.validating') : __('catalog.ui.validate_button') }}
+                        </button>
+                    </div>
+
+                    <!-- BusinessRuleEngine Validation Result Box -->
+                    <div
+                        v-if="validationResult"
+                        class="p-3.5 rounded-2xl border text-xs space-y-2"
+                        :class="validationResult.can_proceed
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200'
+                            : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
                     >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        <span>{{ __('user.numbers.get_new_line') }}</span>
-                    </button>
+                        <div class="flex items-center justify-between">
+                            <span class="font-mono font-black text-sm" dir="ltr">{{ validationResult.normalized_identifier }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20">
+                                {{ validationResult.tier_label }}
+                            </span>
+                        </div>
+
+                        <div v-if="validationResult.errors && validationResult.errors.length > 0" class="space-y-1">
+                            <p v-for="(err, idx) in validationResult.errors" :key="idx" class="text-[11px] font-bold text-rose-600 dark:text-rose-300">
+                                • {{ err }}
+                            </p>
+                        </div>
+                        <div v-else class="space-y-1 pt-1 border-t border-emerald-500/20">
+                            <div class="flex justify-between">
+                                <span>{{ __('catalog.ui.unit_price') }}</span>
+                                <span class="font-mono font-bold" dir="ltr">{{ validationResult.unit_price }} TRX</span>
+                            </div>
+                            <div v-if="Number(validationResult.discount_amount) > 0" class="flex justify-between text-amber-500">
+                                <span>{{ __('catalog.ui.enterprise_discount', { percent: validationResult.metadata?.discount_percent || 0 }) }}</span>
+                                <span class="font-mono font-bold" dir="ltr">-{{ validationResult.discount_amount }} TRX</span>
+                            </div>
+                            <div class="flex justify-between font-black text-sm pt-1">
+                                <span>{{ __('catalog.ui.final_payable') }}</span>
+                                <span class="font-mono" dir="ltr">{{ validationResult.final_amount }} TRX</span>
+                            </div>
+                        </div>
+
+                        <!-- Suggestions if identifier is taken -->
+                        <div v-if="validationResult.suggestions && validationResult.suggestions.length > 0" class="pt-2 flex flex-wrap gap-1.5">
+                            <button
+                                v-for="sug in validationResult.suggestions"
+                                :key="sug"
+                                type="button"
+                                @click="applySuggestion(sug)"
+                                dir="ltr"
+                                class="px-2.5 py-1 rounded-lg bg-white/80 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 font-mono text-[11px]"
+                            >
+                                {{ sug }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div v-if="(orderForm.errors as any).identifier" class="text-xs text-rose-500 font-bold">
+                        {{ (orderForm.errors as any).identifier }}
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
+                        <button type="button" @click="closeServiceOrderModal" class="glass-pill !py-2 !px-4 !text-xs">
+                            {{ __('user.numbers.cancel') }}
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="orderForm.processing"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
+                        >
+                            {{ orderForm.processing ? __('catalog.ui.processing_order') : __('catalog.ui.confirm_purchase') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 8. Web3 Domain Sub-Accounts & Quota Manager Modal -->
+        <div
+            v-if="isQuotaModalOpen && activeDomainAllocation"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
+            @click.self="closeQuotaModal"
+        >
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                    <div>
+                        <h3 class="font-black text-sm font-mono text-purple-600 dark:text-purple-400" dir="ltr">
+                            {{ activeDomainAllocation.resource_identifier }}
+                        </h3>
+                        <p class="text-[11px] text-slate-500 mt-0.5">
+                            {{ __('catalog.ui.used_quota', { used: activeDomainAllocation.used_quota, total: activeDomainAllocation.total_quota }) }}
+                        </p>
+                    </div>
+                    <button type="button" @click="closeQuotaModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
+                </div>
+
+                <!-- Create Sub-Account Form -->
+                <form @submit.prevent="submitNewSubAccount" class="space-y-3 p-3.5 rounded-2xl bg-slate-100/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10">
+                    <div class="text-xs font-bold">{{ __('catalog.ui.add_sub_account_title') }}</div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div class="flex items-center gap-1" dir="ltr">
+                            <input
+                                type="text"
+                                v-model="subAccountForm.sub_identifier"
+                                placeholder="sales"
+                                class="form-input !py-2 !text-xs font-mono flex-1"
+                            />
+                            <span class="text-xs font-mono text-slate-400">@{{ activeDomainAllocation.resource_identifier }}</span>
+                        </div>
+                        <input
+                            type="text"
+                            v-model="subAccountForm.display_name"
+                            :placeholder="__('catalog.ui.sub_account_display')"
+                            class="form-input !py-2 !text-xs"
+                        />
+                    </div>
+                    <div v-if="subAccountForm.errors.sub_identifier" class="text-[11px] text-rose-500 font-bold">
+                        {{ subAccountForm.errors.sub_identifier }}
+                    </div>
+                    <div class="flex items-center justify-between pt-1">
+                        <button
+                            type="button"
+                            @click="triggerUpgradeQuota"
+                            :disabled="upgradingQuota"
+                            class="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
+                        >
+                            {{ __('catalog.ui.upgrade_quota_btn') }}
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="subAccountForm.processing"
+                            class="glass-btn-primary !w-auto !py-1.5 !px-4 !text-xs !rounded-xl"
+                        >
+                            {{ __('catalog.ui.create_sub_account_btn') }}
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Sub-Accounts List -->
+                <div class="space-y-2 max-h-60 overflow-y-auto">
+                    <div
+                        v-for="sub in activeDomainAllocation.sub_resources"
+                        :key="sub.id"
+                        class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs"
+                    >
+                        <div>
+                            <div dir="ltr" class="font-mono font-bold text-indigo-600 dark:text-indigo-300">{{ sub.full_address }}</div>
+                            <div class="text-[10px] text-slate-400">{{ sub.display_name }}</div>
+                        </div>
+                        <button
+                            type="button"
+                            @click="removeSubAccount(sub)"
+                            class="text-[11px] font-bold text-rose-500 hover:underline"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                    <p v-if="!activeDomainAllocation.sub_resources?.length" class="text-xs text-center text-slate-400 py-4">
+                        {{ __('catalog.ui.no_sub_accounts') }}
+                    </p>
                 </div>
             </div>
         </div>
 
-        <!-- 4. Allocate Modal -->
+        <!-- 9. Legacy 9-Digit Allocate Modal -->
         <AllocateNumberModal
             :show="isAllocateModalOpen"
             :default-prefix="default_prefix"
@@ -412,14 +1173,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             @close="closeAllocateModal"
         />
 
-        <!-- 5. Edit Title Modal -->
+        <!-- 10. Edit Title Modal -->
         <div v-if="isEditTitleModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeEditTitleModal">
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">
                         {{ __('user.numbers.modal_edit_title', { number: selectedNumberForTitle?.formatted_number }) }}
                     </h3>
-                    <button type="button" @click="closeEditTitleModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 transition-colors">✕</button>
+                    <button type="button" @click="closeEditTitleModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
                 </div>
 
                 <form @submit.prevent="submitTitleUpdate" class="space-y-4">
@@ -436,16 +1197,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeEditTitleModal" :disabled="titleForm.processing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.numbers.cancel') }}</button>
+                        <button type="button" @click="closeEditTitleModal" :disabled="titleForm.processing" class="glass-pill !py-2 !px-4 !text-xs">{{ __('user.numbers.cancel') }}</button>
                         <button
                             type="submit"
                             :disabled="titleForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl inline-flex items-center gap-1.5"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
                         >
-                            <svg v-if="titleForm.processing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                            </svg>
                             <span>{{ titleForm.processing ? __('user.numbers.saving') : __('user.numbers.save_title') }}</span>
                         </button>
                     </div>
@@ -453,15 +1210,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
         </div>
 
-        <!-- 6. Release Confirmation Modal -->
+        <!-- 11. Release Confirmation Modal -->
         <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeReleaseModal">
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
-                <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="space-y-1">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.numbers.modal_release_title') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400">
@@ -469,22 +1220,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </p>
                 </div>
 
-                <div class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/20 text-rose-700 dark:text-rose-300 text-[11px] leading-relaxed text-right">
-                    <b>{{ __('user.numbers.privacy_guarantee') }}</b> {{ __('user.numbers.privacy_guarantee_desc') }}
-                </div>
-
                 <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.numbers.cancel') }}</button>
+                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs">{{ __('user.numbers.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRelease"
                         :disabled="releaseProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/30 transition-all disabled:opacity-50 inline-flex items-center gap-1.5"
+                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
                     >
-                        <svg v-if="releaseProcessing" class="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                        </svg>
                         <span>{{ releaseProcessing ? __('user.numbers.releasing') : __('user.numbers.confirm_release') }}</span>
                     </button>
                 </div>

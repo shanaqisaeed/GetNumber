@@ -98,8 +98,40 @@ class NumberRequestController extends Controller
                 'rond_pattern' => $p->rond_pattern,
             ]);
 
+        /** @var \App\Services\Catalog\ServiceRegistry $serviceRegistry */
+        $serviceRegistry = app(\App\Contracts\Services\ServiceRegistryInterface::class);
+        $serviceCatalog = $serviceRegistry->getCatalogForUser($user, 'enterprise');
+
+        $enterpriseOrders = \App\Models\ServiceOrder::query()
+            ->with(['serviceDefinition', 'servicePlan', 'allocation'])
+            ->where('user_id', $user->id)
+            ->latest('id')
+            ->limit(25)
+            ->get()
+            ->map(fn (\App\Models\ServiceOrder $order) => [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'service_key' => $order->serviceDefinition?->key,
+                'service_title' => $order->serviceDefinition?->title,
+                'plan_title' => $order->servicePlan?->title,
+                'requested_identifier' => $order->requested_identifier,
+                'account_tier' => $order->account_tier,
+                'order_context' => $order->order_context,
+                'fulfillment_mode' => $order->fulfillment_mode,
+                'status' => $order->status,
+                'unit_price' => (string) $order->unit_price,
+                'discount_amount' => (string) $order->discount_amount,
+                'final_amount' => (string) $order->final_amount,
+                'created_at' => $order->created_at?->format('Y/m/d H:i'),
+            ]);
+
         return Inertia::render('User/Requests/Index', [
             'requests' => $requests,
+            'service_catalog' => $serviceCatalog,
+            'enterprise_orders' => $enterpriseOrders,
+            'account_tier' => $user->effectiveServiceTier(),
+            'organization_name' => $user->organization_name,
+            'enterprise_contract_code' => $user->enterprise_contract_code,
             'filters' => $request->only(['search', 'status']),
             'stats' => $stats,
             'org_tariffs' => \App\Models\SystemSetting::getAllOrgPricing(),

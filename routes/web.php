@@ -111,6 +111,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'store'])->name('requests.store');
     Route::delete('/requests/{numberRequest}', [\App\Http\Controllers\User\NumberRequestController::class, 'destroy'])->name('requests.destroy');
 
+    // Multi-Service Platform & Enterprise Portal Routes (Phase 1)
+    Route::get('/services', [UserPhoneNumberController::class, 'index'])->name('services.index');
+    Route::post('/services/validate', [\App\Http\Controllers\User\ServiceCatalogController::class, 'validateInput'])->name('services.validate');
+    Route::post('/services/orders', [\App\Http\Controllers\User\ServiceCatalogController::class, 'storeOrder'])->name('services.orders.store');
+    Route::delete('/services/allocations/{allocation:uuid}', [\App\Http\Controllers\User\ServiceCatalogController::class, 'destroyAllocation'])->name('services.allocations.destroy');
+    Route::post('/services/allocations/{allocation:uuid}/sub-accounts', [\App\Http\Controllers\User\ServiceCatalogController::class, 'storeSubAccount'])->name('services.sub_accounts.store');
+    Route::delete('/services/allocations/{allocation:uuid}/sub-accounts/{subResource}', [\App\Http\Controllers\User\ServiceCatalogController::class, 'destroySubAccount'])->name('services.sub_accounts.destroy');
+    Route::post('/services/allocations/{allocation:uuid}/upgrade-quota', [\App\Http\Controllers\User\ServiceCatalogController::class, 'upgradeQuota'])->name('services.allocations.upgrade_quota');
+
+    Route::get('/enterprise', [\App\Http\Controllers\User\NumberRequestController::class, 'index'])->name('enterprise.index');
+    Route::post('/enterprise/tier', [\App\Http\Controllers\User\ServiceCatalogController::class, 'updateAccountTier'])->name('enterprise.tier.update');
+
     // User SMS Messaging & Chat (Mobile style)
     Route::get('/messages', [\App\Http\Controllers\User\MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');

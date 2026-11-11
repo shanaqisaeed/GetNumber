@@ -15,6 +15,13 @@ Route::prefix('v1')->middleware(['auth.api_token', 'throttle:api-token'])->group
     Route::get('/messages/poll', [\App\Http\Controllers\Api\V1\MessageController::class, 'poll'])->name('api.v1.messages.poll');
     Route::get('/messages/resync', [\App\Http\Controllers\Api\V1\MessageController::class, 'resync'])->name('api.v1.messages.resync');
     Route::get('/messages/batches/{batchId}', [\App\Http\Controllers\Api\V1\MessageController::class, 'batchStatus'])->name('api.v1.messages.batch.status');
+
+    // Multi-Service Platform API Contracts (Phase 1)
+    Route::get('/services', [\App\Http\Controllers\Api\V1\ServiceCatalogApiController::class, 'index'])->name('api.v1.services.index');
+    Route::post('/services/validate', [\App\Http\Controllers\Api\V1\ServiceCatalogApiController::class, 'validateOrder'])->name('api.v1.services.validate');
+    Route::post('/services/orders', [\App\Http\Controllers\Api\V1\ServiceCatalogApiController::class, 'storeOrder'])->name('api.v1.services.orders.store');
+    Route::get('/services/allocations', [\App\Http\Controllers\Api\V1\ServiceCatalogApiController::class, 'allocations'])->name('api.v1.services.allocations.index');
+    Route::post('/services/allocations/{allocation:uuid}/sub-accounts', [\App\Http\Controllers\Api\V1\ServiceCatalogApiController::class, 'storeSubAccount'])->name('api.v1.services.sub_accounts.store');
 });
 
 Route::post('/telemetry/errors', [\App\Http\Controllers\HealthCheckController::class, 'reportClientError'])

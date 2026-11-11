@@ -63,9 +63,9 @@ return [
         'user' => [
             'nav' => [
                 'dashboard' => 'پیشخوان',
-                'numbers' => 'خطوط من',
+                'numbers' => 'سرویس‌ها',
                 'messages' => 'پیامک‌ها',
-                'requests' => 'درخواست‌ها',
+                'requests' => 'سازمانی',
                 'profile' => 'پروفایل',
                 'services_menu' => 'خدمات و تنظیمات سامانه',
                 'wallet' => 'کیف پول و گردش حساب',
@@ -109,11 +109,11 @@ return [
         'breadcrumb' => [
             'aria_label' => 'مسیر راهنما',
             'home_default' => 'پیشخوان',
-            'my_numbers' => 'خطوط من',
-            'allocate_number' => 'تخصیص خط جدید',
+            'my_numbers' => 'سرویس‌ها',
+            'allocate_number' => 'خرید و فعال‌سازی سرویس جدید',
             'messages_inbox' => 'پیامک‌ها و صندوق گفتگو',
-            'number_requests' => 'درخواست‌های سرشماره',
-            'submit_request' => 'ثبت درخواست جدید',
+            'number_requests' => 'سازمانی',
+            'submit_request' => 'ثبت سفارش سازمانی',
             'service_desk' => 'میز خدمت و پشتیبانی',
             'new_ticket' => 'ارسال تیکت جدید',
             'view_conversation' => 'مشاهده گفتگو',

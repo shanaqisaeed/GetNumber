@@ -84,6 +84,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Auth\LdapAuthService::class);
         $this->app->singleton(\App\Services\Auth\KeycloakAuthService::class);
         $this->app->singleton(\App\Services\Auth\IdentityAuthService::class);
+
+        $this->app->singleton(
+            \App\Contracts\Services\BusinessRuleEngineInterface::class,
+            \App\Services\Catalog\BusinessRuleEngine::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\Services\ServiceRegistryInterface::class,
+            \App\Services\Catalog\ServiceRegistry::class
+        );
+
+        $this->app->singleton(\App\Services\Catalog\ServicePurchaseOrchestrator::class);
     }
 
     /**

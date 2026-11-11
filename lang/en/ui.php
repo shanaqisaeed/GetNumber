@@ -63,9 +63,9 @@ return [
         'user' => [
             'nav' => [
                 'dashboard' => 'Dashboard',
-                'numbers' => 'My Numbers',
+                'numbers' => 'Services',
                 'messages' => 'Messages',
-                'requests' => 'Requests',
+                'requests' => 'Enterprise',
                 'profile' => 'Profile',
                 'services_menu' => 'Services & System Settings',
                 'wallet' => 'Wallet & Transactions',
@@ -109,11 +109,11 @@ return [
         'breadcrumb' => [
             'aria_label' => 'Breadcrumb navigation',
             'home_default' => 'Dashboard',
-            'my_numbers' => 'My Numbers',
-            'allocate_number' => 'Allocate New Line',
+            'my_numbers' => 'Services',
+            'allocate_number' => 'Purchase & Activate Service',
             'messages_inbox' => 'Messages & Inbox',
-            'number_requests' => 'Number Requests',
-            'submit_request' => 'Submit New Request',
+            'number_requests' => 'Enterprise',
+            'submit_request' => 'Submit Enterprise Order',
             'service_desk' => 'Service Desk & Support',
             'new_ticket' => 'Submit New Ticket',
             'view_conversation' => 'View Conversation',
