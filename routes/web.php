@@ -52,6 +52,22 @@ Route::get('/sitemap.xml', function () {
     ]);
 })->name('sitemap');
 
+// Static App Icon Fallback
+Route::get('/icon-192.png', function () {
+    $path = public_path('icon-192.png');
+    if (file_exists($path)) {
+        return response()->file($path, ['Content-Type' => 'image/png']);
+    }
+    return response('', 204);
+});
+Route::get('/admin/icon-192.png', function () {
+    $path = public_path('icon-192.png');
+    if (file_exists($path)) {
+        return response()->file($path, ['Content-Type' => 'image/png']);
+    }
+    return response('', 204);
+});
+
 // Service Worker for Web Push Notifications
 Route::get('/sw.js', function () {
     $swPath = public_path('sw.js');
@@ -301,7 +317,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Admin Payment & Gateway Management
     Route::get('/payments', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.index');
+    Route::get('/payments/transactions', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'index'])->name('payments.transactions');
     Route::get('/payments/gateways', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'gateways'])->name('payments.gateways');
+    Route::get('/payments/gateways/index', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'gateways'])->name('payments.gateways.index');
     Route::patch('/payments/gateways/{gateway}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'updateGateway'])->name('payments.gateways.update');
     Route::post('/payments/gateways/{gateway}/sync', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'syncGateway'])->name('payments.gateways.sync');
     Route::get('/payments/{deposit}', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'show'])->name('payments.show');

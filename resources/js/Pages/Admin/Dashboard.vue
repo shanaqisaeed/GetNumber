@@ -235,7 +235,7 @@ const formatNumber = (num: number | string) => {
                                 </svg>
                                 وضعیت درگاه‌های پرداخت
                             </h2>
-                            <Link :href="route('admin.payments.gateways.index')" class="text-xs text-indigo-600 hover:underline">
+                            <Link :href="route('admin.payments.gateways')" class="text-xs text-indigo-600 hover:underline">
                                 پیکربندی کلیدها
                             </Link>
                         </div>
@@ -399,7 +399,7 @@ const formatNumber = (num: number | string) => {
                             </svg>
                             آخرین تراکنش‌های مالی کیف‌پول
                         </h2>
-                        <Link :href="route('admin.payments.transactions')" class="text-xs text-indigo-600 hover:underline">
+                        <Link :href="route('admin.payments.index')" class="text-xs text-indigo-600 hover:underline">
                             دفتر کل تراکنش‌ها
                         </Link>
                     </div>
