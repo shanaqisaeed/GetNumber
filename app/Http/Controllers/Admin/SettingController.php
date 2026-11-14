@@ -84,6 +84,7 @@ class SettingController extends Controller
                 'host' => SystemSetting::get('voice_bridge_host', '127.0.0.1'),
                 'api_port' => (int) SystemSetting::get('voice_bridge_api_port', 49000),
                 'ws_port' => (int) SystemSetting::get('voice_bridge_ws_port', 49001),
+                'secret' => SystemSetting::get('voice_bridge_secret', ''),
                 'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
             ],
         ]);
@@ -349,6 +350,7 @@ class SettingController extends Controller
             'host' => ['required', 'string', 'max:100'],
             'api_port' => ['required', 'integer', 'min:1024', 'max:65535'],
             'ws_port' => ['required', 'integer', 'min:1024', 'max:65535'],
+            'secret' => ['nullable', 'string', 'max:255'],
             'enabled' => ['boolean'],
         ], [
             'host.required' => 'آدرس هاست سرور بریج صوتی الزامی است.',
@@ -359,6 +361,7 @@ class SettingController extends Controller
         SystemSetting::set('voice_bridge_host', $validated['host'], 'آدرس هاست سرور بریج صوتی گو');
         SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], 'پورت API سرور بریج صوتی');
         SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], 'پورت WebSocket سیگنالینگ صوتی');
+        SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), 'توکن امنیتی احراز هویت بریج صوتی');
         SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', 'فعال‌سازی بریج صوتی گو');
 
         $this->logSettingChange($request, 'بروزرسانی تنظیمات سرور بریج صوتی Go Voice Bridge');
@@ -373,14 +376,36 @@ class SettingController extends Controller
     {
         $host = $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1'));
         $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+        $secret = $request->input('secret', SystemSetting::get('voice_bridge_secret', ''));
 
         try {
-            $response = Http::timeout(2.5)->get("http://{$host}:{$port}/health");
+            $startTime = microtime(true);
+            $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
+                ->timeout(3.0)
+                ->get("http://{$host}:{$port}/health");
+            $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
+
             if ($response->successful()) {
+                $data = $response->json();
+                $authValid = $data['auth_valid'] ?? true;
+                $authRequired = $data['auth_required'] ?? false;
+
+                $msg = "ارتباط با سرور بریج صوتی با موفقیت برقرار شد (پینگ: {$latencyMs}ms).";
+                if ($authRequired) {
+                    if ($authValid && ! empty($secret)) {
+                        $msg .= ' توکن امنیتی (Secret) نیز با موفقیت تایید و احراز هویت شد.';
+                    } elseif (! $authValid) {
+                        $msg .= ' ⚠️ اخطار: سرور بریج فعال است اما توکن امنیتی ارسالی نامعتبر است!';
+                    }
+                }
+
                 return response()->json([
                     'success' => true,
-                    'data' => $response->json(),
-                    'message' => 'ارتباط با سرور بریج صوتی با موفقیت برقرار شد و دیمن فعال است.',
+                    'data' => $data,
+                    'latency_ms' => $latencyMs,
+                    'auth_valid' => $authValid,
+                    'auth_required' => $authRequired,
+                    'message' => $msg,
                 ]);
             }
 

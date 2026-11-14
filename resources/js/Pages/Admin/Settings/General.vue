@@ -74,6 +74,7 @@ interface VoiceBridgeSettings {
     host: string;
     api_port: number;
     ws_port: number;
+    secret?: string;
     enabled: boolean;
 }
 
@@ -299,10 +300,12 @@ const testSmtpConnection = async () => {
 };
 
 // 7. Voice Bridge Form & Testing
+const showBridgeSecret = ref(false);
 const bridgeForm = useForm({
     host: props.voiceBridgeSettings?.host || '127.0.0.1',
     api_port: props.voiceBridgeSettings?.api_port || 49000,
     ws_port: props.voiceBridgeSettings?.ws_port || 49001,
+    secret: props.voiceBridgeSettings?.secret || '',
     enabled: props.voiceBridgeSettings?.enabled ?? true,
 });
 
@@ -313,7 +316,7 @@ const submitVoiceBridge = () => {
 };
 
 const testingBridge = ref(false);
-const bridgeTestResult = ref<{ success: boolean; message: string; data?: any } | null>(null);
+const bridgeTestResult = ref<{ success: boolean; message: string; data?: any; latency_ms?: number; auth_valid?: boolean; auth_required?: boolean } | null>(null);
 
 const testBridgeConnection = async () => {
     testingBridge.value = true;
@@ -329,6 +332,7 @@ const testBridgeConnection = async () => {
             body: JSON.stringify({
                 host: bridgeForm.host,
                 api_port: bridgeForm.api_port,
+                secret: bridgeForm.secret,
             }),
         });
         bridgeTestResult.value = await res.json();
@@ -927,6 +931,55 @@ const testBridgeConnection = async () => {
                                     dir="ltr"
                                 />
                                 <InputError :message="bridgeForm.errors.ws_port" class="mt-1" />
+                            </div>
+                        </div>
+
+                        <!-- Bridge Secret Token Field -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                                    توکن امنیتی احراز هویت بریج (Bridge Secret Token)
+                                </label>
+                                <button
+                                    type="button"
+                                    @click="showBridgeSecret = !showBridgeSecret"
+                                    class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+                                >
+                                    <span>{{ showBridgeSecret ? 'مخفی‌سازی توکن' : 'نمایش توکن' }}</span>
+                                </button>
+                            </div>
+                            <div class="relative">
+                                <input
+                                    v-model="bridgeForm.secret"
+                                    :type="showBridgeSecret ? 'text' : 'password'"
+                                    placeholder="توکن ۳۲ کاراکتری تولید شده توسط سرور اوبونتو (فایل .secret)"
+                                    class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10 pr-3"
+                                    dir="ltr"
+                                />
+                                <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                                هنگام راه‌اندازی Voice Bridge روی سرور اوبونتو، یک کلید ۳۲ کاراکتری منحصر‌به‌فرد تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API و وب‌سوکت، آن را اینجا کپی کنید.
+                            </p>
+                            <InputError :message="bridgeForm.errors.secret" class="mt-1" />
+                        </div>
+
+                        <!-- Ubuntu Quick Deployment Guide Info Box -->
+                        <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
+                            <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                                <span class="text-base">🐧</span>
+                                <span>دستور نصب آسان و سریع روی سرور اوبونتو (Ubuntu Quick Setup):</span>
+                            </div>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                پوشه <code class="font-mono text-indigo-600 dark:text-indigo-400">services/voice-bridge</code> شامل فایل اجرایی لینوکس و اسکریپت خودکار است. کافیست دستور زیر را با دسترسی root اجرا کنید تا سرویس systemd ساخته شده و شروع به کار کند:
+                            </p>
+                            <div class="p-2.5 rounded-lg bg-gray-900 text-emerald-400 font-mono text-[11px] select-all flex items-center justify-between" dir="ltr">
+                                <code>sudo bash install.sh</code>
+                                <span class="text-[10px] text-gray-400">سرویس خودکار در /opt/getnumber-bridge</span>
                             </div>
                         </div>
 

@@ -70,6 +70,7 @@ class VoiceCallService implements VoiceCallServiceInterface
         $bridgeHost = SystemSetting::get('voice_bridge_host', '127.0.0.1');
         $bridgeApiPort = (int) SystemSetting::get('voice_bridge_api_port', 49000);
         $bridgeWsPort = (int) SystemSetting::get('voice_bridge_ws_port', 49001);
+        $bridgeSecret = SystemSetting::get('voice_bridge_secret', '');
         $bridgeEnabled = (bool) SystemSetting::get('voice_bridge_enabled', true);
 
         $bridgeSessionId = null;
@@ -77,7 +78,11 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         if ($bridgeEnabled) {
             try {
-                $bridgeRes = Http::timeout(0.5)->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/start", [
+                $client = Http::timeout(0.5);
+                if (! empty($bridgeSecret)) {
+                    $client = $client->withHeaders(['X-Bridge-Secret' => $bridgeSecret]);
+                }
+                $bridgeRes = $client->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/start", [
                     'call_id' => 0,
                     'user_id' => $user->id,
                     'source' => $fromNumber->number,
@@ -91,6 +96,11 @@ class VoiceCallService implements VoiceCallServiceInterface
             } catch (\Throwable) {
                 // Bridge daemon might not be running locally; gracefully fall back to native mock
             }
+        }
+
+        $wsEndpoint = "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling";
+        if (! empty($bridgeSecret)) {
+            $wsEndpoint .= '?secret=' . urlencode($bridgeSecret);
         }
 
         return VoiceCall::create([
@@ -110,7 +120,7 @@ class VoiceCallService implements VoiceCallServiceInterface
                 'codec' => 'Opus/48000',
                 'ping_ms' => $pingMs,
                 'bridge_session_id' => $bridgeSessionId,
-                'bridge_ws_endpoint' => "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling",
+                'bridge_ws_endpoint' => $wsEndpoint,
                 'mock_engine' => $bridgeSessionId ? 'Go-VoiceBridge-v1' : 'WebRTC-SIP-Stub-v1',
             ],
         ]);
@@ -169,7 +179,12 @@ class VoiceCallService implements VoiceCallServiceInterface
             try {
                 $bridgeHost = SystemSetting::get('voice_bridge_host', '127.0.0.1');
                 $bridgeApiPort = (int) SystemSetting::get('voice_bridge_api_port', 49000);
-                Http::timeout(0.5)->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/end", [
+                $bridgeSecret = SystemSetting::get('voice_bridge_secret', '');
+                $client = Http::timeout(0.5);
+                if (! empty($bridgeSecret)) {
+                    $client = $client->withHeaders(['X-Bridge-Secret' => $bridgeSecret]);
+                }
+                $client->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/end", [
                     'session_id' => $meta['bridge_session_id'],
                     'duration_seconds' => $costData['duration_seconds'],
                 ]);

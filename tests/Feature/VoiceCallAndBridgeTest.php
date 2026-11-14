@@ -123,5 +123,25 @@ class VoiceCallAndBridgeTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page->component('Admin/Calls/Index'));
     }
+
+    public function test_admin_can_update_voice_bridge_settings_with_secret(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $response = $this->actingAs($admin)->post(route('admin.settings.voice_bridge.update'), [
+            'host' => '192.168.1.100',
+            'api_port' => 49000,
+            'ws_port' => 49001,
+            'secret' => 'a1b2c3d4e5f678901234567890abcdef',
+            'enabled' => true,
+        ]);
+
+        $response->assertRedirect(route('admin.settings.general', ['tab' => 'bridge']));
+        $this->assertEquals('192.168.1.100', SystemSetting::get('voice_bridge_host'));
+        $this->assertEquals(49000, (int) SystemSetting::get('voice_bridge_api_port'));
+        $this->assertEquals(49001, (int) SystemSetting::get('voice_bridge_ws_port'));
+        $this->assertEquals('a1b2c3d4e5f678901234567890abcdef', SystemSetting::get('voice_bridge_secret'));
+        $this->assertTrue((bool) (int) SystemSetting::get('voice_bridge_enabled'));
+    }
 }
 

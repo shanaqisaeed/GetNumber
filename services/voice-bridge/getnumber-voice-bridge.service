@@ -1,0 +1,23 @@
+[Unit]
+Description=GetNumber Voice Bridge & Audio Signaling Daemon
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/getnumber-bridge
+ExecStart=/opt/getnumber-bridge/voice-bridge -host=0.0.0.0 -api-port=49000 -ws-port=49001
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=getnumber-voice-bridge
+
+# Optional environment file
+EnvironmentFile=-/opt/getnumber-bridge/.env
+
+[Install]
+WantedBy=multi-user.target
+
