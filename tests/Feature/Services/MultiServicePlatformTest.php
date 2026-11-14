@@ -487,5 +487,20 @@ class MultiServicePlatformTest extends TestCase
         $this->assertEquals('GoldenSource Holding', $freshUser->organization_name);
         $this->assertEquals('ENT-2026-999', $freshUser->enterprise_contract_code);
     }
+
+    public function test_custom_id_live_ajax_validation_endpoint(): void
+    {
+        $user = User::factory()->create(['account_tier' => 'individual']);
+
+        $response = $this->actingAs($user)->postJson('/api/validate/custom-id', [
+            'handle' => 'mybrand',
+        ]);
+
+        $response->assertOk();
+        $response->assertJson([
+            'available' => true,
+        ]);
+        $this->assertArrayHasKey('price', $response->json());
+    }
 }
 

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { useTrans } from '@/Composables/useTrans';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 interface PrefixItem {
@@ -17,6 +17,7 @@ interface PrefixItem {
     price_semi_rond: string | number;
     price_golden_rond: string | number;
     sms_price_per_segment: string | number;
+    sms_intra_prefix_rate?: string | number;
     inbound_sms_price: string | number;
     is_default: boolean;
     is_active: boolean;
@@ -320,10 +321,15 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     </div>
                                 </td>
                                 <td class="p-3.5 font-mono" dir="ltr">
-                                    <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-400">
-                                        <span>{{ prefix.sms_price_per_segment }}</span>
-                                        <span class="text-[9px] font-bold opacity-80">TRX / SMS</span>
-                                    </div>
+                                    <Link
+                                        :href="route('admin.tariffs.index')"
+                                        class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-400 transition-colors"
+                                        title="مدیریت تعرفه‌های پیامک و مکالمه"
+                                    >
+                                        <span>{{ prefix.sms_intra_prefix_rate || prefix.sms_price_per_segment }}</span>
+                                        <span class="text-[9px] font-bold opacity-80">TRX</span>
+                                        <span class="text-[10px] text-indigo-500 mr-0.5">⚙️</span>
+                                    </Link>
                                 </td>
                                 <td class="p-3.5">
                                     <span class="px-2 py-0.5 rounded-full font-mono text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
@@ -491,33 +497,18 @@ const deletePrefix = (prefix: PrefixItem) => {
                             </div>
                         </div>
 
-                        <!-- Per-Prefix SMS Tariff -->
-                        <div class="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 space-y-2">
-                            <span class="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">{{ __('admin.prefixes.sms_pricing_label') }}</span>
-                            <div class="grid grid-cols-2 gap-2.5">
-                                <div>
-                                    <label class="text-[11px] text-emerald-700 dark:text-emerald-400 block mb-1 font-bold">{{ __('admin.prefixes.sms_outbound_rate') }}</label>
-                                    <input
-                                        v-model="createForm.sms_price_per_segment"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        dir="ltr"
-                                        class="form-input w-full font-mono text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.sms_inbound_rate') }}</label>
-                                    <input
-                                        v-model="createForm.inbound_sms_price"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        dir="ltr"
-                                        class="form-input w-full font-mono text-center"
-                                    />
+                        <!-- Per-Prefix Tariffs Notice -->
+                        <div class="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 text-sm">💬</span>
+                                <div class="text-xs">
+                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">تعرفه‌های پیامک و مکالمه این سرشماره</div>
+                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">تعرفه‌های درون‌شبکه، بین‌الملل و تماس در بخش اختصاصی تعرفه‌ها مدیریت می‌شوند.</div>
                                 </div>
                             </div>
+                            <Link :href="route('admin.tariffs.index')" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 shrink-0">
+                                مدیریت تعرفه‌ها ←
+                            </Link>
                         </div>
 
                         <div class="flex items-center gap-4 pt-1">
@@ -636,33 +627,18 @@ const deletePrefix = (prefix: PrefixItem) => {
                             </div>
                         </div>
 
-                        <!-- Per-Prefix SMS Tariff -->
-                        <div class="p-3.5 rounded-2xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/80 dark:border-emerald-800/50 space-y-2">
-                            <span class="font-bold text-emerald-900 dark:text-emerald-300 block text-xs">{{ __('admin.prefixes.sms_pricing_label') }}</span>
-                            <div class="grid grid-cols-2 gap-2.5">
-                                <div>
-                                    <label class="text-[11px] text-emerald-700 dark:text-emerald-400 block mb-1 font-bold">{{ __('admin.prefixes.sms_outbound_rate') }}</label>
-                                    <input
-                                        v-model="editForm.sms_price_per_segment"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        dir="ltr"
-                                        class="form-input w-full font-mono text-center"
-                                    />
-                                </div>
-                                <div>
-                                    <label class="text-[11px] text-slate-500 block mb-1">{{ __('admin.prefixes.sms_inbound_rate') }}</label>
-                                    <input
-                                        v-model="editForm.inbound_sms_price"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        dir="ltr"
-                                        class="form-input w-full font-mono text-center"
-                                    />
+                        <!-- Per-Prefix Tariffs Notice -->
+                        <div class="p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 text-sm">💬</span>
+                                <div class="text-xs">
+                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">تعرفه‌های پیامک و مکالمه این سرشماره</div>
+                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">تعرفه‌های درون‌شبکه، بین‌الملل و تماس در بخش اختصاصی تعرفه‌ها مدیریت می‌شوند.</div>
                                 </div>
                             </div>
+                            <Link :href="route('admin.tariffs.index')" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 shrink-0">
+                                مدیریت تعرفه‌ها ←
+                            </Link>
                         </div>
 
                         <div class="flex items-center gap-4 pt-1">

@@ -34,6 +34,7 @@ class PhonePrefixController extends Controller
                 'price_semi_rond' => (string) ($p->price_semi_rond ?? '5.0000'),
                 'price_golden_rond' => (string) ($p->price_golden_rond ?? '20.0000'),
                 'sms_price_per_segment' => (string) ($p->sms_price_per_segment ?? '0.0500'),
+                'sms_intra_prefix_rate' => (string) ($p->sms_intra_prefix_rate ?? $p->sms_price_per_segment ?? '0.0500'),
                 'inbound_sms_price' => (string) ($p->inbound_sms_price ?? '0.0000'),
                 'is_default' => (bool) $p->is_default,
                 'is_active' => (bool) $p->is_active,

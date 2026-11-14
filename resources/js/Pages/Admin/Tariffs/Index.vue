@@ -101,6 +101,40 @@ const submitPrefixTariff = () => {
                 </div>
             </div>
 
+            <!-- Quick Overview Card for Custom ID Communication Tariffs -->
+            <div class="p-4 rounded-3xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-800/60 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-base shrink-0">@</span>
+                    <div>
+                        <h3 class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>تعرفه ارتباطات آیدی اختصاصی (ID-to-ID)</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">فعال و در حال اجرا</span>
+                        </h3>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            هزینه ارتباط مستقیم بین کاربران از طریق شناسه‌های @handle (بدون نیاز به خط تلفن).
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-4 text-xs font-mono">
+                    <div class="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
+                        <span class="text-slate-500 text-[11px] ml-1">پیامک آیدی:</span>
+                        <strong class="text-indigo-600 dark:text-indigo-400 font-black">{{ global_settings.id_sms_rate }} TRX</strong>
+                    </div>
+                    <div class="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
+                        <span class="text-slate-500 text-[11px] ml-1">تماس آیدی:</span>
+                        <strong class="text-emerald-600 dark:text-emerald-400 font-black">{{ global_settings.id_voice_rate_per_minute }} TRX / دقیقه</strong>
+                    </div>
+                    <button
+                        type="button"
+                        @click="activeTab = 'global'"
+                        class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shrink-0"
+                    >
+                        ویرایش تعرفه آیدی ⚙️
+                    </button>
+                </div>
+            </div>
+
             <!-- Tabs Navigation -->
             <div class="flex flex-wrap items-center gap-2 border-b border-slate-200/80 dark:border-slate-800/80 pb-3">
                 <button

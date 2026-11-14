@@ -221,4 +221,28 @@ class AdminAccessTest extends TestCase
             ->where('users.data.0.username', 'regular_person')
         );
     }
+
+    public function test_admin_can_view_edit_user_page(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $targetUser = User::factory()->create([
+            'username' => 'user_to_edit',
+        ]);
+
+        \App\Models\AuditLog::create([
+            'user_id' => $admin->id,
+            'action' => 'user.updated',
+            'entity_type' => 'App\Models\User',
+            'entity_id' => $targetUser->id,
+            'payload' => ['field' => 'name'],
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.users.edit', $targetUser->id));
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Admin/Users/Edit')
+            ->where('user.id', $targetUser->id)
+            ->has('audit_logs')
+        );
+    }
 }

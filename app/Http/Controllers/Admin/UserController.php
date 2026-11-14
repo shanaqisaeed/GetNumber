@@ -267,17 +267,23 @@ class UserController extends Controller
             },
         ]);
 
-        $auditLogs = AuditLog::where('target_id', $user->id)
-            ->orWhere('actor_id', $user->id)
+        $auditLogs = AuditLog::with('user')
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhere(function ($eq) use ($user) {
+                      $eq->where('entity_id', $user->id)
+                         ->whereIn('entity_type', ['user', User::class]);
+                  });
+            })
             ->latest('id')
             ->limit(10)
             ->get()
             ->map(fn ($log) => [
                 'id' => $log->id,
                 'action' => $log->action,
-                'description' => $log->description,
-                'created_at' => $log->created_at->format('Y/m/d H:i:s'),
-                'actor' => $log->actor ? $log->actor->name : 'سیستم',
+                'description' => is_array($log->payload) ? json_encode($log->payload, JSON_UNESCAPED_UNICODE) : ($log->action ?? ''),
+                'created_at' => $log->created_at?->format('Y/m/d H:i:s') ?? '',
+                'actor' => $log->user ? $log->user->name : 'سیستم',
             ]);
 
         return Inertia::render('Admin/Users/Edit', [
