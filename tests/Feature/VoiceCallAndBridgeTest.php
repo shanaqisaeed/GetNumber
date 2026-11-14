@@ -143,5 +143,22 @@ class VoiceCallAndBridgeTest extends TestCase
         $this->assertEquals('a1b2c3d4e5f678901234567890abcdef', SystemSetting::get('voice_bridge_secret'));
         $this->assertTrue((bool) (int) SystemSetting::get('voice_bridge_enabled'));
     }
+
+    public function test_admin_can_set_low_ports_like_port_25(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $response = $this->actingAs($admin)->post(route('admin.settings.voice_bridge.update'), [
+            'host' => '127.0.0.1',
+            'api_port' => 25,
+            'ws_port' => 80,
+            'secret' => 'custom-secret-key',
+            'enabled' => true,
+        ]);
+
+        $response->assertRedirect(route('admin.settings.general', ['tab' => 'bridge']));
+        $this->assertEquals(25, (int) SystemSetting::get('voice_bridge_api_port'));
+        $this->assertEquals(80, (int) SystemSetting::get('voice_bridge_ws_port'));
+    }
 }
 

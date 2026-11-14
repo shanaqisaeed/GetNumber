@@ -7,16 +7,14 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=/opt/getnumber-bridge
-ExecStart=/opt/getnumber-bridge/voice-bridge -host=0.0.0.0 -api-port=49000 -ws-port=49001
+EnvironmentFile=-/opt/getnumber-bridge/.env
+ExecStart=/opt/getnumber-bridge/voice-bridge
 Restart=always
 RestartSec=3s
 LimitNOFILE=65535
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=getnumber-voice-bridge
-
-# Optional environment file
-EnvironmentFile=-/opt/getnumber-bridge/.env
 
 [Install]
 WantedBy=multi-user.target

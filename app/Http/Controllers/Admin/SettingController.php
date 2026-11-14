@@ -348,8 +348,8 @@ class SettingController extends Controller
     {
         $validated = $request->validate([
             'host' => ['required', 'string', 'max:100'],
-            'api_port' => ['required', 'integer', 'min:1024', 'max:65535'],
-            'ws_port' => ['required', 'integer', 'min:1024', 'max:65535'],
+            'api_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'ws_port' => ['required', 'integer', 'min:1', 'max:65535'],
             'secret' => ['nullable', 'string', 'max:255'],
             'enabled' => ['boolean'],
         ], [

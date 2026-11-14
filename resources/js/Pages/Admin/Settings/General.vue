@@ -901,15 +901,15 @@ const testBridgeConnection = async () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    پورت REST API (شروع از ۴۹۰۰۰)
+                                    پورت REST API (پورت آزاد بین ۱ تا ۶۵۵۳۵)
                                 </label>
                                 <input
                                     v-model="bridgeForm.api_port"
                                     type="number"
                                     required
-                                    min="1024"
+                                    min="1"
                                     max="65535"
-                                    placeholder="49000"
+                                    placeholder="49000 یا 25 یا هر پورت دیگر"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     dir="ltr"
                                 />
@@ -918,15 +918,15 @@ const testBridgeConnection = async () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    پورت WebSocket سیگنالینگ صوتی
+                                    پورت WebSocket سیگنالینگ (پورت آزاد بین ۱ تا ۶۵۵۳۵)
                                 </label>
                                 <input
                                     v-model="bridgeForm.ws_port"
                                     type="number"
                                     required
-                                    min="1024"
+                                    min="1"
                                     max="65535"
-                                    placeholder="49001"
+                                    placeholder="49001 یا هر پورت دیگر"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     dir="ltr"
                                 />
@@ -981,6 +981,9 @@ const testBridgeConnection = async () => {
                                 <code>sudo bash install.sh</code>
                                 <span class="text-[10px] text-gray-400">سرویس خودکار در /opt/getnumber-bridge</span>
                             </div>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 pt-1">
+                                💡 برای تغییر پورت در آینده، فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.env</code> را ویرایش و دستور <code class="font-mono text-indigo-500">sudo systemctl restart getnumber-voice-bridge</code> را بزنید، یا مجدداً اسکریپت را با پورت‌های جدید اجرا کنید.
+                            </p>
                         </div>
 
                         <!-- Enable toggle -->

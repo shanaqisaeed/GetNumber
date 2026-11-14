@@ -101,14 +101,14 @@ if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
     fi
 fi
 
-# 5. Validate Port Numbers
-if ! [[ "$API_PORT" =~ ^[0-9]+$ ]] || [ "$API_PORT" -lt 1024 ] || [ "$API_PORT" -gt 65535 ]; then
-    echo -e "${RED}❌ Invalid API Port: ${API_PORT}. Must be an integer between 1024 and 65535.${NC}"
+# 5. Validate Port Numbers (allow any port from 1 to 65535, including privileged ports like 25, 80, 443)
+if ! [[ "$API_PORT" =~ ^[0-9]+$ ]] || [ "$API_PORT" -lt 1 ] || [ "$API_PORT" -gt 65535 ]; then
+    echo -e "${RED}❌ Invalid API Port: ${API_PORT}. Must be an integer between 1 and 65535.${NC}"
     exit 1
 fi
 
-if ! [[ "$WS_PORT" =~ ^[0-9]+$ ]] || [ "$WS_PORT" -lt 1024 ] || [ "$WS_PORT" -gt 65535 ]; then
-    echo -e "${RED}❌ Invalid WebSocket Port: ${WS_PORT}. Must be an integer between 1024 and 65535.${NC}"
+if ! [[ "$WS_PORT" =~ ^[0-9]+$ ]] || [ "$WS_PORT" -lt 1 ] || [ "$WS_PORT" -gt 65535 ]; then
+    echo -e "${RED}❌ Invalid WebSocket Port: ${WS_PORT}. Must be an integer between 1 and 65535.${NC}"
     exit 1
 fi
 
@@ -179,16 +179,14 @@ Wants=network-online.target
 Type=simple
 User=root
 WorkingDirectory=${INSTALL_DIR}
-ExecStart=${INSTALL_DIR}/voice-bridge -host=${HOST} -api-port=${API_PORT} -ws-port=${WS_PORT}
+EnvironmentFile=-${INSTALL_DIR}/.env
+ExecStart=${INSTALL_DIR}/voice-bridge
 Restart=always
 RestartSec=3s
 LimitNOFILE=65535
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=${SERVICE_NAME}
-
-# Optional environment file
-EnvironmentFile=-${INSTALL_DIR}/.env
 
 [Install]
 WantedBy=multi-user.target
