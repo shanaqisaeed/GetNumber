@@ -224,9 +224,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
                         <span class="wallet-title">{{ __('catalog.enterprise_hub_title') }}</span>
                     </div>
-                    <span class="wallet-chip bg-amber-500/20 border-amber-500/40 text-amber-600 dark:text-amber-300">
-                        دسترسی عمومی و مستقیم
-                    </span>
                 </div>
 
                 <div class="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -251,7 +248,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
 
                 <!-- 3 Service Cards with Action into Wizard -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                <div class="grid grid-cols-1 gap-3.5 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <!-- Service 1: Short Lines -->
                     <div class="p-4 rounded-2xl bg-white/95 dark:bg-slate-900/75 border border-purple-500/25 flex flex-col justify-between space-y-3.5 hover:border-purple-500/40 transition-all shadow-xs">
                         <div class="space-y-2">
@@ -565,7 +562,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     @click.self="closeDetailsModal"
                 >
                     <div
-                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-[420px] shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
                     >
                         <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
                             <div class="flex items-center gap-2.5">
@@ -655,7 +652,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     @click.self="closeCancelModal"
                 >
                     <div
-                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
+                        class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-[420px] shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200"
                     >
                         <div class="w-12 h-12 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-500 mx-auto flex items-center justify-center text-lg">
                             ⚠️

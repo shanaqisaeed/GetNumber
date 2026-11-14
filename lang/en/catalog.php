@@ -3,7 +3,7 @@
 return [
     'module_title' => 'Services Catalog & Management',
     'module_subtitle' => 'Unified multi-service platform for communication lines, custom handles, and Web3 organizational email packages',
-    'enterprise_hub_title' => 'Dedicated Enterprise Services Portal',
+    'enterprise_hub_title' => 'Enterprise Services',
     'enterprise_hub_subtitle' => 'Provision shortcodes, 4+ character VIP custom handles, and high-volume Web3 email packages with contractual tariffs',
 
     'tabs' => [

@@ -395,20 +395,18 @@ const formatPrice = (p: string | number) => {
 <template>
     <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+        class="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
         @click.self="closeWizard"
     >
-        <div class="glass-card responsive-modal-scroll-card my-auto w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl shadow-2xl p-5 sm:p-7 space-y-5 relative">
+    <div class="min-h-full w-full flex items-center justify-center p-3 sm:p-4">
+        <div class="glass-card w-full max-w-[420px] max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-y-contain touch-pan-y bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl shadow-2xl p-5 sm:p-7 space-y-5 relative">
             <!-- Modal Header -->
             <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
                 <div>
                     <h3 class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        سفارش خدمات سازمانی و ویژه
+                        خدمات سازمانی
                     </h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        دسترسی مستقیم و عمومی به خدمات بدون نیاز به مدارک شرکتی یا تاییدیه سازمانی
-                    </p>
                 </div>
                 <button
                     type="button"
@@ -456,7 +454,7 @@ const formatPrice = (p: string | number) => {
                     نوع سرویس سازمانی مورد نظر خود را انتخاب نمایید:
                 </h4>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <!-- 1. Short Lines -->
                     <button
                         type="button"
@@ -470,9 +468,6 @@ const formatPrice = (p: string | number) => {
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
                                 سرشماره‌های کوتاه
                             </h5>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                خطوط ۴ الی ۸ رقمی رند با پیش‌شماره اختصاصی جهت ارسال و دریافت پیامک انبوه
-                            </p>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-bold">
                             <span>انتخاب و پیکربندی</span>
@@ -493,9 +488,6 @@ const formatPrice = (p: string | number) => {
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
                                 آیدی‌های سازمانی
                             </h5>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                آیدی‌های رسمی و کوتاه مانند @brand همراه با تحلیل هوشمند رند بودن
-                            </p>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold">
                             <span>انتخاب و پیکربندی</span>
@@ -516,9 +508,6 @@ const formatPrice = (p: string | number) => {
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
                                 دامنه‌های Web3
                             </h5>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                                مالکیت نام غیرمتمرکز، ساب‌ایمیل نامحدود و هویت رمزنگاری‌شده
-                            </p>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-bold">
                             <span>انتخاب و پیکربندی</span>
@@ -961,5 +950,6 @@ const formatPrice = (p: string | number) => {
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </template>

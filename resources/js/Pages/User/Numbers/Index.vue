@@ -459,43 +459,50 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
 
                 <!-- Quick Action Bar -->
+                
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-slate-200/80 dark:border-white/10">
-                    <span class="text-[11px] text-slate-600 dark:text-slate-400">
+
+                    <span class="text-[11px] text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         {{ __('user.numbers.system_prefix') }}
                         <strong class="font-mono text-indigo-600 dark:text-indigo-400 font-black" dir="ltr">{{ default_prefix || '+98' }}</strong>
                     </span>
 
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="flex flex-nowrap items-center gap-2 overflow-x-auto">
+
                         <button
                             type="button"
                             @click="openAllocateModal"
                             :disabled="quota.active >= quota.max"
-                            class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40"
+                            class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40 shrink-0 whitespace-nowrap"
                         >
                             <span>+ تخصیص خط جدید</span>
                         </button>
+
                         <button
                             type="button"
                             @click="openCustomIdModal"
-                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15 shrink-0 whitespace-nowrap"
                         >
                             <span>+ ثبت آیدی اختصاصی</span>
                         </button>
+
                         <Link
                             :href="route('calls.index')"
-                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15 flex items-center gap-1.5"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15 flex items-center gap-1.5 shrink-0 whitespace-nowrap"
                         >
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span>شماره‌گیر صوتی (Voice)</span>
+                            <span>شماره‌گیر صوتی</span>
                         </Link>
+
                     </div>
                 </div>
+
             </div>
 
             <!-- 2. Registered Multi-Service Catalog Cards (Clean Bespoke Cards for Phone Lines & Custom IDs) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            <div class="grid grid-cols-1 gap-3.5">
                 <!-- Service 1: Phone Lines -->
                 <div class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs">
                     <div class="flex items-start gap-3.5">
@@ -506,7 +513,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
                         <div class="flex-1 min-w-0 space-y-1.5">
                             <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                خطوط ارتباطی و سرشماره‌ها (Phone Lines)
+                                خطوط ارتباطی و سرشماره‌ها
                             </h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                                 این خطوط برای ارتباط با وب‌سایت‌ها، سرویس‌ها و پلتفرم‌هایی است که هنوز بر بستر سنتی شماره تلفن همراه فعالیت می‌کنند (دریافت کد تایید، پیامک و تماس).
@@ -538,7 +545,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div class="flex-1 min-w-0 space-y-1.5">
                             <div class="flex items-center justify-between gap-2">
                                 <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                    آیدی اختصاصی (Custom ID)
+                                    آیدی اختصاصی
                                 </h3>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shrink-0">
                                     حداقل ۶ کاراکتر
@@ -734,65 +741,58 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <!-- Dedicated Communications Section for each Number -->
-                        <div class="mt-3 p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-slate-800/60 border border-indigo-100 dark:border-white/5 space-y-2.5">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-black text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                    بخش ارتباطات و قابلیت‌های خط
+                        
+                        <div class="mt-3 p-3 rounded-xl bg-indigo-50/60 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/5">
+
+                            <div class="flex items-center justify-between mb-2.5">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    ارتباطات خط
                                 </span>
-                                <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                <span class="text-[10px] text-slate-400">
                                     {{ item.status_label }}
                                 </span>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
-                                <!-- SMS Channel -->
-                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">پیامک دوطرفه (SMS)</div>
-                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">ارسال و دریافت فعال</div>
-                                        </div>
-                                    </div>
-                                    <Link
-                                        :href="route('messages.index', { phone_number_id: item.id })"
-                                        class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors shadow-xs flex items-center gap-1"
-                                    >
-                                        <span>ورود به پیام‌ها</span>
-                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                                        </svg>
-                                    </Link>
-                                </div>
+                            <div class="grid grid-cols-2 gap-2">
 
-                                <!-- Voice Call Channel -->
-                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
-                                    <div class="flex items-center gap-2">
-                                        <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                            </svg>
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">تماس صوتی (Voice)</div>
-                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">مرکز تماس و تاریخچه</div>
-                                        </div>
-                                    </div>
-                                    <Link
-                                        :href="route('calls.index', { phone_number_id: item.id })"
-                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs flex items-center gap-1"
-                                    >
-                                        <span>تماس صوتی</span>
-                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                <!-- SMS -->
+                                <Link
+                                    :href="route('messages.index', { phone_number_id: item.id })"
+                                    class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
+                                >
+                                    <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                        <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                         </svg>
-                                    </Link>
-                                </div>
+                                        پیامک
+                                    </span>
+
+                                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </Link>
+
+                                <!-- Voice -->
+                                <Link
+                                    :href="route('calls.index', { phone_number_id: item.id })"
+                                    class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors group"
+                                >
+                                    <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                        <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                        </svg>
+                                        تماس صوتی
+                                    </span>
+
+                                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </Link>
+
                             </div>
                         </div>
 
@@ -838,12 +838,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
             @click.self="closeCustomIdModal"
         >
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-[420px] shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <div class="flex items-center gap-2.5">
                         <span class="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center font-mono font-black text-sm">@</span>
                         <div>
-                            <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت آیدی اختصاصی (Custom ID)</h3>
+                            <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت آیدی اختصاصی</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">شناسه کاربری منحصر‌به‌فرد برای ارتباطات و دریافت پیام</p>
                         </div>
                     </div>
@@ -951,7 +951,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
         <!-- 10. Edit Title Modal -->
         <div v-if="isEditTitleModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeEditTitleModal">
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-[420px] shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white">
                         {{ __('user.numbers.modal_edit_title', { number: selectedNumberForTitle?.formatted_number }) }}
@@ -988,7 +988,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
         <!-- 11. Release Confirmation Modal -->
         <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md" @click.self="closeReleaseModal">
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-6 w-full max-w-lg shadow-2xl relative space-y-4 text-right bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-6 w-full max-w-[420px] shadow-2xl relative space-y-4 text-right bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
                     <div class="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
