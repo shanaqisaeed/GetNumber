@@ -367,6 +367,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::post('/settings/smtp', [\App\Http\Controllers\Admin\SettingController::class, 'updateSmtp'])->name('settings.smtp.update');
     Route::post('/settings/smtp/test', [\App\Http\Controllers\Admin\SettingController::class, 'testSmtp'])->name('settings.smtp.test');
+
+    Route::post('/settings/voice-bridge', [\App\Http\Controllers\Admin\SettingController::class, 'updateVoiceBridge'])->name('settings.voice_bridge.update');
+    Route::post('/settings/voice-bridge/test', [\App\Http\Controllers\Admin\SettingController::class, 'testVoiceBridge'])->name('settings.voice_bridge.test');
 });
 
 require __DIR__.'/auth.php';

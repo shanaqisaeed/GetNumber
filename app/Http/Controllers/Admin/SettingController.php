@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Services\Auth\KeycloakAuthService;
 use App\Services\Auth\LdapAuthService;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,7 @@ class SettingController extends Controller
         KeycloakAuthService $keycloakService
     ): Response {
         $tab = $request->query('tab', 'general');
-        if (!in_array($tab, ['general', 'pricing', 'auth', 'ldap', 'keycloak', 'smtp'])) {
+        if (!in_array($tab, ['general', 'pricing', 'auth', 'ldap', 'keycloak', 'smtp', 'bridge'])) {
             $tab = 'general';
         }
 
@@ -78,6 +79,12 @@ class SettingController extends Controller
                 'mail_from_address' => SystemSetting::get('mail_from_address', 'noreply@getnumber.local'),
                 'mail_from_name' => SystemSetting::get('mail_from_name', 'GetNumber'),
                 'require_email_verification' => (bool) (int) SystemSetting::get('require_email_verification', '1'),
+            ],
+            'voiceBridgeSettings' => [
+                'host' => SystemSetting::get('voice_bridge_host', '127.0.0.1'),
+                'api_port' => (int) SystemSetting::get('voice_bridge_api_port', 49000),
+                'ws_port' => (int) SystemSetting::get('voice_bridge_ws_port', 49001),
+                'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
             ],
         ]);
     }
@@ -331,6 +338,62 @@ class SettingController extends Controller
         $recipient = $request->input('recipient', $request->user()?->email);
         $result = \App\Services\Mail\MailConfigService::testConnection($recipient);
         return response()->json($result);
+    }
+
+    /**
+     * Update Voice Bridge high ports & host settings.
+     */
+    public function updateVoiceBridge(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'host' => ['required', 'string', 'max:100'],
+            'api_port' => ['required', 'integer', 'min:1024', 'max:65535'],
+            'ws_port' => ['required', 'integer', 'min:1024', 'max:65535'],
+            'enabled' => ['boolean'],
+        ], [
+            'host.required' => 'آدرس هاست سرور بریج صوتی الزامی است.',
+            'api_port.required' => 'پورت REST API الزامی است.',
+            'ws_port.required' => 'پورت WebSocket سیگنالینگ الزامی است.',
+        ]);
+
+        SystemSetting::set('voice_bridge_host', $validated['host'], 'آدرس هاست سرور بریج صوتی گو');
+        SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], 'پورت API سرور بریج صوتی');
+        SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], 'پورت WebSocket سیگنالینگ صوتی');
+        SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', 'فعال‌سازی بریج صوتی گو');
+
+        $this->logSettingChange($request, 'بروزرسانی تنظیمات سرور بریج صوتی Go Voice Bridge');
+
+        return redirect()->route('admin.settings.general', ['tab' => 'bridge'])->with('success', 'تنظیمات ارتباطی سرور بریج صوتی با موفقیت بروزرسانی شد.');
+    }
+
+    /**
+     * Test live connectivity to the Voice Bridge daemon.
+     */
+    public function testVoiceBridge(Request $request): JsonResponse
+    {
+        $host = $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1'));
+        $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+
+        try {
+            $response = Http::timeout(2.5)->get("http://{$host}:{$port}/health");
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $response->json(),
+                    'message' => 'ارتباط با سرور بریج صوتی با موفقیت برقرار شد و دیمن فعال است.',
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => "پاسخ ناموفق از سرور بریج: وضعیت {$response->status()}",
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'عدم دسترسی به سرور بریج: ' . $e->getMessage() . ' (لطفاً مطمئن شوید دیمن voice-bridge روی پورت مشخص‌شده در حال اجراست).',
+            ], 422);
+        }
     }
 
     /**

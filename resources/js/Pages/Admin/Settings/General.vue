@@ -70,6 +70,13 @@ interface SmtpSettings {
     require_email_verification: boolean;
 }
 
+interface VoiceBridgeSettings {
+    host: string;
+    api_port: number;
+    ws_port: number;
+    enabled: boolean;
+}
+
 interface Props {
     initialTab?: string;
     generalSettings: GeneralSettings;
@@ -86,6 +93,7 @@ interface Props {
         isEnabled: boolean;
     };
     smtpSettings?: SmtpSettings;
+    voiceBridgeSettings?: VoiceBridgeSettings;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -94,13 +102,15 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { __ } = useTrans();
 
-// 3 Standard Main Tabs:
+// 4 Standard Main Tabs:
 // 1. 'general' (تنظیمات عمومی و ایمیل)
 // 2. 'security' (سقف‌های دسترسی و احراز هویت / LDAP / Keycloak)
 // 3. 'tariffs' (نرخ‌های پایه و درگاه‌های پرداخت)
-type MainTab = 'general' | 'security' | 'tariffs';
+// 4. 'bridge' (سرور بریج صوتی Go Voice Bridge)
+type MainTab = 'general' | 'security' | 'tariffs' | 'bridge';
 
 const determineMainTab = (tab?: string): MainTab => {
+    if (tab === 'bridge') return 'bridge';
     if (tab === 'auth' || tab === 'ldap' || tab === 'keycloak') return 'security';
     if (tab === 'pricing') return 'tariffs';
     return 'general';
@@ -287,6 +297,47 @@ const testSmtpConnection = async () => {
         testingSmtp.value = false;
     }
 };
+
+// 7. Voice Bridge Form & Testing
+const bridgeForm = useForm({
+    host: props.voiceBridgeSettings?.host || '127.0.0.1',
+    api_port: props.voiceBridgeSettings?.api_port || 49000,
+    ws_port: props.voiceBridgeSettings?.ws_port || 49001,
+    enabled: props.voiceBridgeSettings?.enabled ?? true,
+});
+
+const submitVoiceBridge = () => {
+    bridgeForm.post(route('admin.settings.voice_bridge.update'), {
+        preserveScroll: true,
+    });
+};
+
+const testingBridge = ref(false);
+const bridgeTestResult = ref<{ success: boolean; message: string; data?: any } | null>(null);
+
+const testBridgeConnection = async () => {
+    testingBridge.value = true;
+    bridgeTestResult.value = null;
+    try {
+        const res = await fetch(route('admin.settings.voice_bridge.test'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            },
+            body: JSON.stringify({
+                host: bridgeForm.host,
+                api_port: bridgeForm.api_port,
+            }),
+        });
+        bridgeTestResult.value = await res.json();
+    } catch {
+        bridgeTestResult.value = { success: false, message: 'خطای شبکه در اتصال به سرور بریج صوتی' };
+    } finally {
+        testingBridge.value = false;
+    }
+};
 </script>
 
 <template>
@@ -307,8 +358,8 @@ const testSmtpConnection = async () => {
                 </p>
             </div>
 
-            <!-- 3 Standard Tabs Bar -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 p-1.5 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-1.5">
+            <!-- 4 Standard Tabs Bar -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 p-1.5 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 gap-1.5">
                 <button
                     type="button"
                     @click="activeTab = 'general'"
@@ -318,7 +369,7 @@ const testSmtpConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span>۱. تنظیمات عمومی (General)</span>
+                    <span>۱. تنظیمات عمومی</span>
                 </button>
 
                 <button
@@ -330,7 +381,7 @@ const testSmtpConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
-                    <span>۲. سقف‌های دسترسی و امنیت (Access & Auth)</span>
+                    <span>۲. دسترسی و امنیت</span>
                 </button>
 
                 <button
@@ -342,7 +393,19 @@ const testSmtpConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>۳. نرخ‌های پایه و درگاه‌ها (Tariffs & Gateways)</span>
+                    <span>۳. تعرفه‌ها و درگاه‌ها</span>
+                </button>
+
+                <button
+                    type="button"
+                    @click="activeTab = 'bridge'"
+                    class="py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2"
+                    :class="activeTab === 'bridge' ? 'bg-white dark:bg-gray-700 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>۴. بریج صوتی (Voice Bridge)</span>
                 </button>
             </div>
 
@@ -753,6 +816,147 @@ const testSmtpConnection = async () => {
                         </button>
                     </div>
                 </form>
+            </div>
+
+            <!-- TAB 4: سرور بریج صوتی (Go Voice Bridge Daemon) -->
+            <div v-show="activeTab === 'bridge'" class="space-y-6">
+                <!-- Info & Health Banner -->
+                <div class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>پیکربندی سرور بریج صوتی (Voice Bridge Daemon)</span>
+                            </h2>
+                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                مدیریت ارتباطات پورت‌های بالا برای برقراری تماس صوتی، سیگنالینگ WebRTC و گزارش بلادرنگ پینگ
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                                High Ports: 49000 (REST) & 49001 (WS)
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Live Test Connection Action -->
+                    <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 space-y-3">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="space-y-0.5">
+                                <div class="text-xs font-bold text-gray-800 dark:text-gray-200">وضعیت زنده دیمن صوتی (Go Binary)</div>
+                                <div class="text-[11px] text-gray-500 dark:text-gray-400">
+                                    بررسی آنلاین بودن سرور بریج صوتی بر روی هاست و پورت تعیین‌شده
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                @click="testBridgeConnection"
+                                :disabled="testingBridge"
+                                class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                                <span v-if="testingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                <span>{{ testingBridge ? 'در حال استعلام...' : 'تست اتصال به سرور بریج' }}</span>
+                            </button>
+                        </div>
+
+                        <!-- Feedback result -->
+                        <div
+                            v-if="bridgeTestResult"
+                            class="p-3 rounded-xl border text-xs space-y-1.5"
+                            :class="bridgeTestResult.success ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200' : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
+                        >
+                            <div class="font-bold flex items-center gap-1.5">
+                                <span>{{ bridgeTestResult.success ? '✓' : '✗' }}</span>
+                                <span>{{ bridgeTestResult.message }}</span>
+                            </div>
+                            <div v-if="bridgeTestResult.data" class="font-mono text-[11px] space-y-0.5 pt-1 border-t border-emerald-500/20" dir="ltr">
+                                <div>Service: {{ bridgeTestResult.data.service }} (v{{ bridgeTestResult.data.version }})</div>
+                                <div>Uptime: {{ bridgeTestResult.data.uptime_seconds }}s | Active Calls: {{ bridgeTestResult.data.active_sessions }}</div>
+                                <div>Endpoints: http://{{ bridgeTestResult.data.bridge_host }}:{{ bridgeTestResult.data.api_port }} & ws://{{ bridgeTestResult.data.bridge_host }}:{{ bridgeTestResult.data.ws_port }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Voice Bridge Settings Form -->
+                    <form @submit.prevent="submitVoiceBridge" class="space-y-4 pt-2">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                    آدرس هاست سرور بریج (Bridge Host)
+                                </label>
+                                <input
+                                    v-model="bridgeForm.host"
+                                    type="text"
+                                    required
+                                    placeholder="مثلاً: 127.0.0.1 یا domain.com"
+                                    class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    dir="ltr"
+                                />
+                                <InputError :message="bridgeForm.errors.host" class="mt-1" />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                    پورت REST API (شروع از ۴۹۰۰۰)
+                                </label>
+                                <input
+                                    v-model="bridgeForm.api_port"
+                                    type="number"
+                                    required
+                                    min="1024"
+                                    max="65535"
+                                    placeholder="49000"
+                                    class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    dir="ltr"
+                                />
+                                <InputError :message="bridgeForm.errors.api_port" class="mt-1" />
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                    پورت WebSocket سیگنالینگ صوتی
+                                </label>
+                                <input
+                                    v-model="bridgeForm.ws_port"
+                                    type="number"
+                                    required
+                                    min="1024"
+                                    max="65535"
+                                    placeholder="49001"
+                                    class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                    dir="ltr"
+                                />
+                                <InputError :message="bridgeForm.errors.ws_port" class="mt-1" />
+                            </div>
+                        </div>
+
+                        <!-- Enable toggle -->
+                        <div class="flex items-center gap-3 p-3.5 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700">
+                            <input
+                                id="voice_bridge_enabled_toggle"
+                                v-model="bridgeForm.enabled"
+                                type="checkbox"
+                                class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                            />
+                            <label for="voice_bridge_enabled_toggle" class="text-xs font-bold text-gray-800 dark:text-gray-200 cursor-pointer select-none">
+                                فعال‌سازی دیمن صوتی گو (Voice Bridge Enabled)
+                            </label>
+                            <span class="text-[11px] text-gray-400">
+                                (در صورت غیرفعال بودن یا قطعی موقت، تماس‌ها به صورت خودکار از شبیه‌ساز امن داخلی استفاده می‌کنند)
+                            </span>
+                        </div>
+
+                        <div class="pt-2 flex justify-end">
+                            <button
+                                type="submit"
+                                :disabled="bridgeForm.processing"
+                                class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                            >
+                                {{ bridgeForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات سرور بریج صوتی' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </AdminLayout>
