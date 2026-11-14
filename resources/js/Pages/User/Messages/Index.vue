@@ -2,7 +2,6 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import Breadcrumb from '@/Components/Breadcrumb.vue';
 
 // Subcomponents
 import LineSelector, { LineItem } from './Components/LineSelector.vue';
@@ -407,9 +406,6 @@ onUnmounted(() => {
     <Head :title="__('user.messages.page_title')" />
 
     <UserLayout>
-        <!-- Breadcrumb Navigation -->
-        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'پیامک‌ها' }]" class="mb-3" />
-
         <!-- Floating Toast Notification -->
         <teleport to="body">
             <transition

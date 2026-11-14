@@ -1,18 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import Breadcrumb from '@/Components/Breadcrumb.vue';
 import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Components/ContactPickerModal.vue';
 
 interface LineItem {
     id: number;
+    key?: string;
     number: string;
     formatted_number: string;
     display_title: string;
     status: string;
     is_active: boolean;
+    type?: string;
+    type_label?: string;
 }
 
 interface CallItem {
@@ -47,7 +49,9 @@ interface PaginationLink {
 
 const props = defineProps<{
     lines: LineItem[];
+    selected_line_key?: string | null;
     selected_line_id?: number | null;
+    initial_destination?: string;
     calls: {
         data: CallItem[];
         links: PaginationLink[];
@@ -61,30 +65,63 @@ const props = defineProps<{
     currency: string;
 }>();
 
-const activeTab = ref<'dialer' | 'history' | 'contacts'>('dialer');
+const activeTab = ref<'dialer' | 'history'>('dialer');
 
-// Outgoing line selection
-const selectedLineId = ref<number | null>(
-    props.selected_line_id || (props.lines.length > 0 ? props.lines[0].id : null)
+// Outgoing line selection (Supports both Phone Lines and Custom IDs)
+const selectedLineKey = ref<string | null>(
+    props.selected_line_key || (props.lines.length > 0 ? (props.lines[0].key || 'phone_' + props.lines[0].id) : null)
 );
 
 const selectedLine = computed(() => {
-    return props.lines.find((l) => l.id === selectedLineId.value) || props.lines[0] || null;
+    return props.lines.find((l) => l.key === selectedLineKey.value) 
+        || props.lines.find((l) => l.id === props.selected_line_id) 
+        || props.lines[0] 
+        || null;
 });
 
+const onLineChanged = (newKey: string | null) => {
+    if (!newKey) return;
+    selectedLineKey.value = newKey;
+    router.get(
+        route('calls.index'),
+        { line_key: newKey },
+        { preserveState: true, replace: true, only: ['calls', 'selected_line_key', 'selected_line_id'] }
+    );
+};
+
 // Dialer State
-const destinationInput = ref('');
-const keypadMode = ref<'numeric' | 'alphanumeric'>('numeric');
+const destinationInput = ref(props.initial_destination || '');
+const keypadMode = ref<'numeric' | 'alphanumeric'>(
+    props.initial_destination?.startsWith('@') ? 'alphanumeric' : 'numeric'
+);
 const isContactPickerOpen = ref(false);
 const isCalling = ref(false);
 const activeCallId = ref<number | null>(null);
 const callDuration = ref(0);
 let callTimer: ReturnType<typeof setInterval> | null = null;
+let pulseTimer: ReturnType<typeof setInterval> | null = null;
 const pingMs = ref<number>(24);
 let pingTimer: ReturnType<typeof setInterval> | null = null;
 const isMuted = ref(false);
 const isSpeakerOn = ref(false);
 const callError = ref('');
+
+// Bridge & WebRTC State
+const bridgeSessionId = ref<string | null>(null);
+const bridgeWsEndpoint = ref<string | null>(null);
+const isBridgeConnected = ref(false);
+const isInternalCall = ref(false);
+let bridgeSocket: WebSocket | null = null;
+let bridgePingInterval: ReturnType<typeof setInterval> | null = null;
+let localMediaStream: MediaStream | null = null;
+const micPermissionGranted = ref<boolean | null>(null);
+
+// Incoming Call Notification State
+const incomingCall = ref<any>(null);
+const isIncomingCallModalOpen = ref(false);
+let incomingPollTimer: ReturnType<typeof setInterval> | null = null;
+let ringtoneAudioContext: AudioContext | null = null;
+let ringtoneOscillator: OscillatorNode | null = null;
 
 const handleContactSelected = (contact: PickerContactItem) => {
     destinationInput.value = contact.phone_number.trim();
@@ -138,41 +175,166 @@ const ensureAtPrefix = () => {
     }
 };
 
+// Request Microphone Access
+const requestMicrophoneAccess = async (): Promise<boolean> => {
+    micPermissionGranted.value = null;
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        micPermissionGranted.value = false;
+        callError.value = 'مرورگر شما از دریافت صدای میکروفون پشتیبانی نمی‌کند یا پروتکل امن HTTPS برقرار نیست.';
+        return false;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localMediaStream = stream;
+        micPermissionGranted.value = true;
+        return true;
+    } catch {
+        micPermissionGranted.value = false;
+        callError.value = 'دسترسی به میکروفون توسط کاربر یا مرورگر مسدود شده است. لطفاً در نوار آدرس دسترسی میکروفون را مجاز کنید.';
+        return false;
+    }
+};
+
+const toggleMute = () => {
+    isMuted.value = !isMuted.value;
+    if (localMediaStream) {
+        localMediaStream.getAudioTracks().forEach(track => {
+            track.enabled = !isMuted.value;
+        });
+    }
+};
+
+const toggleSpeaker = () => {
+    isSpeakerOn.value = !isSpeakerOn.value;
+};
+
+// WebSocket signaling connection to Voice Bridge
+const connectBridgeWebSocket = (wsUrl: string) => {
+    try {
+        if (bridgeSocket) {
+            bridgeSocket.close();
+            bridgeSocket = null;
+        }
+        bridgeSocket = new WebSocket(wsUrl);
+        bridgeSocket.onopen = () => {
+            isBridgeConnected.value = true;
+            bridgePingInterval = setInterval(() => {
+                if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
+                    const start = performance.now();
+                    bridgeSocket.send(JSON.stringify({ type: 'ping', t: start }));
+                }
+            }, 2500);
+        };
+        bridgeSocket.onmessage = (event) => {
+            try {
+                const msg = JSON.parse(event.data);
+                if (msg.type === 'pong' && msg.t) {
+                    const rtt = Math.round(performance.now() - msg.t);
+                    if (rtt > 0) pingMs.value = rtt;
+                }
+            } catch {}
+        };
+        bridgeSocket.onerror = () => {
+            isBridgeConnected.value = false;
+        };
+        bridgeSocket.onclose = () => {
+            isBridgeConnected.value = false;
+            if (bridgePingInterval) clearInterval(bridgePingInterval);
+        };
+    } catch {
+        isBridgeConnected.value = false;
+    }
+};
+
 // Start Voice Call
 const startCall = async () => {
-    if (!destinationInput.value.trim() || !selectedLineId.value || isCalling.value) return;
+    if (!destinationInput.value.trim() || !selectedLine.value || isCalling.value) return;
 
     callError.value = '';
+    
+    // Check & request microphone permission
+    const hasMic = await requestMicrophoneAccess();
+    if (!hasMic) return;
+
     isCalling.value = true;
     callDuration.value = 0;
 
     try {
         const res = await axios.post(route('voice.initiate'), {
-            phone_number_id: selectedLineId.value,
+            line_key: selectedLineKey.value || undefined,
+            phone_number_id: selectedLine.value?.id,
             destination: destinationInput.value.trim(),
         });
 
         if (res.data?.success && res.data.call) {
             activeCallId.value = res.data.call.id;
+            bridgeSessionId.value = res.data.call.bridge_session_id || null;
+            bridgeWsEndpoint.value = res.data.call.bridge_ws_endpoint || null;
+            isInternalCall.value = Boolean(res.data.call.is_internal);
+            pingMs.value = res.data.call.ping_ms || 22;
+
+            if (bridgeWsEndpoint.value) {
+                connectBridgeWebSocket(bridgeWsEndpoint.value);
+            }
+
             callTimer = setInterval(() => {
                 callDuration.value++;
             }, 1000);
-            // Simulate realistic WebRTC audio signaling ping fluctuation
-            pingMs.value = Math.floor(Math.random() * 15) + 18;
-            pingTimer = setInterval(() => {
-                pingMs.value = Math.floor(Math.random() * 15) + 18;
-            }, 3000);
+
+            // Periodic Balance Heartbeat (Auto-disconnects if balance is exhausted)
+            pulseTimer = setInterval(async () => {
+                if (!activeCallId.value || !isCalling.value) return;
+                try {
+                    const pulseRes = await axios.post(route('voice.pulse', activeCallId.value), {
+                        elapsed_seconds: callDuration.value,
+                    });
+                    if (pulseRes.data?.can_continue === false) {
+                        callError.value = pulseRes.data.message || 'مکالمه به دلیل اتمام موجودی کیف‌پول پایان یافت.';
+                        endCall();
+                    }
+                } catch {}
+            }, 15000);
+
+            if (!bridgeWsEndpoint.value) {
+                pingTimer = setInterval(() => {
+                    pingMs.value = Math.floor(Math.random() * 10) + 18;
+                }, 3000);
+            }
         } else {
             throw new Error(res.data?.message || 'خطا در برقراری تماس');
         }
     } catch (err: any) {
         isCalling.value = false;
         callError.value = err.response?.data?.message || err.message || 'خطا در اتصال تماس صوتی';
+        if (localMediaStream) {
+            localMediaStream.getTracks().forEach(t => t.stop());
+            localMediaStream = null;
+        }
     }
 };
 
 // End Voice Call
 const endCall = async () => {
+    if (pulseTimer) {
+        clearInterval(pulseTimer);
+        pulseTimer = null;
+    }
+    if (bridgeSocket) {
+        bridgeSocket.close();
+        bridgeSocket = null;
+    }
+    if (bridgePingInterval) {
+        clearInterval(bridgePingInterval);
+        bridgePingInterval = null;
+    }
+    if (localMediaStream) {
+        localMediaStream.getTracks().forEach(t => t.stop());
+        localMediaStream = null;
+    }
+    isBridgeConnected.value = false;
+    bridgeSessionId.value = null;
+
     if (!activeCallId.value) {
         isCalling.value = false;
         if (callTimer) clearInterval(callTimer);
@@ -196,6 +358,100 @@ const endCall = async () => {
     }
 };
 
+// Incoming Call Sound & Ringtone Simulation (Web Audio API)
+const playRingtone = () => {
+    try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        ringtoneAudioContext = new AudioCtx();
+        const osc = ringtoneAudioContext.createOscillator();
+        const gain = ringtoneAudioContext.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, ringtoneAudioContext.currentTime);
+        gain.gain.setValueAtTime(0.08, ringtoneAudioContext.currentTime);
+        osc.connect(gain);
+        gain.connect(ringtoneAudioContext.destination);
+        osc.start();
+        ringtoneOscillator = osc;
+    } catch {}
+};
+
+const stopRingtone = () => {
+    try {
+        if (ringtoneOscillator) {
+            ringtoneOscillator.stop();
+            ringtoneOscillator.disconnect();
+            ringtoneOscillator = null;
+        }
+        if (ringtoneAudioContext) {
+            ringtoneAudioContext.close();
+            ringtoneAudioContext = null;
+        }
+    } catch {}
+};
+
+const checkIncomingCall = async () => {
+    if (isCalling.value) return;
+    try {
+        const res = await axios.get(route('voice.active_incoming'));
+        if (res.data?.has_incoming && res.data.call) {
+            if (!incomingCall.value || incomingCall.value.id !== res.data.call.id) {
+                incomingCall.value = res.data.call;
+                isIncomingCallModalOpen.value = true;
+                playRingtone();
+            }
+        } else {
+            if (isIncomingCallModalOpen.value) {
+                stopRingtone();
+                isIncomingCallModalOpen.value = false;
+                incomingCall.value = null;
+            }
+        }
+    } catch {}
+};
+
+const answerIncomingCall = async () => {
+    if (!incomingCall.value) return;
+    stopRingtone();
+    const callId = incomingCall.value.id;
+    try {
+        const res = await axios.post(route('voice.answer', callId));
+        if (res.data?.success) {
+            isIncomingCallModalOpen.value = false;
+            activeCallId.value = callId;
+            destinationInput.value = incomingCall.value.source;
+            isCalling.value = true;
+            callDuration.value = 0;
+            pingMs.value = incomingCall.value.ping_ms || 22;
+            bridgeSessionId.value = incomingCall.value.bridge_session_id || null;
+            isBridgeConnected.value = Boolean(incomingCall.value.bridge_session_id);
+            isInternalCall.value = true;
+
+            await requestMicrophoneAccess();
+
+            callTimer = setInterval(() => {
+                callDuration.value++;
+            }, 1000);
+
+            if (incomingCall.value.bridge_ws_endpoint) {
+                connectBridgeWebSocket(incomingCall.value.bridge_ws_endpoint);
+            }
+        }
+    } catch {}
+};
+
+const declineIncomingCall = async () => {
+    if (!incomingCall.value) return;
+    stopRingtone();
+    const callId = incomingCall.value.id;
+    isIncomingCallModalOpen.value = false;
+    incomingCall.value = null;
+    try {
+        await axios.post(route('voice.decline', callId));
+        router.reload({ only: ['calls'] });
+    } catch {}
+};
+
 const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -208,54 +464,10 @@ const dialNumber = (number: string) => {
     activeTab.value = 'dialer';
 };
 
-// Contact Management
-const isAddContactModalOpen = ref(false);
-const contactForm = useForm({
-    name: '',
-    phone_number: '',
-    notes: '',
-    avatar_color: 'indigo',
-});
-
-const openAddContactModal = () => {
-    contactForm.reset();
-    isAddContactModalOpen.value = true;
-};
-
-const closeAddContactModal = () => {
-    isAddContactModalOpen.value = false;
-    contactForm.reset();
-};
-
-const submitContact = () => {
-    contactForm.post(route('calls.contacts.store'), {
-        preserveScroll: true,
-        onSuccess: () => closeAddContactModal(),
-    });
-};
-
-const deleteContact = (contactId: number) => {
-    if (confirm('آیا از حذف این مخاطب اطمینان دارید؟')) {
-        router.delete(route('calls.contacts.destroy', contactId), {
-            preserveScroll: true,
-        });
-    }
-};
-
-// Filter contacts
-const contactSearch = ref('');
-const filteredContacts = computed(() => {
-    if (!contactSearch.value.trim()) return props.contacts;
-    const q = contactSearch.value.trim().toLowerCase();
-    return props.contacts.filter(
-        (c) => c.name.toLowerCase().includes(q) || c.phone_number.includes(q)
-    );
-});
-
 onMounted(() => {
     if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
-        const target = params.get('to') || params.get('destination') || params.get('number');
+        const target = params.get('to') || params.get('destination') || params.get('number') || params.get('custom_id');
         if (target) {
             destinationInput.value = target.trim();
             if (target.startsWith('@')) {
@@ -263,19 +475,43 @@ onMounted(() => {
             }
             activeTab.value = 'dialer';
         }
-        const lineParam = params.get('phone_number_id');
-        if (lineParam) {
-            const matched = props.lines.find((l) => l.id === Number(lineParam));
+        const lineKeyParam = params.get('line_key');
+        if (lineKeyParam) {
+            const matched = props.lines.find((l) => l.key === lineKeyParam);
             if (matched) {
-                selectedLineId.value = matched.id;
+                selectedLineKey.value = matched.key || null;
+            }
+        } else {
+            const lineParam = params.get('phone_number_id');
+            if (lineParam) {
+                const matched = props.lines.find((l) => l.id === Number(lineParam));
+                if (matched) {
+                    selectedLineKey.value = matched.key || null;
+                }
             }
         }
     }
+
+    // Start incoming call detector
+    checkIncomingCall();
+    incomingPollTimer = setInterval(checkIncomingCall, 3500);
 });
 
 onUnmounted(() => {
     if (callTimer) clearInterval(callTimer);
+    if (pulseTimer) clearInterval(pulseTimer);
     if (pingTimer) clearInterval(pingTimer);
+    if (bridgePingInterval) clearInterval(bridgePingInterval);
+    if (incomingPollTimer) clearInterval(incomingPollTimer);
+    stopRingtone();
+    if (bridgeSocket) {
+        bridgeSocket.close();
+        bridgeSocket = null;
+    }
+    if (localMediaStream) {
+        localMediaStream.getTracks().forEach(t => t.stop());
+        localMediaStream = null;
+    }
 });
 </script>
 
@@ -283,9 +519,6 @@ onUnmounted(() => {
     <Head title="تماس صوتی و شماره‌گیر ابری" />
 
     <UserLayout>
-        <!-- Breadcrumb Navigation -->
-        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'تماس صوتی' }]" class="mb-3" />
-
         <div class="space-y-4">
             <!-- Header Command Card -->
             <div class="dash-wallet-card">
@@ -321,69 +554,69 @@ onUnmounted(() => {
                     </div>
 
                     <div v-if="lines.length > 0" class="flex items-center gap-2">
-                        <span class="text-[11px] text-slate-500">خط خروجی:</span>
+                        <span class="text-[11px] text-slate-500 font-bold">خط خروجی:</span>
                         <select
-                            v-model="selectedLineId"
-                            class="form-select !py-1 !px-2.5 !text-xs font-mono font-bold rounded-xl"
+                            v-model="selectedLineKey"
+                            @change="onLineChanged(selectedLineKey)"
+                            class="form-select !py-1.5 !px-3 !text-xs font-mono font-bold rounded-xl bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-white/10"
                             dir="ltr"
                         >
-                            <option v-for="line in lines" :key="line.id" :value="line.id">
-                                {{ line.formatted_number }} ({{ line.display_title }})
+                            <option v-for="line in lines" :key="line.key || line.id" :value="line.key || ('phone_' + line.id)">
+                                {{ line.type === 'custom_id' ? '🆔' : '📞' }} {{ line.formatted_number }} ({{ line.display_title }})
                             </option>
                         </select>
                     </div>
                 </div>
             </div>
 
-            <!-- 3 Main Tabs: Dialer | Call History | Contacts -->
-            <div class="grid grid-cols-3 gap-2">
-                <button
-                    type="button"
-                    @click="activeTab = 'dialer'"
-                    class="py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
-                    :class="activeTab === 'dialer'
-                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/20'
-                        : 'glass-pill text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10'"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span>شماره‌گیر</span>
-                </button>
+            <!-- Navigation Switcher: 2 Main Tabs + Direct Contacts Link -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2 flex-1 max-w-md">
+                    <button
+                        type="button"
+                        @click="activeTab = 'dialer'"
+                        class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
+                        :class="activeTab === 'dialer'
+                            ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                            : 'glass-pill text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10'"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <span>شماره‌گیر صوتی</span>
+                    </button>
 
-                <button
-                    type="button"
-                    @click="activeTab = 'history'"
-                    class="py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
-                    :class="activeTab === 'history'
-                        ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                        : 'glass-pill text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10'"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>تاریخچه مکالمات</span>
-                    <span v-if="calls.total > 0" class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
-                        {{ calls.total }}
-                    </span>
-                </button>
+                    <button
+                        type="button"
+                        @click="activeTab = 'history'"
+                        class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
+                        :class="activeTab === 'history'
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                            : 'glass-pill text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10'"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>تاریخچه مکالمات</span>
+                        <span v-if="calls.total > 0" class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
+                            {{ calls.total }}
+                        </span>
+                    </button>
+                </div>
 
-                <button
-                    type="button"
-                    @click="activeTab = 'contacts'"
-                    class="py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
-                    :class="activeTab === 'contacts'
-                        ? 'bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-600/20'
-                        : 'glass-pill text-slate-600 dark:text-slate-300 border-slate-200/80 dark:border-white/10'"
+                <Link
+                    :href="route('contacts.index')"
+                    class="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border glass-pill text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
+                    title="مشاهده و مدیریت کامل دفترچه تلفن و مخاطبین"
                 >
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <span>مخاطبین</span>
-                    <span v-if="contacts.length > 0" class="text-[10px] px-1.5 py-0.2 rounded-full bg-white/20">
-                        {{ contacts.length }}
-                    </span>
-                </button>
+                    <span>دفترچه مخاطبین</span>
+                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                </Link>
             </div>
 
             <!-- ======================================================== -->
@@ -409,12 +642,31 @@ onUnmounted(() => {
                         <div class="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
                             {{ formatTimer(callDuration) }}
                         </div>
-                        <!-- Real-time Ping Latency Indicator -->
-                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold mt-1">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            <span>پینگ: {{ pingMs }} ms</span>
-                            <span class="text-slate-400">|</span>
-                            <span>کیفیت: عالی (HD Voice)</span>
+
+                        <!-- Real-time Bridge / Fallback Status Indicator -->
+                        <div class="pt-2 flex flex-col items-center gap-1.5">
+                            <div
+                                v-if="isBridgeConnected || bridgeSessionId"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold"
+                            >
+                                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>🟢 متصل به بریج صوتی سرور (سرور ابری اوبونتو)</span>
+                                <span class="text-slate-400">|</span>
+                                <span>پینگ زنده: {{ pingMs }} ms</span>
+                            </div>
+                            <div
+                                v-else
+                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold"
+                            >
+                                <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                <span>🟡 در حال ارتباط شبیه‌سازی شده سرور (Fallback Mode)</span>
+                                <span class="text-slate-400">|</span>
+                                <span>پینگ: {{ pingMs }} ms</span>
+                            </div>
+
+                            <div v-if="isInternalCall" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                                ✨ تماس درون‌شبکه سامانه GetNumber (۱۰۰٪ رایگان)
+                            </div>
                         </div>
                     </div>
 
@@ -422,9 +674,10 @@ onUnmounted(() => {
                     <div class="flex items-center justify-center gap-4 pt-3">
                         <button
                             type="button"
-                            @click="isMuted = !isMuted"
+                            @click="toggleMute"
                             class="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all"
                             :class="isMuted ? 'bg-amber-500/20 border-amber-500 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
+                            :title="isMuted ? 'میکروفون غیرفعال است' : 'میکروفون فعال است'"
                         >
                             <span class="text-xs font-bold">{{ isMuted ? 'بی‌صدا' : 'صدا فعال' }}</span>
                         </button>
@@ -434,6 +687,7 @@ onUnmounted(() => {
                             type="button"
                             @click="endCall"
                             class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-xl shadow-rose-600/40 transition-transform active:scale-95"
+                            title="قطع تماس"
                         >
                             <svg class="w-8 h-8 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -442,9 +696,10 @@ onUnmounted(() => {
 
                         <button
                             type="button"
-                            @click="isSpeakerOn = !isSpeakerOn"
+                            @click="toggleSpeaker"
                             class="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all"
                             :class="isSpeakerOn ? 'bg-blue-500/20 border-blue-500 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
+                            :title="isSpeakerOn ? 'پخش از اسپیکر' : 'پخش از گوشی/هدفون'"
                         >
                             <span class="text-xs font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
                         </button>
@@ -594,7 +849,7 @@ onUnmounted(() => {
                         <button
                             type="button"
                             @click="startCall"
-                            :disabled="!destinationInput.trim() || !selectedLineId"
+                            :disabled="!destinationInput.trim() || !selectedLine"
                             class="w-full max-w-xs py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -610,6 +865,20 @@ onUnmounted(() => {
             <!-- TAB 2: CALL HISTORY                                      -->
             <!-- ======================================================== -->
             <div v-else-if="activeTab === 'history'" class="space-y-3">
+                <!-- Selected Line History Indicator -->
+                <div class="glass-card !p-3 bg-white/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-500 dark:text-slate-400">تاریخچه مکالمات خط انتخابی:</span>
+                        <span class="font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg" dir="ltr">
+                            {{ selectedLine?.formatted_number }}
+                        </span>
+                        <span class="text-[11px] text-slate-400">({{ selectedLine?.display_title }})</span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">
+                        {{ calls.total }} تماس
+                    </span>
+                </div>
+
                 <div v-if="calls.data && calls.data.length > 0" class="space-y-2">
                     <div
                         v-for="call in calls.data"
@@ -676,142 +945,9 @@ onUnmounted(() => {
 
                 <div v-else class="glass-card !p-8 text-center space-y-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
                     <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 text-indigo-600 mx-auto flex items-center justify-center text-lg">📞</div>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-white">هنوز تماسی ثبت نشده است</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">پس از برقراری یا دریافت مکالمات صوتی، لیست تاریخچه اینجا نمایش داده می‌شود.</p>
+                    <h3 class="font-bold text-sm text-slate-900 dark:text-white">هنوز تماسی برای این خط ثبت نشده است</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">پس از برقراری یا دریافت مکالمات صوتی با این خط، لیست تاریخچه اینجا نمایش داده می‌شود.</p>
                 </div>
-            </div>
-
-            <!-- ======================================================== -->
-            <!-- TAB 3: CONTACTS BOOK                                     -->
-            <!-- ======================================================== -->
-            <div v-else-if="activeTab === 'contacts'" class="space-y-3">
-                <div class="flex items-center justify-between gap-2">
-                    <div class="relative flex-1">
-                        <input
-                            type="text"
-                            v-model="contactSearch"
-                            placeholder="جستجوی مخاطب (نام یا شماره)..."
-                            class="form-input !py-2 !text-xs w-full"
-                        />
-                    </div>
-                    <button
-                        type="button"
-                        @click="openAddContactModal"
-                        class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl shrink-0"
-                    >
-                        + افزودن مخاطب
-                    </button>
-                </div>
-
-                <div v-if="filteredContacts.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div
-                        v-for="contact in filteredContacts"
-                        :key="contact.id"
-                        class="glass-card !p-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 flex items-center justify-between gap-3 text-xs"
-                    >
-                        <div class="flex items-center gap-2.5 min-w-0">
-                            <div class="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 font-bold text-sm flex items-center justify-center shrink-0">
-                                {{ contact.name.charAt(0) }}
-                            </div>
-                            <div class="min-w-0">
-                                <div class="font-bold text-slate-900 dark:text-white truncate">{{ contact.name }}</div>
-                                <div class="font-mono text-slate-500 text-[11px]" dir="ltr">{{ contact.phone_number }}</div>
-                                <div v-if="contact.notes" class="text-[10px] text-slate-400 truncate">{{ contact.notes }}</div>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-1.5 shrink-0">
-                            <button
-                                type="button"
-                                @click="dialNumber(contact.phone_number)"
-                                class="w-8 h-8 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 flex items-center justify-center transition-colors"
-                                title="شماره‌گیری"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                @click="deleteContact(contact.id)"
-                                class="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-500 flex items-center justify-center transition-colors"
-                                title="حذف مخاطب"
-                            >
-                                ✕
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div v-else class="glass-card !p-8 text-center space-y-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                    <div class="w-12 h-12 rounded-2xl bg-blue-500/15 text-blue-600 mx-auto flex items-center justify-center text-lg">👥</div>
-                    <h3 class="font-bold text-sm text-slate-900 dark:text-white">هیچ مخاطبی یافت نشد</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">می‌توانید شماره‌های پرکاربرد را به عنوان مخاطب اضافه کنید تا با یک کلیک شماره‌گیری شوند.</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Add Contact Modal -->
-        <div
-            v-if="isAddContactModalOpen"
-            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
-            @click.self="closeAddContactModal"
-        >
-            <div class="glass-card w-full max-w-md p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl space-y-4 shadow-2xl">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">افزودن مخاطب جدید</h3>
-                    <button type="button" @click="closeAddContactModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
-                </div>
-
-                <form @submit.prevent="submitContact" class="space-y-3.5">
-                    <div>
-                        <label class="form-label font-bold text-xs">نام مخاطب</label>
-                        <input
-                            type="text"
-                            v-model="contactForm.name"
-                            placeholder="مثلاً: علی رضایی"
-                            required
-                            class="form-input !py-2.5 !text-xs mt-1"
-                        />
-                        <p v-if="contactForm.errors.name" class="text-rose-500 text-[11px] mt-1">{{ contactForm.errors.name }}</p>
-                    </div>
-
-                    <div>
-                        <label class="form-label font-bold text-xs">شماره تلفن یا آیدی</label>
-                        <input
-                            type="text"
-                            v-model="contactForm.phone_number"
-                            placeholder="مثلاً: 09120000000 یا @ceo"
-                            required
-                            dir="ltr"
-                            class="form-input !py-2.5 !text-xs font-mono mt-1"
-                        />
-                        <p v-if="contactForm.errors.phone_number" class="text-rose-500 text-[11px] mt-1">{{ contactForm.errors.phone_number }}</p>
-                    </div>
-
-                    <div>
-                        <label class="form-label font-bold text-xs">یادداشت (اختیاری)</label>
-                        <input
-                            type="text"
-                            v-model="contactForm.notes"
-                            placeholder="مثلاً: واحد پشتیبانی"
-                            class="form-input !py-2 !text-xs mt-1"
-                        />
-                    </div>
-
-                    <div class="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeAddContactModal" class="glass-pill !py-2 !px-4 !text-xs">
-                            انصراف
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="contactForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
-                        >
-                            ذخیره مخاطب
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
 
@@ -822,6 +958,59 @@ onUnmounted(() => {
             @close="isContactPickerOpen = false"
             @select="handleContactSelected"
         />
+
+        <!-- Incoming Call Modal Notification -->
+        <div
+            v-if="isIncomingCallModalOpen"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+        >
+            <div class="glass-card !p-6 max-w-sm w-full text-center space-y-5 bg-white dark:bg-slate-900 border border-emerald-500/50 rounded-3xl shadow-2xl">
+                <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+                    <span class="absolute inset-0 rounded-full bg-emerald-500/30 animate-ping"></span>
+                    <div class="w-16 h-16 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400">تماس صوتی دریافتی...</span>
+                    <div class="text-xl font-black font-mono text-slate-900 dark:text-white" dir="ltr">
+                        {{ incomingCall?.source }}
+                    </div>
+                    <div class="text-xs text-slate-400">
+                        به مقصد: {{ incomingCall?.destination }}
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-center gap-3 pt-2">
+                    <!-- Decline button -->
+                    <button
+                        type="button"
+                        @click="declineIncomingCall"
+                        class="flex-1 py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-rose-600/30 transition-transform active:scale-95"
+                    >
+                        <svg class="w-4 h-4 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <span>رد تماس</span>
+                    </button>
+
+                    <!-- Answer button -->
+                    <button
+                        type="button"
+                        @click="answerIncomingCall"
+                        class="flex-1 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-transform active:scale-95"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <span>پاسخ به تماس</span>
+                    </button>
+                </div>
+            </div>
+        </div>
     </UserLayout>
 </template>
 

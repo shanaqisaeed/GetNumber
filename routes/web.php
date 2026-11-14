@@ -213,8 +213,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/calls/contacts', [\App\Http\Controllers\User\VoiceCallController::class, 'storeContact'])->name('calls.contacts.store');
     Route::delete('/calls/contacts/{contact}', [\App\Http\Controllers\User\VoiceCallController::class, 'destroyContact'])->name('calls.contacts.destroy');
     Route::get('/voice/lines', [\App\Http\Controllers\User\VoiceCallController::class, 'lines'])->name('voice.lines');
+    Route::get('/voice/active-incoming', [\App\Http\Controllers\User\VoiceCallController::class, 'activeIncoming'])->name('voice.active_incoming');
     Route::post('/voice/initiate', [\App\Http\Controllers\User\VoiceCallController::class, 'initiate'])->name('voice.initiate');
+    Route::post('/voice/{voiceCall}/answer', [\App\Http\Controllers\User\VoiceCallController::class, 'answer'])->name('voice.answer');
+    Route::post('/voice/{voiceCall}/decline', [\App\Http\Controllers\User\VoiceCallController::class, 'decline'])->name('voice.decline');
     Route::post('/voice/{voiceCall}/end', [\App\Http\Controllers\User\VoiceCallController::class, 'end'])->name('voice.end');
+    Route::post('/voice/{voiceCall}/pulse', [\App\Http\Controllers\User\VoiceCallController::class, 'pulse'])->name('voice.pulse');
     Route::get('/voice/{voiceCall}/status', [\App\Http\Controllers\User\VoiceCallController::class, 'status'])->name('voice.status');
 
     // Web3 Domains & Sub-Email Engine

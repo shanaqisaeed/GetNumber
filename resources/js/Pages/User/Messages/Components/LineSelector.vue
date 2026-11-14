@@ -145,7 +145,8 @@ const selectLine = (id: number) => {
                         : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
                 ]"
             >
-                <span class="text-[10px] opacity-75 font-mono">SIM {{ idx + 1 }}</span>
+                <span v-if="sim.type === 'custom_id'" class="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 font-black font-mono">@ ID</span>
+                <span v-else class="text-[10px] opacity-75 font-mono">SIM {{ idx + 1 }}</span>
                 <span dir="ltr" class="font-mono text-[11px] font-black">{{ sim.formatted_number }}</span>
                 <span
                     v-if="(sim.unread_count || 0) > 0"
@@ -198,7 +199,7 @@ const selectLine = (id: number) => {
                             class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs"
                             :class="selectedLineId === sim.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'"
                         >
-                            S{{ idx + 1 }}
+                            {{ sim.type === 'custom_id' ? '@' : 'S' + (idx + 1) }}
                         </div>
                         <div>
                             <div class="flex items-center gap-2">

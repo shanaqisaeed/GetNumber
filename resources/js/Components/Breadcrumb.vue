@@ -48,6 +48,8 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
         'payments.checkout': [{ label: __('ui.components.breadcrumb.finance_transactions'), href: ziggy().has?.('payments.index') ? ziggy('payments.index') : undefined }, { label: __('ui.components.breadcrumb.payment_invoice') }],
         'profile.edit': [{ label: __('ui.components.breadcrumb.profile_security') }],
         'api-tokens.index': [{ label: __('ui.components.breadcrumb.api_tokens') }],
+        'calls.index': [{ label: __('ui.components.breadcrumb.calls_index') }],
+        'contacts.index': [{ label: __('ui.components.breadcrumb.contacts_index') }],
 
         // Admin Routes
         'admin.users.index': [{ label: __('ui.components.breadcrumb.admin_users') }],

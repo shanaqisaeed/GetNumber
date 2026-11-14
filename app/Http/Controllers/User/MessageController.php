@@ -34,14 +34,27 @@ class MessageController extends Controller
 
         // 1. User's active allocated numbers (Line selector - Cached)
         $allocatedNumbers = app(\App\Contracts\SystemCacheServiceInterface::class)->getUserAllocatedNumbers($user);
+        $userCustomIds = $user->activeServiceAllocations()
+            ->where('service_key', 'custom_id')
+            ->get();
+
+        $selectedCidParam = $request->input('custom_id');
+        $selectedCustomId = null;
+        if ($selectedCidParam) {
+            $selectedCustomId = $userCustomIds->firstWhere('resource_identifier', $selectedCidParam);
+        }
 
         /** @var PhoneNumber|null $currentNumber */
         $currentNumber = null;
         if ($request->filled('phone_number_id')) {
-            $currentNumber = $allocatedNumbers->firstWhere('id', (int) $request->input('phone_number_id'));
+            $reqLineId = (int) $request->input('phone_number_id');
+            $currentNumber = $allocatedNumbers->firstWhere('id', $reqLineId);
+            if (! $currentNumber && ! $selectedCustomId) {
+                $selectedCustomId = $userCustomIds->firstWhere('id', $reqLineId);
+            }
         }
 
-        if (! $currentNumber && $allocatedNumbers->isNotEmpty()) {
+        if (! $currentNumber && ! $selectedCustomId && $allocatedNumbers->isNotEmpty()) {
             $currentNumber = $allocatedNumbers->first();
         }
 
@@ -49,6 +62,9 @@ class MessageController extends Controller
         $activePeer = $request->filled('peer')
             ? \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($request->input('peer'))
             : null;
+        if (! $activePeer && $selectedCidParam && ! $selectedCustomId) {
+            $activePeer = $selectedCidParam;
+        }
         $activeMessages = collect();
         $activePeerDetails = null;
 
@@ -111,23 +127,45 @@ class MessageController extends Controller
             'allocated_lines_count' => $allocatedNumbers->count(),
         ];
 
-        return Inertia::render('User/Messages/Index', [
-            'allocatedNumbers' => $allocatedNumbers->map(fn (PhoneNumber $p) => [
-                'id' => $p->id,
-                'number' => $p->number,
-                'formatted_number' => $p->formatted_number,
-                'effective_title' => $p->effective_title,
-                'type' => $p->type->value,
-                'type_label' => $p->type->label(),
-                'badge_class' => $p->type->badgeClasses(),
-                'unread_count' => (int) ($unreadCounts[$p->id] ?? 0),
-                'phone_prefix_id' => $p->phone_prefix_id,
-                'prefix_code' => $p->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
-                'sms_rate_per_segment' => $p->prefix?->getSmsRatePerSegment()
-                    ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
-                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
-            ]),
-            'currentNumber' => $currentNumber ? [
+        $userCustomIds = $user->activeServiceAllocations()
+            ->where('service_key', 'custom_id')
+            ->get();
+
+        $customIdLines = $userCustomIds->map(fn ($cid) => [
+            'id' => $cid->id,
+            'is_custom_id' => true,
+            'number' => $cid->resource_identifier,
+            'formatted_number' => $cid->resource_identifier,
+            'effective_title' => $cid->display_title ?: ('آیدی اختصاصی (' . $cid->resource_identifier . ')'),
+            'type' => 'custom_id',
+            'type_label' => 'آیدی اختصاصی',
+            'badge_class' => 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30',
+            'unread_count' => 0,
+            'phone_prefix_id' => null,
+            'prefix_code' => '@',
+            'sms_rate_per_segment' => (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+        ]);
+
+        $allAllocatedLines = $allocatedNumbers->map(fn (PhoneNumber $p) => [
+            'id' => $p->id,
+            'is_custom_id' => false,
+            'number' => $p->number,
+            'formatted_number' => $p->formatted_number,
+            'effective_title' => $p->effective_title,
+            'type' => $p->type->value,
+            'type_label' => $p->type->label(),
+            'badge_class' => $p->type->badgeClasses(),
+            'unread_count' => (int) ($unreadCounts[$p->id] ?? 0),
+            'phone_prefix_id' => $p->phone_prefix_id,
+            'prefix_code' => $p->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
+            'sms_rate_per_segment' => $p->prefix?->getSmsRatePerSegment()
+                ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
+                ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+        ])->concat($customIdLines)->values();
+
+        $currentNumberPayload = null;
+        if ($currentNumber) {
+            $currentNumberPayload = [
                 'id' => $currentNumber->id,
                 'number' => $currentNumber->number,
                 'formatted_number' => $currentNumber->formatted_number,
@@ -141,7 +179,14 @@ class MessageController extends Controller
                 'sms_rate_per_segment' => $currentNumber->prefix?->getSmsRatePerSegment()
                     ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
                     ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
-            ] : null,
+            ];
+        } elseif ($selectedCustomId) {
+            $currentNumberPayload = $customIdLines->firstWhere('id', $selectedCustomId->id);
+        }
+
+        return Inertia::render('User/Messages/Index', [
+            'allocatedNumbers' => $allAllocatedLines,
+            'currentNumber' => $currentNumberPayload,
             'conversations' => $conversations,
             'activePeer' => $activePeer,
             'activePeerDetails' => $activePeerDetails,

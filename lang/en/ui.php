@@ -122,6 +122,8 @@ return [
             'payment_invoice' => 'Payment Invoice',
             'profile_security' => 'Profile & Security Settings',
             'api_tokens' => 'API Keys & Web Services',
+            'calls_index' => 'Voice Calls',
+            'contacts_index' => 'Contacts Directory',
             'admin_users' => 'User Management & Access',
             'admin_services' => 'Services & Tariffs Management',
             'admin_numbers' => 'Lines & Numbers Management',

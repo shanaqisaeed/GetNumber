@@ -36,34 +36,77 @@ class VoiceCallService implements VoiceCallServiceInterface
             throw new \InvalidArgumentException('شماره یا آیدی مقصد نباید خالی باشد.');
         }
 
-        // Determine tariff rate per minute based on communication type:
-        $isId = str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination);
-        if ($isId) {
-            // ID-to-ID communication tariff
+        // 1. Auto-resolve short extensions / numbers without prefix
+        $fromNumber->loadMissing('prefix');
+        $fromPrefix = $fromNumber->prefix;
+        $cleanFromPrefix = $fromPrefix ? preg_replace('/^\+/', '', $fromPrefix->prefix) : '';
+
+        $resolvedDestRecord = null;
+        $destUser = null;
+
+        if (str_starts_with($cleanDestination, '@')) {
+            // Custom ID lookup
+            $resolvedDestRecord = \App\Models\ServiceResourceAllocation::with('user')
+                ->where('resource_identifier', $cleanDestination)
+                ->where('status', 'active')
+                ->first();
+            if ($resolvedDestRecord) {
+                $destUser = $resolvedDestRecord->user;
+            }
+        } else {
+            // Check exact number match
+            $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
+            $resolvedDestRecord = PhoneNumber::with('user')
+                ->where('number', $cleanDestDigits)
+                ->orWhere('formatted_number', $cleanDestination)
+                ->orWhere('formatted_number', '+' . $cleanDestDigits)
+                ->first();
+
+            // Try with caller's prefix if not found and digits are short
+            if (! $resolvedDestRecord && $cleanFromPrefix !== '' && ! str_starts_with($cleanDestDigits, $cleanFromPrefix)) {
+                $prefixed = $cleanFromPrefix . $cleanDestDigits;
+                $resolvedDestRecord = PhoneNumber::with('user')
+                    ->where('number', $prefixed)
+                    ->orWhere('formatted_number', '+' . $prefixed)
+                    ->first();
+                if ($resolvedDestRecord) {
+                    $cleanDestination = $resolvedDestRecord->formatted_number ?: ('+' . $prefixed);
+                }
+            }
+
+            if ($resolvedDestRecord) {
+                $destUser = $resolvedDestRecord->user;
+            }
+        }
+
+        // 2. Determine tariff rate per minute based on communication type:
+        $isInternal = ($resolvedDestRecord !== null);
+        if ($isInternal) {
+            // Intra-platform internal communication is 100% FREE
+            $ratePerMinute = 0.0000;
+        } elseif (str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination)) {
+            // External / unregistered custom ID
             $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', 0.0500);
         } else {
-            $fromNumber->loadMissing('prefix');
-            $fromPrefix = $fromNumber->prefix;
             $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
-            $cleanFromPrefix = $fromPrefix ? preg_replace('/^\+/', '', $fromPrefix->prefix) : '';
-
-            // Check if call is intra-prefix (same prefix) or inter-prefix
             $isIntra = $cleanFromPrefix !== '' && str_starts_with($cleanDestDigits, $cleanFromPrefix);
             if ($isIntra) {
-                $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', 0.1000));
+                $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', 0.0000));
             } else {
                 $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', 0.2500));
             }
         }
 
-        // Pre-check wallet has at least 1 minute of credit
-        $wallet = $this->walletService->getWallet($user);
-        if (bccomp((string) $wallet->balance, (string) $ratePerMinute, 4) < 0) {
-            throw new InsufficientWalletBalanceException(
-                requiredAmount: (string) $ratePerMinute,
-                currentBalance: (string) $wallet->balance,
-                message: "موجودی کیف‌پول شما جهت برقراری تماس صوتی (حداقل {$ratePerMinute} کوین برای دقیقه اول) کافی نمی‌باشد."
-            );
+        // 3. Pre-check wallet has at least 1 minute of credit (only if rate > 0)
+        if ($ratePerMinute > 0) {
+            $wallet = $this->walletService->getWallet($user);
+            if (bccomp((string) $wallet->balance, (string) $ratePerMinute, 4) < 0) {
+                throw new InsufficientWalletBalanceException(
+                    requiredAmount: (string) $ratePerMinute,
+                    currentBalance: (string) $wallet->balance,
+                    message: "موجودی کیف‌پول شما جهت برقراری تماس صوتی (حداقل {$ratePerMinute} کوین برای دقیقه اول) کافی نمی‌باشد."
+                );
+            }
         }
 
         // Bridge & Signaling Orchestration (Go Voice Bridge Daemon)
@@ -103,10 +146,10 @@ class VoiceCallService implements VoiceCallServiceInterface
             $wsEndpoint .= '?secret=' . urlencode($bridgeSecret);
         }
 
-        return VoiceCall::create([
+        $outboundCall = VoiceCall::create([
             'user_id' => $user->id,
             'phone_number_id' => $fromNumber->id,
-            'source_identifier' => $fromNumber->number,
+            'source_identifier' => $fromNumber->formatted_number ?: $fromNumber->number,
             'destination' => $cleanDestination,
             'direction' => 'outbound',
             'status' => 'in_call',
@@ -122,8 +165,42 @@ class VoiceCallService implements VoiceCallServiceInterface
                 'bridge_session_id' => $bridgeSessionId,
                 'bridge_ws_endpoint' => $wsEndpoint,
                 'mock_engine' => $bridgeSessionId ? 'Go-VoiceBridge-v1' : 'WebRTC-SIP-Stub-v1',
+                'is_internal' => $isInternal,
             ],
         ]);
+
+        // If destination belongs to an internal user, also create the Inbound Call record for their history
+        if ($destUser && $destUser->id !== $user->id) {
+            $calleeCall = VoiceCall::create([
+                'user_id' => $destUser->id,
+                'phone_number_id' => ($resolvedDestRecord instanceof PhoneNumber) ? $resolvedDestRecord->id : null,
+                'source_identifier' => $fromNumber->formatted_number ?: $fromNumber->number,
+                'destination' => $cleanDestination,
+                'direction' => 'inbound',
+                'status' => 'in_call',
+                'started_at' => now(),
+                'answered_at' => now(),
+                'duration_seconds' => 0,
+                'billed_minutes' => 0,
+                'rate_per_minute' => 0.0000,
+                'cost' => 0.0000,
+                'metadata' => [
+                    'peer_call_id' => $outboundCall->id,
+                    'codec' => 'Opus/48000',
+                    'ping_ms' => $pingMs,
+                    'bridge_session_id' => $bridgeSessionId,
+                    'bridge_ws_endpoint' => $wsEndpoint,
+                    'is_internal' => true,
+                ],
+            ]);
+
+            $outMeta = $outboundCall->metadata;
+            $outMeta['callee_call_id'] = $calleeCall->id;
+            $outboundCall->metadata = $outMeta;
+            $outboundCall->save();
+        }
+
+        return $outboundCall;
     }
 
     public function endCall(VoiceCall|int $call, ?int $durationSeconds = null): VoiceCall
@@ -200,6 +277,29 @@ class VoiceCallService implements VoiceCallServiceInterface
             'billed_minutes' => $costData['billed_minutes'],
             'cost' => $totalCostStr,
         ]);
+
+        // Also update matching callee call in their history
+        if (! empty($meta['callee_call_id'])) {
+            $calleeCall = VoiceCall::find($meta['callee_call_id']);
+            if ($calleeCall && $calleeCall->status !== 'completed') {
+                $calleeCall->update([
+                    'status' => 'completed',
+                    'ended_at' => $now,
+                    'duration_seconds' => $costData['duration_seconds'],
+                    'billed_minutes' => $costData['billed_minutes'],
+                ]);
+            }
+        } elseif (! empty($meta['peer_call_id'])) {
+            $peerCall = VoiceCall::find($meta['peer_call_id']);
+            if ($peerCall && $peerCall->status !== 'completed') {
+                $peerCall->update([
+                    'status' => 'completed',
+                    'ended_at' => $now,
+                    'duration_seconds' => $costData['duration_seconds'],
+                    'billed_minutes' => $costData['billed_minutes'],
+                ]);
+            }
+        }
 
         return $voiceCall->fresh();
     }

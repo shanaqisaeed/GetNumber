@@ -3,7 +3,6 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import Breadcrumb from '@/Components/Breadcrumb.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 import VoiceCallModal from '@/Components/VoiceCallModal.vue';
 
@@ -173,6 +172,19 @@ const isCustomIdPurchasable = computed(() => {
 // Search & Filter state
 const search = ref(props.filters.search || '');
 const typeFilter = ref(props.filters.type || '');
+
+const filteredCustomIds = computed(() => {
+    let list = customIdAllocations.value;
+    if (search.value.trim()) {
+        const q = search.value.toLowerCase().trim().replace(/^@/, '');
+        list = list.filter((item) => {
+            const idMatch = item.resource_identifier.toLowerCase().replace(/^@/, '').includes(q);
+            const titleMatch = item.display_title ? item.display_title.toLowerCase().includes(q) : false;
+            return idMatch || titleMatch;
+        });
+    }
+    return list;
+});
 
 const handleFilter = () => {
     router.get(
@@ -400,9 +412,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
     <Head :title="__('catalog.module_title')" />
 
     <UserLayout>
-        <!-- Breadcrumb Navigation -->
-        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'سرویس‌ها' }]" class="mb-3" />
-
         <!-- Floating Toast Notification -->
         <teleport to="body">
             <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 -translate-y-4 scale-95" enter-to-class="opacity-100 translate-y-0 scale-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 -translate-y-2 scale-95">
@@ -616,39 +625,144 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </button>
             </div>
 
-            <!-- 4. Custom IDs (@handle) Section -->
-            <div v-if="(activeTab === 'all' || activeTab === 'custom_id') && customIdAllocations.length > 0" class="space-y-3">
-                <div
-                    v-for="alloc in customIdAllocations"
-                    :key="alloc.uuid"
-                    class="glass-card !p-4 hover:border-indigo-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
-                >
-                    <div class="flex items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                                {{ __('catalog.services.custom_id.short_title') }}
-                            </span>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                                {{ alloc.tier_label }}
-                            </span>
-                            <span class="text-xs font-black text-slate-900 dark:text-white">
-                                {{ alloc.display_title }}
-                            </span>
-                        </div>
-                    </div>
+            <!-- 4. Unified Search & Filter Bar (Placed Directly Under Tabs) -->
+            <div class="glass-card !p-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+                <div class="relative flex-1">
+                    <input
+                        type="text"
+                        v-model="search"
+                        @keyup.enter="handleFilter"
+                        :placeholder="__('user.numbers.search_placeholder')"
+                        class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
+                    />
+                    <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
 
-                    <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between">
-                        <div dir="ltr" class="font-mono font-black text-base text-indigo-600 dark:text-indigo-400 select-all">
-                            {{ alloc.resource_identifier }}
+                <select
+                    v-if="activeTab !== 'custom_id'"
+                    v-model="typeFilter"
+                    @change="handleFilter"
+                    class="form-select !py-2 !text-xs !rounded-xl w-auto"
+                >
+                    <option value="">{{ __('user.numbers.all_types') }}</option>
+                    <option value="standard">{{ __('user.numbers.type_standard') }}</option>
+                    <option value="service">{{ __('user.numbers.type_service') }}</option>
+                </select>
+
+                <button
+                    v-if="search || typeFilter"
+                    type="button"
+                    @click="clearFilter"
+                    class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
+                    :title="__('user.numbers.clear_filter')"
+                >
+                    ✕
+                </button>
+            </div>
+
+            <!-- 5. Unified Resources List (Custom IDs & Phone Numbers) -->
+            <div class="space-y-3">
+                <!-- Custom IDs Cards -->
+                <template v-if="(activeTab === 'all' || activeTab === 'custom_id') && filteredCustomIds.length > 0">
+                    <div
+                        v-for="alloc in filteredCustomIds"
+                        :key="alloc.uuid"
+                        class="glass-card !p-4 hover:border-indigo-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
+                    >
+                        <div class="flex items-center justify-between gap-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                                    {{ __('catalog.services.custom_id.short_title') }}
+                                </span>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                                    {{ alloc.tier_label }}
+                                </span>
+                                <span class="text-xs font-black text-slate-900 dark:text-white">
+                                    {{ alloc.display_title }}
+                                </span>
+                            </div>
                         </div>
-                        <div class="flex items-center gap-2">
+
+                        <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/25 font-mono font-black text-base">
+                                    @
+                                </div>
+                                <div dir="ltr" class="text-left font-mono font-black text-base text-blue-600 dark:text-blue-400 tracking-wider truncate select-all">
+                                    {{ alloc.resource_identifier }}
+                                </div>
+                            </div>
+
                             <button
                                 type="button"
                                 @click="copyText(alloc.resource_identifier)"
-                                class="p-2 rounded-xl glass-pill hover:text-indigo-600 text-xs font-bold"
+                                class="p-2 rounded-xl glass-pill hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                                :title="__('dashboard.copy_label')"
                             >
-                                {{ __('dashboard.copy_label') }}
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
                             </button>
+                        </div>
+
+                        <!-- Dedicated Communications Section for Custom ID -->
+                        <div class="mt-3 p-3 rounded-xl bg-blue-50/60 dark:bg-slate-800/50 border border-blue-100 dark:border-white/5">
+                            <div class="flex items-center justify-between mb-2.5">
+                                <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
+                                    ارتباطات آیدی اختصاصی
+                                </span>
+                                <span class="text-[10px] text-emerald-500 font-bold">
+                                    فعال و برخط
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-2">
+                                <!-- SMS -->
+                                <Link
+                                    :href="route('messages.index', { custom_id: alloc.resource_identifier })"
+                                    class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
+                                >
+                                    <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                        <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                        </svg>
+                                        پیامک
+                                    </span>
+
+                                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </Link>
+
+                                <!-- Voice -->
+                                <Link
+                                    :href="route('calls.index', { custom_id: alloc.resource_identifier })"
+                                    class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors group"
+                                >
+                                    <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                                        <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
+                                                d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
+                                        </svg>
+                                        تماس صوتی
+                                    </span>
+
+                                    <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M15 19l-7-7 7-7"/>
+                                    </svg>
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
+                            <span class="text-[11px] text-slate-400">
+                                تخصیص یافته در: {{ alloc.allocated_at || 'نامشخص' }}
+                            </span>
                             <button
                                 type="button"
                                 @click="releaseServiceAllocation(alloc)"
@@ -658,48 +772,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </button>
                         </div>
                     </div>
-                </div>
-            </div>
+                </template>
 
-
-            <!-- 6. Communication Lines (Phone Numbers) Search & List -->
-            <div v-if="activeTab === 'all' || activeTab === 'phone_line'" class="space-y-3">
-                <div class="glass-card !p-3 flex items-center gap-2 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                    <div class="relative flex-1">
-                        <input
-                            type="text"
-                            v-model="search"
-                            @keyup.enter="handleFilter"
-                            :placeholder="__('user.numbers.search_placeholder')"
-                            class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full bg-slate-100/90 dark:bg-slate-900/60 border-slate-200 dark:border-white/10 text-slate-900 dark:text-white"
-                        />
-                        <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-
-                    <select
-                        v-model="typeFilter"
-                        @change="handleFilter"
-                        class="form-select !py-2 !text-xs !rounded-xl w-auto"
-                    >
-                        <option value="">{{ __('user.numbers.all_types') }}</option>
-                        <option value="standard">{{ __('user.numbers.type_standard') }}</option>
-                        <option value="service">{{ __('user.numbers.type_service') }}</option>
-                    </select>
-
-                    <button
-                        v-if="search || typeFilter"
-                        type="button"
-                        @click="clearFilter"
-                        class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-rose-500 hover:bg-rose-500/10"
-                        :title="__('user.numbers.clear_filter')"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                <div v-if="numbers.data.length > 0" class="space-y-3">
+                <!-- Phone Numbers Cards -->
+                <template v-if="(activeTab === 'all' || activeTab === 'phone_line') && numbers.data.length > 0">
                     <div
                         v-for="item in numbers.data"
                         :key="item.id"
@@ -755,10 +831,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </button>
                         </div>
 
-                        <!-- Dedicated Communications Section for each Number -->
-                        
+                        <!-- Dedicated Communications Section for Phone Line -->
                         <div class="mt-3 p-3 rounded-xl bg-indigo-50/60 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/5">
-
                             <div class="flex items-center justify-between mb-2.5">
                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
                                     ارتباطات خط
@@ -769,7 +843,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </div>
 
                             <div class="grid grid-cols-2 gap-2">
-
                                 <!-- SMS -->
                                 <Link
                                     :href="route('messages.index', { phone_number_id: item.id })"
@@ -807,7 +880,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             d="M15 19l-7-7 7-7"/>
                                     </svg>
                                 </Link>
-
                             </div>
                         </div>
 
@@ -823,6 +895,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
                     </div>
 
+                    <!-- Pagination Links for Numbers -->
                     <div v-if="numbers.links && numbers.links.length > 3" class="flex justify-center gap-1 pt-2">
                         <Link
                             v-for="(link, i) in numbers.links"
@@ -836,9 +909,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             v-html="link.label"
                         />
                     </div>
-                </div>
+                </template>
 
-                <div v-else class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+                <!-- Empty State -->
+                <div
+                    v-if="(activeTab === 'all' && filteredCustomIds.length === 0 && numbers.data.length === 0) ||
+                          (activeTab === 'custom_id' && filteredCustomIds.length === 0) ||
+                          (activeTab === 'phone_line' && numbers.data.length === 0)"
+                    class="glass-card !p-8 flex flex-col items-center justify-center text-center space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
+                >
                     <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.numbers.no_numbers_found') }}</h3>
                     <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
                         {{ __('user.numbers.no_numbers_desc') }}

@@ -122,6 +122,8 @@ return [
             'payment_invoice' => 'فاکتور پرداخت',
             'profile_security' => 'پروفایل و تنظیمات امنیتی',
             'api_tokens' => 'کلیدهای ارتباطی و وب‌سرویس',
+            'calls_index' => 'تماس صوتی',
+            'contacts_index' => 'دفترچه مخاطبین',
             'admin_users' => 'مدیریت کاربران و دسترسی‌ها',
             'admin_services' => 'مدیریت سرویس‌ها و تعرفه‌ها',
             'admin_numbers' => 'مدیریت خطوط و سرشماره‌ها',

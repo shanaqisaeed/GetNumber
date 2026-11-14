@@ -2,7 +2,6 @@
 import { ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
-import Breadcrumb from '@/Components/Breadcrumb.vue';
 
 interface ContactItem {
     id: number;
@@ -136,9 +135,6 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
     <Head title="دفترچه مخاطبین" />
 
     <UserLayout>
-        <!-- Breadcrumb Navigation -->
-        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'دفترچه مخاطبین' }]" class="mb-3" />
-
         <div class="space-y-4">
             <!-- Header Command Card -->
             <div class="dash-wallet-card">

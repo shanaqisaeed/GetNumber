@@ -33,20 +33,77 @@ class VoiceCallController extends Controller
             ->get()
             ->map(fn ($p) => [
                 'id' => $p->id,
+                'key' => 'phone_' . $p->id,
                 'number' => $p->number,
                 'formatted_number' => $p->formatted_number,
                 'display_title' => $p->display_title ?: $p->effective_title,
                 'status' => $p->status->value,
                 'is_active' => true,
+                'type' => 'number',
+                'type_label' => 'خط تلفن',
             ]);
 
-        $selectedLineId = $request->filled('phone_number_id')
-            ? (int) $request->input('phone_number_id')
-            : ($lines->first()['id'] ?? null);
+        $customIdLines = $user->activeServiceAllocations()
+            ->where('service_key', 'custom_id')
+            ->get()
+            ->map(fn ($cid) => [
+                'id' => $cid->id,
+                'key' => 'custom_' . $cid->id,
+                'number' => $cid->resource_identifier,
+                'formatted_number' => $cid->resource_identifier,
+                'display_title' => $cid->display_title ?: ('آیدی اختصاصی (' . $cid->resource_identifier . ')'),
+                'status' => 'allocated',
+                'is_active' => true,
+                'type' => 'custom_id',
+                'type_label' => 'آیدی اختصاصی',
+            ]);
 
-        $calls = VoiceCall::where('user_id', $user->id)
-            ->with('phoneNumber')
-            ->latest('id')
+        $allLines = $lines->concat($customIdLines)->values();
+
+        $selectedKey = $request->input('line_key');
+        if (! $selectedKey) {
+            if ($request->filled('phone_number_id')) {
+                $selectedKey = 'phone_' . (int) $request->input('phone_number_id');
+            } elseif ($request->filled('custom_id')) {
+                $matchedCid = $customIdLines->firstWhere('number', $request->input('custom_id'));
+                if ($matchedCid) {
+                    $selectedKey = $matchedCid['key'];
+                }
+            }
+        }
+
+        $selectedLine = $allLines->firstWhere('key', $selectedKey) ?: $allLines->first();
+        $selectedLineKey = $selectedLine ? $selectedLine['key'] : null;
+        $selectedLineId = $selectedLine ? $selectedLine['id'] : null;
+
+        $initialDestination = $request->input('destination')
+            ?: ($request->filled('custom_id') && ! $customIdLines->contains('number', $request->input('custom_id')) ? $request->input('custom_id') : '');
+
+        $callsQuery = VoiceCall::where('user_id', $user->id)
+            ->with('phoneNumber');
+
+        if ($selectedLine) {
+            if ($selectedLine['type'] === 'number') {
+                $lineId = $selectedLine['id'];
+                $lineNum = $selectedLine['number'];
+                $formatted = $selectedLine['formatted_number'];
+                $callsQuery->where(function ($q) use ($lineId, $lineNum, $formatted) {
+                    $q->where('phone_number_id', $lineId)
+                      ->orWhere('source_identifier', $lineNum)
+                      ->orWhere('source_identifier', $formatted)
+                      ->orWhere('destination', $lineNum)
+                      ->orWhere('destination', $formatted);
+                });
+            } else {
+                $ident = $selectedLine['number'];
+                $callsQuery->where(function ($q) use ($ident) {
+                    $q->where('source_identifier', $ident)
+                      ->orWhere('destination', $ident);
+                });
+            }
+        }
+
+        $calls = $callsQuery->latest('id')
             ->paginate(20)
             ->withQueryString()
             ->through(fn ($c) => [
@@ -80,8 +137,10 @@ class VoiceCallController extends Controller
         $walletBalance = (string) ($user->wallet?->balance ?? '0.0000');
 
         return Inertia::render('User/Calls/Index', [
-            'lines' => $lines,
+            'lines' => $allLines,
+            'selected_line_key' => $selectedLineKey,
             'selected_line_id' => $selectedLineId,
+            'initial_destination' => $initialDestination,
             'calls' => $calls,
             'contacts' => $contacts,
             'rate_per_minute' => $ratePerMinute,
@@ -180,29 +239,188 @@ class VoiceCallController extends Controller
     public function initiate(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'phone_number_id' => ['required', 'integer', 'exists:phone_numbers,id'],
+            'phone_number_id' => ['nullable', 'integer'],
+            'line_key' => ['nullable', 'string', 'max:64'],
             'destination' => ['required', 'string', 'max:64'],
         ], [
-            'phone_number_id.required' => 'انتخاب خط مبدأ الزامی است.',
             'destination.required' => 'شماره یا شناسه مقصد الزامی است.',
         ]);
 
         $user = $request->user();
-        $fromNumber = PhoneNumber::findOrFail($validated['phone_number_id']);
+        $lineKey = $request->input('line_key');
+        $fromNumber = null;
+        $customCallerHandle = null;
 
-        $call = $this->voiceCallService->initiateCall($user, $fromNumber, $validated['destination']);
+        if ($lineKey) {
+            if (str_starts_with($lineKey, 'phone_')) {
+                $pid = (int) substr($lineKey, 6);
+                $fromNumber = PhoneNumber::where('user_id', $user->id)
+                    ->where('status', PhoneNumberStatus::Allocated)
+                    ->find($pid);
+            } elseif (str_starts_with($lineKey, 'custom_')) {
+                $cid = (int) substr($lineKey, 7);
+                $cidAlloc = $user->activeServiceAllocations()
+                    ->where('service_key', 'custom_id')
+                    ->find($cid);
+                if ($cidAlloc) {
+                    $customCallerHandle = $cidAlloc->resource_identifier;
+                    $fromNumber = $cidAlloc->phoneNumber
+                        ?? PhoneNumber::where('user_id', $user->id)->where('status', PhoneNumberStatus::Allocated)->first();
+                }
+            }
+        }
+
+        if (! $fromNumber && $request->filled('phone_number_id')) {
+            $lineId = (int) $request->input('phone_number_id');
+            $fromNumber = PhoneNumber::where('user_id', $user->id)
+                ->where('status', PhoneNumberStatus::Allocated)
+                ->find($lineId);
+
+            if (! $fromNumber) {
+                // Check if user selected their custom ID allocation
+                $cidAlloc = $user->activeServiceAllocations()
+                    ->where('service_key', 'custom_id')
+                    ->find($lineId);
+                if ($cidAlloc) {
+                    $customCallerHandle = $cidAlloc->resource_identifier;
+                    $fromNumber = $cidAlloc->phoneNumber
+                        ?? PhoneNumber::where('user_id', $user->id)->where('status', PhoneNumberStatus::Allocated)->first();
+                }
+            }
+        }
+
+        if (! $fromNumber) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خط مبدأ انتخابی یافت نشد یا معتبر نمی‌باشد.',
+            ], 422);
+        }
+
+        try {
+            $call = $this->voiceCallService->initiateCall($user, $fromNumber, $validated['destination']);
+            if ($customCallerHandle) {
+                $call->source_identifier = $customCallerHandle;
+                $call->save();
+            }
+
+            return response()->json([
+                'success' => true,
+                'call' => [
+                    'id' => $call->id,
+                    'source' => $call->source_identifier,
+                    'destination' => $call->destination,
+                    'status' => $call->status,
+                    'started_at' => $call->started_at?->toIso8601String(),
+                    'rate_per_minute' => (float) $call->rate_per_minute,
+                    'bridge_session_id' => $call->metadata['bridge_session_id'] ?? null,
+                    'bridge_ws_endpoint' => $call->metadata['bridge_ws_endpoint'] ?? null,
+                    'is_internal' => $call->metadata['is_internal'] ?? false,
+                    'ping_ms' => $call->metadata['ping_ms'] ?? 22,
+                ],
+                'message' => 'تماس صوتی با موفقیت برقرار شد.',
+            ]);
+        } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'خطا در برقراری تماس: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Check if there is an active inbound call ringing for this user.
+     */
+    public function activeIncoming(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $incoming = VoiceCall::where('user_id', $user->id)
+            ->where('direction', 'inbound')
+            ->whereIn('status', ['ringing', 'in_call'])
+            ->where('created_at', '>=', now()->subSeconds(60))
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'has_incoming' => $incoming !== null,
+            'call' => $incoming ? [
+                'id' => $incoming->id,
+                'source' => $incoming->source_identifier,
+                'destination' => $incoming->destination,
+                'status' => $incoming->status,
+                'created_at' => $incoming->created_at->toIso8601String(),
+                'bridge_session_id' => $incoming->metadata['bridge_session_id'] ?? null,
+                'bridge_ws_endpoint' => $incoming->metadata['bridge_ws_endpoint'] ?? null,
+                'ping_ms' => $incoming->metadata['ping_ms'] ?? 22,
+            ] : null,
+        ]);
+    }
+
+    /**
+     * Answer an incoming call.
+     */
+    public function answer(Request $request, VoiceCall $voiceCall): JsonResponse
+    {
+        $user = $request->user();
+        if ($voiceCall->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $voiceCall->update([
+            'status' => 'in_call',
+            'answered_at' => now(),
+        ]);
+
+        $peerId = $voiceCall->metadata['peer_call_id'] ?? null;
+        if ($peerId) {
+            VoiceCall::where('id', $peerId)->update([
+                'status' => 'in_call',
+                'answered_at' => now(),
+            ]);
+        }
 
         return response()->json([
             'success' => true,
-            'call' => [
-                'id' => $call->id,
-                'source' => $call->source_identifier,
-                'destination' => $call->destination,
-                'status' => $call->status,
-                'started_at' => $call->started_at?->toIso8601String(),
-                'rate_per_minute' => (float) $call->rate_per_minute,
-            ],
-            'message' => 'تماس صوتی برقرار شد (شبیه‌ساز پروداکشن فعال است).',
+            'message' => 'تماس پاسخ داده شد.',
+            'call' => $voiceCall,
+        ]);
+    }
+
+    /**
+     * Decline an incoming call.
+     */
+    public function decline(Request $request, VoiceCall $voiceCall): JsonResponse
+    {
+        $user = $request->user();
+        if ($voiceCall->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $voiceCall->update([
+            'status' => 'declined',
+            'ended_at' => now(),
+        ]);
+
+        $peerId = $voiceCall->metadata['peer_call_id'] ?? null;
+        if ($peerId) {
+            VoiceCall::where('id', $peerId)->update([
+                'status' => 'declined',
+                'ended_at' => now(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تماس رد شد.',
         ]);
     }
 
@@ -235,6 +453,65 @@ class VoiceCallController extends Controller
             ],
             'wallet_balance' => (string) ($user->fresh()->wallet?->balance ?? '0.0000'),
             'message' => "مکالمه به پایان رسید. هزینه کسر شده: {$endedCall->cost} کوین.",
+        ]);
+    }
+
+    /**
+     * Periodic balance & tariff heartbeat during active call.
+     * Auto-terminates call if wallet balance is exhausted mid-call.
+     */
+    public function pulse(Request $request, VoiceCall $voiceCall): JsonResponse
+    {
+        $user = $request->user();
+        if ($voiceCall->user_id !== $user->id) {
+            abort(403);
+        }
+
+        if ($voiceCall->status === 'completed' || $voiceCall->status === 'declined') {
+            return response()->json([
+                'active' => false,
+                'can_continue' => false,
+                'status' => $voiceCall->status,
+                'message' => 'مکالمه پایان یافته است.',
+            ]);
+        }
+
+        $rate = (float) $voiceCall->rate_per_minute;
+        $isInternal = (bool) ($voiceCall->metadata['is_internal'] ?? ($rate <= 0));
+
+        if ($isInternal || $rate <= 0) {
+            return response()->json([
+                'active' => true,
+                'can_continue' => true,
+                'is_internal' => true,
+                'rate_per_minute' => 0.0000,
+                'wallet_balance' => (string) ($user->wallet?->balance ?? '0.0000'),
+            ]);
+        }
+
+        $wallet = $user->wallet;
+        $balance = (float) ($wallet?->balance ?? 0);
+        $elapsedSec = (int) $request->input('elapsed_seconds', 0);
+
+        if ($balance < $rate) {
+            $endedCall = $this->voiceCallService->endCall($voiceCall, max(1, $elapsedSec));
+
+            return response()->json([
+                'active' => false,
+                'can_continue' => false,
+                'auto_terminated' => true,
+                'reason' => 'insufficient_balance',
+                'cost' => (float) $endedCall->cost,
+                'wallet_balance' => (string) ($user->fresh()->wallet?->balance ?? '0.0000'),
+                'message' => 'موجودی کیف‌پول شما به پایان رسید و مکالمه به صورت خودکار پایان یافت.',
+            ]);
+        }
+
+        return response()->json([
+            'active' => true,
+            'can_continue' => true,
+            'rate_per_minute' => $rate,
+            'wallet_balance' => (string) $balance,
         ]);
     }
 
