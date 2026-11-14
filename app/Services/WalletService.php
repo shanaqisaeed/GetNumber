@@ -146,6 +146,92 @@ class WalletService implements WalletServiceInterface
         });
     }
 
+    public function chargeForUsage(
+        User $user,
+        string $amount,
+        string $referenceId,
+        WalletTransactionType $type,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction {
+        $cleanAmount = $this->sanitizeAmount($amount);
+
+        if (bccomp($cleanAmount, '0.0000', self::DECIMAL_SCALE) === 0) {
+            $wallet = $user->getOrCreateWallet();
+            return WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'user_id' => $user->id,
+                'type' => $type,
+                'amount' => '0.0000',
+                'balance_before' => (string) $wallet->balance,
+                'balance_after' => (string) $wallet->balance,
+                'reference_id' => $referenceId,
+                'description' => $description ?? 'هزینه ارتباطات رایگان',
+                'metadata' => $metadata,
+            ]);
+        }
+
+        return DB::transaction(function () use ($user, $cleanAmount, $referenceId, $type, $description, $metadata) {
+            $existing = WalletTransaction::where('reference_id', $referenceId)->first();
+            if ($existing) {
+                return $existing;
+            }
+
+            /** @var Wallet $wallet */
+            $wallet = Wallet::where('user_id', $user->id)->lockForUpdate()->first();
+            if (! $wallet) {
+                $wallet = $user->getOrCreateWallet();
+                $wallet = Wallet::where('id', $wallet->id)->lockForUpdate()->firstOrFail();
+            }
+
+            $balanceBefore = (string) $wallet->balance;
+
+            if (bccomp($balanceBefore, $cleanAmount, self::DECIMAL_SCALE) < 0) {
+                throw new InsufficientWalletBalanceException(
+                    requiredAmount: $cleanAmount,
+                    currentBalance: $balanceBefore,
+                    message: __('services.wallet.insufficient_balance_purchase', ['balance' => $balanceBefore, 'amount' => $cleanAmount])
+                );
+            }
+
+            $balanceAfter = bcsub($balanceBefore, $cleanAmount, self::DECIMAL_SCALE);
+
+            $wallet->update(['balance' => $balanceAfter]);
+
+            $tx = WalletTransaction::create([
+                'wallet_id' => $wallet->id,
+                'user_id' => $user->id,
+                'type' => $type,
+                'amount' => $cleanAmount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+                'description' => $description ?? ($type === WalletTransactionType::VoiceCall ? 'کسر هزینه مکالمه صوتی' : 'کسر هزینه ارسال پیامک'),
+                'metadata' => $metadata,
+            ]);
+
+            try {
+                $this->ledgerService->recordNumberPurchase(
+                    user: $user,
+                    amount: $cleanAmount,
+                    referenceId: $referenceId,
+                    description: $tx->description
+                );
+            } catch (\Throwable) {
+            }
+
+            AuditLog::record('wallet_charged_usage', $user, null, [
+                'type' => $type->value,
+                'amount' => $cleanAmount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'reference_id' => $referenceId,
+            ]);
+
+            return $tx;
+        });
+    }
+
     public function refund(
         User $user,
         string $amount,

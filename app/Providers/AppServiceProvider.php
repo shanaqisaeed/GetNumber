@@ -96,6 +96,26 @@ class AppServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(\App\Services\Catalog\ServicePurchaseOrchestrator::class);
+
+        // Communication Infrastructure & Stubs
+        $this->app->singleton(
+            \App\Contracts\Communication\SmsServiceInterface::class,
+            \App\Services\Communication\SmsService::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\Communication\VoiceCallServiceInterface::class,
+            \App\Services\Communication\VoiceCallService::class
+        );
+
+        $this->app->singleton(
+            \App\Contracts\Communication\EmailServiceInterface::class,
+            \App\Services\Communication\EmailService::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Communication\CommunicationManager::class
+        );
     }
 
     /**

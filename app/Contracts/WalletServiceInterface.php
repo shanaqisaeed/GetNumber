@@ -112,6 +112,18 @@ interface WalletServiceInterface
     ): WalletTransaction;
 
     /**
+     * Charge user wallet for active service communication usage (SMS segments or Voice call duration).
+     */
+    public function chargeForUsage(
+        User $user,
+        string $amount,
+        string $referenceId,
+        \App\Enums\WalletTransactionType $type,
+        ?string $description = null,
+        array $metadata = []
+    ): WalletTransaction;
+
+    /**
      * Reconcile user wallet balance with its ledger history.
      */
     public function reconcile(User $user): bool;

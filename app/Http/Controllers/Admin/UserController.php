@@ -41,10 +41,14 @@ class UserController extends Controller
                 if (is_numeric($search)) {
                     $q->where('id', (int) $search);
                 }
-                $q->orWhere('name', 'like', "%{$search}%")
-                  ->orWhere('username', 'like', "%{$search}%")
+                $q->orWhere('id', 'like', "%{$search}%")
+                  ->orWhere('account_id', 'like', "%{$search}%")
+                  ->orWhere('name', 'like', "%{$search}%")
                   ->orWhere('organization_name', 'like', "%{$search}%")
                   ->orWhere('enterprise_contract_code', 'like', "%{$search}%")
+                  ->orWhereHas('identities', function ($iq) use ($search) {
+                      $iq->where('provider_id', 'like', "%{$search}%");
+                  })
                   ->orWhereHas('phoneNumbers', function ($pq) use ($search) {
                       $pq->where('number', 'like', "%{$search}%");
                   })
@@ -81,7 +85,7 @@ class UserController extends Controller
         match ($sort) {
             'oldest' => $query->oldest('id'),
             'name' => $query->orderBy('name', 'asc'),
-            'username' => $query->orderBy('username', 'asc'),
+            'username', 'account_id' => $query->orderBy('account_id', 'asc'),
             'numbers_count' => $query->orderBy('phone_numbers_count', 'desc'),
             default => $query->latest('id'),
         };
@@ -90,6 +94,7 @@ class UserController extends Controller
             ->withQueryString()
             ->through(fn ($u) => [
                 'id' => $u->id,
+                'account_id' => $u->account_id,
                 'name' => $u->name,
                 'username' => $u->username,
                 'role' => $u->role->value,
@@ -174,7 +179,14 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', 'unique:users,username'],
+            'username' => [
+                'required',
+                'string',
+                'min:3',
+                'max:50',
+                'alpha_dash',
+                Rule::unique('user_identities', 'provider_id')->where('provider', 'username'),
+            ],
             'password' => ['required', 'string', Password::defaults()],
             'role' => ['required', Rule::enum(UserRole::class)],
             'status' => ['required', Rule::enum(UserStatus::class)],
@@ -245,6 +257,8 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user): RedirectResponse
     {
+        $userIdentityId = $user->identities()->where('provider', 'username')->value('id');
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'username' => [
@@ -253,7 +267,7 @@ class UserController extends Controller
                 'min:3',
                 'max:50',
                 'alpha_dash',
-                Rule::unique('users', 'username')->ignore($user->id),
+                Rule::unique('user_identities', 'provider_id')->where('provider', 'username')->ignore($userIdentityId),
             ],
             'role' => ['required', Rule::enum(UserRole::class)],
             'status' => ['required', Rule::enum(UserStatus::class)],
@@ -282,7 +296,6 @@ class UserController extends Controller
 
         $updateData = [
             'name' => $validated['name'],
-            'username' => strtolower($validated['username']),
             'role' => $validated['role'],
             'status' => $validated['status'],
         ];
@@ -297,10 +310,6 @@ class UserController extends Controller
             $updateData['enterprise_contract_code'] = $validated['enterprise_contract_code'];
         }
 
-        if (!empty($validated['password'])) {
-            $updateData['password'] = Hash::make($validated['password']);
-        }
-
         $oldData = [
             'name' => $user->name,
             'username' => $user->username,
@@ -311,8 +320,24 @@ class UserController extends Controller
 
         $user->update($updateData);
 
+        // Update username and password in user_identities
+        $cleanUsername = strtolower($validated['username']);
+        $newPassword = !empty($validated['password']) ? $validated['password'] : null;
+
+        $usernameIdentity = $user->identities()->where('provider', 'username')->first();
+        if ($usernameIdentity) {
+            $usernameIdentity->update(['provider_id' => $cleanUsername]);
+        } else {
+            $user->linkIdentity('username', $cleanUsername, null, [], $newPassword);
+        }
+
+        if ($newPassword !== null) {
+            $hashedPassword = Hash::needsRehash($newPassword) ? Hash::make($newPassword) : $newPassword;
+            $user->identities()->update(['password' => $hashedPassword]);
+        }
+
         AuditLog::record('user_updated', $user, $request->user(), [
-            'username' => $user->username,
+            'username' => $cleanUsername,
             'previous' => $oldData,
             'updated' => [
                 'name' => $user->name,
@@ -323,7 +348,7 @@ class UserController extends Controller
             ],
         ]);
 
-        return back()->with('success', __('controllers.admin.users.updated', ['username' => $user->username]));
+        return back()->with('success', __('controllers.admin.users.updated', ['username' => $cleanUsername]));
     }
 
     /**
@@ -372,16 +397,28 @@ class UserController extends Controller
         }
 
         $users = User::query()
+            ->with('identities')
             ->where(function ($q) use ($query) {
                 if (is_numeric($query)) {
                     $q->where('id', (int) $query);
                 }
-                $q->orWhere('username', 'like', "%{$query}%")
-                  ->orWhere('name', 'like', "%{$query}%");
+                $q->orWhere('id', 'like', "%{$query}%")
+                  ->orWhere('account_id', 'like', "%{$query}%")
+                  ->orWhere('name', 'like', "%{$query}%")
+                  ->orWhereHas('identities', function ($iq) use ($query) {
+                      $iq->where('provider_id', 'like', "%{$query}%");
+                  });
             })
-            ->select('id', 'name', 'username', 'role', 'status')
             ->limit(20)
-            ->get();
+            ->get()
+            ->map(fn ($u) => [
+                'id' => $u->id,
+                'account_id' => $u->account_id,
+                'name' => $u->name,
+                'username' => $u->username,
+                'role' => $u->role->value,
+                'status' => $u->status->value,
+            ]);
 
         return response()->json($users);
     }

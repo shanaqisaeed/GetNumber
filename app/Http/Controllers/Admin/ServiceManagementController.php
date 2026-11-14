@@ -15,6 +15,7 @@ use App\Models\ServiceOrder;
 use App\Models\ServicePlan;
 use App\Models\ServiceResourceAllocation;
 use App\Models\SystemSetting;
+use App\Models\TldPricing;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,185 +31,198 @@ class ServiceManagementController extends Controller
     ) {}
 
     /**
-     * Display the Admin Multi-Service Catalog, Tariff Pricing & Subscriber Service Management console.
+     * Display the Admin Service Management console:
+     * Tab 1: خطوط (Phone Lines)
+     * Tab 2: آیدی‌ها (Handles / IDs)
+     * Tab 3: دامنه‌های Web3 (Web3 Domains & TLDs)
      */
     public function index(Request $request): Response
     {
-        // Ensure all users with legacy phone numbers have synced allocations
-        $definitions = ServiceDefinition::query()
-            ->with(['plans' => fn ($q) => $q->orderBy('sort_order')])
-            ->orderBy('sort_order')
-            ->get()
-            ->map(function (ServiceDefinition $def) {
-                $defaultConfig = config("service_policies.services.{$def->key}", []);
-                $pricingConfig = array_replace_recursive(
-                    $defaultConfig['pricing_config'] ?? [],
-                    $def->pricing_config ?? []
-                );
-                $validationPolicies = array_replace_recursive(
-                    $defaultConfig['validation_policies'] ?? [],
-                    $def->validation_policies ?? []
-                );
+        $this->serviceRegistry->ensureCatalogSeeded();
 
-                return [
-                    'id' => $def->id,
-                    'key' => $def->key,
-                    'category' => $def->category,
-                    'channel_type' => $def->channel_type,
-                    'icon' => $def->icon,
-                    'title' => $def->title,
-                    'subtitle' => $def->subtitle,
-                    'description' => $def->description,
-                    'unit_label' => $def->unit_label,
-                    'is_active' => (bool) $def->is_active,
-                    'is_purchasable' => (bool) $def->is_purchasable,
-                    'requires_approval_for_enterprise' => (bool) $def->requires_approval_for_enterprise,
-                    'available_for_roles' => $def->available_for_roles ?? ['individual', 'enterprise'],
-                    'pricing_config' => $pricingConfig,
-                    'validation_policies' => $validationPolicies,
-                    'allocations_count' => ServiceResourceAllocation::where('service_key', $def->key)->where('status', 'active')->count(),
-                    'orders_count' => ServiceOrder::where('service_definition_id', $def->id)->count(),
-                    'plans' => $def->plans->map(fn (ServicePlan $plan) => [
-                        'id' => $plan->id,
-                        'service_definition_id' => $plan->service_definition_id,
-                        'code' => $plan->code,
-                        'title' => $plan->title,
-                        'description' => $plan->description,
-                        'target_tier' => $plan->target_tier,
-                        'billing_mode' => $plan->billing_mode,
-                        'base_price' => (string) $plan->base_price,
-                        'quota_units' => (int) $plan->quota_units,
-                        'is_active' => (bool) $plan->is_active,
-                        'metadata' => $plan->metadata ?? [],
-                    ])->values()->all(),
-                ];
-            });
-
-        // Subscriber Allocations query with filters
-        $allocQuery = ServiceResourceAllocation::query()
-            ->with(['user:id,name,username,account_tier,organization_name', 'serviceDefinition', 'subResources']);
-
-        if ($request->filled('search')) {
-            $search = trim((string) $request->input('search'));
-            $allocQuery->where(function ($q) use ($search) {
-                $q->where('resource_identifier', 'like', "%{$search}%")
-                    ->orWhere('display_title', 'like', "%{$search}%")
-                    ->orWhereHas('user', function ($uq) use ($search) {
-                        $uq->where('name', 'like', "%{$search}%")
-                            ->orWhere('username', 'like', "%{$search}%")
-                            ->orWhere('organization_name', 'like', "%{$search}%");
-                    });
-            });
-        }
-
-        if ($request->filled('service_key')) {
-            $allocQuery->where('service_key', $request->input('service_key'));
-        }
-
-        if ($request->filled('status')) {
-            $allocQuery->where('status', $request->input('status'));
-        }
-
-        if ($request->filled('user_id')) {
-            $allocQuery->where('user_id', (int) $request->input('user_id'));
-        }
-
-        $allocations = $allocQuery->latest('id')
-            ->paginate(15)
-            ->withQueryString()
-            ->through(fn (ServiceResourceAllocation $alloc) => [
-                'id' => $alloc->id,
-                'uuid' => $alloc->uuid,
-                'user_id' => $alloc->user_id,
-                'user' => $alloc->user ? [
-                    'id' => $alloc->user->id,
-                    'name' => $alloc->user->name,
-                    'username' => $alloc->user->username,
-                    'account_tier' => $alloc->user->effectiveServiceTier(),
-                    'organization_name' => $alloc->user->organization_name,
-                ] : null,
-                'service_key' => $alloc->service_key,
-                'service_title' => $alloc->serviceDefinition?->title ?? $alloc->service_key,
-                'channel_type' => $alloc->channel_type,
-                'resource_identifier' => $alloc->resource_identifier,
-                'display_title' => $alloc->display_title,
-                'account_tier' => $alloc->account_tier,
-                'tier_badge' => $alloc->tier_badge,
-                'tier_label' => __('catalog.tiers_badges.' . $alloc->tier_badge),
-                'status' => $alloc->status,
-                'total_quota' => (int) $alloc->total_quota,
-                'used_quota' => (int) $alloc->used_quota,
-                'remaining_quota' => $alloc->remainingQuota(),
-                'sub_resources' => $alloc->subResources->map(fn ($sub) => [
-                    'id' => $sub->id,
-                    'sub_identifier' => $sub->sub_identifier,
-                    'full_address' => $sub->full_address,
-                    'display_name' => $sub->display_name,
-                    'status' => $sub->status,
-                ])->values()->all(),
-                'allocated_at' => $alloc->allocated_at?->format('Y/m/d H:i') ?? $alloc->created_at?->format('Y/m/d H:i'),
-            ]);
-
-        // Recent Service Orders
-        $orders = ServiceOrder::query()
-            ->with(['user:id,name,username,account_tier,organization_name', 'serviceDefinition', 'servicePlan'])
+        // 1. Phone Lines Service Definition & Lines sample
+        $phoneDef = ServiceDefinition::where('key', 'phone_line')->first();
+        $sampleLines = PhoneNumber::with(['user', 'prefix'])
             ->latest('id')
-            ->limit(40)
+            ->limit(10)
             ->get()
-            ->map(fn (ServiceOrder $order) => [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'user' => $order->user ? [
-                    'id' => $order->user->id,
-                    'name' => $order->user->name,
-                    'username' => $order->user->username,
-                    'account_tier' => $order->user->effectiveServiceTier(),
-                    'organization_name' => $order->user->organization_name,
-                ] : null,
-                'service_key' => $order->serviceDefinition?->key,
-                'service_title' => $order->serviceDefinition?->title,
-                'plan_title' => $order->servicePlan?->title,
-                'requested_identifier' => $order->requested_identifier,
-                'account_tier' => $order->account_tier,
-                'fulfillment_mode' => $order->fulfillment_mode,
-                'status' => $order->status,
-                'unit_price' => (string) $order->unit_price,
-                'discount_amount' => (string) $order->discount_amount,
-                'final_amount' => (string) $order->final_amount,
-                'created_at' => $order->created_at?->format('Y/m/d H:i'),
+            ->map(fn ($p) => [
+                'id' => $p->id,
+                'number' => $p->number,
+                'formatted_number' => $p->formatted_number,
+                'type_label' => $p->type->label(),
+                'status_label' => $p->status->label(),
+                'status_badge' => $p->status->badgeClasses(),
+                'display_title' => $p->display_title ?: $p->effective_title,
+                'user_name' => $p->user?->name,
+                'edit_url' => route('admin.numbers.edit', $p->id),
             ]);
 
-        $usersList = User::query()
-            ->orderBy('name')
-            ->limit(200)
-            ->get(['id', 'name', 'username', 'account_tier', 'organization_name'])
-            ->map(fn (User $u) => [
-                'id' => $u->id,
-                'name' => $u->name,
-                'username' => $u->username,
-                'account_tier' => $u->effectiveServiceTier(),
-                'organization_name' => $u->organization_name,
-            ]);
-
-        $stats = [
-            'total_services' => ServiceDefinition::count(),
-            'active_services' => ServiceDefinition::where('is_active', true)->count(),
-            'active_allocations' => ServiceResourceAllocation::where('status', 'active')->count(),
-            'phone_allocations' => ServiceResourceAllocation::where('service_key', 'phone_line')->where('status', 'active')->count(),
-            'custom_id_allocations' => ServiceResourceAllocation::where('service_key', 'custom_id')->where('status', 'active')->count(),
-            'web3_allocations' => ServiceResourceAllocation::where('service_key', 'web3_email_package')->where('status', 'active')->count(),
-            'total_orders' => ServiceOrder::count(),
-            'pending_orders' => ServiceOrder::where('status', 'pending_approval')->count(),
+        // 2. Custom IDs Service Definition & Pricing
+        $idDef = ServiceDefinition::where('key', 'custom_id')->first();
+        $idPricing = [
+            'regular' => 30.0000,
+            'semi_rond' => 60.0000,
+            'golden_rond' => 120.0000,
         ];
+        if ($idDef && ! empty($idDef->pricing_config)) {
+            $idPricing = array_merge($idPricing, $idDef->pricing_config);
+        }
+
+        // 3. Web3 Domains & TLDs
+        $web3Def = ServiceDefinition::where('key', 'web3_email_package')->first();
+        $tlds = TldPricing::orderBy('id')->get()->map(fn ($t) => [
+            'id' => $t->id,
+            'tld' => $t->tld,
+            'base_price' => (string) $t->base_price,
+            'multiplier_rond' => (string) $t->multiplier_rond,
+            'multiplier_semi_rond' => (string) $t->multiplier_semi_rond,
+            'is_active' => (bool) $t->is_active,
+        ]);
 
         return Inertia::render('Admin/Services/Index', [
-            'definitions' => $definitions,
-            'allocations' => $allocations,
-            'orders' => $orders,
-            'users_list' => $usersList,
-            'stats' => $stats,
-            'filters' => $request->only(['search', 'service_key', 'status', 'user_id', 'tab']),
+            'phone_lines' => [
+                'definition_id' => $phoneDef?->id,
+                'is_purchasable' => (bool) ($phoneDef?->is_purchasable ?? true),
+                'is_active' => (bool) ($phoneDef?->is_active ?? true),
+                'prefixes_url' => route('admin.prefixes.index'),
+                'sample_lines' => $sampleLines,
+                'total_lines' => PhoneNumber::count(),
+            ],
+            'custom_ids' => [
+                'definition_id' => $idDef?->id,
+                'is_purchasable' => (bool) ($idDef?->is_purchasable ?? true),
+                'requires_approval' => (bool) ($idDef?->requires_approval_for_enterprise ?? false),
+                'pricing' => $idPricing,
+                'total_allocations' => ServiceResourceAllocation::where('service_key', 'custom_id')->count(),
+            ],
+            'web3_domains' => [
+                'definition_id' => $web3Def?->id,
+                'is_purchasable' => (bool) ($web3Def?->is_purchasable ?? true),
+                'tlds' => $tlds,
+            ],
         ]);
+    }
+
+    /**
+     * Toggle purchasability of a service globally.
+     */
+    public function togglePurchasable(Request $request, ServiceDefinition $definition): RedirectResponse
+    {
+        $definition->update([
+            'is_purchasable' => ! $definition->is_purchasable,
+        ]);
+
+        AuditLog::record('service_purchasability_toggled', $definition, $request->user(), [
+            'service' => $definition->key,
+            'is_purchasable' => $definition->is_purchasable,
+        ]);
+
+        $status = $definition->is_purchasable ? 'فعال' : 'غیرفعال';
+        return back()->with('success', "امکان خرید سرویس {$definition->title} توسط کاربران {$status} گردید.");
+    }
+
+    /**
+     * Update approval mode (Auto-approval vs Manual Approval) for IDs.
+     */
+    public function updateApprovalMode(Request $request, ServiceDefinition $definition): RedirectResponse
+    {
+        $validated = $request->validate([
+            'requires_approval' => ['required', 'boolean'],
+        ]);
+
+        $definition->update([
+            'requires_approval_for_enterprise' => $validated['requires_approval'],
+        ]);
+
+        AuditLog::record('service_approval_mode_updated', $definition, $request->user(), [
+            'service' => $definition->key,
+            'requires_approval' => $validated['requires_approval'],
+        ]);
+
+        $mode = $validated['requires_approval'] ? 'نیازمند تایید مدیر' : 'تایید خودکار آنی';
+        return back()->with('success', "مکانیزم تایید سفارشات به «{$mode}» تغییر یافت.");
+    }
+
+    /**
+     * Update pricing table for IDs.
+     */
+    public function updateIdPricing(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'regular' => ['required', 'numeric', 'min:0'],
+            'semi_rond' => ['required', 'numeric', 'min:0'],
+            'golden_rond' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $idDef = ServiceDefinition::where('key', 'custom_id')->firstOrFail();
+        $pricingConfig = array_merge($idDef->pricing_config ?? [], [
+            'regular' => (float) $validated['regular'],
+            'semi_rond' => (float) $validated['semi_rond'],
+            'golden_rond' => (float) $validated['golden_rond'],
+        ]);
+
+        $idDef->update(['pricing_config' => $pricingConfig]);
+
+        AuditLog::record('id_pricing_updated', $idDef, $request->user(), $pricingConfig);
+
+        return back()->with('success', 'جدول تعرفه و نرخ‌گذاری آیدی‌ها با موفقیت به‌روزرسانی شد.');
+    }
+
+    /**
+     * Store new Web3 TLD.
+     */
+    public function storeTld(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'tld' => ['required', 'string', 'min:2', 'max:20', 'unique:tld_pricing,tld', 'regex:/^[a-z0-9]+$/i'],
+            'base_price' => ['required', 'numeric', 'min:0'],
+            'multiplier_rond' => ['required', 'numeric', 'min:1'],
+            'multiplier_semi_rond' => ['required', 'numeric', 'min:1'],
+        ], [
+            'tld.required' => 'وارد کردن پسوند الزامی است.',
+            'tld.unique' => 'این پسوند قبلاً تعریف شده است.',
+        ]);
+
+        $cleanTld = strtolower(ltrim(trim($validated['tld']), '.'));
+
+        TldPricing::create([
+            'tld' => $cleanTld,
+            'base_price' => $validated['base_price'],
+            'multiplier_rond' => $validated['multiplier_rond'],
+            'multiplier_semi_rond' => $validated['multiplier_semi_rond'],
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', "پسوند جدید .{$cleanTld} با موفقیت افزوده شد.");
+    }
+
+    /**
+     * Update existing Web3 TLD pricing and multipliers.
+     */
+    public function updateTld(Request $request, TldPricing $tld): RedirectResponse
+    {
+        $validated = $request->validate([
+            'base_price' => ['required', 'numeric', 'min:0'],
+            'multiplier_rond' => ['required', 'numeric', 'min:1'],
+            'multiplier_semi_rond' => ['required', 'numeric', 'min:1'],
+            'is_active' => ['required', 'boolean'],
+        ]);
+
+        $tld->update($validated);
+
+        return back()->with('success', "تعرفه پسوند .{$tld->tld} با موفقیت به‌روزرسانی گردید.");
+    }
+
+    /**
+     * Delete a TLD.
+     */
+    public function destroyTld(Request $request, TldPricing $tld): RedirectResponse
+    {
+        $tldName = $tld->tld;
+        $tld->delete();
+
+        return back()->with('success', "پسوند .{$tldName} حذف شد.");
     }
 
     /**
@@ -245,7 +259,6 @@ class ServiceManagementController extends Controller
             'validation_policies' => $newPolicies,
         ]);
 
-        // If phone_line shortcode_length_prices were updated, synchronize SystemSetting org tariffs
         if ($definition->key === 'phone_line' && ! empty($newPricing['shortcode_length_prices'])) {
             foreach ([4, 5, 6, 7, 8] as $len) {
                 if (isset($newPricing['shortcode_length_prices'][$len])) {
@@ -401,7 +414,6 @@ class ServiceManagementController extends Controller
             $normalizedId = $cleanDomain;
         }
 
-        // Check duplicate active allocation
         $exists = ServiceResourceAllocation::query()
             ->where('service_key', $serviceKey)
             ->where('resource_identifier', $normalizedId)
@@ -485,7 +497,7 @@ class ServiceManagementController extends Controller
     }
 
     /**
-     * Update a subscriber's service allocation (status, total_quota, display_title, account_tier).
+     * Update a subscriber's service allocation.
      */
     public function updateAllocation(Request $request, ServiceResourceAllocation $allocation): RedirectResponse
     {
@@ -561,4 +573,3 @@ class ServiceManagementController extends Controller
         return back()->with('success', __('admin.services.toast_allocation_released'));
     }
 }
-

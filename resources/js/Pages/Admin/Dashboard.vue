@@ -1,483 +1,439 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Head, Link } from '@inertiajs/vue3';
-import { __ } from '@/Composables/useTrans';
+import { computed } from 'vue';
 
-interface UserItem {
+interface KPIs {
+    daily_volume: number;
+    daily_tx_count: number;
+    pending_orders_count: number;
+    messages_today: number;
+    total_messages: number;
+    delivery_rate: number;
+    active_lines: number;
+    total_users: number;
+}
+
+interface GatewayItem {
     id: number;
     name: string;
-    username: string;
-    role: string;
-    status: string;
+    code: string;
+    driver: string;
+    is_active: boolean;
+    is_backup: boolean;
+    currency: string;
+    success_rate: number;
+}
+
+interface PendingOrderItem {
+    id: number;
+    order_number: string;
+    service_title: string;
+    identifier: string;
+    amount: string;
+    user_name: string;
+    account_id: string;
     created_at: string;
 }
 
-interface PendingRequestItem {
+interface TransactionItem {
     id: number;
-    user: {
-        id: number;
-        name: string;
-        username: string;
-    };
-    requested_length: number;
-    preferred_number: string | null;
-    service_title: string | null;
+    type: string;
+    type_label: string;
+    type_badge: string;
+    amount: string;
+    user_name: string;
+    account_id: string;
+    description: string;
     created_at: string;
-    created_at_human: string;
 }
 
-interface AuditFeedItem {
-    id: number;
-    action: string;
-    action_label: string;
-    action_badge: string;
-    user: {
-        id: number;
-        name: string;
-        username: string;
-    } | null;
-    ip_address: string | null;
-    created_at: string;
-    created_at_human: string;
+interface ResourceMetrics {
+    database_size_mb: number;
+    total_users: number;
+    active_users: number;
+    allocated_numbers: number;
+    total_numbers: number;
+    php_version: string;
+    uptime: string;
+    storage_status: string;
 }
 
 const props = defineProps<{
-    stats: {
-        users: {
-            total: number;
-            active: number;
-            suspended: number;
-            admins: number;
-            new_today: number;
-        };
-        numbers: {
-            total: number;
-            allocated: number;
-            available: number;
-            standard: number;
-            service: number;
-            platform: number;
-            utilization_rate: number;
-        };
-        messages: {
-            total: number;
-            today: number;
-            inbound: number;
-            outbound: number;
-            delivered: number;
-            failed: number;
-            success_rate: number;
-        };
-        requests: {
-            pending: number;
-            approved: number;
-            rejected: number;
-        };
-        tokens: {
-            total: number;
-            active: number;
-            revoked: number;
-        };
-    };
-    recentUsers: UserItem[];
-    pendingRequests: PendingRequestItem[];
-    recentAudits: AuditFeedItem[];
-    systemHealth: {
-        database: string;
-        queue: string;
-        polling: string;
-        security: string;
-    };
+    kpis: KPIs;
+    gateways: GatewayItem[];
+    recent_pending_orders: PendingOrderItem[];
+    recent_transactions: TransactionItem[];
+    resources: ResourceMetrics;
+    pending_count: number;
 }>();
 
-function formatRole(role: string): string {
-    return role === 'admin' ? __('admin.dashboard.role_admin') : __('admin.dashboard.role_user');
-}
+const formatCurrency = (amount: number | string) => {
+    const num = Number(amount) || 0;
+    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(num);
+};
 
-function formatStatus(status: string): string {
-    if (status === 'active') return __('admin.dashboard.status_active');
-    if (status === 'suspended') return __('admin.dashboard.status_suspended');
-    return __('admin.dashboard.status_inactive');
-}
+const formatNumber = (num: number | string) => {
+    return new Intl.NumberFormat('fa-IR').format(Number(num) || 0);
+};
 </script>
 
 <template>
-    <Head :title="__('admin.dashboard.head_title')" />
+    <Head title="داشبورد فرماندهی سیستم - مدیریت پروداکشن" />
 
     <AdminLayout>
-        <template #header>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-3">
-                <div class="min-w-0">
-                    <h1 class="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">{{ __('admin.dashboard.console_heading') }}</h1>
-                    <p class="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate hidden sm:block">{{ __('admin.dashboard.console_subheading') }}</p>
-                </div>
-
-                <!-- System Operational Status Pills -->
-                <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                        <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>{{ __('admin.dashboard.system_operational') }}</span>
-                    </span>
-                    <span class="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800" dir="ltr">
-                        v2.0 Enterprise
-                    </span>
-                </div>
-            </div>
-        </template>
-
-        <!-- Top 4 Primary KPI Analytics Cards -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            <!-- 1. Users KPI -->
-            <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.dashboard.total_users') }}</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ stats.users.total }}</p>
-                    </div>
-                    <div class="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                    <span class="text-emerald-600 dark:text-emerald-400 font-bold">{{ __('admin.dashboard.active_unit', { count: stats.users.active }) }}</span>
-                    <span class="text-amber-600 dark:text-amber-400 font-medium">{{ __('admin.dashboard.suspended_unit', { count: stats.users.suspended }) }}</span>
-                    <span class="text-rose-600 dark:text-rose-400 font-medium">{{ __('admin.dashboard.admins_unit', { count: stats.users.admins }) }}</span>
-                </div>
-            </div>
-
-            <!-- 2. Numbers Pool KPI -->
-            <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.dashboard.pool_and_prefixes') }}</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ stats.numbers.total }}</p>
-                    </div>
-                    <div class="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="mt-3">
-                    <div class="flex justify-between text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
-                        <span>{{ __('admin.dashboard.allocation_rate') }}</span>
-                        <span>{{ __('admin.dashboard.percent', { rate: stats.numbers.utilization_rate }) }}</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div class="h-full bg-emerald-500 rounded-full transition-all duration-500" :style="{ width: `${stats.numbers.utilization_rate}%` }"></div>
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] text-slate-400 mt-2">
-                        <span>{{ __('admin.dashboard.allocated_lines', { count: stats.numbers.allocated }) }}</span>
-                        <span>{{ __('admin.dashboard.free_pool_lines', { count: stats.numbers.available }) }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 3. Messages Traffic KPI -->
-            <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.dashboard.sms_traffic') }}</p>
-                        <p class="text-2xl font-black text-slate-900 dark:text-white mt-1">{{ stats.messages.total }}</p>
-                    </div>
-                    <div class="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                    <span class="text-sky-600 dark:text-sky-400 font-bold">{{ __('admin.dashboard.today_messages', { count: stats.messages.today }) }}</span>
-                    <span class="text-slate-500 dark:text-slate-400">{{ __('admin.dashboard.success_rate', { rate: stats.messages.success_rate }) }}</span>
-                </div>
-            </div>
-
-            <!-- 4. Requests & Security KPI -->
-            <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col justify-between">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{{ __('admin.dashboard.pending_requests') }}</p>
-                        <p
-                            class="text-2xl font-black mt-1"
-                            :class="stats.requests.pending > 0 ? 'text-rose-600 dark:text-rose-400 animate-pulse' : 'text-slate-900 dark:text-white'"
-                        >
-                            {{ stats.requests.pending }}
-                        </p>
-                    </div>
-                    <div
-                        class="w-12 h-12 rounded-2xl flex items-center justify-center"
-                        :class="stats.requests.pending > 0 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-500'"
-                    >
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                    </div>
-                </div>
-                <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px]">
-                    <span class="text-emerald-600 dark:text-emerald-400 font-bold">{{ __('admin.dashboard.approved_requests', { count: stats.requests.approved }) }}</span>
-                    <span class="text-slate-400">{{ __('admin.dashboard.active_keys', { count: stats.tokens.active }) }}</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Quick Administration Actions Bar -->
-        <div class="rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-800 p-5 text-white shadow-lg mb-8">
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <div class="space-y-6">
+            <!-- Header Section -->
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60">
                 <div>
-                    <h2 class="text-sm font-black flex items-center gap-2">
-                        <svg class="w-4 h-4 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                        <span>{{ __('admin.dashboard.quick_management_actions') }}</span>
-                    </h2>
-                    <p class="text-xs text-slate-400 mt-0.5">{{ __('admin.dashboard.quick_management_desc') }}</p>
+                    <h1 class="text-2xl font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
+                        <span class="inline-block w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+                        داشبورد مانیتورینگ و فرماندهی عملیات
+                    </h1>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        نمای زنده شاخص‌های کلیدی عملکرد (KPIs)، وضعیت درگاه‌ها، منابع دیتابیس و پردازش سفارشات
+                    </p>
                 </div>
-            </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-                <!-- Review Requests with pending badge -->
-                <Link
-                    :href="route('admin.requests.index')"
-                    class="relative p-3 rounded-2xl bg-slate-800/80 hover:bg-rose-950/40 border border-slate-700/60 hover:border-rose-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <span
-                        v-if="stats.requests.pending > 0"
-                        class="absolute -top-1.5 -right-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500 text-white shadow"
+                <div class="flex items-center gap-3">
+                    <Link
+                        :href="route('admin.orders.index')"
+                        class="relative inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-colors"
                     >
-                        {{ stats.requests.pending }}
-                    </span>
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-rose-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.review_requests') }}</span>
-                </Link>
-
-                <!-- Messages Monitor -->
-                <Link
-                    :href="route('admin.messages.index')"
-                    class="p-3 rounded-2xl bg-slate-800/80 hover:bg-sky-950/40 border border-slate-700/60 hover:border-sky-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-sky-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.live_sms_monitor') }}</span>
-                </Link>
-
-                <!-- Manage Numbers -->
-                <Link
-                    :href="route('admin.numbers.index')"
-                    class="p-3 rounded-2xl bg-slate-800/80 hover:bg-emerald-950/40 border border-slate-700/60 hover:border-emerald-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-emerald-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.manage_lines') }}</span>
-                </Link>
-
-                <!-- Audit Logs & Security -->
-                <Link
-                    :href="route('admin.audit-logs.index')"
-                    class="p-3 rounded-2xl bg-slate-800/80 hover:bg-amber-950/40 border border-slate-700/60 hover:border-amber-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-amber-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.audit_logs') }}</span>
-                </Link>
-
-                <!-- Issue API Token -->
-                <Link
-                    :href="route('admin.api-tokens.index')"
-                    class="p-3 rounded-2xl bg-slate-800/80 hover:bg-indigo-950/40 border border-slate-700/60 hover:border-indigo-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-indigo-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.access_keys') }}</span>
-                </Link>
-
-                <!-- Create User -->
-                <Link
-                    :href="route('admin.users.create')"
-                    class="p-3 rounded-2xl bg-slate-800/80 hover:bg-purple-950/40 border border-slate-700/60 hover:border-purple-500/50 flex flex-col items-center justify-center text-center transition-all group"
-                >
-                    <svg class="w-5 h-5 text-slate-300 group-hover:text-purple-400 mb-1.5 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    <span class="text-xs font-bold text-slate-200 group-hover:text-white">{{ __('admin.dashboard.create_user') }}</span>
-                </Link>
-            </div>
-        </div>
-
-        <!-- Middle Section: 2 Columns Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- Left 2 Cols: Pending Requests + Recent Audit Logs -->
-            <div class="lg:col-span-2 space-y-6">
-                <!-- Pending Requests Widget -->
-                <div class="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm">
-                    <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.dashboard.pending_prefix_requests') }}</h2>
-                        </div>
-                        <Link
-                            :href="route('admin.requests.index')"
-                            class="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1"
-                        >
-                            <span>{{ __('admin.dashboard.view_all') }}</span>
-                            <svg class="w-3.5 h-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                            </svg>
-                        </Link>
-                    </div>
-
-                    <div v-if="pendingRequests.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-                        <div
-                            v-for="req in pendingRequests"
-                            :key="req.id"
-                            class="py-3 flex items-center justify-between gap-4"
-                        >
-                            <div class="flex items-center gap-3 truncate">
-                                <div class="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center font-bold text-xs shrink-0">
-                                    {{ __('admin.dashboard.digits_unit', { count: req.requested_length }) }}
-                                </div>
-                                <div class="truncate">
-                                    <div class="flex items-center gap-2">
-                                        <span class="font-bold text-xs text-slate-900 dark:text-white truncate">
-                                            {{ req.service_title || __('admin.dashboard.default_service_req') }}
-                                        </span>
-                                        <span v-if="req.preferred_number" class="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300" dir="ltr">
-                                            {{ req.preferred_number }}
-                                        </span>
-                                    </div>
-                                    <div class="text-[11px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                        <span>{{ __('admin.dashboard.user_label') }} <strong class="text-slate-700 dark:text-slate-300">{{ req.user.name }}</strong> (@{{ req.user.username }})</span>
-                                        <span>•</span>
-                                        <span>{{ req.created_at_human }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <Link
-                                :href="route('admin.requests.index')"
-                                class="px-3 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold shrink-0 transition-colors"
-                            >{{ __('admin.dashboard.review_and_act') }}</Link>
-                        </div>
-                    </div>
-
-                    <div v-else class="py-8 text-center text-slate-400">
-                        <svg class="w-9 h-9 mx-auto text-slate-300 dark:text-slate-700 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        <p class="text-xs font-bold text-slate-600 dark:text-slate-400">{{ __('admin.dashboard.all_requests_reviewed') }}</p>
-                        <p class="text-[11px] text-slate-400 mt-0.5">{{ __('admin.dashboard.no_requests_pending') }}</p>
+                        <span>بررسی سفارشات</span>
+                        <span
+                            v-if="kpis.pending_orders_count > 0"
+                            class="px-2 py-0.5 text-xs font-bold bg-amber-400 text-amber-950 rounded-full animate-bounce"
+                        >
+                            {{ formatNumber(kpis.pending_orders_count) }}
+                        </span>
+                    </Link>
+                    <Link
+                        :href="route('admin.services.index')"
+                        class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                        مدیریت سرویس‌ها
+                    </Link>
+                </div>
+            </div>
+
+            <!-- Vital KPIs Cards Grid (4 Cards) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- 1. Daily Transaction Volume -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-emerald-500"></div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">حجم تراکنش روزانه</span>
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-2xl font-black text-gray-900 dark:text-white">
+                            {{ formatCurrency(kpis.daily_volume) }}
+                            <span class="text-xs font-normal text-gray-500">کوین / تومان</span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                            <span class="font-medium">{{ formatNumber(kpis.daily_tx_count) }}</span>
+                            <span>تراکنش امروز ثبت شده</span>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Recent System Audit Feed -->
-                <div class="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm">
-                    <div class="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800">
-                        <div class="flex items-center gap-2">
-                            <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                            <h2 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.dashboard.live_feed_title') }}</h2>
-                        </div>
-                        <Link
-                            :href="route('admin.audit-logs.index')"
-                            class="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-                        >
-                            <span>{{ __('admin.dashboard.view_all_logs') }}</span>
-                            <svg class="w-3.5 h-3.5 rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                <!-- 2. Pending Orders Counter -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-amber-500"></div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">سفارشات معلق</span>
+                        <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                        </Link>
+                        </div>
                     </div>
-
-                    <div v-if="recentAudits.length > 0" class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
-                        <div
-                            v-for="audit in recentAudits"
-                            :key="audit.id"
-                            class="py-3 flex items-center justify-between gap-4"
-                        >
-                            <div class="flex items-center gap-3 truncate">
-                                <span
-                                    class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0"
-                                    :class="audit.action_badge"
-                                >
-                                    {{ audit.action_label }}
-                                </span>
-                                <div class="truncate">
-                                    <div class="text-xs text-slate-800 dark:text-slate-200 font-medium truncate">
-                                        {{ __('admin.dashboard.by_user', { name: audit.user ? audit.user.name : __('admin.dashboard.system_actor') }) }}
-                                        <span v-if="audit.user" class="text-slate-400 font-mono text-[10px] mr-1" dir="ltr">(@{{ audit.user.username }})</span>
-                                    </div>
-                                    <span class="text-[10px] text-slate-400 font-mono" dir="ltr">{{ audit.ip_address || '127.0.0.1' }}</span>
-                                </div>
-                            </div>
-
-                            <span class="text-[11px] text-slate-400 font-mono shrink-0" dir="ltr">
-                                {{ audit.created_at_human }}
+                    <div class="mt-4">
+                        <div class="text-2xl font-black text-gray-900 dark:text-white flex items-center gap-2">
+                            {{ formatNumber(kpis.pending_orders_count) }}
+                            <span
+                                v-if="kpis.pending_orders_count > 0"
+                                class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 font-bold"
+                            >
+                                نیازمند اقدام
                             </span>
                         </div>
+                        <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                            در صف تایید یا بررسی ادمین
+                        </div>
                     </div>
+                </div>
 
-                    <div v-else class="py-8 text-center text-slate-400">
-                        <p class="text-xs font-medium">{{ __('admin.dashboard.no_events') }}</p>
+                <!-- 3. Exchanged Messages & Delivery Rate -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-blue-500"></div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">پیام‌های تبادل‌شده</span>
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-2xl font-black text-gray-900 dark:text-white">
+                            {{ formatNumber(kpis.messages_today) }}
+                            <span class="text-xs font-normal text-gray-500">پیام امروز</span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-1.5 text-xs text-blue-600 dark:text-blue-400">
+                            <span>نرخ تحویل:</span>
+                            <span class="font-bold">{{ kpis.delivery_rate }}%</span>
+                            <span class="text-gray-400">(مجموع: {{ formatNumber(kpis.total_messages) }})</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Active Subscriptions & Lines -->
+                <div class="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 w-2 h-full bg-purple-500"></div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">خطوط و کاربران فعال</span>
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="text-2xl font-black text-gray-900 dark:text-white">
+                            {{ formatNumber(kpis.active_lines) }}
+                            <span class="text-xs font-normal text-gray-500">خط فعال</span>
+                        </div>
+                        <div class="mt-1 flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400">
+                            <span>کاربران:</span>
+                            <span class="font-bold">{{ formatNumber(kpis.total_users) }}</span>
+                            <span>عضو در پلتفرم</span>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Right 1 Col: Platform Lines Breakdown & Recent Users -->
-            <div class="space-y-6">
-                <!-- Numbers Distribution Card -->
-                <div class="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm">
-                    <h2 class="text-sm font-bold text-slate-900 dark:text-white pb-3 border-b border-slate-100 dark:border-slate-800">
-                        {{ __('admin.dashboard.lines_breakdown') }}
-                    </h2>
-                    <div class="space-y-3 mt-4 text-xs">
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <span class="font-medium text-slate-600 dark:text-slate-300">{{ __('admin.dashboard.standard_lines_stat') }}</span>
-                            <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400">{{ stats.numbers.standard }}</span>
+            <!-- Middle Section: Payment Gateways Status & Resource Metrics -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Payment Gateways Health (1 col) -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                </svg>
+                                وضعیت درگاه‌های پرداخت
+                            </h2>
+                            <Link :href="route('admin.payments.gateways.index')" class="text-xs text-indigo-600 hover:underline">
+                                پیکربندی کلیدها
+                            </Link>
                         </div>
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <span class="font-medium text-slate-600 dark:text-slate-300">{{ __('admin.dashboard.user_prefixes_stat') }}</span>
-                            <span class="font-mono font-bold text-amber-600 dark:text-amber-400">{{ stats.numbers.service }}</span>
+                        <div class="space-y-3">
+                            <div
+                                v-for="gw in gateways"
+                                :key="gw.id"
+                                class="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-700/50 border border-gray-100 dark:border-gray-600/50"
+                            >
+                                <div class="flex items-center gap-3">
+                                    <span
+                                        class="w-2.5 h-2.5 rounded-full"
+                                        :class="gw.is_active ? 'bg-emerald-500' : 'bg-gray-400'"
+                                    ></span>
+                                    <div>
+                                        <div class="text-sm font-bold text-gray-900 dark:text-white">
+                                            {{ gw.name }}
+                                            <span v-if="gw.is_backup" class="text-xs font-normal text-amber-600 dark:text-amber-400 mr-1">(پشتیبان)</span>
+                                        </div>
+                                        <div class="text-xs text-gray-400 font-mono">{{ gw.driver }} • {{ gw.currency }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-left">
+                                    <span
+                                        class="inline-block px-2 py-0.5 text-xs font-medium rounded-full"
+                                        :class="gw.is_active ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-600 dark:text-gray-300'"
+                                    >
+                                        {{ gw.is_active ? 'فعال و آنلاین' : 'غیرفعال' }}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <span class="font-medium text-slate-600 dark:text-slate-300">{{ __('admin.dashboard.platform_prefixes_stat') }}</span>
-                            <span class="font-mono font-bold text-rose-600 dark:text-rose-400">{{ stats.numbers.platform }}</span>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-xs text-gray-500 flex items-center justify-between">
+                        <span>تضمین پایداری تراکنش‌ها</span>
+                        <span class="font-bold text-emerald-600">SLA 99.4%</span>
+                    </div>
+                </div>
+
+                <!-- Resource & Database Monitoring (2 cols) -->
+                <div class="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                            </svg>
+                            سلامت سیستم و مانیتورینگ منابع دیتابیس
+                        </h2>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-semibold">
+                            وضعیت سیستم: نرمال
+                        </span>
+                    </div>
+
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-600/40">
+                            <div class="text-xs text-gray-400">حجم پایگاه داده</div>
+                            <div class="text-lg font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                                {{ resources.database_size_mb }} <span class="text-xs font-normal">MB</span>
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-0.5">موتور ذخیره‌سازی بهینه</div>
                         </div>
-                        <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50">
-                            <span class="font-medium text-slate-600 dark:text-slate-300">{{ __('admin.dashboard.active_api_keys_stat') }}</span>
-                            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400">{{ stats.tokens.active }}</span>
+
+                        <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-600/40">
+                            <div class="text-xs text-gray-400">کاربران فعال سامانه</div>
+                            <div class="text-lg font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                                {{ formatNumber(resources.active_users) }} <span class="text-xs font-normal">/ {{ formatNumber(resources.total_users) }}</span>
+                            </div>
+                            <div class="text-[11px] text-emerald-500 mt-0.5">احراز هویت استاندارد</div>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-600/40">
+                            <div class="text-xs text-gray-400">تخصیص سرشماره‌ها</div>
+                            <div class="text-lg font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                                {{ formatNumber(resources.allocated_numbers) }} <span class="text-xs font-normal">/ {{ formatNumber(resources.total_numbers) }}</span>
+                            </div>
+                            <div class="text-[11px] text-blue-500 mt-0.5">نرخ بهره‌وری پویا</div>
+                        </div>
+
+                        <div class="p-3.5 rounded-xl bg-gray-50 dark:bg-gray-700/40 border border-gray-100 dark:border-gray-600/40">
+                            <div class="text-xs text-gray-400">نسخه PHP و آپ‌تایم</div>
+                            <div class="text-lg font-bold text-gray-900 dark:text-white mt-1 font-mono">
+                                {{ resources.php_version }}
+                            </div>
+                            <div class="text-[11px] text-purple-500 mt-0.5">{{ resources.uptime }} پایداری سرور</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 p-4 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-indigo-900 dark:text-indigo-200">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-indigo-600 dark:text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>تمام ارتباطات پیامکی، ساب‌ایمیل‌ها و تماس‌های صوتی از طریق لایه انتزاعی ارتباطات (Communication Layer) ثبت و پایش می‌شوند.</span>
+                        </div>
+                        <Link :href="route('admin.messages.index')" class="font-bold underline shrink-0 hover:text-indigo-700">
+                            مشاهده لاگ پیام‌ها &larr;
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lower Section: Recent Pending Orders & Recent Transactions -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Recent Pending Orders Waiting Review -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            </svg>
+                            سفارشات جدید در صف بررسی
+                        </h2>
+                        <Link :href="route('admin.orders.index')" class="text-xs text-indigo-600 hover:underline">
+                            مشاهده همه سفارشات ({{ formatNumber(kpis.pending_orders_count) }})
+                        </Link>
+                    </div>
+
+                    <div v-if="recent_pending_orders.length === 0" class="py-8 text-center text-sm text-gray-400">
+                        سفارش معلقی در صف بررسی وجود ندارد.
+                    </div>
+
+                    <div v-else class="space-y-3">
+                        <div
+                            v-for="order in recent_pending_orders"
+                            :key="order.id"
+                            class="p-3.5 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30 flex items-center justify-between gap-3"
+                        >
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">{{ order.order_number }}</span>
+                                    <span class="text-xs px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">{{ order.service_title }}</span>
+                                </div>
+                                <div class="mt-1 text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                    {{ order.identifier }}
+                                </div>
+                                <div class="text-xs text-gray-400 mt-0.5">
+                                    کاربر: {{ order.user_name }} ({{ order.account_id }}) • {{ order.created_at }}
+                                </div>
+                            </div>
+                            <div class="text-left shrink-0">
+                                <div class="text-sm font-bold text-gray-900 dark:text-white">
+                                    {{ formatCurrency(order.amount) }} <span class="text-xs font-normal text-gray-400">کوین</span>
+                                </div>
+                                <Link
+                                    :href="route('admin.orders.index', { search: order.order_number })"
+                                    class="mt-1 inline-block text-xs font-semibold text-indigo-600 hover:text-indigo-800"
+                                >
+                                    بررسی و تایید &rarr;
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Recent Registered Users Widget -->
-                <div class="rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 p-6 shadow-sm">
-                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                        <h2 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('admin.dashboard.latest_users_title') }}</h2>
-                        <Link :href="route('admin.users.index')" class="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline">{{ __('admin.dashboard.manage_link') }}</Link>
+                <!-- Recent Financial Transactions -->
+                <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            آخرین تراکنش‌های مالی کیف‌پول
+                        </h2>
+                        <Link :href="route('admin.payments.transactions')" class="text-xs text-indigo-600 hover:underline">
+                            دفتر کل تراکنش‌ها
+                        </Link>
                     </div>
 
-                    <div class="divide-y divide-slate-100 dark:divide-slate-800 mt-2">
+                    <div v-if="recent_transactions.length === 0" class="py-8 text-center text-sm text-gray-400">
+                        تراکنشی یافت نشد.
+                    </div>
+
+                    <div v-else class="space-y-3">
                         <div
-                            v-for="u in recentUsers"
-                            :key="u.id"
-                            class="py-3 flex items-center justify-between gap-3"
+                            v-for="tx in recent_transactions"
+                            :key="tx.id"
+                            class="p-3.5 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/30 flex items-center justify-between gap-3"
                         >
-                            <div class="truncate">
-                                <p class="text-xs font-bold text-slate-900 dark:text-white truncate">{{ u.name }}</p>
-                                <p class="text-[10px] text-slate-400 font-mono" dir="ltr">@{{ u.username }}</p>
+                            <div class="min-w-0">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs px-2 py-0.5 rounded font-semibold" :class="tx.type_badge">
+                                        {{ tx.type_label }}
+                                    </span>
+                                    <span class="text-xs text-gray-400">{{ tx.created_at }}</span>
+                                </div>
+                                <div class="mt-1 text-xs text-gray-600 dark:text-gray-300 truncate">
+                                    {{ tx.description || 'تراکنش مالی استاندارد' }}
+                                </div>
+                                <div class="text-[11px] text-gray-400 mt-0.5">
+                                    کاربر: {{ tx.user_name }} ({{ tx.account_id }})
+                                </div>
                             </div>
-                            <span
-                                class="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0"
-                                :class="u.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400' : 'bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400'"
-                            >
-                                {{ formatStatus(u.status) }}
-                            </span>
+                            <div class="text-left shrink-0">
+                                <span class="font-mono text-sm font-bold text-gray-900 dark:text-white">
+                                    {{ formatCurrency(tx.amount) }}
+                                </span>
+                                <span class="text-xs text-gray-400 mr-1">کوین</span>
+                            </div>
                         </div>
                     </div>
                 </div>

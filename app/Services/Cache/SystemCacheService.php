@@ -340,7 +340,7 @@ class SystemCacheService implements SystemCacheServiceInterface
 
         if ($users instanceof \__PHP_Incomplete_Class || ! is_array($users)) {
             Cache::forget($cacheKey);
-            $users = User::select('id', 'name', 'username')
+            $users = User::select('id', 'account_id', 'name')
                 ->orderBy('name')
                 ->get()
                 ->map(fn ($u) => [

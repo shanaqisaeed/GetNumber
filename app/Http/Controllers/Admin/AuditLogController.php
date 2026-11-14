@@ -29,7 +29,7 @@ class AuditLogController extends Controller
                 $q->orWhere('action', 'like', "%{$search}%")
                   ->orWhere('ip_address', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($uq) use ($search) {
-                      $uq->where('username', 'like', "%{$search}%")
+                      $uq->whereHas('identities', fn ($iq) => $iq->where('provider_id', 'like', "%{$search}%"))->orWhere('account_id', 'like', "%{$search}%")
                          ->orWhere('name', 'like', "%{$search}%");
                   });
             });

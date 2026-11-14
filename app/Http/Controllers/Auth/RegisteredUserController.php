@@ -8,12 +8,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Models\UserIdentity;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -61,7 +63,13 @@ class RegisteredUserController extends Controller
 
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', 'unique:'.User::class.',email'],
+                'email' => [
+                    'required',
+                    'string',
+                    'email',
+                    'max:255',
+                    Rule::unique('user_identities', 'provider_id')->where('provider', 'email'),
+                ],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
             ], [
                 'name.required' => __('controllers.auth.val_name_required'),
@@ -78,17 +86,14 @@ class RegisteredUserController extends Controller
 
             $user = User::create([
                 'name' => $validated['name'],
-                'username' => $uniqueUsername,
-                'email' => $cleanEmail,
-                'password' => Hash::make($validated['password']),
                 'role' => UserRole::User,
                 'status' => UserStatus::Active,
             ]);
 
-            // Save dedicated email identity credential in table 2 (user_identities)
+            // Save dedicated email identity credential in user_identities
             $user->linkIdentity('email', $cleanEmail, $cleanEmail, ['registered_with' => 'email'], $validated['password']);
-            // Save username identity without email's password so they can set a separate password if desired
-            $user->linkIdentity('username', $uniqueUsername, $cleanEmail, ['registered_with' => 'email'], null);
+            // Save username identity
+            $user->linkIdentity('username', $uniqueUsername, $cleanEmail, ['registered_with' => 'email'], $validated['password']);
         } else {
             if (!SystemSetting::isAuthProviderEnabled('username')) {
                 return back()->withErrors(['username' => __('controllers.auth.username_registration_disabled')]);
@@ -96,7 +101,14 @@ class RegisteredUserController extends Controller
 
             $validated = $request->validate([
                 'name' => ['required', 'string', 'max:255'],
-                'username' => ['required', 'string', 'min:3', 'max:50', 'alpha_dash', 'unique:'.User::class.',username'],
+                'username' => [
+                    'required',
+                    'string',
+                    'min:3',
+                    'max:50',
+                    'alpha_dash',
+                    Rule::unique('user_identities', 'provider_id')->where('provider', 'username'),
+                ],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
             ], [
                 'name.required' => __('controllers.auth.val_name_required'),
@@ -113,13 +125,11 @@ class RegisteredUserController extends Controller
 
             $user = User::create([
                 'name' => $validated['name'],
-                'username' => $cleanUsername,
-                'password' => Hash::make($validated['password']),
                 'role' => UserRole::User,
                 'status' => UserStatus::Active,
             ]);
 
-            $user->linkIdentity('username', $cleanUsername, null, ['registered_with' => 'username']);
+            $user->linkIdentity('username', $cleanUsername, null, ['registered_with' => 'username'], $validated['password']);
         }
 
         if (SystemSetting::isEventNotificationEnabled('user_registered')) {
@@ -156,7 +166,7 @@ class RegisteredUserController extends Controller
 
         $candidate = $username;
         $counter = 1;
-        while (User::where('username', $candidate)->exists()) {
+        while (UserIdentity::where('provider', 'username')->where('provider_id', $candidate)->exists()) {
             $candidate = "{$username}_{$counter}";
             $counter++;
         }

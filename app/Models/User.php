@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Enums\UserStatus;
+use App\Models\Builders\UserBuilder;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Hash;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -16,15 +18,22 @@ class User extends Authenticatable implements MustVerifyEmail
     use HasFactory, Notifiable;
 
     /**
+     * Temporary virtual storage for credentials during creation/hydration.
+     */
+    protected ?string $tempUsername = null;
+    protected ?string $tempEmail = null;
+    protected ?string $tempPassword = null;
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var list<string>
      */
     protected $fillable = [
+        'account_id',
         'name',
         'username',
         'email',
-        'email_verified_at',
         'password',
         'role',
         'status',
@@ -33,6 +42,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_confirmed_at',
         'trust_tier',
         'risk_score',
+        'email_verified_at',
         'account_tier',
         'organization_name',
         'enterprise_contract_code',
@@ -45,7 +55,6 @@ class User extends Authenticatable implements MustVerifyEmail
      * @var list<string>
      */
     protected $hidden = [
-        'password',
         'remember_token',
         'two_factor_secret',
         'two_factor_recovery_codes',
@@ -62,7 +71,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'role' => UserRole::class,
             'status' => UserStatus::class,
             'email_verified_at' => 'datetime',
-            'password' => 'hashed',
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
@@ -73,15 +81,38 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected static function booted(): void
     {
+        static::creating(function (User $user) {
+            if (empty($user->attributes['account_id'])) {
+                // Pre-assign or finalize in created
+            }
+        });
+
         static::created(function (User $user) {
-            if (!empty($user->username) && !$user->hasIdentity('username')) {
+            if (empty($user->attributes['account_id'])) {
+                $user->attributes['account_id'] = 'ACC-' . str_pad((string) $user->id, 6, '0', STR_PAD_LEFT);
+                $user->saveQuietly();
+            }
+
+            if (!empty($user->tempUsername) && !$user->hasIdentity('username')) {
                 $user->linkIdentity(
                     'username',
-                    strtolower($user->username),
-                    $user->email,
+                    strtolower($user->tempUsername),
+                    $user->tempEmail,
                     ['auto_created' => true],
-                    $user->password
+                    $user->tempPassword
                 );
+                $user->tempUsername = null;
+            }
+
+            if (!empty($user->tempEmail) && !$user->hasIdentity('email')) {
+                $user->linkIdentity(
+                    'email',
+                    strtolower($user->tempEmail),
+                    strtolower($user->tempEmail),
+                    ['auto_created' => true],
+                    $user->tempPassword
+                );
+                $user->tempEmail = null;
             }
         });
 
@@ -98,6 +129,139 @@ class User extends Authenticatable implements MustVerifyEmail
             } catch (\Throwable) {
             }
         });
+    }
+
+    /**
+     * Accessor for account_id.
+     */
+    public function getAccountIdAttribute(): string
+    {
+        return $this->attributes['account_id'] ?? ('ACC-' . str_pad((string) $this->id, 6, '0', STR_PAD_LEFT));
+    }
+
+    /**
+     * Accessor for username (retrieved from user_identities).
+     */
+    public function getUsernameAttribute(): ?string
+    {
+        if (!$this->exists && $this->tempUsername !== null) {
+            return $this->tempUsername;
+        }
+
+        if ($this->relationLoaded('identities')) {
+            $ident = $this->identities->firstWhere('provider', 'username');
+            if ($ident) {
+                return $ident->provider_id;
+            }
+        }
+
+        return $this->identities()->where('provider', 'username')->value('provider_id') ?? $this->tempUsername;
+    }
+
+    /**
+     * Mutator for username.
+     */
+    public function setUsernameAttribute(?string $value): void
+    {
+        $this->tempUsername = $value !== null ? trim($value) : null;
+        if ($this->exists && $this->tempUsername !== null) {
+            $this->linkIdentity('username', strtolower($this->tempUsername), $this->email);
+        }
+    }
+
+    /**
+     * Accessor for email (retrieved from user_identities).
+     */
+    public function getEmailAttribute(): ?string
+    {
+        if (!$this->exists && $this->tempEmail !== null) {
+            return $this->tempEmail;
+        }
+
+        if ($this->relationLoaded('identities')) {
+            $ident = $this->identities->firstWhere('provider', 'email');
+            if ($ident) {
+                return $ident->provider_id;
+            }
+            $anyWithEmail = $this->identities->first(fn ($i) => !empty($i->provider_email));
+            if ($anyWithEmail) {
+                return $anyWithEmail->provider_email;
+            }
+        }
+
+        return $this->identities()->where('provider', 'email')->value('provider_id')
+            ?? $this->identities()->whereNotNull('provider_email')->value('provider_email')
+            ?? $this->tempEmail;
+    }
+
+    /**
+     * Mutator for email.
+     */
+    public function setEmailAttribute(?string $value): void
+    {
+        $this->tempEmail = $value !== null ? trim($value) : null;
+        if ($this->exists && $this->tempEmail !== null) {
+            $this->linkIdentity('email', strtolower($this->tempEmail), strtolower($this->tempEmail));
+        }
+    }
+
+    /**
+     * Retrieve the auth password from user_identities.
+     */
+    public function getAuthPassword(): ?string
+    {
+        if ($this->relationLoaded('identities')) {
+            $ident = $this->identities->first(fn ($i) => !empty($i->password));
+            if ($ident) {
+                return $ident->password;
+            }
+        }
+
+        return $this->identities()->whereNotNull('password')->value('password')
+            ?? $this->identities()->first()?->password;
+    }
+
+    /**
+     * Accessor for password (retrieves hashed password from identities).
+     */
+    public function getPasswordAttribute(): ?string
+    {
+        return $this->getAuthPassword();
+    }
+
+    /**
+     * Mutator for password (saves to identities).
+     */
+    public function setPasswordAttribute(?string $value): void
+    {
+        if ($value === null) {
+            return;
+        }
+
+        $hashed = Hash::needsRehash($value) ? Hash::make($value) : $value;
+        $this->tempPassword = $hashed;
+
+        if ($this->exists) {
+            $identities = $this->identities()->get();
+            if ($identities->isNotEmpty()) {
+                foreach ($identities as $identity) {
+                    $identity->update(['password' => $hashed]);
+                }
+            } else {
+                $this->linkIdentity('username', $this->username ?: 'user_' . $this->id, $this->email, [], $hashed);
+            }
+        }
+    }
+
+    /**
+     * Create a new Eloquent query builder for the model.
+     *
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @return \App\Models\Builders\UserBuilder
+     */
+    public function newEloquentBuilder($query): UserBuilder
+    {
+        return new UserBuilder($query);
     }
 
     /**
@@ -272,6 +436,30 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Voice calls initiated or received by the user.
+     */
+    public function voiceCalls(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(VoiceCall::class);
+    }
+
+    /**
+     * Web3 domains owned by the user.
+     */
+    public function web3Domains(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Web3Domain::class);
+    }
+
+    /**
+     * Email mailboxes owned by the user.
+     */
+    public function emailMailboxes(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(EmailMailbox::class);
+    }
+
+    /**
      * Determine if the user has confirmed two-factor authentication enabled.
      */
     public function hasTwoFactorEnabled(): bool
@@ -336,8 +524,8 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
 
         if ($password !== null) {
-            $values['password'] = \Illuminate\Support\Facades\Hash::needsRehash($password)
-                ? \Illuminate\Support\Facades\Hash::make($password)
+            $values['password'] = Hash::needsRehash($password)
+                ? Hash::make($password)
                 : $password;
         }
 

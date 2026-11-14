@@ -69,10 +69,13 @@ class AdminAccessTest extends TestCase
 
         $response->assertRedirect(route('admin.users.index'));
         $this->assertDatabaseHas('users', [
-            'username' => 'created_by_admin',
             'name' => 'کاربر آزمایشی جدید',
             'role' => UserRole::User->value,
             'status' => UserStatus::Active->value,
+        ]);
+        $this->assertDatabaseHas('user_identities', [
+            'provider' => 'username',
+            'provider_id' => 'created_by_admin',
         ]);
     }
 

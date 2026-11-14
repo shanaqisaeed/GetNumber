@@ -4,6 +4,9 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
+import VoiceCallModal from '@/Components/VoiceCallModal.vue';
+import OrganizationalOrderWizard from '@/Components/OrganizationalOrderWizard.vue';
+import Web3SubEmailManager from '@/Components/Web3SubEmailManager.vue';
 
 interface PhoneNumberItem {
     id: number;
@@ -134,7 +137,36 @@ const props = defineProps<{
     active_prefixes?: PrefixItem[];
 }>();
 
-const activeTab = ref<'all' | 'phone_line' | 'custom_id' | 'web3_email_package'>('all');
+const activeTab = ref<'all' | 'phone_line' | 'custom_id'>('all');
+
+// Modals State for Voice Dialer, Organizational Wizard & Web3 Sub-Email Engine
+const isVoiceModalOpen = ref(false);
+const isOrgWizardOpen = ref(false);
+const isWeb3ManagerOpen = ref(false);
+const activeDialerLines = computed(() => {
+    return props.numbers.data.map((n) => ({
+        id: n.id,
+        number: n.number,
+        formatted_number: n.formatted_number,
+        display_title: n.display_title || n.effective_title || '',
+    }));
+});
+
+const openVoiceDialer = () => {
+    isVoiceModalOpen.value = true;
+};
+
+const openVoiceDialerWithLine = (_line?: any) => {
+    isVoiceModalOpen.value = true;
+};
+
+const openOrgWizard = () => {
+    isOrgWizardOpen.value = true;
+};
+
+const openWeb3Manager = () => {
+    isWeb3ManagerOpen.value = true;
+};
 
 const allocations = computed(() => props.service_allocations || []);
 const customIdAllocations = computed(() => allocations.value.filter((a) => a.service_key === 'custom_id'));
@@ -567,19 +599,56 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </button>
                         <button
                             type="button"
-                            @click="openServicePurchaseModal('web3_email_package')"
-                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-purple-600 dark:text-purple-300 border border-purple-500/30 hover:bg-purple-500/15"
+                            @click="openVoiceDialer"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15 flex items-center gap-1.5"
                         >
-                            <span>+ {{ __('catalog.services.web3_email_package.short_title') }}</span>
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span>شماره‌گیر صوتی (Voice)</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Registered Multi-Service Catalog Cards (Full-Width Stacked Cards for Crisp Readability) -->
+            <!-- Organizational Section Public Access Banner -->
+            <div class="glass-card !p-5 bg-gradient-to-r from-indigo-900/90 via-purple-900/80 to-indigo-950 border border-indigo-500/30 text-white rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[11px] font-bold border border-indigo-400/20">
+                            بخش سازمانی (دسترسی عمومی)
+                        </span>
+                        <span class="text-[11px] text-indigo-300">بدون نیاز به احراز هویت شرکتی و بارگذاری مدارک</span>
+                    </div>
+                    <h3 class="text-base font-black mt-1.5 text-white">
+                        سفارش سرشماره‌های کوتاه، آیدی‌های رند و دامنه‌های Web3
+                    </h3>
+                    <p class="text-xs text-indigo-200/90 mt-0.5">
+                        جریان چند مرحله‌ای Wizard همراه با اعتبارسنجی زنده AJAX، الگوریتم هوشمند رند بودن و موتور مدیریت ساب‌ایمیل
+                    </p>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        @click="openOrgWizard"
+                        class="px-5 py-2.5 text-xs font-black rounded-xl bg-white text-indigo-950 hover:bg-indigo-50 shadow-md transition-all active:scale-95"
+                    >
+                        ورود به Wizard ثبت سفارش &larr;
+                    </button>
+                    <button
+                        type="button"
+                        @click="openWeb3Manager"
+                        class="px-4 py-2.5 text-xs font-bold rounded-xl bg-purple-600/60 hover:bg-purple-600 text-white border border-purple-400/30 transition-all"
+                    >
+                        مدیریت ساب‌ایمیل Web3
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. Registered Multi-Service Catalog Cards (Filtered to strictly 2 standard services: Phone Lines & IDs) -->
             <div v-if="service_catalog && service_catalog.length > 0" class="grid grid-cols-1 gap-3">
                 <div
-                    v-for="service in service_catalog"
+                    v-for="service in service_catalog.filter(s => s.key === 'phone_line' || s.key === 'custom_id')"
                     :key="service.key"
                     class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs"
                 >
@@ -666,7 +735,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
             </div>
 
-            <!-- 3. Category Tabs -->
+            <!-- 3. Category Tabs (Strictly 2 Standard User Services: Lines & IDs) -->
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
@@ -674,7 +743,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
                     :class="activeTab === 'all' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
                 >
-                    {{ __('catalog.tabs.all_resources') }} ({{ numbers.total + customIdAllocations.length + web3Allocations.length }})
+                    {{ __('catalog.tabs.all_resources') }} ({{ numbers.total + customIdAllocations.length }})
                 </button>
                 <button
                     type="button"
@@ -691,14 +760,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     :class="activeTab === 'custom_id' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
                 >
                     {{ __('catalog.tabs.custom_id') }} ({{ customIdAllocations.length }})
-                </button>
-                <button
-                    type="button"
-                    @click="activeTab = 'web3_email_package'"
-                    class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all"
-                    :class="activeTab === 'web3_email_package' ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-300'"
-                >
-                    {{ __('catalog.tabs.web3_email_package') }} ({{ web3Allocations.length }})
                 </button>
             </div>
 
@@ -748,58 +809,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
             </div>
 
-            <!-- 5. Web3 Organizational Email & Sub-Domain Packages Section -->
-            <div v-if="(activeTab === 'all' || activeTab === 'web3_email_package') && web3Allocations.length > 0" class="space-y-3">
-                <div
-                    v-for="domainAlloc in web3Allocations"
-                    :key="domainAlloc.uuid"
-                    class="glass-card !p-4 hover:border-purple-500/40 transition-all space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10"
-                >
-                    <div class="flex flex-wrap items-center justify-between gap-2">
-                        <div class="flex items-center gap-2">
-                            <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
-                                {{ __('catalog.services.web3_email_package.short_title') }}
-                            </span>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                {{ __('catalog.ui.used_quota', { used: domainAlloc.used_quota, total: domainAlloc.total_quota }) }}
-                            </span>
-                            <span class="text-xs font-black text-slate-900 dark:text-white">
-                                {{ domainAlloc.display_title }}
-                            </span>
-                        </div>
-
-                        <button
-                            type="button"
-                            @click="openQuotaModal(domainAlloc)"
-                            class="glass-btn-primary !w-auto !py-1.5 !px-3.5 !text-xs !rounded-xl"
-                        >
-                            {{ __('catalog.ui.manage_sub_accounts') }}
-                        </button>
-                    </div>
-
-                    <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
-                        <div dir="ltr" class="font-mono font-black text-base text-purple-600 dark:text-purple-400 select-all">
-                            *.{{ domainAlloc.resource_identifier }}
-                        </div>
-                        <div class="text-xs text-slate-500 dark:text-slate-400">
-                            {{ __('catalog.ui.remaining_quota', { remaining: domainAlloc.remaining_quota }) }}
-                        </div>
-                    </div>
-
-                    <!-- Sub-Accounts Pills -->
-                    <div v-if="domainAlloc.sub_resources && domainAlloc.sub_resources.length > 0" class="flex flex-wrap gap-2 pt-1">
-                        <span
-                            v-for="sub in domainAlloc.sub_resources"
-                            :key="sub.id"
-                            dir="ltr"
-                            @click="copyText(sub.full_address)"
-                            class="cursor-pointer text-xs font-mono px-2.5 py-1 rounded-xl bg-indigo-500/10 border border-indigo-500/25 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20"
-                        >
-                            {{ sub.full_address }}
-                        </span>
-                    </div>
-                </div>
-            </div>
 
             <!-- 6. Communication Lines (Phone Numbers) Search & List -->
             <div v-if="activeTab === 'all' || activeTab === 'phone_line'" class="space-y-3">
@@ -895,15 +904,29 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
-                            <Link
-                                :href="route('messages.index', { phone_number_id: item.id })"
-                                class="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                </svg>
-                                <span>{{ __('user.numbers.view_sms') }}</span>
-                            </Link>
+                            <div class="flex items-center gap-3">
+                                <Link
+                                    :href="route('messages.index', { phone_number_id: item.id })"
+                                    class="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                                >
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                    </svg>
+                                    <span>{{ __('user.numbers.view_sms') }}</span>
+                                </Link>
+
+                                <button
+                                    type="button"
+                                    @click="openVoiceDialerWithLine(item)"
+                                    class="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors"
+                                    title="برقراری تماس صوتی با این خط"
+                                >
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                    <span>تماس صوتی</span>
+                                </button>
+                            </div>
 
                             <button
                                 type="button"
@@ -1284,5 +1307,25 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 </div>
             </div>
         </div>
+
+        <!-- 12. Voice Call Modal -->
+        <VoiceCallModal
+            :is-open="isVoiceModalOpen"
+            :available-lines="activeDialerLines"
+            @close="isVoiceModalOpen = false"
+        />
+
+        <!-- 13. Organizational Order Multi-Step Wizard -->
+        <OrganizationalOrderWizard
+            :is-open="isOrgWizardOpen"
+            :wallet-balance="wallet?.balance"
+            @close="isOrgWizardOpen = false"
+        />
+
+        <!-- 14. Web3 Sub-Email Engine Manager -->
+        <Web3SubEmailManager
+            :is-open="isWeb3ManagerOpen"
+            @close="isWeb3ManagerOpen = false"
+        />
     </UserLayout>
 </template>

@@ -59,7 +59,7 @@ class TicketController extends Controller
                 $q->where('ticket_number', 'like', "%{$search}%")
                   ->orWhere('subject', 'like', "%{$search}%")
                   ->orWhereHas('user', function ($uq) use ($search) {
-                      $uq->where('username', 'like', "%{$search}%")
+                      $uq->whereHas('identities', fn ($iq) => $iq->where('provider_id', 'like', "%{$search}%"))->orWhere('account_id', 'like', "%{$search}%")
                          ->orWhere('name', 'like', "%{$search}%");
                   });
             });
@@ -113,7 +113,7 @@ class TicketController extends Controller
 
         // List of support staff (Admins and Agents)
         $staffMembers = User::whereIn('role', [UserRole::Admin, UserRole::Agent])
-            ->select('id', 'name', 'username', 'role')
+            ->select('id', 'account_id', 'name', 'role')
             ->get()
             ->map(fn ($u) => [
                 'id' => $u->id,
@@ -147,7 +147,7 @@ class TicketController extends Controller
         ]);
 
         $staffMembers = User::whereIn('role', [UserRole::Admin, UserRole::Agent])
-            ->select('id', 'name', 'username', 'role')
+            ->select('id', 'account_id', 'name', 'role')
             ->get()
             ->map(fn ($u) => [
                 'id' => $u->id,

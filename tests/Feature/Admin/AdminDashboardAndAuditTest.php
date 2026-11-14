@@ -67,15 +67,13 @@ class AdminDashboardAndAuditTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Dashboard')
-            ->has('stats.users')
-            ->has('stats.numbers')
-            ->has('stats.messages')
-            ->has('stats.requests')
-            ->has('stats.tokens')
-            ->has('recentUsers')
-            ->has('pendingRequests', 1)
-            ->has('recentAudits', 1)
-            ->has('systemHealth')
+            ->has('kpis.daily_volume')
+            ->has('kpis.pending_orders_count')
+            ->has('kpis.messages_today')
+            ->has('gateways')
+            ->has('recent_pending_orders')
+            ->has('recent_transactions')
+            ->has('resources.database_size_mb')
         );
     }
 
@@ -181,7 +179,7 @@ class AdminDashboardAndAuditTest extends TestCase
             'user_id' => $this->admin->id,
         ]);
 
-        $targetUser = User::where('username', 'new_corp_user')->firstOrFail();
+        $targetUser = User::whereHas('identities', fn ($q) => $q->where('provider_id', 'new_corp_user'))->firstOrFail();
 
         // 2. Suspend User
         $this->actingAs($this->admin)->patch(route('admin.users.status', $targetUser), [

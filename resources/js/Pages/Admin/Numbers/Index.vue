@@ -670,11 +670,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             <td class="py-3.5 px-5 text-left">
                                 <div class="inline-flex items-center gap-1">
                                     <!-- Edit line button -->
-                                    <button
-                                        @click="openEditModal(item)"
-                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors cursor-pointer"
-                                        :title="__('admin.numbers.edit_tooltip')"
-                                    >{{ __('admin.numbers.edit_btn') }}</button>
+                                    <Link
+                                        :href="route('admin.numbers.edit', item.id)"
+                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors inline-block"
+                                        title="ویرایش تخصصی و مانیتورینگ خط"
+                                    >ویرایش تخصصی</Link>
 
                                     <!-- Assign button (if available) -->
                                     <button

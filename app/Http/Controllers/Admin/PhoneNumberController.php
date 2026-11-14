@@ -38,7 +38,7 @@ class PhoneNumberController extends Controller
                 $q->orWhere('number', 'like', "%{$search}%")
                     ->orWhere('display_title', 'like', "%{$search}%")
                     ->orWhereHas('user', function ($uq) use ($search) {
-                        $uq->where('username', 'like', "%{$search}%")
+                        $uq->whereHas('identities', fn ($iq) => $iq->where('provider_id', 'like', "%{$search}%"))->orWhere('account_id', 'like', "%{$search}%")
                             ->orWhere('name', 'like', "%{$search}%");
                     });
             });
@@ -385,5 +385,63 @@ class PhoneNumberController extends Controller
         );
 
         return back()->with('success', __('controllers.admin.phone_numbers.released_flash', ['number' => $number->formatted_number]));
+    }
+
+    /**
+     * Dedicated full-featured edit page for a line with consumption monitoring.
+     */
+    public function edit(PhoneNumber $number): Response
+    {
+        $number->load(['user', 'prefix']);
+
+        $sentCount = \App\Models\Message::where('phone_number_id', $number->id)
+            ->where('direction', \App\Enums\MessageDirection::Outbound)
+            ->count();
+
+        $receivedCount = \App\Models\Message::where('phone_number_id', $number->id)
+            ->where('direction', \App\Enums\MessageDirection::Inbound)
+            ->count();
+
+        $voiceCallsCount = \App\Models\VoiceCall::where('phone_number_id', $number->id)->count();
+
+        $lastActivity = \App\Models\Message::where('phone_number_id', $number->id)
+            ->latest('server_received_at')
+            ->value('server_received_at');
+
+        $users = User::select('id', 'name', 'account_id')->limit(100)->get();
+        $prefixes = \App\Models\PhonePrefix::select('id', 'prefix', 'name')->get();
+
+        return Inertia::render('Admin/Numbers/Edit', [
+            'number' => [
+                'id' => $number->id,
+                'number' => $number->number,
+                'formatted_number' => $number->formatted_number,
+                'type' => $number->type->value,
+                'type_label' => $number->type->label(),
+                'status' => $number->status->value,
+                'status_label' => $number->status->label(),
+                'display_title' => $number->display_title,
+                'accepts_incoming_sms' => (bool) $number->accepts_incoming_sms,
+                'rond_tier' => $number->rond_tier ?? 'regular',
+                'rond_pattern' => $number->rond_pattern,
+                'phone_prefix_id' => $number->phone_prefix_id,
+                'user_id' => $number->user_id,
+                'user' => $number->user ? [
+                    'id' => $number->user->id,
+                    'account_id' => $number->user->account_id,
+                    'name' => $number->user->name,
+                ] : null,
+                'allocated_at' => $number->allocated_at?->format('Y/m/d H:i'),
+                'created_at' => $number->created_at->format('Y/m/d H:i'),
+            ],
+            'metrics' => [
+                'sent_sms_count' => $sentCount,
+                'received_sms_count' => $receivedCount,
+                'voice_calls_count' => $voiceCallsCount,
+                'last_activity' => $lastActivity ? \Carbon\Carbon::parse($lastActivity)->diffForHumans() : 'بدون فعالیت',
+            ],
+            'users' => $users,
+            'prefixes' => $prefixes,
+        ]);
     }
 }

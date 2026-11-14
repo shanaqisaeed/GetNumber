@@ -12,17 +12,23 @@ enum WalletTransactionType: string
     case AdminDebit = 'ADMIN_DEBIT';
     case Refund = 'REFUND';
     case Reversal = 'REVERSAL';
+    case ServiceUsage = 'SERVICE_USAGE';
+    case VoiceCall = 'VOICE_CALL';
 
     public function label(): string
     {
-        return __('enums.wallet_transaction_type.' . $this->value);
+        return match ($this) {
+            self::ServiceUsage => __('enums.wallet_transaction_type.SERVICE_USAGE', [], 'fa') ?: 'کسر هزینه پیامک / سرویس',
+            self::VoiceCall => __('enums.wallet_transaction_type.VOICE_CALL', [], 'fa') ?: 'کسر هزینه مکالمه صوتی',
+            default => __('enums.wallet_transaction_type.' . $this->value),
+        };
     }
 
     public function isCredit(): bool
     {
         return match ($this) {
             self::Deposit, self::AdminCredit, self::Refund, self::HoldRelease => true,
-            self::NumberPurchase, self::AdminDebit, self::Hold => false,
+            self::NumberPurchase, self::AdminDebit, self::Hold, self::ServiceUsage, self::VoiceCall => false,
             self::Reversal => false,
         };
     }
@@ -38,6 +44,8 @@ enum WalletTransactionType: string
             self::AdminDebit => 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/25',
             self::Refund => 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25',
             self::Reversal => 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
+            self::ServiceUsage => 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25',
+            self::VoiceCall => 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25',
         };
     }
 }

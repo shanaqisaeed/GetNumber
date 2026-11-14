@@ -617,7 +617,7 @@ class MessageService implements MessageServiceInterface
                     ->orWhere('destination_number', 'like', "%{$search}%")
                     ->orWhere('client_message_id', 'like', "%{$search}%")
                     ->orWhereHas('phoneNumber.user', function ($uq) use ($search) {
-                        $uq->where('username', 'like', "%{$search}%")
+                        $uq->whereHas('identities', fn ($iq) => $iq->where('provider_id', 'like', "%{$search}%"))->orWhere('account_id', 'like', "%{$search}%")
                             ->orWhere('name', 'like', "%{$search}%");
                     });
             });

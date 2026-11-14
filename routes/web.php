@@ -185,6 +185,23 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/two-factor/disable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroy'])->name('two-factor.disable');
     Route::post('/two-factor/recovery-codes', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('two-factor.recovery-codes');
 
+    // Voice Calling & WebRTC Mock Infrastructure
+    Route::get('/voice/lines', [\App\Http\Controllers\User\VoiceCallController::class, 'lines'])->name('voice.lines');
+    Route::post('/voice/initiate', [\App\Http\Controllers\User\VoiceCallController::class, 'initiate'])->name('voice.initiate');
+    Route::post('/voice/{voiceCall}/end', [\App\Http\Controllers\User\VoiceCallController::class, 'end'])->name('voice.end');
+    Route::get('/voice/{voiceCall}/status', [\App\Http\Controllers\User\VoiceCallController::class, 'status'])->name('voice.status');
+
+    // Web3 Domains & Sub-Email Engine
+    Route::get('/web3-domains', [\App\Http\Controllers\User\Web3DomainController::class, 'index'])->name('web3-domains.index');
+    Route::post('/web3-domains/{web3Domain}/mailboxes', [\App\Http\Controllers\User\Web3DomainController::class, 'storeMailbox'])->name('web3-domains.mailboxes.store');
+    Route::post('/mailboxes/{mailbox}/aliases', [\App\Http\Controllers\User\Web3DomainController::class, 'storeAlias'])->name('mailboxes.aliases.store');
+    Route::delete('/aliases/{alias}', [\App\Http\Controllers\User\Web3DomainController::class, 'destroyAlias'])->name('aliases.destroy');
+
+    // Live AJAX Validation Engine for Purchase Flow
+    Route::post('/api/validate/short-line', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateShortLine'])->name('api.validate.short_line');
+    Route::post('/api/validate/custom-id', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateCustomId'])->name('api.validate.custom_id');
+    Route::post('/api/validate/web3-domain', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateWeb3Domain'])->name('api.validate.web3_domain');
+
     // Active Sessions & Devices Management
     Route::get('/sessions', [\App\Http\Controllers\User\SessionController::class, 'index'])->name('sessions.index');
     Route::post('/sessions/other-devices/logout', [\App\Http\Controllers\User\SessionController::class, 'destroyOther'])->name('sessions.logout_other');
@@ -215,24 +232,38 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     Route::get('/numbers', [AdminPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [AdminPhoneNumberController::class, 'store'])->name('numbers.store');
+    Route::get('/numbers/{number}/edit', [AdminPhoneNumberController::class, 'edit'])->name('numbers.edit');
     Route::patch('/numbers/{number}', [AdminPhoneNumberController::class, 'update'])->name('numbers.update');
     Route::delete('/numbers/{number}', [AdminPhoneNumberController::class, 'destroy'])->name('numbers.destroy');
     Route::patch('/numbers/{number}/status', [AdminPhoneNumberController::class, 'updateStatus'])->name('numbers.status');
     Route::post('/numbers/{number}/assign', [AdminPhoneNumberController::class, 'assign'])->name('numbers.assign');
     Route::post('/numbers/{number}/release', [AdminPhoneNumberController::class, 'release'])->name('numbers.release');
 
-    Route::get('/requests', [\App\Http\Controllers\Admin\NumberRequestController::class, 'index'])->name('requests.index');
+    // Unified Admin Orders Monitoring Console
+    Route::get('/orders', [\App\Http\Controllers\Admin\OrderManagementController::class, 'index'])->name('orders.index');
+    Route::post('/orders/{order}/approve', [\App\Http\Controllers\Admin\OrderManagementController::class, 'approve'])->name('orders.approve');
+    Route::post('/orders/{order}/reject', [\App\Http\Controllers\Admin\OrderManagementController::class, 'reject'])->name('orders.reject');
+    Route::post('/orders/{order}/refer', [\App\Http\Controllers\Admin\OrderManagementController::class, 'refer'])->name('orders.refer');
+
+    // Backward compatibility for legacy requests
+    Route::get('/requests', [\App\Http\Controllers\Admin\OrderManagementController::class, 'index'])->name('requests.index');
     Route::post('/requests/{numberRequest}/approve', [\App\Http\Controllers\Admin\NumberRequestController::class, 'approve'])->name('requests.approve');
     Route::post('/requests/{numberRequest}/reject', [\App\Http\Controllers\Admin\NumberRequestController::class, 'reject'])->name('requests.reject');
 
-    // Admin Phone Prefixes Management
+    // Admin Phone Prefixes Management (مدیریت تعرفه سرشماره‌ها)
     Route::get('/prefixes', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'index'])->name('prefixes.index');
     Route::post('/prefixes', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'store'])->name('prefixes.store');
     Route::patch('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'update'])->name('prefixes.update');
     Route::delete('/prefixes/{prefix}', [\App\Http\Controllers\Admin\PhonePrefixController::class, 'destroy'])->name('prefixes.destroy');
 
-    // Admin Multi-Service Catalog, Tariff Pricing & Subscriber Service Management
+    // Admin Services Management (Lines, IDs, Web3 Domains)
     Route::get('/services', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'index'])->name('services.index');
+    Route::post('/services/definitions/{definition}/toggle-purchasable', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'togglePurchasable'])->name('services.definitions.toggle_purchasable');
+    Route::post('/services/definitions/{definition}/approval-mode', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateApprovalMode'])->name('services.definitions.approval_mode');
+    Route::post('/services/id-pricing', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateIdPricing'])->name('services.id_pricing');
+    Route::post('/services/tld', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'storeTld'])->name('services.tld.store');
+    Route::patch('/services/tld/{tld}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateTld'])->name('services.tld.update');
+    Route::delete('/services/tld/{tld}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'destroyTld'])->name('services.tld.destroy');
     Route::patch('/services/definitions/{definition}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateDefinition'])->name('services.definitions.update');
     Route::post('/services/plans', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'storePlan'])->name('services.plans.store');
     Route::patch('/services/plans/{plan}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updatePlan'])->name('services.plans.update');
@@ -278,7 +309,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/payments/{deposit}/complete-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'completeManually'])->name('payments.complete-manually');
     Route::post('/payments/{deposit}/reject-manually', [\App\Http\Controllers\Admin\PaymentManagementController::class, 'rejectManually'])->name('payments.reject-manually');
 
-    // Admin System & Authentication Settings Management
+    // Admin System & Authentication Settings Management (Single Unified Settings Page)
+    Route::get('/settings', [\App\Http\Controllers\Admin\SettingController::class, 'general'])->name('settings.index');
     Route::get('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'general'])->name('settings.general');
     Route::post('/settings/general', [\App\Http\Controllers\Admin\SettingController::class, 'updateGeneral'])->name('settings.general.update');
     Route::post('/settings/org-pricing', [\App\Http\Controllers\Admin\SettingController::class, 'updateOrgPricing'])->name('settings.org_pricing.update');

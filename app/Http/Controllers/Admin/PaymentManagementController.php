@@ -45,7 +45,7 @@ class PaymentManagementController extends Controller
                 $q->where('tracking_code', 'like', "%{$search}%")
                     ->orWhere('tx_hash', 'like', "%{$search}%")
                     ->orWhere('deposit_address', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$search}%")->orWhere('username', 'like', "%{$search}%"));
+                    ->orWhereHas('user', fn ($uq) => $uq->where('name', 'like', "%{$search}%")->orWhereHas('identities', fn ($iq) => $iq->where('provider_id', 'like', "%{$search}%"))->orWhere('account_id', 'like', "%{$search}%"));
             });
         }
 
