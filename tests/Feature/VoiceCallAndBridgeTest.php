@@ -160,5 +160,51 @@ class VoiceCallAndBridgeTest extends TestCase
         $this->assertEquals(25, (int) SystemSetting::get('voice_bridge_api_port'));
         $this->assertEquals(80, (int) SystemSetting::get('voice_bridge_ws_port'));
     }
+
+    public function test_dynamic_tariff_is_resolved_from_prefix_and_system_settings(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::User]);
+        $user->wallet()->create(['balance' => '0.0000']); // Zero balance
+
+        $prefix = \App\Models\PhonePrefix::updateOrCreate(
+            ['prefix' => '+85'],
+            [
+                'clean_prefix' => '85',
+                'name' => 'Prefix 85',
+                'country_name' => 'Internal',
+                'flag' => '🌐',
+                'voice_intra_prefix_rate' => '0.0000', // Free intra
+                'voice_inter_prefix_rate' => '0.2500',
+                'is_active' => true,
+            ]
+        );
+
+        $line = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '100300',
+            'formatted_number' => '+85100300',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $user->id,
+            'allocated_at' => now(),
+        ]);
+
+        // 1. Intra-prefix call with 0.0000 tariff should succeed even with zero balance
+        $freeCallRes = $this->actingAs($user)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $line->id,
+            'destination' => '+85100400',
+        ]);
+        $freeCallRes->assertOk();
+        $freeCallRes->assertJsonPath('call.rate_per_minute', 0);
+
+        // 2. Inter-prefix call with 0.2500 tariff should fail with insufficient balance
+        $paidCallRes = $this->actingAs($user)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $line->id,
+            'destination' => '+989120000000',
+        ]);
+        $paidCallRes->assertStatus(422);
+        $paidCallRes->assertJsonPath('success', false);
+        $this->assertStringContainsString('کافی نمی‌باشد', $paidCallRes->json('message'));
+    }
 }
 

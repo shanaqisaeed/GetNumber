@@ -477,13 +477,12 @@ class VoiceCallController extends Controller
         }
 
         $rate = (float) $voiceCall->rate_per_minute;
-        $isInternal = (bool) ($voiceCall->metadata['is_internal'] ?? ($rate <= 0));
 
-        if ($isInternal || $rate <= 0) {
+        if ($rate <= 0) {
             return response()->json([
                 'active' => true,
                 'can_continue' => true,
-                'is_internal' => true,
+                'is_internal' => (bool) ($voiceCall->metadata['is_internal'] ?? false),
                 'rate_per_minute' => 0.0000,
                 'wallet_balance' => (string) ($user->wallet?->balance ?? '0.0000'),
             ]);

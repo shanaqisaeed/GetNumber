@@ -79,21 +79,22 @@ class VoiceCallService implements VoiceCallServiceInterface
             }
         }
 
-        // 2. Determine tariff rate per minute based on communication type:
+        // 2. Determine tariff rate per minute based on communication type from system tariffs:
         $isInternal = ($resolvedDestRecord !== null);
-        if ($isInternal) {
-            // Intra-platform internal communication is 100% FREE
-            $ratePerMinute = 0.0000;
-        } elseif (str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination)) {
-            // External / unregistered custom ID
-            $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', 0.0500);
+
+        if (str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination)) {
+            // ID-to-ID or Custom ID communication tariff (configured in global admin tariffs)
+            $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', '0.0500');
         } else {
             $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
+            // Check if call is intra-prefix (same prefix / internal extension)
             $isIntra = $cleanFromPrefix !== '' && str_starts_with($cleanDestDigits, $cleanFromPrefix);
             if ($isIntra) {
-                $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', 0.0000));
+                // Intra-prefix voice call rate (configured per prefix or global intra rate)
+                $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
             } else {
-                $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', 0.2500));
+                // Inter-prefix / external voice call rate
+                $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', '0.2500'));
             }
         }
 
