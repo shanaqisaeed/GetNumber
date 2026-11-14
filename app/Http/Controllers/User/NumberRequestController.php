@@ -194,16 +194,18 @@ class NumberRequestController extends Controller
      */
     public function suggestions(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'prefix_id' => ['nullable', 'integer'],
-            'requested_length' => ['required', 'integer', 'between:4,8'],
-            'seed' => ['nullable', 'string', 'max:12'],
-        ]);
+        $length = (int) ($request->input('requested_length') ?? $request->input('length') ?? 4);
+        $prefixId = $request->input('phone_prefix_id') ?? $request->input('prefix_id');
+        $seed = $request->input('seed') ?? $request->input('number');
+
+        if ($length < 4 || $length > 8) {
+            $length = 4;
+        }
 
         $suggestions = $this->searchService->getShortcodeSuggestions(
-            prefixId: isset($validated['prefix_id']) ? (int) $validated['prefix_id'] : null,
-            length: (int) $validated['requested_length'],
-            seedNumber: $validated['seed'] ?? null,
+            prefixId: $prefixId ? (int) $prefixId : null,
+            length: $length,
+            seedNumber: $seed ? (string) $seed : null,
             limit: 8
         );
 

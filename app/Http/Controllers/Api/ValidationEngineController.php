@@ -137,10 +137,18 @@ class ValidationEngineController extends Controller
             ], 422);
         }
 
-        if (strlen($cleanHandle) < 3 || strlen($cleanHandle) > 32) {
+        $context = $request->input('context') ?? $request->input('order_context') ?? 'services';
+        $minLen = ($context === 'organizational' || $context === 'enterprise') ? 4 : 6;
+
+        if (strlen($cleanHandle) < $minLen || strlen($cleanHandle) > 32) {
+            $msg = $minLen === 6
+                ? 'حداقل طول آیدی اختصاصی برای کاربران عادی ۶ کاراکتر است (آیدی‌های ۴ و ۵ کاراکتری در بخش سازمانی ارائه می‌شوند).'
+                : 'طول آیدی سازمانی باید بین ۴ تا ۳۲ کاراکتر باشد.';
+
             return response()->json([
                 'available' => false,
-                'message' => 'طول آیدی باید بین ۳ تا ۳۲ کاراکتر باشد.',
+                'is_available' => false,
+                'message' => $msg,
             ], 422);
         }
 
@@ -329,6 +337,19 @@ class ValidationEngineController extends Controller
             'max_sub_emails' => 100,
             'currency' => 'COIN',
             'message' => "دامنه {$fullDomain} آزاد و قابل ثبت است.",
+        ]);
+    }
+
+    /**
+     * Get active Web3 domain TLDs.
+     */
+    public function activeTlds(): JsonResponse
+    {
+        $tlds = TldPricing::where('is_active', true)
+            ->get(['id', 'tld', 'base_price']);
+
+        return response()->json([
+            'tlds' => $tlds,
         ]);
     }
 }

@@ -39,6 +39,8 @@ const selectedService = ref<ServiceType | null>(null);
 const selectedPrefixId = ref<number | null>(null);
 const shortLineLength = ref<number>(4);
 const requestedLineNumber = ref<string>('');
+const freePoolNumbers = ref<Array<{ number: string; rond_tier?: string; price?: string }>>([]);
+const loadingPoolNumbers = ref<boolean>(false);
 const shortLineValidation = ref<{
     loading: boolean;
     valid: boolean;
@@ -88,7 +90,53 @@ const acceptedTerms = ref(false);
 const isSubmitting = ref(false);
 const orderError = ref('');
 
-// Sync default prefix
+// Fetch free pool numbers for current length and prefix
+const fetchPoolNumbers = async () => {
+    loadingPoolNumbers.value = true;
+    try {
+        const res = await axios.get(route('requests.suggestions'), {
+            params: {
+                requested_length: shortLineLength.value,
+                phone_prefix_id: selectedPrefixId.value || undefined,
+            },
+        });
+        if (res.data?.suggestions) {
+            freePoolNumbers.value = res.data.suggestions;
+        } else {
+            freePoolNumbers.value = [];
+        }
+    } catch {
+        freePoolNumbers.value = [];
+    } finally {
+        loadingPoolNumbers.value = false;
+    }
+};
+
+// Fetch only active TLDs from backend
+const fetchActiveTlds = async () => {
+    try {
+        const res = await axios.get(route('api.web3.active_tlds'));
+        if (res.data?.tlds && res.data.tlds.length > 0) {
+            availableTlds.value = res.data.tlds;
+            if (!availableTlds.value.some(t => t.tld === selectedTld.value)) {
+                selectedTld.value = availableTlds.value[0].tld;
+            }
+        }
+    } catch {
+        // keep defaults
+    }
+};
+
+// Sync default prefix and load active TLDs when modal opens
+watch(() => props.isOpen, (open) => {
+    if (open) {
+        fetchActiveTlds();
+        if (selectedService.value === 'short_line') {
+            fetchPoolNumbers();
+        }
+    }
+}, { immediate: true });
+
 watch(() => props.activePrefixes, (prefixes) => {
     if (prefixes && prefixes.length > 0 && !selectedPrefixId.value) {
         const def = prefixes.find(p => p.is_default) || prefixes[0];
@@ -169,17 +217,42 @@ const pickSuggestion = (num: string) => {
     validateShortLineLive();
 };
 
+const changeShortLineLength = (len: number) => {
+    shortLineLength.value = len;
+    if (requestedLineNumber.value.length > len) {
+        requestedLineNumber.value = '';
+    }
+    fetchPoolNumbers();
+    validateShortLineLive();
+};
+
+const handlePrefixChange = () => {
+    fetchPoolNumbers();
+    validateShortLineLive();
+};
+
 const validateCustomIdLive = () => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    if (!requestedIdHandle.value.trim()) {
+    const clean = requestedIdHandle.value.replace(/^@/, '').trim();
+    if (!clean) {
         idValidation.value = { loading: false, valid: false };
+        return;
+    }
+    if (clean.length < 4) {
+        idValidation.value = {
+            loading: false,
+            valid: false,
+            available: false,
+            message: 'حداقل طول آیدی در بخش سازمانی ۴ کاراکتر است.',
+        };
         return;
     }
     idValidation.value.loading = true;
     debounceTimer = setTimeout(async () => {
         try {
             const res = await axios.post(route('api.validate.custom_id'), {
-                handle: requestedIdHandle.value.trim(),
+                handle: clean,
+                context: 'organizational',
             });
             idValidation.value = {
                 loading: false,
@@ -243,9 +316,15 @@ const validateWeb3DomainLive = () => {
 const selectService = (srv: ServiceType) => {
     selectedService.value = srv;
     currentStep.value = 2;
-    if (srv === 'short_line') validateShortLineLive();
+    if (srv === 'short_line') {
+        fetchPoolNumbers();
+        validateShortLineLive();
+    }
     if (srv === 'custom_id' && requestedIdHandle.value) validateCustomIdLive();
-    if (srv === 'web3_domain' && requestedDomainName.value) validateWeb3DomainLive();
+    if (srv === 'web3_domain') {
+        fetchActiveTlds();
+        if (requestedDomainName.value) validateWeb3DomainLive();
+    }
 };
 
 const canProceedToStep3 = computed(() => {
@@ -319,7 +398,7 @@ const formatPrice = (p: string | number) => {
         class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
         @click.self="closeWizard"
     >
-        <div class="glass-card w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 relative">
+        <div class="glass-card responsive-modal-scroll-card my-auto w-full max-w-xl sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl shadow-2xl p-5 sm:p-7 space-y-5 relative">
             <!-- Modal Header -->
             <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
                 <div>
@@ -469,7 +548,7 @@ const formatPrice = (p: string | number) => {
                             </label>
                             <select
                                 v-model="selectedPrefixId"
-                                @change="validateShortLineLive"
+                                @change="handlePrefixChange"
                                 class="w-full text-xs font-mono rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
                             >
                                 <option v-for="p in activePrefixes" :key="p.id" :value="p.id">
@@ -486,7 +565,7 @@ const formatPrice = (p: string | number) => {
                                     v-for="len in [4, 5, 6, 7, 8]"
                                     :key="len"
                                     type="button"
-                                    @click="shortLineLength = len; if (requestedLineNumber.length > len) requestedLineNumber = ''; validateShortLineLive()"
+                                    @click="changeShortLineLength(len)"
                                     class="flex-1 py-2 text-xs font-bold rounded-xl border transition-all"
                                     :class="shortLineLength === len
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
@@ -498,13 +577,49 @@ const formatPrice = (p: string | number) => {
                         </div>
                     </div>
 
+                    <!-- Free Available Pool Numbers Section -->
+                    <div class="space-y-2 pt-1">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                <span>سرشماره‌های آزاد و آماده انتخاب ({{ shortLineLength }} رقمی):</span>
+                            </label>
+                            <span v-if="loadingPoolNumbers" class="text-[11px] text-slate-400 flex items-center gap-1">
+                                <span class="w-3 h-3 border border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                                در حال بارگذاری شماره‌های مخزن...
+                            </span>
+                        </div>
+
+                        <div v-if="freePoolNumbers && freePoolNumbers.length > 0" class="flex flex-wrap gap-2">
+                            <button
+                                v-for="pool in freePoolNumbers"
+                                :key="pool.number"
+                                type="button"
+                                @click="pickSuggestion(pool.number)"
+                                dir="ltr"
+                                class="px-3 py-1.5 rounded-xl border text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                                :class="requestedLineNumber === pool.number
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                    : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-400'"
+                            >
+                                <span>{{ pool.number }}</span>
+                                <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-300 font-sans">
+                                    رند
+                                </span>
+                            </button>
+                        </div>
+                        <div v-else-if="!loadingPoolNumbers" class="text-[11px] text-slate-400">
+                            شماره‌ای در مخزن اولیه این پیش‌شماره ثبت نشده است؛ شماره دلخواه خود را در کادر زیر وارد فرمایید تا وضعیت آزادی آن استعلام گردد.
+                        </div>
+                    </div>
+
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                شماره دلخواه (اختیاری)
+                                یا ورود شماره دلخواه ({{ shortLineLength }} رقمی)
                             </label>
                             <span class="text-[11px] text-slate-400">
-                                در صورت خالی بودن، شماره به صورت هوشمند از مخزن تخصیص می‌یابد
+                                بررسی آنی در دسترس بودن شماره در دیتابیس
                             </span>
                         </div>
                         <input
@@ -603,6 +718,9 @@ const formatPrice = (p: string | number) => {
                             />
                             <span class="absolute right-3 top-3.5 text-slate-400 font-mono text-sm">@</span>
                         </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                            شناسه اختصاصی سازمانی می‌تواند از حداقل ۴ کاراکتر (حروف انگلیسی a-z، اعداد 0-9 یا زیرخط _) تشکیل شود.
+                        </p>
                     </div>
 
                     <!-- Loading -->
@@ -671,7 +789,7 @@ const formatPrice = (p: string | number) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                پسوند (TLD)
+                                پسوند دامنه
                             </label>
                             <select
                                 dir="ltr"

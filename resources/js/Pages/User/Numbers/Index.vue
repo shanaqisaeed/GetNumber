@@ -214,10 +214,22 @@ const validateCustomIdInput = () => {
         customIdValidation.value = { loading: false, valid: false };
         return;
     }
+    if (clean.length < 6) {
+        customIdValidation.value = {
+            loading: false,
+            valid: false,
+            available: false,
+            message: 'حداقل طول آیدی اختصاصی برای کاربران عادی ۶ کاراکتر است.',
+        };
+        return;
+    }
     customIdValidation.value.loading = true;
     customIdTimer = setTimeout(async () => {
         try {
-            const res = await axios.post(route('api.validate.custom_id'), { handle: clean });
+            const res = await axios.post(route('api.validate.custom_id'), {
+                handle: clean,
+                context: 'services',
+            });
             customIdValidation.value = {
                 loading: false,
                 valid: Boolean(res.data.available),
@@ -469,99 +481,85 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         >
                             <span>+ ثبت آیدی اختصاصی</span>
                         </button>
-                        <button
-                            type="button"
-                            @click="openVoiceDialer"
+                        <Link
+                            :href="route('calls.index')"
                             class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-emerald-600 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/15 flex items-center gap-1.5"
                         >
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                             <span>شماره‌گیر صوتی (Voice)</span>
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </div>
 
-            <!-- 2. Registered Multi-Service Catalog Cards (Filtered to strictly 2 standard services: Phone Lines & IDs) -->
-            <div v-if="service_catalog && service_catalog.length > 0" class="grid grid-cols-1 gap-3">
-                <div
-                    v-for="service in service_catalog.filter(s => s.key === 'phone_line' || s.key === 'custom_id')"
-                    :key="service.key"
-                    class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs"
-                >
+            <!-- 2. Registered Multi-Service Catalog Cards (Clean Bespoke Cards for Phone Lines & Custom IDs) -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                <!-- Service 1: Phone Lines -->
+                <div class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs">
                     <div class="flex items-start gap-3.5">
-                        <!-- Service Icon Box -->
-                        <div
-                            class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border"
-                            :class="{
-                                'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25': service.key === 'phone_line',
-                                'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25': service.key === 'custom_id',
-                                'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/25': service.key === 'web3_email_package'
-                            }"
-                        >
-                            <svg v-if="service.key === 'phone_line'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/25">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span v-else-if="service.key === 'custom_id'" class="font-mono font-black text-lg">@</span>
-                            <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-                            </svg>
                         </div>
-
                         <div class="flex-1 min-w-0 space-y-1.5">
-                            <div class="flex flex-wrap items-center justify-between gap-2">
-                                <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                    {{ service.title }}
-                                </h3>
-                                <span
-                                    class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shrink-0"
-                                    :class="service.is_active && service.is_purchasable
-                                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
-                                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'"
-                                >
-                                    {{ service.is_active && service.is_purchasable ? __('catalog.flags.purchasable') : __('catalog.flags.not_purchasable') }}
-                                </span>
-                            </div>
-
+                            <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                                خطوط ارتباطی و سرشماره‌ها (Phone Lines)
+                            </h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                {{ service.description }}
+                                این خطوط برای ارتباط با وب‌سایت‌ها، سرویس‌ها و پلتفرم‌هایی است که هنوز بر بستر سنتی شماره تلفن همراه فعالیت می‌کنند (دریافت کد تایید، پیامک و تماس).
                             </p>
-
-                            <!-- Active Business Policy Chips -->
-                            <div class="flex flex-wrap items-center gap-1.5 pt-1">
-                                <span
-                                    v-if="service.active_policy?.min_length"
-                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-semibold"
-                                >
-                                    {{ __('catalog.ui.min_id_length_rule', { min: service.active_policy.min_length }) }}
-                                </span>
-                                <span
-                                    v-if="service.plans && service.plans.length > 0"
-                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-mono font-bold"
-                                    dir="ltr"
-                                >
-                                    {{ service.plans[0].final_price }} TRX
-                                </span>
-                            </div>
                         </div>
                     </div>
 
                     <div class="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
-                        <Link
-                            :href="route('requests.index')"
-                            class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
-                        >
-                            <span>{{ __('catalog.tiers.enterprise') }}</span>
-                            <span>←</span>
-                        </Link>
+                        <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                            پیش‌شماره معتبر: <strong class="text-indigo-600 dark:text-indigo-400 font-bold" dir="ltr">{{ default_prefix || '+85' }}</strong>
+                        </span>
                         <button
                             type="button"
-                            @click="service.key === 'phone_line' ? openAllocateModal() : openCustomIdModal()"
-                            :disabled="!service.is_active || !service.is_purchasable"
+                            @click="openAllocateModal"
+                            :disabled="quota.active >= quota.max"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            {{ __('catalog.ui.buy_new_service') }}
+                            + تخصیص خط جدید
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Service 2: Custom IDs -->
+                <div class="glass-card !p-4 flex flex-col justify-between space-y-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 hover:border-indigo-500/40 transition-all shadow-xs">
+                    <div class="flex items-start gap-3.5">
+                        <div class="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/25 font-mono font-black text-lg">
+                            @
+                        </div>
+                        <div class="flex-1 min-w-0 space-y-1.5">
+                            <div class="flex items-center justify-between gap-2">
+                                <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                                    آیدی اختصاصی (Custom ID)
+                                </h3>
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shrink-0">
+                                    حداقل ۶ کاراکتر
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                                شناسه یکتای کاربری (@handle) برای ارسال و دریافت مستقیم پیام‌ها و ارتباط نوین بدون نیاز به خطوط تلفن و شماره‌های سنتی.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                            بدون نیاز به سیم‌کارت
+                        </span>
+                        <button
+                            type="button"
+                            @click="openCustomIdModal"
+                            class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
+                        >
+                            + ثبت آیدی اختصاصی
                         </button>
                     </div>
                 </div>
@@ -751,7 +749,11 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <!-- SMS Channel -->
                                 <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
                                     <div class="flex items-center gap-2">
-                                        <span class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">💬</span>
+                                        <div class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                            </svg>
+                                        </div>
                                         <div>
                                             <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">پیامک دوطرفه (SMS)</div>
                                             <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">ارسال و دریافت فعال</div>
@@ -759,28 +761,37 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     </div>
                                     <Link
                                         :href="route('messages.index', { phone_number_id: item.id })"
-                                        class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors shadow-xs"
+                                        class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors shadow-xs flex items-center gap-1"
                                     >
-                                        ورود به پیام‌ها
+                                        <span>ورود به پیام‌ها</span>
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
                                     </Link>
                                 </div>
 
                                 <!-- Voice Call Channel -->
                                 <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
                                     <div class="flex items-center gap-2">
-                                        <span class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm">📞</span>
+                                        <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                            </svg>
+                                        </div>
                                         <div>
                                             <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">تماس صوتی (Voice)</div>
-                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">آماده برقراری تماس</div>
+                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">مرکز تماس و تاریخچه</div>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        @click="openVoiceDialerWithLine(item)"
+                                    <Link
+                                        :href="route('calls.index', { phone_number_id: item.id })"
                                         class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs flex items-center gap-1"
                                     >
                                         <span>تماس صوتی</span>
-                                    </button>
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                                        </svg>
+                                    </Link>
                                 </div>
                             </div>
                         </div>
@@ -848,12 +859,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 type="text"
                                 v-model="customIdHandle"
                                 @input="validateCustomIdInput"
-                                placeholder="مثلاً: ceo یا alex"
+                                placeholder="مثلاً: mybrand یا alireza"
                                 class="form-input !py-2.5 !text-xs font-mono flex-1"
                                 autofocus
                             />
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">شناسه باید با حروف انگلیسی، اعداد یا زیرخط باشد (حداقل ۳ حرف).</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">شناسه اختصاصی برای کاربران عادی باید حداقل شامل ۶ کاراکتر (حروف انگلیسی a-z، اعداد 0-9 یا زیرخط _) باشد.</p>
                     </div>
 
                     <div>
@@ -976,24 +987,43 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
         </div>
 
         <!-- 11. Release Confirmation Modal -->
-        <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="closeReleaseModal">
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 text-center bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
-                <div class="space-y-1">
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.numbers.modal_release_title') }}</h3>
-                    <p class="text-xs text-slate-500 dark:text-slate-400">
-                        {{ __('user.numbers.release_confirm_text', { number: numberToRelease?.formatted_number }) }}
+        <div v-if="isReleaseModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md" @click.self="closeReleaseModal">
+            <div class="glass-card responsive-modal-scroll-card my-auto !p-6 w-full max-w-lg shadow-2xl relative space-y-4 text-right bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
+                <div class="flex items-center gap-3 pb-3 border-b border-slate-200 dark:border-white/10">
+                    <div class="w-10 h-10 rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">آزادسازی و لغو خط {{ numberToRelease?.formatted_number }}</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تایید نهایی آزادسازی خط از پنل کاربری</p>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 space-y-2 text-xs leading-relaxed text-rose-900 dark:text-rose-200">
+                    <div class="font-bold flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+                        <span>⚠️</span>
+                        <span>هشدار بسیار مهم امنیتی و حریم خصوصی:</span>
+                    </div>
+                    <p>
+                        در صورتی که این شماره آزاد شود، دیگر به هیچ عنوان امکان تخصیص مجدد آن به حساب شما وجود نخواهد داشت.
+                    </p>
+                    <p class="font-semibold text-rose-700 dark:text-rose-300">
+                        اگر محتوا، پیامک یا اطلاعاتی روی این خط دارید، لطفاً حتماً پیش از آزادسازی آن را پاک نمایید؛ چرا که ممکن است در آینده این خط به کاربر دیگری اختصاص داده شود و از اطلاعات و پیام‌های قبلی شما سوءاستفاده گردد.
                     </p>
                 </div>
 
-                <div class="flex items-center justify-center gap-2 pt-2">
-                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2 !px-4 !text-xs">{{ __('user.numbers.cancel') }}</button>
+                <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-white/10">
+                    <button type="button" @click="closeReleaseModal" :disabled="releaseProcessing" class="glass-pill !py-2.5 !px-4 !text-xs font-bold">{{ __('user.numbers.cancel') }}</button>
                     <button
                         type="button"
                         @click="confirmRelease"
                         :disabled="releaseProcessing"
-                        class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold"
+                        class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
                     >
-                        <span>{{ releaseProcessing ? __('user.numbers.releasing') : __('user.numbers.confirm_release') }}</span>
+                        <span v-if="releaseProcessing" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>{{ releaseProcessing ? 'در حال آزادسازی...' : 'متوجه شدم، شماره را آزاد کن' }}</span>
                     </button>
                 </div>
             </div>

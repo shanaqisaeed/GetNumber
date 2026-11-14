@@ -202,6 +202,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/two-factor/recovery-codes', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('two-factor.recovery-codes');
 
     // Voice Calling & WebRTC Mock Infrastructure
+    Route::get('/calls', [\App\Http\Controllers\User\VoiceCallController::class, 'index'])->name('calls.index');
+    Route::post('/calls/contacts', [\App\Http\Controllers\User\VoiceCallController::class, 'storeContact'])->name('calls.contacts.store');
+    Route::delete('/calls/contacts/{contact}', [\App\Http\Controllers\User\VoiceCallController::class, 'destroyContact'])->name('calls.contacts.destroy');
     Route::get('/voice/lines', [\App\Http\Controllers\User\VoiceCallController::class, 'lines'])->name('voice.lines');
     Route::post('/voice/initiate', [\App\Http\Controllers\User\VoiceCallController::class, 'initiate'])->name('voice.initiate');
     Route::post('/voice/{voiceCall}/end', [\App\Http\Controllers\User\VoiceCallController::class, 'end'])->name('voice.end');
@@ -217,6 +220,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/api/validate/short-line', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateShortLine'])->name('api.validate.short_line');
     Route::post('/api/validate/custom-id', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateCustomId'])->name('api.validate.custom_id');
     Route::post('/api/validate/web3-domain', [\App\Http\Controllers\Api\ValidationEngineController::class, 'validateWeb3Domain'])->name('api.validate.web3_domain');
+    Route::get('/api/web3/active-tlds', [\App\Http\Controllers\Api\ValidationEngineController::class, 'activeTlds'])->name('api.web3.active_tlds');
 
     // Active Sessions & Devices Management
     Route::get('/sessions', [\App\Http\Controllers\User\SessionController::class, 'index'])->name('sessions.index');

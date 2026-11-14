@@ -444,6 +444,14 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
+     * Phone contacts saved by the user.
+     */
+    public function contacts(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
+
+    /**
      * Web3 domains owned by the user.
      */
     public function web3Domains(): \Illuminate\Database\Eloquent\Relations\HasMany

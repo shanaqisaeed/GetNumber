@@ -244,16 +244,16 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <button
                         type="button"
                         @click="openOrgWizard"
-                        class="glass-btn-primary !w-auto !py-2.5 !px-5 !text-xs !rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/20"
+                        class="glass-btn-primary !w-auto !py-2.5 !px-6 !text-xs !rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/20"
                     >
-                        <span>+ ثبت سفارش در ویزارد سازمانی (۳ مرحله‌ای)</span>
+                        <span>+ ثبت سفارش</span>
                     </button>
                 </div>
 
                 <!-- 3 Service Cards with Action into Wizard -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3.5 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <!-- Service 1: Short Lines -->
-                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-purple-500/30 flex flex-col justify-between space-y-3">
+                    <div class="p-4 rounded-2xl bg-white/95 dark:bg-slate-900/75 border border-purple-500/25 flex flex-col justify-between space-y-3.5 hover:border-purple-500/40 transition-all shadow-xs">
                         <div class="space-y-2">
                             <div class="flex items-center justify-between">
                                 <div class="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center">
@@ -267,45 +267,45 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </div>
                             <h3 class="text-xs font-black text-slate-900 dark:text-white">خطوط کوتاه و رند سازمانی</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                سرشماره‌های کوتاه با قابلیت ارسال و دریافت پیامک و پیش‌نمایش تماس صوتی.
+                                سرشماره‌های کوتاه اختصاصی با قابلیت تبادل پیامک دوطرفه و پیش‌نمایش تماس صوتی.
                             </p>
                         </div>
                         <button
                             type="button"
                             @click="openOrgWizard"
-                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 text-center hover:bg-purple-500/10"
+                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 text-center hover:bg-purple-500/10 transition-colors"
                         >
                             سفارش خط سازمانی ←
                         </button>
                     </div>
 
                     <!-- Service 2: Custom IDs -->
-                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-indigo-500/30 flex flex-col justify-between space-y-3">
+                    <div class="p-4 rounded-2xl bg-white/95 dark:bg-slate-900/75 border border-indigo-500/25 flex flex-col justify-between space-y-3.5 hover:border-indigo-500/40 transition-all shadow-xs">
                         <div class="space-y-2">
                             <div class="flex items-center justify-between">
                                 <div class="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25 flex items-center justify-center font-mono font-black text-sm">
                                     @
                                 </div>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                                    شناسه نایاب
+                                    شروع از ۴ کاراکتر
                                 </span>
                             </div>
                             <h3 class="text-xs font-black text-slate-900 dark:text-white">آیدی‌های سازمانی و برندینگ</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                آیدی‌های تک‌کلمه‌ای و برند تجاری با ارزش افزوده بالا و رتبه‌بندی نایابی.
+                                آیدی‌های رسمی و کوتاه تجاری (@brand) با تحلیل هوشمند رند بودن و رتبه‌بندی نایابی.
                             </p>
                         </div>
                         <button
                             type="button"
                             @click="openOrgWizard"
-                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 text-center hover:bg-indigo-500/10"
+                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 text-center hover:bg-indigo-500/10 transition-colors"
                         >
-                            سفارش آیدی اختصاصی ←
+                            سفارش آیدی سازمانی ←
                         </button>
                     </div>
 
                     <!-- Service 3: Web3 Domains -->
-                    <div class="p-4 rounded-2xl bg-slate-100/90 dark:bg-slate-900/70 border border-amber-500/30 flex flex-col justify-between space-y-3">
+                    <div class="p-4 rounded-2xl bg-white/95 dark:bg-slate-900/75 border border-amber-500/25 flex flex-col justify-between space-y-3.5 hover:border-amber-500/40 transition-all shadow-xs">
                         <div class="space-y-2">
                             <div class="flex items-center justify-between">
                                 <div class="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25 flex items-center justify-center">
@@ -319,13 +319,13 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </div>
                             <h3 class="text-xs font-black text-slate-900 dark:text-white">دامنه‌ها و پکیج وب۳</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                ثبت دامنه غیرمتمرکز، ایجاد صندوق‌های ایمیل زیرمجموعه و مدیریت کووتا.
+                                ثبت دامنه غیرمتمرکز، ایجاد صندوق‌های ایمیل زیرمجموعه و مدیریت کووتای پیام‌ها.
                             </p>
                         </div>
                         <button
                             type="button"
                             @click="openOrgWizard"
-                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 text-center hover:bg-amber-500/10"
+                            class="glass-pill !py-2 !px-3 !text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 text-center hover:bg-amber-500/10 transition-colors"
                         >
                             سفارش دامنه Web3 ←
                         </button>
