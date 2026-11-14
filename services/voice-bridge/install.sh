@@ -2,6 +2,10 @@
 # ==============================================================================
 # GetNumber Voice Bridge - Ubuntu / Debian Automated Installer
 # Installs and runs high-port Voice Bridge & WebSocket signaling daemon
+# Supports custom ports via:
+# 1. Interactive prompts (press Enter for defaults)
+# 2. Command-line flags (--api-port / --ws-port)
+# 3. Environment variables (API_PORT / WS_PORT)
 # ==============================================================================
 
 set -e
@@ -24,6 +28,95 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+# 2. Default Configuration
+API_PORT="${API_PORT:-49000}"
+WS_PORT="${WS_PORT:-49001}"
+HOST="${HOST:-0.0.0.0}"
+SECRET="${SECRET:-}"
+NON_INTERACTIVE=false
+
+# 3. Parse command line flags
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --api-port|-a)
+            API_PORT="$2"
+            shift 2
+            ;;
+        --ws-port|-w)
+            WS_PORT="$2"
+            shift 2
+            ;;
+        --host|-h)
+            HOST="$2"
+            shift 2
+            ;;
+        --secret|-s)
+            SECRET="$2"
+            shift 2
+            ;;
+        --yes|-y|--non-interactive)
+            NON_INTERACTIVE=true
+            shift
+            ;;
+        --help)
+            echo "Usage: sudo bash install.sh [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --api-port, -a <port>   Set REST API port (default: 49000)"
+            echo "  --ws-port,  -w <port>   Set WebSocket port (default: 49001)"
+            echo "  --host,     -h <ip>     Set bind host (default: 0.0.0.0)"
+            echo "  --secret,   -s <token>  Set custom secret token (default: auto-generate)"
+            echo "  --yes,      -y          Non-interactive mode (use defaults or passed args)"
+            echo "  --help                  Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  sudo bash install.sh"
+            echo "  sudo bash install.sh --api-port 50000 --ws-port 50001"
+            echo "  sudo API_PORT=50000 WS_PORT=50001 bash install.sh -y"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Use --help for available options."
+            exit 1
+            ;;
+    esac
+done
+
+# 4. Interactive prompt if in terminal and not non-interactive
+if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
+    echo -e "\n${YELLOW}⚙️  Voice Bridge Configuration (Press Enter to keep default):${NC}"
+    read -p "🔹 Enter REST API port [default: ${API_PORT}]: " input_api
+    API_PORT="${input_api:-$API_PORT}"
+
+    read -p "🔹 Enter WebSocket port [default: ${WS_PORT}]: " input_ws
+    WS_PORT="${input_ws:-$WS_PORT}"
+
+    read -p "🔹 Enter Bind Host [default: ${HOST}]: " input_host
+    HOST="${input_host:-$HOST}"
+
+    read -p "🔹 Enter Custom Secret (leave blank to auto-generate): " input_secret
+    if [ -n "$input_secret" ]; then
+        SECRET="$input_secret"
+    fi
+fi
+
+# 5. Validate Port Numbers
+if ! [[ "$API_PORT" =~ ^[0-9]+$ ]] || [ "$API_PORT" -lt 1024 ] || [ "$API_PORT" -gt 65535 ]; then
+    echo -e "${RED}❌ Invalid API Port: ${API_PORT}. Must be an integer between 1024 and 65535.${NC}"
+    exit 1
+fi
+
+if ! [[ "$WS_PORT" =~ ^[0-9]+$ ]] || [ "$WS_PORT" -lt 1024 ] || [ "$WS_PORT" -gt 65535 ]; then
+    echo -e "${RED}❌ Invalid WebSocket Port: ${WS_PORT}. Must be an integer between 1024 and 65535.${NC}"
+    exit 1
+fi
+
+if [ "$API_PORT" -eq "$WS_PORT" ]; then
+    echo -e "${RED}❌ API port and WebSocket port cannot be the same!${NC}"
+    exit 1
+fi
+
 INSTALL_DIR="/opt/getnumber-bridge"
 SERVICE_NAME="getnumber-voice-bridge"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
@@ -32,6 +125,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo -e "\n${BLUE}[1/5] Preparing installation directory...${NC}"
 mkdir -p "${INSTALL_DIR}"
 chmod 755 "${INSTALL_DIR}"
+
+# If custom secret was provided, pre-create the secret file
+if [ -n "$SECRET" ]; then
+    echo "$SECRET" > "${INSTALL_DIR}/.secret"
+    chmod 600 "${INSTALL_DIR}/.secret"
+fi
+
+# Write environment file with configured ports
+cat > "${INSTALL_DIR}/.env" << EOF
+BRIDGE_HOST=${HOST}
+BRIDGE_API_PORT=${API_PORT}
+BRIDGE_WS_PORT=${WS_PORT}
+EOF
+chmod 600 "${INSTALL_DIR}/.env"
 
 echo -e "${BLUE}[2/5] Installing Voice Bridge binary...${NC}"
 # Determine architecture
@@ -61,8 +168,8 @@ chmod +x "${INSTALL_DIR}/voice-bridge"
 
 echo -e "${GREEN}✓ Binary installed at ${INSTALL_DIR}/voice-bridge${NC}"
 
-echo -e "\n${BLUE}[3/5] Setting up systemd service...${NC}"
-cat > "${SERVICE_FILE}" << 'EOF'
+echo -e "\n${BLUE}[3/5] Setting up systemd service with custom ports...${NC}"
+cat > "${SERVICE_FILE}" << EOF
 [Unit]
 Description=GetNumber Voice Bridge & Audio Signaling Daemon
 After=network.target network-online.target
@@ -71,17 +178,17 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/getnumber-bridge
-ExecStart=/opt/getnumber-bridge/voice-bridge -host=0.0.0.0 -api-port=49000 -ws-port=49001
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${INSTALL_DIR}/voice-bridge -host=${HOST} -api-port=${API_PORT} -ws-port=${WS_PORT}
 Restart=always
 RestartSec=3s
 LimitNOFILE=65535
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=getnumber-voice-bridge
+SyslogIdentifier=${SERVICE_NAME}
 
 # Optional environment file
-EnvironmentFile=-/opt/getnumber-bridge/.env
+EnvironmentFile=-${INSTALL_DIR}/.env
 
 [Install]
 WantedBy=multi-user.target
@@ -93,7 +200,7 @@ systemctl enable "${SERVICE_NAME}"
 
 echo -e "${GREEN}✓ Systemd service configured and enabled (${SERVICE_NAME})${NC}"
 
-echo -e "\n${BLUE}[4/5] Starting service and generating security secret...${NC}"
+echo -e "\n${BLUE}[4/5] Starting service and initializing security secret...${NC}"
 systemctl restart "${SERVICE_NAME}"
 sleep 2
 
@@ -108,8 +215,6 @@ fi
 
 echo -e "\n${BLUE}[5/5] Extracting Bridge Secret & Connection Information...${NC}"
 SECRET_FILE="${INSTALL_DIR}/.secret"
-SECRET=""
-
 if [ -f "$SECRET_FILE" ]; then
     SECRET=$(cat "$SECRET_FILE" | tr -d '\r\n ')
 fi
@@ -128,23 +233,23 @@ fi
 echo -e "\n${CYAN}==================================================================${NC}"
 echo -e "${GREEN}🎉 GETNUMBER VOICE BRIDGE INSTALLED SUCCESSFULLY!${NC}"
 echo -e "${CYAN}==================================================================${NC}"
-echo -e "📡 REST API Endpoint:    ${YELLOW}http://${SERVER_IP}:49000${NC}"
-echo -e "⚡ WebSocket Signaling:  ${YELLOW}ws://${SERVER_IP}:49001/ws/signaling${NC}"
+echo -e "📡 REST API Endpoint:    ${YELLOW}http://${SERVER_IP}:${API_PORT}${NC}"
+echo -e "⚡ WebSocket Signaling:  ${YELLOW}ws://${SERVER_IP}:${WS_PORT}/ws/signaling${NC}"
 echo -e "------------------------------------------------------------------"
 echo -e "🔑 ${YELLOW}BRIDGE SECRET TOKEN:${NC} ${GREEN}${SECRET}${NC}"
+echo -e "💾 Configuration File:   ${BLUE}${INSTALL_DIR}/.env${NC}"
 echo -e "------------------------------------------------------------------"
 echo -e "\n${CYAN}👉 PLEASE CONFIGURE YOUR LARAVEL ADMIN PANEL:${NC}"
 echo -e "1. Go to: ${BLUE}Admin Panel -> Settings -> Voice Bridge (بریج صوتی)${NC}"
 echo -e "2. Enter Host:        ${YELLOW}${SERVER_IP}${NC}"
-echo -e "3. Enter API Port:    ${YELLOW}49000${NC}"
-echo -e "4. Enter WS Port:     ${YELLOW}49001${NC}"
+echo -e "3. Enter API Port:    ${YELLOW}${API_PORT}${NC}"
+echo -e "4. Enter WS Port:     ${YELLOW}${WS_PORT}${NC}"
 echo -e "5. Enter Secret:      ${GREEN}${SECRET}${NC}"
-echo -e "6. Click ${GREEN}'تست اتصال زنده'${NC} to confirm connection and authentication!"
+echo -e "6. Click ${GREEN}'تست اتصال به سرور بریج'${NC} to confirm connection and authentication!"
 echo -e "7. Click ${GREEN}'ذخیره تنظیمات سرور بریج صوتی'${NC}"
 echo -e "\n${CYAN}🛠️ Useful Commands on this Ubuntu Server:${NC}"
 echo -e "• Check status:     ${YELLOW}systemctl status ${SERVICE_NAME}${NC}"
 echo -e "• View live logs:   ${YELLOW}journalctl -u ${SERVICE_NAME} -f${NC}"
 echo -e "• Restart bridge:   ${YELLOW}systemctl restart ${SERVICE_NAME}${NC}"
-echo -e "• Test API locally: ${YELLOW}curl -H \"X-Bridge-Secret: ${SECRET}\" http://localhost:49000/health${NC}"
+echo -e "• Test API locally: ${YELLOW}curl -H \"X-Bridge-Secret: ${SECRET}\" http://localhost:${API_PORT}/health${NC}"
 echo -e "${CYAN}==================================================================${NC}\n"
-
