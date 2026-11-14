@@ -3,25 +3,40 @@ import { ref, computed, watch } from 'vue';
 import axios from 'axios';
 import { router } from '@inertiajs/vue3';
 
+interface PrefixItem {
+    id: number;
+    prefix: string;
+    clean_prefix?: string;
+    name?: string;
+    country_name?: string;
+    flag?: string;
+    is_default?: boolean;
+}
+
 interface Props {
     isOpen: boolean;
     walletBalance?: string | number;
+    activePrefixes?: PrefixItem[];
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    walletBalance: 0,
+    activePrefixes: () => [],
+});
 
 const emit = defineEmits<{
     (e: 'close'): void;
     (e: 'orderPlaced', orderNumber: string): void;
 }>();
 
-// Steps: 1 (Select Service) -> 2 (Configure & Live Validate) -> 3 (Terms & Commitments) -> 4 (Payment & Final Commit)
-const currentStep = ref<1 | 2 | 3 | 4>(1);
+// Exactly 3 Steps: 1 (Select Service) -> 2 (Configure & Live Validate) -> 3 (Terms & Payment)
+const currentStep = ref<1 | 2 | 3>(1);
 
 type ServiceType = 'short_line' | 'custom_id' | 'web3_domain';
 const selectedService = ref<ServiceType | null>(null);
 
 // Service 1: Short Lines state
+const selectedPrefixId = ref<number | null>(null);
 const shortLineLength = ref<number>(4);
 const requestedLineNumber = ref<string>('');
 const shortLineValidation = ref<{
@@ -29,8 +44,11 @@ const shortLineValidation = ref<{
     valid: boolean;
     available?: boolean;
     message?: string;
+    formatted_number?: string;
     price?: string;
     is_rond?: boolean;
+    rond_tier_label?: string;
+    suggestions?: Array<{ number: string; formatted_number?: string; price?: string }>;
 }>({ loading: false, valid: false });
 
 // Service 2: Custom IDs state
@@ -65,12 +83,18 @@ const domainValidation = ref<{
     price?: string;
 }>({ loading: false, valid: false });
 
-// Step 3: Terms
+// Step 3: Terms & Payment
 const acceptedTerms = ref(false);
-
-// Step 4: Submission
 const isSubmitting = ref(false);
 const orderError = ref('');
+
+// Sync default prefix
+watch(() => props.activePrefixes, (prefixes) => {
+    if (prefixes && prefixes.length > 0 && !selectedPrefixId.value) {
+        const def = prefixes.find(p => p.is_default) || prefixes[0];
+        selectedPrefixId.value = def.id;
+    }
+}, { immediate: true });
 
 // Computed Final Price & Identifier
 const calculatedPrice = computed(() => {
@@ -82,7 +106,11 @@ const calculatedPrice = computed(() => {
 
 const finalIdentifier = computed(() => {
     if (selectedService.value === 'short_line') {
-        return requestedLineNumber.value || `${shortLineLength.value} رقمی رندوم`;
+        const prefixObj = props.activePrefixes.find(p => p.id === selectedPrefixId.value);
+        const prefixStr = prefixObj ? prefixObj.prefix : '';
+        return requestedLineNumber.value
+            ? (prefixStr ? `${prefixStr} ${requestedLineNumber.value}` : requestedLineNumber.value)
+            : `${shortLineLength.value} رقمی هوشمند`;
     }
     if (selectedService.value === 'custom_id') {
         return requestedIdHandle.value.startsWith('@') ? requestedIdHandle.value : `@${requestedIdHandle.value}`;
@@ -91,6 +119,12 @@ const finalIdentifier = computed(() => {
         return `${requestedDomainName.value}.${selectedTld.value}`;
     }
     return '';
+});
+
+const isBalanceSufficient = computed(() => {
+    const balance = Number(props.walletBalance) || 0;
+    const price = Number(calculatedPrice.value) || 0;
+    return balance >= price;
 });
 
 // Live AJAX Validation Handlers
@@ -104,23 +138,35 @@ const validateShortLineLive = () => {
             const res = await axios.post(route('api.validate.short_line'), {
                 length: shortLineLength.value,
                 number: requestedLineNumber.value.trim() || undefined,
+                prefix_id: selectedPrefixId.value || undefined,
             });
             shortLineValidation.value = {
                 loading: false,
-                valid: res.data.available,
-                available: res.data.available,
+                valid: Boolean(res.data.available || res.data.is_available),
+                available: Boolean(res.data.available || res.data.is_available),
                 message: res.data.message,
-                price: res.data.base_price,
+                formatted_number: res.data.formatted_number,
+                price: res.data.final_price || res.data.base_price,
                 is_rond: res.data.is_rond,
+                rond_tier_label: res.data.rond_tier_label,
+                suggestions: res.data.suggestions || [],
             };
         } catch (err: any) {
+            const data = err.response?.data;
             shortLineValidation.value = {
                 loading: false,
                 valid: false,
-                message: err.response?.data?.message || 'خطا در اعتبارسنجی سرشماره',
+                available: false,
+                message: data?.message || 'خطا در اعتبارسنجی سرشماره',
+                suggestions: data?.suggestions || [],
             };
         }
-    }, 300);
+    }, 250);
+};
+
+const pickSuggestion = (num: string) => {
+    requestedLineNumber.value = num;
+    validateShortLineLive();
 };
 
 const validateCustomIdLive = () => {
@@ -137,8 +183,8 @@ const validateCustomIdLive = () => {
             });
             idValidation.value = {
                 loading: false,
-                valid: res.data.available,
-                available: res.data.available,
+                valid: Boolean(res.data.available),
+                available: Boolean(res.data.available),
                 message: res.data.message,
                 rarity_tier: res.data.rarity_tier,
                 rarity_label: res.data.rarity_label,
@@ -149,10 +195,11 @@ const validateCustomIdLive = () => {
             idValidation.value = {
                 loading: false,
                 valid: false,
+                available: false,
                 message: err.response?.data?.message || 'خطا در اعتبارسنجی آیدی',
             };
         }
-    }, 300);
+    }, 250);
 };
 
 const validateWeb3DomainLive = () => {
@@ -170,8 +217,8 @@ const validateWeb3DomainLive = () => {
             });
             domainValidation.value = {
                 loading: false,
-                valid: res.data.available,
-                available: res.data.available,
+                valid: Boolean(res.data.available),
+                available: Boolean(res.data.available),
                 message: res.data.message,
                 full_domain: res.data.full_domain,
                 rarity_tier: res.data.rarity_tier,
@@ -185,13 +232,14 @@ const validateWeb3DomainLive = () => {
             domainValidation.value = {
                 loading: false,
                 valid: false,
+                available: false,
                 message: err.response?.data?.message || 'خطا در اعتبارسنجی دامنه',
             };
         }
-    }, 300);
+    }, 250);
 };
 
-// Wizard Flow Controls
+// Flow Controls
 const selectService = (srv: ServiceType) => {
     selectedService.value = srv;
     currentStep.value = 2;
@@ -200,26 +248,22 @@ const selectService = (srv: ServiceType) => {
     if (srv === 'web3_domain' && requestedDomainName.value) validateWeb3DomainLive();
 };
 
-const canProceedToTerms = computed(() => {
-    if (selectedService.value === 'short_line') return shortLineValidation.value.valid;
-    if (selectedService.value === 'custom_id') return idValidation.value.valid;
-    if (selectedService.value === 'web3_domain') return domainValidation.value.valid;
+const canProceedToStep3 = computed(() => {
+    if (selectedService.value === 'short_line') return shortLineValidation.value.valid && !shortLineValidation.value.loading;
+    if (selectedService.value === 'custom_id') return idValidation.value.valid && !idValidation.value.loading;
+    if (selectedService.value === 'web3_domain') return domainValidation.value.valid && !domainValidation.value.loading;
     return false;
 });
 
-const proceedToTerms = () => {
-    if (canProceedToTerms.value) {
+const proceedToStep3 = () => {
+    if (canProceedToStep3.value) {
         currentStep.value = 3;
     }
 };
 
-const proceedToCheckout = () => {
-    if (acceptedTerms.value) {
-        currentStep.value = 4;
-    }
-};
-
 const submitFinalOrder = () => {
+    if (!acceptedTerms.value || !isBalanceSufficient.value) return;
+
     isSubmitting.value = true;
     orderError.value = '';
 
@@ -233,12 +277,15 @@ const submitFinalOrder = () => {
         payload: {
             service_key: serviceKey,
             requested_identifier: finalIdentifier.value,
+            preferred_number: requestedLineNumber.value || undefined,
+            prefix_id: selectedPrefixId.value || undefined,
+            handle: requestedIdHandle.value || undefined,
             domain_name: requestedDomainName.value || undefined,
             tld: selectedTld.value || undefined,
         },
     }, {
         preserveScroll: true,
-        onSuccess: (page) => {
+        onSuccess: () => {
             isSubmitting.value = false;
             closeWizard();
         },
@@ -252,382 +299,549 @@ const submitFinalOrder = () => {
 const closeWizard = () => {
     currentStep.value = 1;
     selectedService.value = null;
+    requestedLineNumber.value = '';
+    requestedIdHandle.value = '';
+    requestedDomainName.value = '';
     acceptedTerms.value = false;
     orderError.value = '';
     emit('close');
 };
 
-const formatCurrency = (val: string | number) => {
-    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(Number(val) || 0);
+const formatPrice = (p: string | number) => {
+    const num = Number(p) || 0;
+    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(num);
 };
 </script>
 
 <template>
     <div
         v-if="isOpen"
-        class="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+        @click.self="closeWizard"
     >
-        <div class="bg-white dark:bg-gray-800 rounded-3xl max-w-2xl w-full shadow-2xl border border-gray-100 dark:border-gray-700/60 overflow-hidden text-right">
+        <div class="glass-card w-full max-w-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 relative">
             <!-- Modal Header -->
-            <div class="p-6 bg-gradient-to-r from-indigo-900 via-indigo-800 to-indigo-900 text-white flex items-center justify-between">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-white/10">
                 <div>
-                    <div class="flex items-center gap-2">
-                        <span class="px-2 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-xs font-semibold">
-                            دسترسی عمومی و سازمانی
-                        </span>
-                        <span class="text-xs text-indigo-300">مرحله {{ currentStep }} از ۴</span>
-                    </div>
-                    <h3 class="text-lg font-bold mt-1">سفارش و فعال‌سازی سرویس‌های ویژه</h3>
+                    <h3 class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        سفارش خدمات سازمانی و ویژه
+                    </h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        دسترسی مستقیم و عمومی به خدمات بدون نیاز به مدارک شرکتی یا تاییدیه سازمانی
+                    </p>
                 </div>
                 <button
                     type="button"
                     @click="closeWizard"
-                    class="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+                    class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                 >
-                    &times;
+                    ✕
                 </button>
             </div>
 
-            <!-- Steps Indicator -->
-            <div class="px-6 py-3 bg-gray-50 dark:bg-gray-800/80 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-xs font-semibold">
-                <div :class="currentStep >= 1 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-gray-400'">
+            <!-- 3-Step Breadcrumb Progress Bar -->
+            <div class="grid grid-cols-3 gap-2">
+                <div
+                    class="p-2.5 rounded-2xl text-center border transition-all text-xs font-bold"
+                    :class="currentStep === 1
+                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
+                        : (currentStep > 1 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400')"
+                >
+                    <span class="block text-[10px] opacity-75">گام اول</span>
                     ۱. انتخاب سرویس
                 </div>
-                <div class="text-gray-300">&larr;</div>
-                <div :class="currentStep >= 2 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-gray-400'">
-                    ۲. اعتبارسنجی زنده
+                <div
+                    class="p-2.5 rounded-2xl text-center border transition-all text-xs font-bold"
+                    :class="currentStep === 2
+                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
+                        : (currentStep > 2 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400')"
+                >
+                    <span class="block text-[10px] opacity-75">گام دوم</span>
+                    ۲. استعلام و پیکربندی
                 </div>
-                <div class="text-gray-300">&larr;</div>
-                <div :class="currentStep >= 3 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-gray-400'">
-                    ۳. تعهدات و قوانین
-                </div>
-                <div class="text-gray-300">&larr;</div>
-                <div :class="currentStep >= 4 ? 'text-indigo-600 dark:text-indigo-400 font-bold' : 'text-gray-400'">
-                    ۴. تایید و پرداخت
+                <div
+                    class="p-2.5 rounded-2xl text-center border transition-all text-xs font-bold"
+                    :class="currentStep === 3
+                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
+                        : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400'"
+                >
+                    <span class="block text-[10px] opacity-75">گام سوم</span>
+                    ۳. تعهدات و پرداخت
                 </div>
             </div>
 
-            <!-- Wizard Body -->
-            <div class="p-6 space-y-6">
-                <!-- ================= STEP 1: SELECT SERVICE ================= -->
-                <div v-if="currentStep === 1" class="space-y-4">
-                    <p class="text-sm text-gray-500 dark:text-gray-400">
-                        لطفاً یکی از ۳ سرویس ویژه زیر را انتخاب نمایید (بدون نیاز به مدارک حقوقی یا تاییدیه شرکتی):
-                    </p>
+            <!-- STEP 1: Select Service -->
+            <div v-if="currentStep === 1" class="space-y-4">
+                <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">
+                    نوع سرویس سازمانی مورد نظر خود را انتخاب نمایید:
+                </h4>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <!-- Option 1: Short Lines -->
-                        <div
-                            @click="selectService('short_line')"
-                            class="p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-600 dark:hover:border-indigo-500 bg-gray-50 dark:bg-gray-700/30 cursor-pointer transition-all hover:shadow-md group"
-                        >
-                            <div class="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
-                            </div>
-                            <h4 class="text-base font-bold text-gray-900 dark:text-white">سرشماره‌های کوتاه</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                خطوط ۴ الی ۸ رقمی رند با قابلیت ارسال و دریافت پیامک و تماس صوتی
-                            </p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <!-- 1. Short Lines -->
+                    <button
+                        type="button"
+                        @click="selectService('short_line')"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-200 dark:border-indigo-500/20 hover:border-indigo-500"
+                    >
+                        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xl font-bold">
+                            📞
                         </div>
-
-                        <!-- Option 2: Organizational IDs -->
-                        <div
-                            @click="selectService('custom_id')"
-                            class="p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-600 dark:hover:border-indigo-500 bg-gray-50 dark:bg-gray-700/30 cursor-pointer transition-all hover:shadow-md group"
-                        >
-                            <div class="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                </svg>
-                            </div>
-                            <h4 class="text-base font-bold text-gray-900 dark:text-white">آیدی‌های اختصاصی</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                رزرو شناسه متنی (@handle) با تحلیل هوشمند رند بودن و قیمت متناظر
-                            </p>
-                        </div>
-
-                        <!-- Option 3: Web3 Domains -->
-                        <div
-                            @click="selectService('web3_domain')"
-                            class="p-5 rounded-2xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-600 dark:hover:border-indigo-500 bg-gray-50 dark:bg-gray-700/30 cursor-pointer transition-all hover:shadow-md group"
-                        >
-                            <div class="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-                                </svg>
-                            </div>
-                            <h4 class="text-base font-bold text-gray-900 dark:text-white">دامنه‌های Web3</h4>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                                ثبت دامنه با پسوندهای فعال و مدیریت نامحدود ساب‌ایمیل و نام مستعار
-                            </p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ================= STEP 2: CONFIGURE & LIVE VALIDATE ================= -->
-                <div v-if="currentStep === 2" class="space-y-5">
-                    <!-- A: Short Lines Configuration -->
-                    <div v-if="selectedService === 'short_line'" class="space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">
-                                طول سرشماره را انتخاب کنید:
+                            <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
+                                سرشماره‌های کوتاه
+                            </h5>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                خطوط ۴ الی ۸ رقمی رند با پیش‌شماره اختصاصی جهت ارسال و دریافت پیامک انبوه
+                            </p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-bold">
+                            <span>انتخاب و پیکربندی</span>
+                            <span>←</span>
+                        </div>
+                    </button>
+
+                    <!-- 2. Organizational IDs -->
+                    <button
+                        type="button"
+                        @click="selectService('custom_id')"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-500"
+                    >
+                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl font-bold">
+                            🆔
+                        </div>
+                        <div>
+                            <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
+                                آیدی‌های سازمانی
+                            </h5>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                آیدی‌های رسمی و کوتاه مانند @brand همراه با تحلیل هوشمند رند بودن
+                            </p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold">
+                            <span>انتخاب و پیکربندی</span>
+                            <span>←</span>
+                        </div>
+                    </button>
+
+                    <!-- 3. Web3 Domains -->
+                    <button
+                        type="button"
+                        @click="selectService('web3_domain')"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-amber-200 dark:border-amber-500/20 hover:border-amber-500"
+                    >
+                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl font-bold">
+                            🌐
+                        </div>
+                        <div>
+                            <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                                دامنه‌های Web3
+                            </h5>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                                مالکیت نام غیرمتمرکز، ساب‌ایمیل نامحدود و هویت رمزنگاری‌شده
+                            </p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-bold">
+                            <span>انتخاب و پیکربندی</span>
+                            <span>←</span>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: Configure & Live AJAX Validate -->
+            <div v-else-if="currentStep === 2" class="space-y-5">
+                <!-- Option 1: Short Lines Configuration -->
+                <div v-if="selectedService === 'short_line'" class="space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <span>📞</span> تنظیمات و استعلام سرشماره کوتاه
+                        </h4>
+                        <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
+                            تغییر سرویس
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                پیش‌شماره خط
                             </label>
-                            <div class="grid grid-cols-5 gap-2">
+                            <select
+                                v-model="selectedPrefixId"
+                                @change="validateShortLineLive"
+                                class="w-full text-xs font-mono rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
+                            >
+                                <option v-for="p in activePrefixes" :key="p.id" :value="p.id">
+                                    {{ p.prefix }} ({{ p.country_name || p.name }})
+                                </option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                طول سرشماره
+                            </label>
+                            <div class="flex gap-1.5">
                                 <button
-                                    v-for="l in [4, 5, 6, 7, 8]"
-                                    :key="l"
+                                    v-for="len in [4, 5, 6, 7, 8]"
+                                    :key="len"
                                     type="button"
-                                    @click="shortLineLength = l; validateShortLineLive()"
-                                    class="py-2.5 rounded-xl text-xs font-bold transition-all border"
-                                    :class="shortLineLength === l ? 'border-indigo-600 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300' : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'"
+                                    @click="shortLineLength = len; if (requestedLineNumber.length > len) requestedLineNumber = ''; validateShortLineLive()"
+                                    class="flex-1 py-2 text-xs font-bold rounded-xl border transition-all"
+                                    :class="shortLineLength === len
+                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                        : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-400'"
                                 >
-                                    {{ l }} رقمی
+                                    {{ len }} رقم
                                 </button>
                             </div>
                         </div>
+                    </div>
 
-                        <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                سرشماره درخواستی (اختیاری):
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                شماره دلخواه (اختیاری)
+                            </label>
+                            <span class="text-[11px] text-slate-400">
+                                در صورت خالی بودن، شماره به صورت هوشمند از مخزن تخصیص می‌یابد
+                            </span>
+                        </div>
+                        <input
+                            type="text"
+                            dir="ltr"
+                            v-model="requestedLineNumber"
+                            @input="validateShortLineLive"
+                            :maxlength="shortLineLength"
+                            placeholder="مثلاً: 1000 یا 5555"
+                            class="w-full text-sm font-mono tracking-widest text-center rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3"
+                        />
+                    </div>
+
+                    <!-- Live Validation Feedback Box -->
+                    <div
+                        v-if="shortLineValidation.loading"
+                        class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
+                    >
+                        <span class="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></span>
+                        در حال استعلام وضعیت در دسترس بودن سرشماره از دیتابیس...
+                    </div>
+
+                    <!-- Unavailable Alert with Suggestions -->
+                    <div
+                        v-else-if="shortLineValidation.available === false"
+                        class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 space-y-2 text-xs"
+                    >
+                        <div class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-2">
+                            <span>⚠️</span>
+                            <span>{{ shortLineValidation.message || 'این سرشماره قبلاً واگذار شده و در دسترس نیست.' }}</span>
+                        </div>
+                        <div v-if="shortLineValidation.suggestions && shortLineValidation.suggestions.length > 0" class="pt-2 border-t border-rose-200/50 space-y-1.5">
+                            <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 block">
+                                پیشنهادهای هوشمند مشابه و آزاد:
+                            </span>
+                            <div class="flex flex-wrap gap-1.5">
+                                <button
+                                    v-for="sug in shortLineValidation.suggestions"
+                                    :key="sug.number"
+                                    type="button"
+                                    @click="pickSuggestion(sug.number)"
+                                    dir="ltr"
+                                    class="px-2.5 py-1 rounded-xl bg-white dark:bg-slate-800 border border-rose-200 dark:border-rose-500/30 text-indigo-600 dark:text-indigo-300 font-mono text-xs font-bold hover:border-indigo-500 cursor-pointer"
+                                >
+                                    {{ sug.number }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Available Success Card -->
+                    <div
+                        v-else-if="shortLineValidation.valid"
+                        class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 space-y-2 text-xs"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1.5">
+                                <span>✓</span> {{ shortLineValidation.message }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">
+                                رده: {{ shortLineValidation.rond_tier_label || 'عادی' }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 dark:border-white/5 font-mono">
+                            <span>تعرفه رسمی مصوب:</span>
+                            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                {{ formatPrice(shortLineValidation.price || 0) }} کوین
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 2: Custom IDs Configuration -->
+                <div v-else-if="selectedService === 'custom_id'" class="space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <span>🆔</span> اعتبارسنجی و ثبت آیدی سازمانی
+                        </h4>
+                        <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
+                            تغییر سرویس
+                        </button>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            آیدی درخواستی (Handle)
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="text"
+                                dir="ltr"
+                                v-model="requestedIdHandle"
+                                @input="validateCustomIdLive"
+                                placeholder="mybrand"
+                                class="w-full text-sm font-mono tracking-wider text-center rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3"
+                            />
+                            <span class="absolute right-3 top-3.5 text-slate-400 font-mono text-sm">@</span>
+                        </div>
+                    </div>
+
+                    <!-- Loading -->
+                    <div
+                        v-if="idValidation.loading"
+                        class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
+                    >
+                        <span class="w-4 h-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></span>
+                        در حال تحلیل الگو و رند بودن آیدی در بک‌اند...
+                    </div>
+
+                    <!-- Unavailable -->
+                    <div
+                        v-else-if="idValidation.available === false"
+                        class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 font-bold"
+                    >
+                        ⚠️ {{ idValidation.message || 'این آیدی قبلاً ثبت شده یا رزرو سیستم است.' }}
+                    </div>
+
+                    <!-- Available -->
+                    <div
+                        v-else-if="idValidation.valid"
+                        class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 space-y-2 text-xs"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-emerald-700 dark:text-emerald-300 font-bold">
+                                ✓ {{ idValidation.message }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">
+                                {{ idValidation.rarity_label }}
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 font-mono">
+                            <span>تعرفه محاسبه‌شده بر حسب رند بودن:</span>
+                            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                {{ formatPrice(idValidation.price || 0) }} کوین
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Option 3: Web3 Domains Configuration -->
+                <div v-else-if="selectedService === 'web3_domain'" class="space-y-4">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <span>🌐</span> استعلام دامنه Web3 و پسوند
+                        </h4>
+                        <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
+                            تغییر سرویس
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                نام دامنه
                             </label>
                             <input
-                                v-model="requestedLineNumber"
-                                @input="validateShortLineLive"
                                 type="text"
-                                :placeholder="`مثال: ${'1'.repeat(shortLineLength)} یا خالی بگذارید`"
-                                class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                dir="ltr"
+                                v-model="requestedDomainName"
+                                @input="validateWeb3DomainLive"
+                                placeholder="brandname"
+                                class="w-full text-sm font-mono tracking-wider rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3"
                             />
-                            <p class="text-[11px] text-gray-400 mt-1">در صورت خالی گذاشتن، یک شماره آزاد از استخر به شما تخصیص می‌یابد.</p>
                         </div>
-
-                        <!-- Live Validation Result Alert -->
-                        <div
-                            class="p-4 rounded-2xl text-xs flex items-center justify-between"
-                            :class="shortLineValidation.valid ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800'"
-                        >
-                            <div class="flex items-center gap-2">
-                                <span v-if="shortLineValidation.loading" class="animate-spin text-indigo-600">⌛</span>
-                                <span v-else>{{ shortLineValidation.message || 'سرشماره در دسترس است.' }}</span>
-                            </div>
-                            <div v-if="shortLineValidation.valid" class="font-mono font-bold text-sm">
-                                قیمت: {{ formatCurrency(shortLineValidation.price || 0) }} کوین
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- B: Custom IDs Configuration -->
-                    <div v-if="selectedService === 'custom_id'" class="space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                آیدی متنی درخواستی:
+                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                                پسوند (TLD)
                             </label>
-                            <div class="relative">
-                                <input
-                                    v-model="requestedIdHandle"
-                                    @input="validateCustomIdLive"
-                                    type="text"
-                                    placeholder="مثال: star یا vip_support یا tech"
-                                    class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10"
-                                />
-                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 font-mono text-sm">@</span>
-                            </div>
-                            <p class="text-[11px] text-gray-400 mt-1">آیدی می‌تواند شامل ۳ الی ۳۲ کاراکتر انگلیسی، اعداد و خط تیره باشد.</p>
-                        </div>
-
-                        <!-- Rarity Badge & Calculated Pricing -->
-                        <div
-                            v-if="requestedIdHandle.trim()"
-                            class="p-4 rounded-2xl text-xs flex items-center justify-between"
-                            :class="idValidation.valid ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800'"
-                        >
-                            <div class="flex items-center gap-2">
-                                <span v-if="idValidation.loading" class="animate-spin text-indigo-600">⌛</span>
-                                <div v-else>
-                                    <div>{{ idValidation.message }}</div>
-                                    <div v-if="idValidation.rarity_label" class="mt-1 flex items-center gap-1.5">
-                                        <span>رده‌بندی هوشمند:</span>
-                                        <span class="font-bold px-2 py-0.5 rounded text-[11px]" :class="idValidation.rarity_badge">
-                                            {{ idValidation.rarity_label }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-if="idValidation.valid" class="font-mono font-bold text-sm">
-                                {{ formatCurrency(idValidation.price || 0) }} کوین
-                            </div>
+                            <select
+                                dir="ltr"
+                                v-model="selectedTld"
+                                @change="validateWeb3DomainLive"
+                                class="w-full text-sm font-mono rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3"
+                            >
+                                <option v-for="t in availableTlds" :key="t.id" :value="t.tld">
+                                    .{{ t.tld }}
+                                </option>
+                            </select>
                         </div>
                     </div>
 
-                    <!-- C: Web3 Domains Configuration -->
-                    <div v-if="selectedService === 'web3_domain'" class="space-y-4">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div class="sm:col-span-2">
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    نام دامنه درخواستی:
-                                </label>
-                                <input
-                                    v-model="requestedDomainName"
-                                    @input="validateWeb3DomainLive"
-                                    type="text"
-                                    placeholder="مثال: company یا pay"
-                                    class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                />
-                            </div>
-
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    پسوند (TLD):
-                                </label>
-                                <select
-                                    v-model="selectedTld"
-                                    @change="validateWeb3DomainLive"
-                                    class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                >
-                                    <option v-for="t in availableTlds" :key="t.id" :value="t.tld">
-                                        .{{ t.tld }}
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Live Validation Result -->
-                        <div
-                            v-if="requestedDomainName.trim()"
-                            class="p-4 rounded-2xl text-xs flex items-center justify-between"
-                            :class="domainValidation.valid ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800' : 'bg-rose-50 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800'"
-                        >
-                            <div class="flex items-center gap-2">
-                                <span v-if="domainValidation.loading" class="animate-spin text-indigo-600">⌛</span>
-                                <div v-else>
-                                    <div>{{ domainValidation.message }}</div>
-                                    <div v-if="domainValidation.rarity_label" class="mt-1">
-                                        رده رند: <span class="font-bold text-indigo-600">{{ domainValidation.rarity_label }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-if="domainValidation.valid" class="font-mono font-bold text-sm">
-                                {{ formatCurrency(domainValidation.price || 0) }} کوین
-                            </div>
-                        </div>
+                    <!-- Loading -->
+                    <div
+                        v-if="domainValidation.loading"
+                        class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
+                    >
+                        <span class="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></span>
+                        در حال بررسی در دسترس بودن دامنه Web3...
                     </div>
 
-                    <!-- Navigation Buttons -->
-                    <div class="pt-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-700">
-                        <button
-                            type="button"
-                            @click="currentStep = 1"
-                            class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-600 bg-gray-100 dark:bg-gray-700"
-                        >
-                            &rarr; بازگشت به انتخاب سرویس
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="!canProceedToTerms"
-                            @click="proceedToTerms"
-                            class="px-5 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 transition-colors shadow-sm"
-                        >
-                            ادامه و مطالعه تعهدات &larr;
-                        </button>
-                    </div>
-                </div>
-
-                <!-- ================= STEP 3: TERMS & COMMITMENTS ================= -->
-                <div v-if="currentStep === 3" class="space-y-5">
-                    <h4 class="text-base font-bold text-gray-900 dark:text-white">
-                        تعهدات و قوانین بهره‌برداری از سرویس
-                    </h4>
-
-                    <div class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 text-xs text-gray-600 dark:text-gray-300 space-y-2.5 max-h-48 overflow-y-auto leading-relaxed">
-                        <p>۱. استفاده از سرویس‌های تخصیص‌یافته صرفاً جهت مقاصد قانونی و مطابق با مقررات ارتباطات و فضای مجازی مجاز است.</p>
-                        <p>۲. هرگونه ارسال هرزنامه (Spam)، پیامک‌های تبلیغاتی بدون رضایت گیرنده، و جعل هویت اکیداً ممنوع بوده و موجب مسدودسازی آنی حساب خواهد شد.</p>
-                        <p>۳. کلیه تراکنش‌های اعتباری و هزینه‌های مصوب به ازای پیام و مکالمه به صورت خودکار از موجودی کیف‌پول کسر می‌گردد.</p>
-                        <p>۴. حق بهره‌برداری از شناسه منحصراً به حساب کاربری خریدار واگذار شده و قابل معامله خارج از پلتفرم نمی‌باشد.</p>
+                    <!-- Unavailable -->
+                    <div
+                        v-else-if="domainValidation.available === false"
+                        class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 font-bold"
+                    >
+                        ⚠️ {{ domainValidation.message || 'این دامنه قبلاً ثبت شده و در دسترس نیست.' }}
                     </div>
 
-                    <!-- Single Clean Checkbox without redundant title field -->
-                    <div class="pt-2 flex items-center gap-3">
-                        <input
-                            id="accept_terms"
-                            v-model="acceptedTerms"
-                            type="checkbox"
-                            class="w-5 h-5 text-indigo-600 rounded border-gray-300 dark:border-gray-600 focus:ring-indigo-500"
-                        />
-                        <label for="accept_terms" class="text-xs font-bold text-gray-900 dark:text-white cursor-pointer">
-                            کلیه شرایط، قوانین و تعهدات سامانه را مطالعه نموده و می‌پذیرم.
-                        </label>
-                    </div>
-
-                    <!-- Navigation Buttons -->
-                    <div class="pt-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-700">
-                        <button
-                            type="button"
-                            @click="currentStep = 2"
-                            class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-600 bg-gray-100 dark:bg-gray-700"
-                        >
-                            &rarr; بازگشت به تنظیمات
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="!acceptedTerms"
-                            @click="proceedToCheckout"
-                            class="px-5 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 transition-colors shadow-sm"
-                        >
-                            مرحله پرداخت و تایید نهایی &larr;
-                        </button>
-                    </div>
-                </div>
-
-                <!-- ================= STEP 4: CHECKOUT & FINAL COMMIT ================= -->
-                <div v-if="currentStep === 4" class="space-y-5">
-                    <h4 class="text-base font-bold text-gray-900 dark:text-white">
-                        پیش‌فاکتور و ثبت نهایی سفارش
-                    </h4>
-
-                    <div class="p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50 space-y-3">
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500">شناسه سرویس درخواستی:</span>
-                            <span class="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">{{ finalIdentifier }}</span>
-                        </div>
-                        <div class="flex items-center justify-between text-xs">
-                            <span class="text-gray-500">نوع سرویس:</span>
-                            <span class="font-bold text-gray-900 dark:text-white">
-                                {{ selectedService === 'short_line' ? 'سرشماره کوتاه' : (selectedService === 'custom_id' ? 'آیدی اختصاصی' : 'دامنه Web3') }}
+                    <!-- Available -->
+                    <div
+                        v-else-if="domainValidation.valid"
+                        class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-500/30 space-y-2 text-xs"
+                    >
+                        <div class="flex items-center justify-between">
+                            <span class="text-emerald-700 dark:text-emerald-300 font-bold">
+                                ✓ {{ domainValidation.message }}
+                            </span>
+                            <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">
+                                {{ domainValidation.rarity_label }}
                             </span>
                         </div>
-                        <div class="flex items-center justify-between text-xs pt-2 border-t border-indigo-100 dark:border-indigo-900">
-                            <span class="text-gray-500">مبلغ قابل پرداخت (کسر از کیف‌پول):</span>
-                            <span class="font-mono font-black text-base text-gray-900 dark:text-white">
-                                {{ formatCurrency(calculatedPrice) }} <span class="text-xs font-normal text-gray-500">کوین</span>
+                        <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 font-mono">
+                            <span>تعرفه ثبت دامنه:</span>
+                            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                                {{ formatPrice(domainValidation.price || 0) }} کوین
                             </span>
                         </div>
                     </div>
+                </div>
 
-                    <div v-if="orderError" class="p-3 rounded-xl bg-rose-50 text-rose-800 text-xs font-semibold">
-                        {{ orderError }}
-                    </div>
+                <!-- Bottom Navigation for Step 2 -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-white/10">
+                    <button
+                        type="button"
+                        @click="currentStep = 1"
+                        class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        بازگشت به انتخاب سرویس
+                    </button>
+                    <button
+                        type="button"
+                        @click="proceedToStep3"
+                        :disabled="!canProceedToStep3"
+                        class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                    >
+                        <span>ادامه به مرحله تعهدات و پرداخت</span>
+                        <span>←</span>
+                    </button>
+                </div>
+            </div>
 
-                    <div class="pt-4 flex items-center justify-between border-t border-gray-100 dark:border-gray-700">
-                        <button
-                            type="button"
-                            @click="currentStep = 3"
-                            class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-600 bg-gray-100 dark:bg-gray-700"
-                        >
-                            &rarr; بازگشت به تعهدات
-                        </button>
-                        <button
-                            type="button"
-                            :disabled="isSubmitting"
-                            @click="submitFinalOrder"
-                            class="px-6 py-2.5 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/30 disabled:opacity-50 transition-all"
-                        >
-                            {{ isSubmitting ? 'در حال ثبت نهایی...' : 'تایید نهایی و کسر از کیف‌پول' }}
-                        </button>
+            <!-- STEP 3: Terms, Invoice Summary & Instant Wallet Checkout -->
+            <div v-else-if="currentStep === 3" class="space-y-5">
+                <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
+                    <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <span>📋</span> تعهدات و تایید نهایی سفارش
+                    </h4>
+                    <button type="button" @click="currentStep = 2" class="text-xs text-indigo-600 hover:underline">
+                        ویرایش مشخصات
+                    </button>
+                </div>
+
+                <!-- Order Invoice Summary Card -->
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 space-y-3">
+                    <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5">
+                        <span class="text-slate-500 dark:text-slate-400">نوع سرویس:</span>
+                        <span class="font-bold text-slate-800 dark:text-slate-200">
+                            {{ selectedService === 'short_line' ? 'سرشماره کوتاه اختصاصی' : (selectedService === 'custom_id' ? 'آیدی سازمانی' : 'دامنه Web3') }}
+                        </span>
                     </div>
+                    <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5 font-mono">
+                        <span class="text-slate-500 dark:text-slate-400">شناسه / شماره درخواستی:</span>
+                        <span class="font-black text-indigo-600 dark:text-indigo-400 text-sm" dir="ltr">
+                            {{ finalIdentifier }}
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5 font-mono">
+                        <span class="text-slate-500 dark:text-slate-400">مبلغ نهایی قابل کسر:</span>
+                        <span class="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                            {{ formatPrice(calculatedPrice) }} کوین
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs font-mono">
+                        <span class="text-slate-500 dark:text-slate-400">موجودی فعلی کیف‌پول:</span>
+                        <span
+                            class="font-bold"
+                            :class="isBalanceSufficient ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'"
+                        >
+                            {{ formatPrice(walletBalance) }} کوین
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Insufficient Balance Warning -->
+                <div
+                    v-if="!isBalanceSufficient"
+                    class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 flex items-center justify-between"
+                >
+                    <span class="font-bold">⚠️ موجودی کیف‌پول شما جهت پرداخت این سفارش کافی نیست.</span>
+                    <a
+                        :href="route('payments.index')"
+                        class="px-3 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors"
+                    >
+                        شارژ کیف‌پول
+                    </a>
+                </div>
+
+                <!-- Error Alert -->
+                <div
+                    v-if="orderError"
+                    class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 font-bold"
+                >
+                    ⚠️ {{ orderError }}
+                </div>
+
+                <!-- Single Terms Acceptance Checkbox (No Title, No Docs required) -->
+                <label class="flex items-start gap-3 p-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-slate-800/30 cursor-pointer text-xs leading-relaxed text-slate-700 dark:text-slate-300">
+                    <input
+                        type="checkbox"
+                        v-model="acceptedTerms"
+                        class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span>
+                        کلیه قوانین و مقررات ارتباطات و تعهدات سرویس‌های سازمانی سامانه را مطالعه نموده و متعهد می‌گردم از این سرویس صرفاً در چارچوب ضوابط قانونی و تبادل پیام‌های مجاز استفاده نمایم.
+                    </span>
+                </label>
+
+                <!-- Bottom Navigation for Step 3 -->
+                <div class="flex items-center justify-between pt-4 border-t border-slate-200 dark:border-white/10">
+                    <button
+                        type="button"
+                        @click="currentStep = 2"
+                        class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                        مرحله قبل
+                    </button>
+                    <button
+                        type="button"
+                        @click="submitFinalOrder"
+                        :disabled="!acceptedTerms || !isBalanceSufficient || isSubmitting"
+                        class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
+                    >
+                        <span v-if="isSubmitting" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>{{ isSubmitting ? 'در حال ثبت و کسر از کیف‌پول...' : 'تایید نهایی و پرداخت از کیف‌پول' }}</span>
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 </template>
-

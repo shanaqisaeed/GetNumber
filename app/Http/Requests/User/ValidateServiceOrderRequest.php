@@ -19,7 +19,7 @@ class ValidateServiceOrderRequest extends FormRequest
         return [
             'service_key' => ['required', 'string', 'max:64'],
             'plan_code' => ['nullable', 'string', 'max:64'],
-            'order_context' => ['nullable', 'string', 'in:services,enterprise'],
+            'order_context' => ['nullable', 'string', 'in:services,enterprise,organizational'],
             'payload' => ['nullable', 'array'],
             'handle' => ['nullable', 'string', 'max:64'],
             'base_domain' => ['nullable', 'string', 'max:64'],

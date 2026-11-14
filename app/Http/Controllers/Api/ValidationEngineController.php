@@ -26,15 +26,74 @@ class ValidationEngineController extends Controller
      */
     public function validateShortLine(Request $request): JsonResponse
     {
-        $length = (int) $request->input('requested_length', 6);
-        $preferredNumber = trim((string) $request->input('preferred_number', ''));
-        $prefixId = $request->input('phone_prefix_id');
+        $length = (int) ($request->input('requested_length') ?? $request->input('length') ?? 6);
+        $preferredNumber = trim((string) ($request->input('preferred_number') ?? $request->input('number') ?? ''));
+        $prefixId = $request->input('phone_prefix_id') ?? $request->input('prefix_id');
 
         if (! in_array($length, [4, 5, 6, 7, 8, 9], true)) {
             return response()->json([
                 'available' => false,
+                'is_available' => false,
                 'message' => 'طول سرشماره باید بین ۴ تا ۹ رقم باشد.',
             ], 422);
+        }
+
+        /** @var \App\Services\Numbers\NumberSearchAndSuggestionService $searchService */
+        $searchService = app(\App\Services\Numbers\NumberSearchAndSuggestionService::class);
+
+        if ($preferredNumber !== '') {
+            if (! preg_match('/^[0-9]+$/', $preferredNumber)) {
+                return response()->json([
+                    'available' => false,
+                    'is_available' => false,
+                    'message' => 'شماره درخواستی فقط باید شامل ارقام انگلیسی باشد.',
+                ], 422);
+            }
+
+            if (strlen($preferredNumber) !== $length) {
+                return response()->json([
+                    'available' => false,
+                    'is_available' => false,
+                    'message' => "طول شماره درخواستی باید دقیقاً {$length} رقم باشد (اکنون " . strlen($preferredNumber) . " رقم است).",
+                ], 422);
+            }
+
+            $checkResult = $searchService->checkAndSuggestShortcode(
+                prefixId: $prefixId ? (int) $prefixId : null,
+                length: $length,
+                preferredNumber: $preferredNumber
+            );
+
+            if (! $checkResult['is_available']) {
+                return response()->json([
+                    'available' => false,
+                    'is_available' => false,
+                    'requested_length' => $length,
+                    'preferred_number' => $preferredNumber,
+                    'message' => $checkResult['message'] ?? 'این سرشماره قبلاً به مشترک دیگری واگذار شده و در دسترس نیست.',
+                    'suggestions' => $checkResult['suggestions'] ?? [],
+                    'base_price' => $checkResult['price'] ?? 100.0,
+                    'final_price' => $checkResult['price'] ?? 100.0,
+                    'is_rond' => $checkResult['is_rond'] ?? false,
+                    'rond_tier' => $checkResult['rond_tier'] ?? 'regular',
+                    'rond_tier_label' => $checkResult['rond_tier_label'] ?? 'عادی',
+                ]);
+            }
+
+            return response()->json([
+                'available' => true,
+                'is_available' => true,
+                'requested_length' => $length,
+                'preferred_number' => $preferredNumber,
+                'formatted_number' => $checkResult['formatted_number'] ?? $preferredNumber,
+                'rond_tier' => $checkResult['rond_tier'] ?? 'regular',
+                'rond_tier_label' => $checkResult['rond_tier_label'] ?? 'عادی',
+                'pattern_name' => $checkResult['rond_pattern'] ?? 'الگوی استاندارد',
+                'base_price' => $checkResult['price'] ?? 100.0,
+                'final_price' => $checkResult['price'] ?? 100.0,
+                'currency' => 'COIN',
+                'message' => 'سرشماره انتخابی در دسترس بوده و امکان ثبت سفارش وجود دارد.',
+            ]);
         }
 
         // Base price calculation based on length (Unified Pricing)
@@ -48,71 +107,18 @@ class ValidationEngineController extends Controller
         ];
         $basePrice = $lengthPrices[$length] ?? 100.0000;
 
-        $rondTier = 'regular';
-        $rondLabel = 'عادی';
-        $patternName = 'سرشماره استاندارد';
-        $finalPrice = $basePrice;
-
-        if ($preferredNumber !== '') {
-            if (! preg_match('/^[0-9]+$/', $preferredNumber)) {
-                return response()->json([
-                    'available' => false,
-                    'message' => 'شماره درخواستی فقط باید شامل ارقام انگلیسی باشد.',
-                ], 422);
-            }
-
-            if (strlen($preferredNumber) !== $length) {
-                return response()->json([
-                    'available' => false,
-                    'message' => "طول شماره درخواستی باید دقیقاً {$length} رقم باشد (اکنون " . strlen($preferredNumber) . " رقم است).",
-                ], 422);
-            }
-
-            // Check if already taken in phone_numbers
-            $isTaken = PhoneNumber::where('number', $preferredNumber)->exists();
-            if ($isTaken) {
-                return response()->json([
-                    'available' => false,
-                    'message' => 'این سرشماره قبلاً به مشترک دیگری واگذار شده و در دسترس نیست.',
-                ]);
-            }
-
-            // Check if pending in service_orders
-            $isPending = ServiceOrder::where('requested_identifier', $preferredNumber)
-                ->whereIn('status', ['pending', 'held', 'reviewing'])
-                ->exists();
-
-            if ($isPending) {
-                return response()->json([
-                    'available' => false,
-                    'message' => 'این سرشماره در حال حاضر توسط کاربر دیگری در صف بررسی قرار دارد.',
-                ]);
-            }
-
-            // Detect Rond Pattern
-            $rondResult = $this->rondDetector->detect($preferredNumber);
-            $rondTier = $rondResult['tier'];
-            $rondLabel = $rondResult['tier_label'];
-            $patternName = $rondResult['pattern'] ?? 'الگوی استاندارد';
-
-            if ($rondTier === RondPatternDetectorService::TIER_GOLDEN) {
-                $finalPrice = (float) bcmul((string) $basePrice, '2.0', 4);
-            } elseif ($rondTier === RondPatternDetectorService::TIER_SEMI) {
-                $finalPrice = (float) bcmul((string) $basePrice, '1.4', 4);
-            }
-        }
-
         return response()->json([
             'available' => true,
+            'is_available' => true,
             'requested_length' => $length,
-            'preferred_number' => $preferredNumber,
-            'rond_tier' => $rondTier,
-            'rond_tier_label' => $rondLabel,
-            'pattern_name' => $patternName,
+            'preferred_number' => '',
+            'rond_tier' => 'regular',
+            'rond_tier_label' => 'عادی',
+            'pattern_name' => 'تخصیص هوشمند رندوم',
             'base_price' => $basePrice,
-            'final_price' => $finalPrice,
+            'final_price' => $basePrice,
             'currency' => 'COIN',
-            'message' => 'سرشماره انتخابی در دسترس بوده و امکان ثبت سفارش وجود دارد.',
+            'message' => 'طول سرشماره معتبر است. در صورت تمایل شماره دلخواه را وارد کنید.',
         ]);
     }
 

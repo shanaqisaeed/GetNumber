@@ -172,16 +172,18 @@ class NumberRequestController extends Controller
      */
     public function checkAvailability(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'prefix_id' => ['nullable', 'integer'],
-            'requested_length' => ['required', 'integer', 'between:4,8'],
-            'preferred_number' => ['required', 'string', 'max:12'],
-        ]);
+        $prefixId = $request->input('prefix_id') ?? $request->input('phone_prefix_id');
+        $length = (int) ($request->input('requested_length') ?? $request->input('length') ?? 0);
+        $number = trim((string) ($request->input('preferred_number') ?? $request->input('number') ?? ''));
+
+        if ($length < 4 || $length > 9) {
+            $length = strlen($number) >= 4 && strlen($number) <= 9 ? strlen($number) : 4;
+        }
 
         $result = $this->searchService->checkAndSuggestShortcode(
-            prefixId: isset($validated['prefix_id']) ? (int) $validated['prefix_id'] : null,
-            length: (int) $validated['requested_length'],
-            preferredNumber: (string) $validated['preferred_number']
+            prefixId: $prefixId ? (int) $prefixId : null,
+            length: $length,
+            preferredNumber: $number
         );
 
         return response()->json($result);

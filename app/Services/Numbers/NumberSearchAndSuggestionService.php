@@ -21,30 +21,40 @@ class NumberSearchAndSuggestionService
 
     /**
      * Authoritative global check whether a number is already registered/taken/held in the platform.
-     * Checks phone_numbers (regardless of phone_prefix_id), pending/approved number_requests,
+     * Checks phone_numbers (optionally scoped by prefix), pending/approved number_requests,
      * active service_resource_allocations, and pending/completed service_orders.
      */
-    public function isNumberTaken(string $cleanNumber): bool
+    public function isNumberTaken(string $cleanNumber, ?int $prefixId = null): bool
     {
         $digits = preg_replace('/\D/', '', $cleanNumber);
         if ($digits === '') {
             return false;
         }
 
-        // 1. Check phone_numbers globally (since phone_numbers.number is globally unique)
-        $phoneExists = PhoneNumber::query()
-            ->where('number', $digits)
-            ->where('status', '!=', PhoneNumberStatus::Available)
-            ->exists();
+        // 1. Check phone_numbers
+        $phoneQuery = PhoneNumber::query()->where('number', $digits);
+        if ($prefixId) {
+            $phoneQuery->where(function ($q) use ($prefixId) {
+                $q->where('phone_prefix_id', $prefixId)->orWhereNull('phone_prefix_id');
+            });
+        }
+        $phoneExists = $phoneQuery->where(function ($q) {
+            $q->whereNotNull('user_id')
+              ->orWhere('status', '!=', PhoneNumberStatus::Available);
+        })->exists();
 
         if ($phoneExists) {
             return true;
         }
 
         // 2. Check pending or approved shortcode requests
-        $requestExists = NumberRequest::query()
-            ->where('preferred_number', $digits)
-            ->whereIn('status', [NumberRequestStatus::Pending, NumberRequestStatus::Approved])
+        $requestQuery = NumberRequest::query()->where('preferred_number', $digits);
+        if ($prefixId) {
+            $requestQuery->where(function ($q) use ($prefixId) {
+                $q->where('phone_prefix_id', $prefixId)->orWhereNull('phone_prefix_id');
+            });
+        }
+        $requestExists = $requestQuery->whereIn('status', [NumberRequestStatus::Pending, NumberRequestStatus::Approved])
             ->exists();
 
         if ($requestExists) {
@@ -62,10 +72,10 @@ class NumberSearchAndSuggestionService
             return true;
         }
 
-        // 4. Check pending service orders
+        // 4. Check pending/held/active service orders
         $orderExists = ServiceOrder::query()
             ->where('requested_identifier', $digits)
-            ->where('status', 'pending_approval')
+            ->whereIn('status', ['pending', 'pending_approval', 'held', 'reviewing', 'approved', 'active'])
             ->exists();
 
         return $orderExists;
@@ -140,7 +150,7 @@ class NumberSearchAndSuggestionService
         $price = SystemSetting::getOrgNumberPrice($length, $rond['is_rond']);
 
         $isLengthValid = strlen($cleanNumber) === $length;
-        $isAvailable = $isLengthValid && ! $this->isNumberTaken($cleanNumber);
+        $isAvailable = $isLengthValid && ! $this->isNumberTaken($cleanNumber, $prefix?->id);
 
         $suggestions = $this->getShortcodeSuggestions(
             prefixId: $prefix?->id,

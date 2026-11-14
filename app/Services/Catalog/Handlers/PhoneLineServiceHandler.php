@@ -58,10 +58,6 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
         $rawNumber = preg_replace('/\D+/', '', (string) ($payload['preferred_number'] ?? ''));
 
         if ($allocationMode === 'enterprise_shortcode') {
-            if ($tier !== 'enterprise') {
-                $errors[] = __('catalog.validation.shortcode_enterprise_only');
-            }
-
             $requestedLength = (int) ($payload['requested_length'] ?? ($plan?->metadata['digits'] ?? (strlen($rawNumber) ?: 6)));
             $allowedLengths = (array) ($policy['allowed_lengths'] ?? [4, 5, 6, 7, 8]);
 

@@ -5,8 +5,6 @@ import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 import VoiceCallModal from '@/Components/VoiceCallModal.vue';
-import OrganizationalOrderWizard from '@/Components/OrganizationalOrderWizard.vue';
-import Web3SubEmailManager from '@/Components/Web3SubEmailManager.vue';
 
 interface PhoneNumberItem {
     id: number;
@@ -139,10 +137,8 @@ const props = defineProps<{
 
 const activeTab = ref<'all' | 'phone_line' | 'custom_id'>('all');
 
-// Modals State for Voice Dialer, Organizational Wizard & Web3 Sub-Email Engine
+// Modals State for Voice Dialer and Custom ID Allocation
 const isVoiceModalOpen = ref(false);
-const isOrgWizardOpen = ref(false);
-const isWeb3ManagerOpen = ref(false);
 const activeDialerLines = computed(() => {
     return props.numbers.data.map((n) => ({
         id: n.id,
@@ -160,19 +156,8 @@ const openVoiceDialerWithLine = (_line?: any) => {
     isVoiceModalOpen.value = true;
 };
 
-const openOrgWizard = () => {
-    isOrgWizardOpen.value = true;
-};
-
-const openWeb3Manager = () => {
-    isWeb3ManagerOpen.value = true;
-};
-
 const allocations = computed(() => props.service_allocations || []);
 const customIdAllocations = computed(() => allocations.value.filter((a) => a.service_key === 'custom_id'));
-const web3Allocations = computed(() => allocations.value.filter((a) => a.service_key === 'web3_email_package'));
-const totalWeb3Quota = computed(() => web3Allocations.value.reduce((acc, a) => acc + a.total_quota, 0));
-const usedWeb3Quota = computed(() => web3Allocations.value.reduce((acc, a) => acc + a.used_quota, 0));
 
 // Search & Filter state
 const search = ref(props.filters.search || '');
@@ -204,181 +189,94 @@ const closeAllocateModal = () => {
     isAllocateModalOpen.value = false;
 };
 
-// Multi-Service Purchase Wizard Modal State
-const isServiceOrderModalOpen = ref(false);
-const selectedServiceKey = ref<string>('custom_id');
-const selectedService = computed(() =>
-    (props.service_catalog || []).find((s) => s.key === selectedServiceKey.value) || null
-);
+// Dedicated Custom ID Modal State
+const isCustomIdModalOpen = ref(false);
+const customIdHandle = ref('');
+const customIdDisplayTitle = ref('');
+const customIdValidation = ref<{
+    loading: boolean;
+    valid: boolean;
+    available?: boolean;
+    message?: string;
+    rarity_tier?: string;
+    rarity_label?: string;
+    rarity_badge?: string;
+    price?: string;
+}>({ loading: false, valid: false });
+const customIdSubmitting = ref(false);
+const customIdError = ref('');
 
-const availablePlansForSelectedService = computed(() => {
-    if (!selectedService.value) return [];
-    const tier = props.account_tier || 'individual';
-    return selectedService.value.plans.filter(
-        (p) => p.target_tier === tier || p.target_tier === 'individual' || tier === 'enterprise'
-    );
-});
-
-const orderForm = useForm({
-    service_key: 'custom_id',
-    plan_code: '',
-    order_context: 'services',
-    handle: '',
-    base_domain: '',
-    tld: 'web3',
-    initial_sub_accounts: 'info, support',
-    display_title: '',
-});
-
-const validationLoading = ref(false);
-const validationResult = ref<Record<string, any> | null>(null);
-
-const openServicePurchaseModal = (serviceKey: string) => {
-    if (serviceKey === 'phone_line') {
-        openAllocateModal();
+let customIdTimer: ReturnType<typeof setTimeout> | null = null;
+const validateCustomIdInput = () => {
+    if (customIdTimer) clearTimeout(customIdTimer);
+    const clean = customIdHandle.value.replace(/^@/, '').trim();
+    if (!clean) {
+        customIdValidation.value = { loading: false, valid: false };
         return;
     }
-
-    selectedServiceKey.value = serviceKey;
-    orderForm.reset();
-    orderForm.clearErrors();
-    orderForm.service_key = serviceKey;
-    orderForm.order_context = 'services';
-    validationResult.value = null;
-
-    const svc = (props.service_catalog || []).find((s) => s.key === serviceKey);
-    if (svc && svc.plans.length > 0) {
-        const tier = props.account_tier || 'individual';
-        const defaultPlan = svc.plans.find((p) => p.target_tier === tier) || svc.plans[0];
-        orderForm.plan_code = defaultPlan.code;
-    }
-
-    isServiceOrderModalOpen.value = true;
-};
-
-const closeServiceOrderModal = () => {
-    isServiceOrderModalOpen.value = false;
-    validationResult.value = null;
-};
-
-const runLiveValidation = async () => {
-    if (!selectedService.value) return;
-    validationLoading.value = true;
-    validationResult.value = null;
-
-    try {
-        const response = await axios.post(route('services.validate'), {
-            service_key: orderForm.service_key,
-            plan_code: orderForm.plan_code,
-            order_context: 'services',
-            handle: orderForm.handle,
-            base_domain: orderForm.base_domain,
-            tld: orderForm.tld,
-            initial_sub_accounts: orderForm.initial_sub_accounts,
-            display_title: orderForm.display_title,
-        });
-        validationResult.value = response.data;
-    } catch (err: any) {
-        if (err.response?.data) {
-            validationResult.value = err.response.data;
+    customIdValidation.value.loading = true;
+    customIdTimer = setTimeout(async () => {
+        try {
+            const res = await axios.post(route('api.validate.custom_id'), { handle: clean });
+            customIdValidation.value = {
+                loading: false,
+                valid: Boolean(res.data.available),
+                available: Boolean(res.data.available),
+                message: res.data.message,
+                rarity_tier: res.data.rarity_tier,
+                rarity_label: res.data.rarity_label,
+                rarity_badge: res.data.rarity_badge,
+                price: res.data.price,
+            };
+        } catch (e: any) {
+            customIdValidation.value = {
+                loading: false,
+                valid: false,
+                available: false,
+                message: e.response?.data?.message || 'خطا در اعتبارسنجی آیدی',
+            };
         }
-    } finally {
-        validationLoading.value = false;
-    }
+    }, 250);
 };
 
-const applySuggestion = (suggestion: string) => {
-    if (orderForm.service_key === 'custom_id') {
-        orderForm.handle = suggestion.replace(/^@/, '');
-    } else if (orderForm.service_key === 'web3_email_package') {
-        const parts = suggestion.split('.');
-        orderForm.base_domain = parts[0] || suggestion;
-        if (parts[1]) orderForm.tld = parts[1];
-    }
-    runLiveValidation();
+const openCustomIdModal = () => {
+    customIdHandle.value = '';
+    customIdDisplayTitle.value = '';
+    customIdValidation.value = { loading: false, valid: false };
+    customIdError.value = '';
+    isCustomIdModalOpen.value = true;
 };
 
-const submitServiceOrder = () => {
-    orderForm.post(route('services.orders.store'), {
+const closeCustomIdModal = () => {
+    isCustomIdModalOpen.value = false;
+};
+
+const submitCustomIdOrder = () => {
+    if (!customIdValidation.value.valid || customIdSubmitting.value) return;
+    customIdSubmitting.value = true;
+    customIdError.value = '';
+
+    const clean = customIdHandle.value.replace(/^@/, '').trim();
+    router.post(route('services.orders.store'), {
+        service_key: 'custom_id',
+        order_context: 'services',
+        payload: {
+            service_key: 'custom_id',
+            handle: clean,
+            display_title: customIdDisplayTitle.value || `@${clean}`,
+        },
+    }, {
         preserveScroll: true,
         onSuccess: () => {
-            closeServiceOrderModal();
-            showToast(__('dashboard.op_success'));
+            customIdSubmitting.value = false;
+            closeCustomIdModal();
+            showToast('آیدی اختصاصی با موفقیت ثبت شد.');
+        },
+        onError: (errs) => {
+            customIdSubmitting.value = false;
+            customIdError.value = Object.values(errs)[0] || 'خطا در ثبت آیدی';
         },
     });
-};
-
-// Web3 Sub-Account & Quota Manager Modal
-const isQuotaModalOpen = ref(false);
-const activeDomainAllocation = ref<ServiceAllocationItem | null>(null);
-const subAccountForm = useForm({
-    sub_identifier: '',
-    display_name: '',
-});
-const upgradingQuota = ref(false);
-
-const openQuotaModal = (allocation: ServiceAllocationItem) => {
-    activeDomainAllocation.value = allocation;
-    subAccountForm.reset();
-    subAccountForm.clearErrors();
-    isQuotaModalOpen.value = true;
-};
-
-const closeQuotaModal = () => {
-    isQuotaModalOpen.value = false;
-    activeDomainAllocation.value = null;
-};
-
-const submitNewSubAccount = () => {
-    if (!activeDomainAllocation.value) return;
-    subAccountForm.post(route('services.sub_accounts.store', activeDomainAllocation.value.uuid), {
-        preserveScroll: true,
-        onSuccess: () => {
-            subAccountForm.reset();
-            const refreshed = (props.service_allocations || []).find(
-                (a) => a.uuid === activeDomainAllocation.value?.uuid
-            );
-            if (refreshed) activeDomainAllocation.value = refreshed;
-        },
-    });
-};
-
-const removeSubAccount = (sub: SubResourceItem) => {
-    if (!activeDomainAllocation.value) return;
-    router.delete(
-        route('services.sub_accounts.destroy', {
-            allocation: activeDomainAllocation.value.uuid,
-            subResource: sub.id,
-        }),
-        {
-            preserveScroll: true,
-            onSuccess: () => {
-                const refreshed = (props.service_allocations || []).find(
-                    (a) => a.uuid === activeDomainAllocation.value?.uuid
-                );
-                if (refreshed) activeDomainAllocation.value = refreshed;
-            },
-        }
-    );
-};
-
-const triggerUpgradeQuota = () => {
-    if (!activeDomainAllocation.value) return;
-    upgradingQuota.value = true;
-    router.post(
-        route('services.allocations.upgrade_quota', activeDomainAllocation.value.uuid),
-        { additional_units: 10 },
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                upgradingQuota.value = false;
-                const refreshed = (props.service_allocations || []).find(
-                    (a) => a.uuid === activeDomainAllocation.value?.uuid
-                );
-                if (refreshed) activeDomainAllocation.value = refreshed;
-            },
-        }
-    );
 };
 
 const releaseServiceAllocation = (allocation: ServiceAllocationItem) => {
@@ -466,8 +364,8 @@ const handleEscape = (e: KeyboardEvent) => {
         if (isEditTitleModalOpen.value) closeEditTitleModal();
         if (isReleaseModalOpen.value) closeReleaseModal();
         if (isAllocateModalOpen.value) closeAllocateModal();
-        if (isServiceOrderModalOpen.value) closeServiceOrderModal();
-        if (isQuotaModalOpen.value) closeQuotaModal();
+        if (isCustomIdModalOpen.value) closeCustomIdModal();
+        if (isVoiceModalOpen.value) isVoiceModalOpen.value = false;
     }
 };
 
@@ -546,32 +444,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @
                         </div>
                     </div>
-                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
-                        <div>
-                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.web3_domains_count') }}</div>
-                            <div class="text-lg font-black text-purple-600 dark:text-purple-400 mt-0.5" dir="ltr">
-                                {{ web3Allocations.length }}
-                            </div>
-                        </div>
-                        <div class="w-9 h-9 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9" />
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10 flex items-center justify-between">
-                        <div>
-                            <div class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ __('catalog.ui.total_sub_accounts_quota') }}</div>
-                            <div class="text-lg font-black text-emerald-600 dark:text-emerald-400 mt-0.5" dir="ltr">
-                                {{ usedWeb3Quota }} <span class="text-xs font-normal text-slate-400">/ {{ totalWeb3Quota }}</span>
-                            </div>
-                        </div>
-                        <div class="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                        </div>
-                    </div>
                 </div>
 
                 <!-- Quick Action Bar -->
@@ -588,14 +460,14 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             :disabled="quota.active >= quota.max"
                             class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40"
                         >
-                            <span>+ {{ __('catalog.services.phone_line.short_title') }}</span>
+                            <span>+ تخصیص خط جدید</span>
                         </button>
                         <button
                             type="button"
-                            @click="openServicePurchaseModal('custom_id')"
+                            @click="openCustomIdModal"
                             class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15"
                         >
-                            <span>+ {{ __('catalog.services.custom_id.short_title') }}</span>
+                            <span>+ ثبت آیدی اختصاصی</span>
                         </button>
                         <button
                             type="button"
@@ -608,40 +480,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <span>شماره‌گیر صوتی (Voice)</span>
                         </button>
                     </div>
-                </div>
-            </div>
-
-            <!-- Organizational Section Public Access Banner -->
-            <div class="glass-card !p-5 bg-gradient-to-r from-indigo-900/90 via-purple-900/80 to-indigo-950 border border-indigo-500/30 text-white rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <span class="px-2.5 py-0.5 rounded-full bg-indigo-500/30 text-indigo-200 text-[11px] font-bold border border-indigo-400/20">
-                            بخش سازمانی (دسترسی عمومی)
-                        </span>
-                        <span class="text-[11px] text-indigo-300">بدون نیاز به احراز هویت شرکتی و بارگذاری مدارک</span>
-                    </div>
-                    <h3 class="text-base font-black mt-1.5 text-white">
-                        سفارش سرشماره‌های کوتاه، آیدی‌های رند و دامنه‌های Web3
-                    </h3>
-                    <p class="text-xs text-indigo-200/90 mt-0.5">
-                        جریان چند مرحله‌ای Wizard همراه با اعتبارسنجی زنده AJAX، الگوریتم هوشمند رند بودن و موتور مدیریت ساب‌ایمیل
-                    </p>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button
-                        type="button"
-                        @click="openOrgWizard"
-                        class="px-5 py-2.5 text-xs font-black rounded-xl bg-white text-indigo-950 hover:bg-indigo-50 shadow-md transition-all active:scale-95"
-                    >
-                        ورود به Wizard ثبت سفارش &larr;
-                    </button>
-                    <button
-                        type="button"
-                        @click="openWeb3Manager"
-                        class="px-4 py-2.5 text-xs font-bold rounded-xl bg-purple-600/60 hover:bg-purple-600 text-white border border-purple-400/30 transition-all"
-                    >
-                        مدیریت ساب‌ایمیل Web3
-                    </button>
                 </div>
             </div>
 
@@ -699,12 +537,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     {{ __('catalog.ui.min_id_length_rule', { min: service.active_policy.min_length }) }}
                                 </span>
                                 <span
-                                    v-if="service.active_policy?.discount_percent > 0"
-                                    class="text-[10px] px-2.5 py-0.5 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-                                >
-                                    {{ __('catalog.ui.enterprise_discount_rule', { discount: service.active_policy.discount_percent }) }}
-                                </span>
-                                <span
                                     v-if="service.plans && service.plans.length > 0"
                                     class="text-[10px] px-2.5 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-300 font-mono font-bold"
                                     dir="ltr"
@@ -725,7 +557,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </Link>
                         <button
                             type="button"
-                            @click="openServicePurchaseModal(service.key)"
+                            @click="service.key === 'phone_line' ? openAllocateModal() : openCustomIdModal()"
                             :disabled="!service.is_active || !service.is_purchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
@@ -903,31 +735,60 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </button>
                         </div>
 
-                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
-                            <div class="flex items-center gap-3">
-                                <Link
-                                    :href="route('messages.index', { phone_number_id: item.id })"
-                                    class="inline-flex items-center gap-1.5 font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                                    </svg>
-                                    <span>{{ __('user.numbers.view_sms') }}</span>
-                                </Link>
-
-                                <button
-                                    type="button"
-                                    @click="openVoiceDialerWithLine(item)"
-                                    class="inline-flex items-center gap-1.5 font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 transition-colors"
-                                    title="برقراری تماس صوتی با این خط"
-                                >
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                    <span>تماس صوتی</span>
-                                </button>
+                        <!-- Dedicated Communications Section for each Number -->
+                        <div class="mt-3 p-3.5 rounded-2xl bg-indigo-50/70 dark:bg-slate-800/60 border border-indigo-100 dark:border-white/5 space-y-2.5">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-black text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                                    بخش ارتباطات و قابلیت‌های خط
+                                </span>
+                                <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
+                                    {{ item.status_label }}
+                                </span>
                             </div>
 
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-xs">
+                                <!-- SMS Channel -->
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-7 h-7 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-sm">💬</span>
+                                        <div>
+                                            <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">پیامک دوطرفه (SMS)</div>
+                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">ارسال و دریافت فعال</div>
+                                        </div>
+                                    </div>
+                                    <Link
+                                        :href="route('messages.index', { phone_number_id: item.id })"
+                                        class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] transition-colors shadow-xs"
+                                    >
+                                        ورود به پیام‌ها
+                                    </Link>
+                                </div>
+
+                                <!-- Voice Call Channel -->
+                                <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-sm">📞</span>
+                                        <div>
+                                            <div class="font-bold text-[11px] text-slate-800 dark:text-slate-200">تماس صوتی (Voice)</div>
+                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">آماده برقراری تماس</div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="openVoiceDialerWithLine(item)"
+                                        class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-colors shadow-xs flex items-center gap-1"
+                                    >
+                                        <span>تماس صوتی</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
+                            <span class="text-[11px] text-slate-400">
+                                تخصیص یافته در: {{ item.allocated_at || 'نامشخص' }}
+                            </span>
                             <button
                                 type="button"
                                 @click="openReleaseModal(item)"
@@ -960,280 +821,110 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             </div>
         </div>
 
-        <!-- 7. Multi-Service Purchase & Rule Engine Validation Modal -->
+        <!-- 7. Dedicated Custom ID Registration Modal -->
         <div
-            v-if="isServiceOrderModalOpen && selectedService"
+            v-if="isCustomIdModalOpen"
             class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
-            @click.self="closeServiceOrderModal"
+            @click.self="closeCustomIdModal"
         >
             <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ selectedService.title }}</h3>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ selectedService.subtitle }}</p>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center font-mono font-black text-sm">@</span>
+                        <div>
+                            <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت آیدی اختصاصی (Custom ID)</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">شناسه کاربری منحصر‌به‌فرد برای ارتباطات و دریافت پیام</p>
+                        </div>
                     </div>
-                    <button type="button" @click="closeServiceOrderModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
+                    <button type="button" @click="closeCustomIdModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
                 </div>
 
-                <form @submit.prevent="submitServiceOrder" class="space-y-4">
-                    <!-- Custom ID Form Inputs -->
-                    <div v-if="selectedService.key === 'custom_id'" class="space-y-3">
-                        <div>
-                            <label class="form-label">{{ __('catalog.schemas.custom_id.handle_label') }}</label>
-                            <div class="flex items-center gap-2" dir="ltr">
-                                <span class="px-3 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-black text-indigo-500">@</span>
-                                <input
-                                    type="text"
-                                    v-model="orderForm.handle"
-                                    @input="validationResult = null"
-                                    :placeholder="__('catalog.schemas.custom_id.handle_placeholder')"
-                                    class="form-input !py-2.5 !text-xs font-mono flex-1"
-                                />
-                            </div>
-                            <p class="text-[11px] text-slate-500 mt-1">{{ __('catalog.schemas.custom_id.handle_hint') }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Web3 Organizational Email & Domain Package Inputs -->
-                    <div v-if="selectedService.key === 'web3_email_package'" class="space-y-3">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <div class="sm:col-span-2">
-                                <label class="form-label">{{ __('catalog.schemas.web3_email.base_domain_label') }}</label>
-                                <input
-                                    type="text"
-                                    dir="ltr"
-                                    v-model="orderForm.base_domain"
-                                    @input="validationResult = null"
-                                    :placeholder="__('catalog.schemas.web3_email.base_domain_placeholder')"
-                                    class="form-input !py-2.5 !text-xs font-mono"
-                                />
-                            </div>
-                            <div>
-                                <label class="form-label">{{ __('catalog.schemas.web3_email.tld_label') }}</label>
-                                <select
-                                    dir="ltr"
-                                    v-model="orderForm.tld"
-                                    @change="validationResult = null"
-                                    class="form-select !py-2.5 !text-xs font-mono w-full"
-                                >
-                                    <option
-                                        v-for="tld in (selectedService.active_policy?.allowed_tlds || ['web3', 'trx', 'id3'])"
-                                        :key="tld"
-                                        :value="tld"
-                                    >
-                                        .{{ tld }}
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="form-label">{{ __('catalog.schemas.web3_email.plan_code_label') }}</label>
-                            <select
-                                v-model="orderForm.plan_code"
-                                @change="validationResult = null"
-                                class="form-select !py-2.5 !text-xs w-full"
-                            >
-                                <option
-                                    v-for="plan in availablePlansForSelectedService"
-                                    :key="plan.code"
-                                    :value="plan.code"
-                                >
-                                    {{ plan.title }} — {{ plan.final_price }} TRX ({{ plan.quota_units }} Quota)
-                                </option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label class="form-label">{{ __('catalog.schemas.web3_email.initial_sub_accounts_label') }}</label>
+                <form @submit.prevent="submitCustomIdOrder" class="space-y-4">
+                    <div>
+                        <label class="form-label font-bold text-xs">شناسه کاربری درخواستی</label>
+                        <div class="flex items-center gap-2 mt-1" dir="ltr">
+                            <span class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-black text-indigo-500 text-sm">@</span>
                             <input
                                 type="text"
-                                dir="ltr"
-                                v-model="orderForm.initial_sub_accounts"
-                                :placeholder="__('catalog.schemas.web3_email.initial_sub_accounts_placeholder')"
-                                class="form-input !py-2 !text-xs font-mono"
+                                v-model="customIdHandle"
+                                @input="validateCustomIdInput"
+                                placeholder="مثلاً: ceo یا alex"
+                                class="form-input !py-2.5 !text-xs font-mono flex-1"
+                                autofocus
                             />
-                            <p class="text-[11px] text-slate-500 mt-1">{{ __('catalog.schemas.web3_email.initial_sub_accounts_hint') }}</p>
                         </div>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">شناسه باید با حروف انگلیسی، اعداد یا زیرخط باشد (حداقل ۳ حرف).</p>
                     </div>
 
-                    <!-- Common Display Title -->
                     <div>
-                        <label class="form-label">{{ __('catalog.schemas.common.display_title_label') }}</label>
+                        <label class="form-label font-bold text-xs">عنوان نمایشی (اختیاری)</label>
                         <input
                             type="text"
-                            v-model="orderForm.display_title"
-                            :placeholder="__('catalog.schemas.common.display_title_placeholder')"
-                            class="form-input !py-2 !text-xs"
+                            v-model="customIdDisplayTitle"
+                            placeholder="مثلاً: مدیریت فروش"
+                            class="form-input !py-2.5 !text-xs mt-1"
                         />
                     </div>
 
-                    <!-- Validate & Quote Action -->
-                    <div class="flex items-center justify-between gap-2">
-                        <button
-                            type="button"
-                            @click="runLiveValidation"
-                            :disabled="validationLoading"
-                            class="glass-pill !py-2 !px-4 !text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30"
-                        >
-                            {{ validationLoading ? __('catalog.ui.validating') : __('catalog.ui.validate_button') }}
-                        </button>
+                    <!-- Live Validation Feedback Card -->
+                    <div v-if="customIdValidation.loading" class="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                        <span class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
+                        <span>در حال استعلام وضعیت آزادی و محاسبه تعرفه آیدی...</span>
                     </div>
 
-                    <!-- BusinessRuleEngine Validation Result Box -->
                     <div
-                        v-if="validationResult"
+                        v-else-if="customIdHandle.trim() && customIdValidation.valid !== undefined"
                         class="p-3.5 rounded-2xl border text-xs space-y-2"
-                        :class="validationResult.can_proceed
+                        :class="customIdValidation.valid
                             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200'
                             : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
                     >
                         <div class="flex items-center justify-between">
-                            <span class="font-mono font-black text-sm" dir="ltr">{{ validationResult.normalized_identifier }}</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/20">
-                                {{ validationResult.tier_label }}
+                            <span class="font-mono font-black text-sm" dir="ltr">@{{ customIdHandle.replace(/^@/, '').trim() }}</span>
+                            <span
+                                v-if="customIdValidation.rarity_label"
+                                class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                                :class="customIdValidation.rarity_tier === 'bronze' ? 'bg-slate-500/20 text-slate-700 dark:text-slate-300' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'"
+                            >
+                                {{ customIdValidation.rarity_label }}
                             </span>
                         </div>
 
-                        <div v-if="validationResult.errors && validationResult.errors.length > 0" class="space-y-1">
-                            <p v-for="(err, idx) in validationResult.errors" :key="idx" class="text-[11px] font-bold text-rose-600 dark:text-rose-300">
-                                • {{ err }}
-                            </p>
-                        </div>
-                        <div v-else class="space-y-1 pt-1 border-t border-emerald-500/20">
-                            <div class="flex justify-between">
-                                <span>{{ __('catalog.ui.unit_price') }}</span>
-                                <span class="font-mono font-bold" dir="ltr">{{ validationResult.unit_price }} TRX</span>
+                        <div v-if="customIdValidation.valid" class="space-y-1.5 pt-1 border-t border-emerald-500/20">
+                            <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
+                                ✓ این آیدی آزاد و قابل تخصیص است.
                             </div>
-                            <div v-if="Number(validationResult.discount_amount) > 0" class="flex justify-between text-amber-500">
-                                <span>{{ __('catalog.ui.enterprise_discount', { percent: validationResult.metadata?.discount_percent || 0 }) }}</span>
-                                <span class="font-mono font-bold" dir="ltr">-{{ validationResult.discount_amount }} TRX</span>
-                            </div>
-                            <div class="flex justify-between font-black text-sm pt-1">
-                                <span>{{ __('catalog.ui.final_payable') }}</span>
-                                <span class="font-mono" dir="ltr">{{ validationResult.final_amount }} TRX</span>
+                            <div class="flex items-center justify-between font-bold text-xs pt-1">
+                                <span>هزینه ثبت شناسه:</span>
+                                <span class="font-mono text-emerald-600 dark:text-emerald-400 font-black" dir="ltr">
+                                    {{ customIdValidation.price || '0' }} TRX
+                                </span>
                             </div>
                         </div>
 
-                        <!-- Suggestions if identifier is taken -->
-                        <div v-if="validationResult.suggestions && validationResult.suggestions.length > 0" class="pt-2 flex flex-wrap gap-1.5">
-                            <button
-                                v-for="sug in validationResult.suggestions"
-                                :key="sug"
-                                type="button"
-                                @click="applySuggestion(sug)"
-                                dir="ltr"
-                                class="px-2.5 py-1 rounded-lg bg-white/80 dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 font-mono text-[11px]"
-                            >
-                                {{ sug }}
-                            </button>
+                        <div v-else class="text-[11px] font-bold text-rose-600 dark:text-rose-300">
+                            ✗ {{ customIdValidation.message || 'این آیدی در دسترس نیست یا فرمت آن نامعتبر است.' }}
                         </div>
                     </div>
 
-                    <div v-if="(orderForm.errors as any).identifier" class="text-xs text-rose-500 font-bold">
-                        {{ (orderForm.errors as any).identifier }}
+                    <div v-if="customIdError" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs font-bold text-rose-600 dark:text-rose-300">
+                        {{ customIdError }}
                     </div>
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
-                        <button type="button" @click="closeServiceOrderModal" class="glass-pill !py-2 !px-4 !text-xs">
-                            {{ __('user.numbers.cancel') }}
+                        <button type="button" @click="closeCustomIdModal" class="glass-pill !py-2 !px-4 !text-xs">
+                            انصراف
                         </button>
                         <button
                             type="submit"
-                            :disabled="orderForm.processing"
-                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
+                            :disabled="!customIdValidation.valid || customIdSubmitting"
+                            class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            {{ orderForm.processing ? __('catalog.ui.processing_order') : __('catalog.ui.confirm_purchase') }}
+                            <span v-if="customIdSubmitting">در حال ثبت...</span>
+                            <span v-else>تایید و پرداخت از کیف‌پول</span>
                         </button>
                     </div>
                 </form>
-            </div>
-        </div>
-
-        <!-- 8. Web3 Domain Sub-Accounts & Quota Manager Modal -->
-        <div
-            v-if="isQuotaModalOpen && activeDomainAllocation"
-            class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/75 backdrop-blur-md"
-            @click.self="closeQuotaModal"
-        >
-            <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-lg shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                    <div>
-                        <h3 class="font-black text-sm font-mono text-purple-600 dark:text-purple-400" dir="ltr">
-                            {{ activeDomainAllocation.resource_identifier }}
-                        </h3>
-                        <p class="text-[11px] text-slate-500 mt-0.5">
-                            {{ __('catalog.ui.used_quota', { used: activeDomainAllocation.used_quota, total: activeDomainAllocation.total_quota }) }}
-                        </p>
-                    </div>
-                    <button type="button" @click="closeQuotaModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
-                </div>
-
-                <!-- Create Sub-Account Form -->
-                <form @submit.prevent="submitNewSubAccount" class="space-y-3 p-3.5 rounded-2xl bg-slate-100/70 dark:bg-slate-950/50 border border-slate-200 dark:border-white/10">
-                    <div class="text-xs font-bold">{{ __('catalog.ui.add_sub_account_title') }}</div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div class="flex items-center gap-1" dir="ltr">
-                            <input
-                                type="text"
-                                v-model="subAccountForm.sub_identifier"
-                                placeholder="sales"
-                                class="form-input !py-2 !text-xs font-mono flex-1"
-                            />
-                            <span class="text-xs font-mono text-slate-400">@{{ activeDomainAllocation.resource_identifier }}</span>
-                        </div>
-                        <input
-                            type="text"
-                            v-model="subAccountForm.display_name"
-                            :placeholder="__('catalog.ui.sub_account_display')"
-                            class="form-input !py-2 !text-xs"
-                        />
-                    </div>
-                    <div v-if="subAccountForm.errors.sub_identifier" class="text-[11px] text-rose-500 font-bold">
-                        {{ subAccountForm.errors.sub_identifier }}
-                    </div>
-                    <div class="flex items-center justify-between pt-1">
-                        <button
-                            type="button"
-                            @click="triggerUpgradeQuota"
-                            :disabled="upgradingQuota"
-                            class="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline"
-                        >
-                            {{ __('catalog.ui.upgrade_quota_btn') }}
-                        </button>
-                        <button
-                            type="submit"
-                            :disabled="subAccountForm.processing"
-                            class="glass-btn-primary !w-auto !py-1.5 !px-4 !text-xs !rounded-xl"
-                        >
-                            {{ __('catalog.ui.create_sub_account_btn') }}
-                        </button>
-                    </div>
-                </form>
-
-                <!-- Sub-Accounts List -->
-                <div class="space-y-2 max-h-60 overflow-y-auto">
-                    <div
-                        v-for="sub in activeDomainAllocation.sub_resources"
-                        :key="sub.id"
-                        class="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-white/10 flex items-center justify-between text-xs"
-                    >
-                        <div>
-                            <div dir="ltr" class="font-mono font-bold text-indigo-600 dark:text-indigo-300">{{ sub.full_address }}</div>
-                            <div class="text-[10px] text-slate-400">{{ sub.display_name }}</div>
-                        </div>
-                        <button
-                            type="button"
-                            @click="removeSubAccount(sub)"
-                            class="text-[11px] font-bold text-rose-500 hover:underline"
-                        >
-                            ✕
-                        </button>
-                    </div>
-                    <p v-if="!activeDomainAllocation.sub_resources?.length" class="text-xs text-center text-slate-400 py-4">
-                        {{ __('catalog.ui.no_sub_accounts') }}
-                    </p>
-                </div>
             </div>
         </div>
 
@@ -1313,19 +1004,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             :is-open="isVoiceModalOpen"
             :available-lines="activeDialerLines"
             @close="isVoiceModalOpen = false"
-        />
-
-        <!-- 13. Organizational Order Multi-Step Wizard -->
-        <OrganizationalOrderWizard
-            :is-open="isOrgWizardOpen"
-            :wallet-balance="wallet?.balance"
-            @close="isOrgWizardOpen = false"
-        />
-
-        <!-- 14. Web3 Sub-Email Engine Manager -->
-        <Web3SubEmailManager
-            :is-open="isWeb3ManagerOpen"
-            @close="isWeb3ManagerOpen = false"
         />
     </UserLayout>
 </template>
