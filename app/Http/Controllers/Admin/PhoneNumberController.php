@@ -221,6 +221,7 @@ class PhoneNumberController extends Controller
         $validated = $request->validate([
             'display_title' => ['nullable', 'string', 'max:100'],
             'type' => ['required', 'string', 'in:user_standard,user_service,platform_service'],
+            'status' => ['nullable', 'string', 'in:available,allocated,reserved,suspended'],
             'rond_tier' => ['nullable', 'string', 'in:regular,semi_rond,golden_rond'],
             'rond_pattern' => ['nullable', 'string', 'max:100'],
             'phone_prefix_id' => ['nullable', 'exists:phone_prefixes,id'],
@@ -276,6 +277,8 @@ class PhoneNumberController extends Controller
                 $updateData['status'] = PhoneNumberStatus::Available;
                 $updateData['allocated_at'] = null;
             }
+        } elseif (! empty($validated['status'])) {
+            $updateData['status'] = PhoneNumberStatus::from($validated['status']);
         }
 
         $number->update($updateData);
@@ -305,7 +308,7 @@ class PhoneNumberController extends Controller
 
         $number->delete();
 
-        return back()->with('success', __('controllers.admin.phone_numbers.number_deleted', ['number' => $formatted]));
+        return redirect()->route('admin.numbers.index')->with('success', __('controllers.admin.phone_numbers.number_deleted', ['number' => $formatted]));
     }
 
     /**

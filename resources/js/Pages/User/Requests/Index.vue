@@ -701,6 +701,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
             :is-open="isOrgWizardOpen"
             :wallet-balance="wallet?.balance"
             :active-prefixes="active_prefixes"
+            :service-catalog="service_catalog"
             @close="isOrgWizardOpen = false"
         />
     </UserLayout>

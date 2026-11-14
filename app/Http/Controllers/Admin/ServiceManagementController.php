@@ -64,6 +64,11 @@ class ServiceManagementController extends Controller
             'regular' => 30.0000,
             'semi_rond' => 60.0000,
             'golden_rond' => 120.0000,
+            'price_4_char' => 240.0000,
+            'price_5_char' => 140.0000,
+            'price_6_plus_char' => 30.0000,
+            'multiplier_semi_rond' => 1.50,
+            'multiplier_golden_rond' => 3.00,
         ];
         if ($idDef && ! empty($idDef->pricing_config)) {
             $idPricing = array_merge($idPricing, $idDef->pricing_config);
@@ -92,6 +97,7 @@ class ServiceManagementController extends Controller
             'custom_ids' => [
                 'definition_id' => $idDef?->id,
                 'is_purchasable' => (bool) ($idDef?->is_purchasable ?? true),
+                'is_active' => (bool) ($idDef?->is_active ?? true),
                 'requires_approval' => (bool) ($idDef?->requires_approval_for_enterprise ?? false),
                 'pricing' => $idPricing,
                 'total_allocations' => ServiceResourceAllocation::where('service_key', 'custom_id')->count(),
@@ -99,6 +105,7 @@ class ServiceManagementController extends Controller
             'web3_domains' => [
                 'definition_id' => $web3Def?->id,
                 'is_purchasable' => (bool) ($web3Def?->is_purchasable ?? true),
+                'is_active' => (bool) ($web3Def?->is_active ?? true),
                 'tlds' => $tlds,
             ],
         ]);
@@ -120,6 +127,24 @@ class ServiceManagementController extends Controller
 
         $status = $definition->is_purchasable ? 'فعال' : 'غیرفعال';
         return back()->with('success', "امکان خرید سرویس {$definition->title} توسط کاربران {$status} گردید.");
+    }
+
+    /**
+     * Toggle overall active status of a service definition.
+     */
+    public function toggleActive(Request $request, ServiceDefinition $definition): RedirectResponse
+    {
+        $definition->update([
+            'is_active' => ! $definition->is_active,
+        ]);
+
+        AuditLog::record('service_activation_toggled', $definition, $request->user(), [
+            'service' => $definition->key,
+            'is_active' => $definition->is_active,
+        ]);
+
+        $status = $definition->is_active ? 'فعال' : 'غیرفعال';
+        return back()->with('success', "وضعیت کلی سرویس {$definition->title} به «{$status}» تغییر یافت.");
     }
 
     /**
@@ -145,28 +170,38 @@ class ServiceManagementController extends Controller
     }
 
     /**
-     * Update pricing table for IDs.
+     * Update pricing table for IDs with character length & rarity multipliers.
      */
     public function updateIdPricing(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'regular' => ['required', 'numeric', 'min:0'],
-            'semi_rond' => ['required', 'numeric', 'min:0'],
-            'golden_rond' => ['required', 'numeric', 'min:0'],
+            'regular' => ['nullable', 'numeric', 'min:0'],
+            'semi_rond' => ['nullable', 'numeric', 'min:0'],
+            'golden_rond' => ['nullable', 'numeric', 'min:0'],
+            'price_4_char' => ['required', 'numeric', 'min:0'],
+            'price_5_char' => ['required', 'numeric', 'min:0'],
+            'price_6_plus_char' => ['required', 'numeric', 'min:0'],
+            'multiplier_semi_rond' => ['required', 'numeric', 'min:1'],
+            'multiplier_golden_rond' => ['required', 'numeric', 'min:1'],
         ]);
 
         $idDef = ServiceDefinition::where('key', 'custom_id')->firstOrFail();
         $pricingConfig = array_merge($idDef->pricing_config ?? [], [
-            'regular' => (float) $validated['regular'],
-            'semi_rond' => (float) $validated['semi_rond'],
-            'golden_rond' => (float) $validated['golden_rond'],
+            'regular' => (float) ($validated['regular'] ?? $validated['price_6_plus_char']),
+            'semi_rond' => (float) ($validated['semi_rond'] ?? bcmul((string) $validated['price_6_plus_char'], (string) $validated['multiplier_semi_rond'], 2)),
+            'golden_rond' => (float) ($validated['golden_rond'] ?? bcmul((string) $validated['price_6_plus_char'], (string) $validated['multiplier_golden_rond'], 2)),
+            'price_4_char' => (float) $validated['price_4_char'],
+            'price_5_char' => (float) $validated['price_5_char'],
+            'price_6_plus_char' => (float) $validated['price_6_plus_char'],
+            'multiplier_semi_rond' => (float) $validated['multiplier_semi_rond'],
+            'multiplier_golden_rond' => (float) $validated['multiplier_golden_rond'],
         ]);
 
         $idDef->update(['pricing_config' => $pricingConfig]);
 
         AuditLog::record('id_pricing_updated', $idDef, $request->user(), $pricingConfig);
 
-        return back()->with('success', 'جدول تعرفه و نرخ‌گذاری آیدی‌ها با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', 'جدول تعرفه و نرخ‌گذاری آیدی‌ها بر اساس طول و رند بودن با موفقیت به‌روزرسانی شد.');
     }
 
     /**

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 interface UserOption {
@@ -55,6 +55,7 @@ const props = defineProps<{
 const form = useForm({
     display_title: props.number.display_title || '',
     type: props.number.type,
+    status: props.number.status,
     rond_tier: props.number.rond_tier,
     rond_pattern: props.number.rond_pattern || '',
     phone_prefix_id: props.number.phone_prefix_id,
@@ -62,10 +63,37 @@ const form = useForm({
     accepts_incoming_sms: props.number.accepts_incoming_sms,
 });
 
+const isReleasing = ref(false);
+const isDeleting = ref(false);
+
 const submit = () => {
     form.put(route('admin.numbers.update', props.number.id), {
         preserveScroll: true,
     });
+};
+
+const releaseFromUser = () => {
+    if (!props.number.user_id) return;
+    if (confirm(`آیا از آزادسازی خط ${props.number.formatted_number} از کاربر مطمئن هستید؟ این خط به استخر عمومی بازمی‌گردد.`)) {
+        isReleasing.value = true;
+        router.post(route('admin.numbers.release', props.number.id), {}, {
+            preserveScroll: true,
+            onFinish: () => {
+                isReleasing.value = false;
+            },
+        });
+    }
+};
+
+const deleteNumberPermanently = () => {
+    if (confirm(`آیا از حذف کامل خط ${props.number.formatted_number} از سامانه مطمئن هستید؟ این عملیات غیرقابل برگشت است.`)) {
+        isDeleting.value = true;
+        router.delete(route('admin.numbers.destroy', props.number.id), {
+            onFinish: () => {
+                isDeleting.value = false;
+            },
+        });
+    }
 };
 </script>
 
@@ -75,11 +103,11 @@ const submit = () => {
     <AdminLayout>
         <div class="space-y-6 max-w-6xl mx-auto">
             <!-- Header -->
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/60">
                 <div class="flex items-center gap-4">
                     <Link
                         :href="route('admin.numbers.index')"
-                        class="p-2.5 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors"
+                        class="p-2.5 rounded-2xl bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 transition-colors"
                         title="بازگشت به لیست خطوط"
                     >
                         <svg class="w-5 h-5 rtl:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +116,7 @@ const submit = () => {
                     </Link>
                     <div>
                         <div class="flex items-center gap-2">
-                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight">
+                            <h1 class="text-2xl font-bold text-gray-900 dark:text-white font-mono tracking-tight" dir="ltr">
                                 {{ number.formatted_number }}
                             </h1>
                             <span class="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
@@ -101,7 +129,17 @@ const submit = () => {
                     </div>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
+                    <button
+                        v-if="number.user_id"
+                        type="button"
+                        @click="releaseFromUser"
+                        :disabled="isReleasing"
+                        class="px-4 py-2 rounded-xl text-xs font-bold text-amber-700 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+                    >
+                        <span>🔓</span>
+                        <span>{{ isReleasing ? 'در حال آزادسازی...' : 'آزادسازی شماره از کاربر' }}</span>
+                    </button>
                     <span class="text-xs text-gray-400">تاریخ ایجاد: {{ number.created_at }}</span>
                 </div>
             </div>
@@ -166,7 +204,7 @@ const submit = () => {
             </div>
 
             <!-- Settings Form -->
-            <form @submit.prevent="submit" class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6 space-y-6">
+            <form @submit.prevent="submit" class="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/60 p-6 space-y-6">
                 <h2 class="text-lg font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-gray-700">
                     پیکربندی و تخصیص خط
                 </h2>
@@ -185,6 +223,25 @@ const submit = () => {
                         />
                         <div v-if="form.errors.display_title" class="text-xs text-rose-500 mt-1">
                             {{ form.errors.display_title }}
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                            وضعیت خط
+                        </label>
+                        <select
+                            v-model="form.status"
+                            class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-indigo-500"
+                        >
+                            <option value="available">آزاد در استخر خطوط (Available)</option>
+                            <option value="allocated">تخصیص‌یافته به کاربر (Allocated)</option>
+                            <option value="reserved">رزرو شده سیستم (Reserved)</option>
+                            <option value="suspended">معلق / مسدود موقت (Suspended)</option>
+                        </select>
+                        <div v-if="form.errors.status" class="text-xs text-rose-500 mt-1">
+                            {{ form.errors.status }}
                         </div>
                     </div>
 
@@ -237,7 +294,7 @@ const submit = () => {
                     <!-- User Allocation strictly by Account ID -->
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
-                            کاربر مالک خط (ارجاع منحصراً بر اساس Account ID / شناسه کاربر)
+                            کاربر مالک خط (شناسه / نام)
                         </label>
                         <select
                             v-model="form.user_id"
@@ -284,7 +341,7 @@ const submit = () => {
                                 خط دوطرفه (قابلیت دریافت پیامک ورودی فعال باشد)
                             </label>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                در صورت غیرفعال بودن، خط به صورت یک‌طرفه (فقط ارسال خروجی) عمل کرده و وب‌هوک‌های ورودی نادیده گرفته می‌شوند.
+                                در صورت غیرفعال بودن، خط به صورت یک‌طرفه (فقط ارسال خروجی) عمل کرده و پیام‌های ورودی ثبت نمی‌شوند.
                             </p>
                         </div>
                     </div>
@@ -307,7 +364,27 @@ const submit = () => {
                     </button>
                 </div>
             </form>
+
+            <!-- Danger Zone: Permanent Number Deletion -->
+            <div class="bg-rose-50/50 dark:bg-rose-950/20 rounded-3xl border border-rose-200 dark:border-rose-900/50 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h3 class="text-sm font-black text-rose-700 dark:text-rose-400 flex items-center gap-2">
+                        <span>⚠️</span>
+                        <span>ناحیه حساس: حذف کامل خط از سامانه</span>
+                    </h3>
+                    <p class="text-xs text-rose-600/80 dark:text-rose-400/80 mt-1">
+                        با حذف این خط، کلیه پیام‌ها، تاریخچه تماس و سوابق تخصیص خط به صورت کامل از دیتابیس پاکسازی خواهد شد.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    @click="deleteNumberPermanently"
+                    :disabled="isDeleting"
+                    class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 transition-all shrink-0"
+                >
+                    {{ isDeleting ? 'در حال حذف...' : 'حذف دائمی خط' }}
+                </button>
+            </div>
         </div>
     </AdminLayout>
 </template>
-

@@ -35,8 +35,25 @@ class VoiceCallService implements VoiceCallServiceInterface
             throw new \InvalidArgumentException('شماره یا آیدی مقصد نباید خالی باشد.');
         }
 
-        // Get configured rate per minute
-        $ratePerMinute = (float) SystemSetting::get('voice_call_rate_per_minute', 0.1000);
+        // Determine tariff rate per minute based on communication type:
+        $isId = str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination);
+        if ($isId) {
+            // ID-to-ID communication tariff
+            $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', 0.0500);
+        } else {
+            $fromNumber->loadMissing('prefix');
+            $fromPrefix = $fromNumber->prefix;
+            $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
+            $cleanFromPrefix = $fromPrefix ? preg_replace('/^\+/', '', $fromPrefix->prefix) : '';
+
+            // Check if call is intra-prefix (same prefix) or inter-prefix
+            $isIntra = $cleanFromPrefix !== '' && str_starts_with($cleanDestDigits, $cleanFromPrefix);
+            if ($isIntra) {
+                $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', 0.1000));
+            } else {
+                $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', 0.2500));
+            }
+        }
 
         // Pre-check wallet has at least 1 minute of credit
         $wallet = $this->walletService->getWallet($user);

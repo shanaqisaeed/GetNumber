@@ -550,60 +550,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     {{ user.created_at }}
                                 </td>
                                 <td class="py-4 px-5 text-left">
-                                    <div class="inline-flex items-center gap-1.5">
-                                        <!-- Adjust Wallet Button -->
-                                        <button
-                                            type="button"
-                                            @click="openWalletModal(user)"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
-                                            :title="__('admin.users.charge_balance_btn')"
-                                        >
-                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v12m6-6H6" />
-                                            </svg>
-                                            <span>{{ __('admin.users.balance_action_title') }}</span>
-                                        </button>
-
-                                        <!-- Edit User Button (Requirement 2) -->
-                                        <button
-                                            type="button"
-                                            @click="openEditModal(user)"
-                                            class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 transition-colors cursor-pointer"
-                                            :title="__('admin.users.edit_user_tooltip')"
-                                        >
-                                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                            </svg>
-                                            <span>{{ __('admin.users.edit') }}</span>
-                                        </button>
-
-                                        <!-- Suspend / Activate Button -->
-                                        <button
-                                            v-if="user.status === 'active'"
-                                            type="button"
-                                            @click="changeStatus(user, 'suspended')"
-                                            class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 transition-colors cursor-pointer"
-                                            :title="__('admin.users.suspend_tooltip')"
-                                        >{{ __('admin.users.suspend') }}</button>
-                                        <button
-                                            v-if="user.status === 'suspended' || user.status === 'inactive'"
-                                            type="button"
-                                            @click="changeStatus(user, 'active')"
-                                            class="px-2.5 py-1 rounded-lg text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 transition-colors cursor-pointer"
-                                            :title="__('admin.users.activate_tooltip')"
-                                        >{{ __('admin.users.activate') }}</button>
-
-                                        <!-- User Audit Trail Link -->
-                                        <Link
-                                            :href="route('admin.audit-logs.index', { user_id: user.id })"
-                                            class="p-1 rounded-lg text-slate-400 hover:text-amber-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                                            :title="__('admin.users.audit_tooltip')"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                            </svg>
-                                        </Link>
-                                    </div>
+                                    <Link
+                                        :href="route('admin.users.edit', user.id)"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
+                                    >
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        <span>{{ __('admin.users.edit') }}</span>
+                                    </Link>
                                 </td>
                             </tr>
 

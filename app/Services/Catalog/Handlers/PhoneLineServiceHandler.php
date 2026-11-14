@@ -54,12 +54,18 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
             $this->ruleEngine->validateQuotaLimit($user, $definition, $policy)
         );
 
-        $allocationMode = (string) ($payload['allocation_mode'] ?? ($plan?->metadata['allocation_mode'] ?? 'standard_9digit'));
         $rawNumber = preg_replace('/\D+/', '', (string) ($payload['preferred_number'] ?? ''));
+        $isOrganizational = ($payload['order_context'] ?? null) === 'organizational'
+            || ($payload['order_context'] ?? null) === 'enterprise'
+            || ($payload['allocation_mode'] ?? null) === 'enterprise_shortcode'
+            || (isset($payload['requested_length']) && (int) $payload['requested_length'] <= 8)
+            || ($rawNumber !== '' && strlen($rawNumber) >= 4 && strlen($rawNumber) <= 8);
+
+        $allocationMode = $isOrganizational ? 'enterprise_shortcode' : (string) ($payload['allocation_mode'] ?? ($plan?->metadata['allocation_mode'] ?? 'standard_9digit'));
 
         if ($allocationMode === 'enterprise_shortcode') {
-            $requestedLength = (int) ($payload['requested_length'] ?? ($plan?->metadata['digits'] ?? (strlen($rawNumber) ?: 6)));
-            $allowedLengths = (array) ($policy['allowed_lengths'] ?? [4, 5, 6, 7, 8]);
+            $requestedLength = (int) ($payload['requested_length'] ?? ($plan?->metadata['digits'] ?? (strlen($rawNumber) ?: 4)));
+            $allowedLengths = [4, 5, 6, 7, 8];
 
             if (! in_array($requestedLength, $allowedLengths, true) || $requestedLength < 4 || $requestedLength > 8) {
                 $errors[] = __('catalog.validation.invalid_phone_length', ['length' => $requestedLength]);
@@ -69,8 +75,10 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
                 $errors[] = __('catalog.validation.invalid_phone_length', ['length' => strlen($rawNumber)]);
             }
 
+            $prefixId = isset($payload['prefix_id']) ? (int) $payload['prefix_id'] : (PhonePrefix::getDefaultPrefix()?->id ?? PhonePrefix::first()?->id);
+
             $shortcodeSuggestions = $this->searchService->getShortcodeSuggestions(
-                prefixId: isset($payload['prefix_id']) ? (int) $payload['prefix_id'] : null,
+                prefixId: $prefixId,
                 length: $requestedLength,
                 seedNumber: $rawNumber !== '' ? $rawNumber : null,
                 limit: 6
@@ -80,7 +88,7 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
                 ? $rawNumber
                 : (($shortcodeSuggestions[0]['number'] ?? null) ?: str_pad((string) random_int(10 ** ($requestedLength - 1), (10 ** $requestedLength) - 1), $requestedLength, '0', STR_PAD_LEFT));
 
-            $isAvailable = ! $this->searchService->isNumberTaken($candidateNumber)
+            $isAvailable = ! $this->searchService->isNumberTaken($candidateNumber, $prefixId)
                 && ! $this->isIdentifierAllocated($candidateNumber);
 
             if (! $isAvailable && $rawNumber !== '') {
@@ -112,6 +120,7 @@ class PhoneLineServiceHandler extends AbstractServiceHandler
                 suggestions: array_map(fn ($item) => $item['number'], $shortcodeSuggestions),
                 metadata: [
                     'allocation_mode' => 'enterprise_shortcode',
+                    'prefix_id' => $prefixId,
                     'requested_length' => $requestedLength,
                     'rond_tier' => $rondAnalysis['tier'] ?? 'regular',
                     'rond_pattern' => $rondAnalysis['pattern'] ?? null,

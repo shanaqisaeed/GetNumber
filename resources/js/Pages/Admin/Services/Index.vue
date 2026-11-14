@@ -27,11 +27,17 @@ interface PhoneLinesData {
 interface CustomIdsData {
     definition_id: number;
     is_purchasable: boolean;
+    is_active: boolean;
     requires_approval: boolean;
     pricing: {
         regular: number;
         semi_rond: number;
         golden_rond: number;
+        price_4_char?: number;
+        price_5_char?: number;
+        price_6_plus_char?: number;
+        multiplier_semi_rond?: number;
+        multiplier_golden_rond?: number;
     };
     total_allocations: number;
 }
@@ -48,6 +54,7 @@ interface TldItem {
 interface Web3DomainsData {
     definition_id: number;
     is_purchasable: boolean;
+    is_active: boolean;
     tlds: TldItem[];
 }
 
@@ -61,7 +68,13 @@ const activeTab = ref<'phone_lines' | 'custom_ids' | 'web3_domains'>('phone_line
 
 // 1. Phone Lines Actions
 const togglePurchasable = (defId: number) => {
-    router.post(route('admin.services.toggle_purchasable', defId), {}, {
+    router.post(route('admin.services.definitions.toggle_purchasable', defId), {}, {
+        preserveScroll: true,
+    });
+};
+
+const toggleActive = (defId: number) => {
+    router.post(route('admin.services.definitions.toggle_active', defId), {}, {
         preserveScroll: true,
     });
 };
@@ -69,13 +82,18 @@ const togglePurchasable = (defId: number) => {
 // 2. Custom IDs Actions
 const toggleIdApproval = () => {
     router.post(
-        route('admin.services.approval_mode', props.custom_ids.definition_id),
+        route('admin.services.definitions.approval_mode', props.custom_ids.definition_id),
         { requires_approval: !props.custom_ids.requires_approval },
         { preserveScroll: true }
     );
 };
 
 const idPricingForm = useForm({
+    price_4_char: props.custom_ids.pricing.price_4_char || 240,
+    price_5_char: props.custom_ids.pricing.price_5_char || 140,
+    price_6_plus_char: props.custom_ids.pricing.price_6_plus_char || 30,
+    multiplier_semi_rond: props.custom_ids.pricing.multiplier_semi_rond || 1.5,
+    multiplier_golden_rond: props.custom_ids.pricing.multiplier_golden_rond || 3.0,
     regular: props.custom_ids.pricing.regular,
     semi_rond: props.custom_ids.pricing.semi_rond,
     golden_rond: props.custom_ids.pricing.golden_rond,
@@ -235,31 +253,40 @@ const formatCurrency = (val: string | number) => {
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            سوییچ کلی خرید خطوط توسط کاربران
+                            کنترل وضعیت و خرید خطوط ارتباطی
                         </h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            در صورت غیرفعال بودن این گزینه، ثبت سفارش خط جدید در پنل کاربری موقتاً مسدود می‌شود.
+                            امکان غیرفعال‌سازی کلی سرویس خطوط و کنترل قابلیت خرید آنی توسط کاربران در سامانه.
                         </p>
                     </div>
 
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-3">
                         <Link
                             :href="phone_lines.prefixes_url"
-                            class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800/50 transition-colors"
+                            class="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800/50 transition-colors"
                         >
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
-                            مدیریت تخصصی تعرفه سرشماره‌ها
+                            تعرفه سرشماره‌ها
                         </Link>
 
                         <button
                             type="button"
+                            @click="toggleActive(phone_lines.definition_id)"
+                            class="px-4 py-2.5 text-xs font-bold rounded-xl transition-colors shadow-sm"
+                            :class="phone_lines.is_active ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'"
+                        >
+                            {{ phone_lines.is_active ? 'سرویس فعال است' : 'سرویس غیرفعال است' }}
+                        </button>
+
+                        <button
+                            type="button"
                             @click="togglePurchasable(phone_lines.definition_id)"
-                            class="px-5 py-2.5 text-sm font-bold rounded-xl transition-colors shadow-sm"
+                            class="px-4 py-2.5 text-xs font-bold rounded-xl transition-colors shadow-sm"
                             :class="phone_lines.is_purchasable ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                         >
-                            {{ phone_lines.is_purchasable ? 'خرید خطوط فعال است (غیرفعال‌سازی)' : 'خرید غیرفعال است (فعال‌سازی)' }}
+                            {{ phone_lines.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
                         </button>
                     </div>
                 </div>
@@ -269,10 +296,10 @@ const formatCurrency = (val: string | number) => {
                     <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <div>
                             <h3 class="text-base font-bold text-gray-900 dark:text-white">
-                                لیست نمونه خطوط و پیوند مستقیم به ویرایش تخصصی
+                                لیست شماره‌های ثبت‌شده در سیستم
                             </h3>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                برای تنظیم کامل مسیریابی، وضعیت دوطرفه/یک‌طرفه و مانیتورینگ مصرف خط، وارد صفحه ویرایش اختصاصی شوید.
+                                فهرست خطوط ارتباطی و وضعیت مالکیت آن‌ها در سامانه
                             </p>
                         </div>
                         <Link
@@ -292,7 +319,7 @@ const formatCurrency = (val: string | number) => {
                                     <th class="p-4">عنوان نمایشی</th>
                                     <th class="p-4">مالک فعلی</th>
                                     <th class="p-4">وضعیت</th>
-                                    <th class="p-4 text-center">ویرایش اختصاصی</th>
+                                    <th class="p-4 text-center">ویرایش</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -326,7 +353,7 @@ const formatCurrency = (val: string | number) => {
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
-                                            صفحه ویرایش مجزا
+                                            ویرایش
                                         </Link>
                                     </td>
                                 </tr>
@@ -350,6 +377,16 @@ const formatCurrency = (val: string | number) => {
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
+                            <!-- Toggle Active -->
+                            <button
+                                type="button"
+                                @click="toggleActive(custom_ids.definition_id)"
+                                class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
+                                :class="custom_ids.is_active ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'"
+                            >
+                                {{ custom_ids.is_active ? 'سرویس آیدی: فعال' : 'سرویس آیدی: غیرفعال' }}
+                            </button>
+
                             <!-- Toggle Purchasable -->
                             <button
                                 type="button"
@@ -357,7 +394,7 @@ const formatCurrency = (val: string | number) => {
                                 class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                                 :class="custom_ids.is_purchasable ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                             >
-                                {{ custom_ids.is_purchasable ? 'خرید آیدی: فعال' : 'خرید آیدی: غیرفعال' }}
+                                {{ custom_ids.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
                             </button>
 
                             <!-- Toggle Approval Mode -->
@@ -372,77 +409,119 @@ const formatCurrency = (val: string | number) => {
                         </div>
                     </div>
 
-                    <!-- ID Rarity Pricing Table -->
+                    <!-- ID Length & Rarity Pricing Table -->
                     <div>
                         <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1">
-                            جدول قیمت‌گذاری هوشمند آیدی‌ها بر اساس الگوریتم رند بودن
+                            جدول قیمت‌گذاری هوشمند آیدی‌ها بر اساس طول کاراکترها و ضرایب رند بودن
                         </h3>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                            مبالغ پایه محاسبه شده در موتور اعتبارسنجی زنده (IdRarityEngine) برای انواع رده‌های رندی
+                            تعیین نرخ‌های پایه بر اساس تعداد حروف و تنظیم ضرایب تصاعدی الگوریتم اعتبارسنجی زنده
                         </p>
 
-                        <form @submit.prevent="submitIdPricing" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                            <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    آیدی‌های عادی (Regular)
-                                </label>
-                                <div class="relative">
-                                    <input
-                                        v-model="idPricingForm.regular"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        required
-                                        class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pr-3 pl-12"
-                                    />
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                        <form @submit.prevent="submitIdPricing" class="space-y-4">
+                            <!-- Length-Based Base Prices -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="p-4 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10">
+                                    <label class="block text-xs font-bold text-purple-900 dark:text-purple-300 mb-1">
+                                        نرخ پایه آیدی‌های ۴ کاراکتری
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            v-model="idPricingForm.price_4_char"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            required
+                                            class="w-full text-sm font-mono rounded-xl border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
+                                        />
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mt-1">ویژه سازمان‌ها و برندهای کوتاه</p>
                                 </div>
-                                <p class="text-[11px] text-gray-400 mt-1">آیدی‌های استاندارد بدون الگوی تکرار</p>
+
+                                <div class="p-4 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50/40 dark:bg-blue-900/10">
+                                    <label class="block text-xs font-bold text-blue-900 dark:text-blue-300 mb-1">
+                                        نرخ پایه آیدی‌های ۵ کاراکتری
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            v-model="idPricingForm.price_5_char"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            required
+                                            class="w-full text-sm font-mono rounded-xl border-blue-300 dark:border-blue-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
+                                        />
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mt-1">شناسه‌های تجاری و کوتاه</p>
+                                </div>
+
+                                <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        نرخ پایه آیدی‌های ۶ کاراکتر به بالا
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            v-model="idPricingForm.price_6_plus_char"
+                                            type="number"
+                                            step="0.0001"
+                                            min="0"
+                                            required
+                                            class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pr-3 pl-12"
+                                        />
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mt-1">شناسه‌های استاندارد و عمومی کاربران</p>
+                                </div>
                             </div>
 
-                            <div class="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-900/10">
-                                <label class="block text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
-                                    آیدی‌های نیمه‌رند (Semi-Rond)
-                                </label>
-                                <div class="relative">
-                                    <input
-                                        v-model="idPricingForm.semi_rond"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        required
-                                        class="w-full text-sm font-mono rounded-xl border-amber-300 dark:border-amber-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
-                                    />
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                            <!-- Rarity Multipliers -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                                <div class="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-900/10">
+                                    <label class="block text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
+                                        ضریب آیدی‌های نیمه‌رند (Semi-Rond Multiplier)
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            v-model="idPricingForm.multiplier_semi_rond"
+                                            type="number"
+                                            step="0.1"
+                                            min="1"
+                                            required
+                                            class="w-full text-sm font-mono rounded-xl border-amber-300 dark:border-amber-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
+                                        />
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">&times; برابر</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mt-1">الگوهای تکرار دوتایی، حروف متقارن و...</p>
                                 </div>
-                                <p class="text-[11px] text-gray-400 mt-1">طول ۴ کاراکتر یا الگوهای تکرار دوتایی</p>
+
+                                <div class="p-4 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50/40 dark:bg-rose-900/10">
+                                    <label class="block text-xs font-bold text-rose-800 dark:text-rose-300 mb-1">
+                                        ضریب آیدی‌های طلایی و VIP (Golden Rond Multiplier)
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            v-model="idPricingForm.multiplier_golden_rond"
+                                            type="number"
+                                            step="0.1"
+                                            min="1"
+                                            required
+                                            class="w-full text-sm font-mono rounded-xl border-rose-300 dark:border-rose-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
+                                        />
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">&times; برابر</span>
+                                    </div>
+                                    <p class="text-[11px] text-gray-400 mt-1">کلمات کلیدی تجاری، تکرار کامل یک کاراکتر و...</p>
+                                </div>
                             </div>
 
-                            <div class="p-4 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10">
-                                <label class="block text-xs font-bold text-purple-800 dark:text-purple-300 mb-1">
-                                    آیدی‌های طلایی و VIP (Golden Rond)
-                                </label>
-                                <div class="relative">
-                                    <input
-                                        v-model="idPricingForm.golden_rond"
-                                        type="number"
-                                        step="0.0001"
-                                        min="0"
-                                        required
-                                        class="w-full text-sm font-mono rounded-xl border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
-                                    />
-                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
-                                </div>
-                                <p class="text-[11px] text-gray-400 mt-1">۳ کاراکتری، کلمات کلیدی VIP یا آینه‌ای</p>
-                            </div>
-
-                            <div class="sm:col-span-3 flex justify-end pt-2">
+                            <div class="flex justify-end pt-2">
                                 <button
                                     type="submit"
                                     :disabled="idPricingForm.processing"
-                                    class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                                    class="px-6 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50"
                                 >
-                                    {{ idPricingForm.processing ? 'در حال ثبت...' : 'ذخیره جدول تعرفه آیدی‌ها' }}
+                                    {{ idPricingForm.processing ? 'در حال ثبت...' : 'ذخیره جدول تعرفه و ضرایب آیدی‌ها' }}
                                 </button>
                             </div>
                         </form>
@@ -456,7 +535,7 @@ const formatCurrency = (val: string | number) => {
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 class="text-base font-bold text-gray-900 dark:text-white">
-                            مدیریت پسوندهای مجاز (TLDs) و نرخ‌گذاری دامنه‌ها
+                            مدیریت پسوندهای مجاز و نرخ‌گذاری دامنه‌ها
                         </h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                             تعریف پسوندهای جدید، نرخ پایه هر پسوند و ضریب تصاعدی دامنه‌های رند
@@ -466,11 +545,20 @@ const formatCurrency = (val: string | number) => {
                     <div class="flex items-center gap-3">
                         <button
                             type="button"
+                            @click="toggleActive(web3_domains.definition_id)"
+                            class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
+                            :class="web3_domains.is_active ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'"
+                        >
+                            {{ web3_domains.is_active ? 'سرویس دامنه: فعال' : 'سرویس دامنه: غیرفعال' }}
+                        </button>
+
+                        <button
+                            type="button"
                             @click="togglePurchasable(web3_domains.definition_id)"
                             class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                             :class="web3_domains.is_purchasable ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                         >
-                            {{ web3_domains.is_purchasable ? 'خرید دامنه‌ها: فعال' : 'خرید دامنه‌ها: غیرفعال' }}
+                            {{ web3_domains.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
                         </button>
                         <button
                             type="button"
@@ -480,7 +568,7 @@ const formatCurrency = (val: string | number) => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
-                            افزودن پسوند TLD جدید
+                            افزودن پسوند جدید
                         </button>
                     </div>
                 </div>

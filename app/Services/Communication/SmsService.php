@@ -192,7 +192,7 @@ class SmsService implements SmsServiceInterface
         ];
     }
 
-    public function calculateCost(string $body, ?PhoneNumber $fromNumber = null, int $recipientCount = 1): array
+    public function calculateCost(string $body, ?PhoneNumber $fromNumber = null, int $recipientCount = 1, ?string $sampleDestination = null): array
     {
         $recipientCount = max(1, $recipientCount);
         $charLength = mb_strlen($body, 'UTF-8');
@@ -208,11 +208,28 @@ class SmsService implements SmsServiceInterface
         }
         $parts = max(1, $parts);
 
-        // Tariff from prefix or system setting
-        $prefixTariff = $fromNumber?->prefix?->sms_tariff;
-        $tariffPerPart = $prefixTariff !== null && (float) $prefixTariff > 0
-            ? (float) $prefixTariff
-            : (float) SystemSetting::get('default_sms_tariff', 0.0500);
+        // Determine tariff per part based on destination and prefix:
+        $fromNumber?->loadMissing('prefix');
+        $fromPrefix = $fromNumber?->prefix;
+
+        if ($sampleDestination !== null && (str_starts_with($sampleDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $sampleDestination))) {
+            // ID message tariff
+            $tariffPerPart = (float) SystemSetting::get('id_sms_rate', 0.0200);
+        } else {
+            // If sample destination is provided, check if intra or inter
+            $isIntra = true;
+            if ($sampleDestination !== null && $fromPrefix) {
+                $cleanDest = preg_replace('/^\+/', '', trim($sampleDestination));
+                $cleanPrefix = preg_replace('/^\+/', '', $fromPrefix->prefix);
+                $isIntra = $cleanPrefix !== '' && str_starts_with($cleanDest, $cleanPrefix);
+            }
+
+            if ($isIntra) {
+                $tariffPerPart = (float) ($fromPrefix?->getIntraSmsRate() ?? SystemSetting::get('sms_intra_prefix_rate', 0.0500));
+            } else {
+                $tariffPerPart = (float) ($fromPrefix?->getInterSmsRate() ?? SystemSetting::get('sms_inter_prefix_rate', 0.1200));
+            }
+        }
 
         $totalCost = (float) bcmul((string) ($parts * $recipientCount), (string) $tariffPerPart, 4);
 

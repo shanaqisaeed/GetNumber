@@ -24,6 +24,10 @@ class PhonePrefix extends Model
         'price_semi_rond',
         'price_golden_rond',
         'sms_price_per_segment',
+        'sms_intra_prefix_rate',
+        'sms_inter_prefix_rate',
+        'voice_intra_prefix_rate',
+        'voice_inter_prefix_rate',
         'inbound_sms_price',
         'is_default',
         'is_active',
@@ -39,8 +43,44 @@ class PhonePrefix extends Model
             'price_semi_rond' => 'decimal:4',
             'price_golden_rond' => 'decimal:4',
             'sms_price_per_segment' => 'decimal:4',
+            'sms_intra_prefix_rate' => 'decimal:4',
+            'sms_inter_prefix_rate' => 'decimal:4',
+            'voice_intra_prefix_rate' => 'decimal:4',
+            'voice_inter_prefix_rate' => 'decimal:4',
             'inbound_sms_price' => 'decimal:4',
         ];
+    }
+
+    /**
+     * Get outbound intra-prefix SMS rate (same prefix).
+     */
+    public function getIntraSmsRate(): string
+    {
+        return (string) ($this->sms_intra_prefix_rate ?: $this->sms_price_per_segment ?: SystemSetting::get('sms_intra_prefix_rate', '0.0500'));
+    }
+
+    /**
+     * Get outbound inter-prefix SMS rate (other prefix / external).
+     */
+    public function getInterSmsRate(): string
+    {
+        return (string) ($this->sms_inter_prefix_rate ?: SystemSetting::get('sms_inter_prefix_rate', '0.1200'));
+    }
+
+    /**
+     * Get voice call rate per minute for intra-prefix calls.
+     */
+    public function getIntraVoiceRate(): string
+    {
+        return (string) ($this->voice_intra_prefix_rate ?: SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
+    }
+
+    /**
+     * Get voice call rate per minute for inter-prefix calls.
+     */
+    public function getInterVoiceRate(): string
+    {
+        return (string) ($this->voice_inter_prefix_rate ?: SystemSetting::get('voice_inter_prefix_rate', '0.2500'));
     }
 
     /**

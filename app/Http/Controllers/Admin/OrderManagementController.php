@@ -83,7 +83,11 @@ class OrderManagementController extends Controller
             ]);
 
         $pendingCount = ServiceOrder::whereIn('status', ['pending', 'held', 'reviewing'])->count();
-        $services = ServiceDefinition::orderBy('sort_order')->get(['id', 'key', 'title']);
+        $services = ServiceDefinition::orderBy('sort_order')->get()->map(fn ($s) => [
+            'id' => $s->id,
+            'key' => $s->key,
+            'title' => $s->title ?: $s->key,
+        ]);
 
         return Inertia::render('Admin/Orders/Index', [
             'orders' => $orders,

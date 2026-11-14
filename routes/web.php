@@ -245,6 +245,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('/users/search', [AdminUserController::class, 'search'])->name('users.search');
     Route::get('/users/create', [AdminUserController::class, 'create'])->name('users.create');
     Route::post('/users', [AdminUserController::class, 'store'])->name('users.store');
+    Route::get('/users/{user}/edit', [AdminUserController::class, 'edit'])->name('users.edit');
     Route::patch('/users/{user}', [AdminUserController::class, 'update'])->name('users.update');
     Route::patch('/users/{user}/status', [AdminUserController::class, 'updateStatus'])->name('users.status');
     Route::get('/users/{user}/numbers', [AdminUserController::class, 'numbers'])->name('users.numbers');
@@ -279,6 +280,7 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin Services Management (Lines, IDs, Web3 Domains)
     Route::get('/services', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'index'])->name('services.index');
     Route::post('/services/definitions/{definition}/toggle-purchasable', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'togglePurchasable'])->name('services.definitions.toggle_purchasable');
+    Route::post('/services/definitions/{definition}/toggle-active', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'toggleActive'])->name('services.definitions.toggle_active');
     Route::post('/services/definitions/{definition}/approval-mode', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateApprovalMode'])->name('services.definitions.approval_mode');
     Route::post('/services/id-pricing', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateIdPricing'])->name('services.id_pricing');
     Route::post('/services/tld', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'storeTld'])->name('services.tld.store');
@@ -291,6 +293,11 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/services/allocations', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'allocateToUser'])->name('services.allocations.store');
     Route::patch('/services/allocations/{allocation}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'updateAllocation'])->name('services.allocations.update');
     Route::delete('/services/allocations/{allocation}', [\App\Http\Controllers\Admin\ServiceManagementController::class, 'destroyAllocation'])->name('services.allocations.destroy');
+
+    // Admin Dedicated Tariffs Management (SMS Intra/Inter, Voice Intra/Inter, ID-to-ID)
+    Route::get('/tariffs', [\App\Http\Controllers\Admin\TariffManagementController::class, 'index'])->name('tariffs.index');
+    Route::patch('/tariffs/prefixes/{prefix}', [\App\Http\Controllers\Admin\TariffManagementController::class, 'updatePrefix'])->name('tariffs.prefixes.update');
+    Route::post('/tariffs/global', [\App\Http\Controllers\Admin\TariffManagementController::class, 'updateGlobal'])->name('tariffs.global.update');
 
     // Admin API Token Management & Oversight
     Route::get('/api-tokens', [\App\Http\Controllers\Admin\ApiTokenController::class, 'index'])->name('api-tokens.index');

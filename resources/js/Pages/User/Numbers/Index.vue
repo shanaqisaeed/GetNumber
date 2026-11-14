@@ -159,6 +159,16 @@ const openVoiceDialerWithLine = (_line?: any) => {
 const allocations = computed(() => props.service_allocations || []);
 const customIdAllocations = computed(() => allocations.value.filter((a) => a.service_key === 'custom_id'));
 
+const isPhoneLinePurchasable = computed(() => {
+    const srv = props.service_catalog?.find(s => s.key === 'phone_line');
+    return srv ? (srv.is_active !== false && srv.is_purchasable !== false) : true;
+});
+
+const isCustomIdPurchasable = computed(() => {
+    const srv = props.service_catalog?.find(s => s.key === 'custom_id');
+    return srv ? (srv.is_active !== false && srv.is_purchasable !== false) : true;
+});
+
 // Search & Filter state
 const search = ref(props.filters.search || '');
 const typeFilter = ref(props.filters.type || '');
@@ -472,7 +482,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <button
                             type="button"
                             @click="openAllocateModal"
-                            :disabled="quota.active >= quota.max"
+                            :disabled="quota.active >= quota.max || !isPhoneLinePurchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40 shrink-0 whitespace-nowrap"
                         >
                             <span>+ تخصیص خط جدید</span>
@@ -481,7 +491,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <button
                             type="button"
                             @click="openCustomIdModal"
-                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15 shrink-0 whitespace-nowrap"
+                            :disabled="!isCustomIdPurchasable"
+                            class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15 disabled:opacity-40 shrink-0 whitespace-nowrap"
                         >
                             <span>+ ثبت آیدی اختصاصی</span>
                         </button>
@@ -528,10 +539,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <button
                             type="button"
                             @click="openAllocateModal"
-                            :disabled="quota.active >= quota.max"
+                            :disabled="quota.active >= quota.max || !isPhoneLinePurchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            + تخصیص خط جدید
+                            {{ isPhoneLinePurchasable ? '+ تخصیص خط جدید' : 'غیرفعال موقت' }}
                         </button>
                     </div>
                 </div>
@@ -564,9 +575,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <button
                             type="button"
                             @click="openCustomIdModal"
-                            class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl"
+                            :disabled="!isCustomIdPurchasable"
+                            class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            + ثبت آیدی اختصاصی
+                            {{ isCustomIdPurchasable ? '+ ثبت آیدی اختصاصی' : 'غیرفعال موقت' }}
                         </button>
                     </div>
                 </div>

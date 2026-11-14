@@ -253,6 +253,83 @@ class UserController extends Controller
     }
 
     /**
+     * Show dedicated edit page for a user.
+     */
+    public function edit(User $user): Response
+    {
+        $user->load([
+            'wallet',
+            'phoneNumbers' => function ($q) {
+                $q->with('prefix')->latest('id');
+            },
+            'serviceAllocations' => function ($q) {
+                $q->with('serviceDefinition')->latest('id');
+            },
+        ]);
+
+        $auditLogs = AuditLog::where('target_id', $user->id)
+            ->orWhere('actor_id', $user->id)
+            ->latest('id')
+            ->limit(10)
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'description' => $log->description,
+                'created_at' => $log->created_at->format('Y/m/d H:i:s'),
+                'actor' => $log->actor ? $log->actor->name : 'سیستم',
+            ]);
+
+        return Inertia::render('Admin/Users/Edit', [
+            'user' => [
+                'id' => $user->id,
+                'account_id' => $user->account_id,
+                'name' => $user->name,
+                'username' => $user->username,
+                'role' => $user->role->value,
+                'status' => $user->status->value,
+                'account_tier' => $user->account_tier ?? 'individual',
+                'organization_name' => $user->organization_name,
+                'enterprise_contract_code' => $user->enterprise_contract_code,
+                'wallet_balance' => (string) ($user->wallet?->balance ?? '0.0000'),
+                'created_at' => $user->created_at->format('Y/m/d H:i'),
+            ],
+            'phone_numbers' => $user->phoneNumbers->map(fn ($p) => [
+                'id' => $p->id,
+                'number' => $p->number,
+                'formatted_number' => $p->formatted_number,
+                'type' => $p->type->value,
+                'type_label' => $p->type->label(),
+                'status' => $p->status->value,
+                'status_label' => $p->status->label(),
+                'display_title' => $p->display_title,
+                'allocated_at' => $p->allocated_at?->format('Y/m/d H:i'),
+            ]),
+            'service_allocations' => $user->serviceAllocations->map(fn ($a) => [
+                'id' => $a->id,
+                'uuid' => $a->uuid,
+                'service_key' => $a->serviceDefinition?->key ?? $a->service_key,
+                'service_title' => $a->serviceDefinition?->title ?? $a->service_key,
+                'identifier' => $a->resource_identifier,
+                'display_title' => $a->display_title,
+                'status' => $a->status,
+                'allocated_at' => $a->allocated_at?->format('Y/m/d H:i'),
+            ]),
+            'audit_logs' => $auditLogs,
+            'roles' => [
+                ['value' => UserRole::User->value, 'label' => UserRole::User->label()],
+                ['value' => UserRole::Agent->value, 'label' => UserRole::Agent->label()],
+                ['value' => UserRole::Admin->value, 'label' => UserRole::Admin->label()],
+            ],
+            'statuses' => [
+                ['value' => UserStatus::Active->value, 'label' => UserStatus::Active->label()],
+                ['value' => UserStatus::Suspended->value, 'label' => UserStatus::Suspended->label()],
+                ['value' => UserStatus::Inactive->value, 'label' => UserStatus::Inactive->label()],
+            ],
+        ]);
+    }
+
+    /**
      * Update the specified user identity, role, status and credentials.
      */
     public function update(Request $request, User $user): RedirectResponse

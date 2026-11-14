@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
-import { router } from '@inertiajs/vue3';
+import { router, Link } from '@inertiajs/vue3';
 
 interface PrefixItem {
     id: number;
@@ -17,11 +17,28 @@ interface Props {
     isOpen: boolean;
     walletBalance?: string | number;
     activePrefixes?: PrefixItem[];
+    serviceCatalog?: Array<Record<string, any>>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     walletBalance: 0,
     activePrefixes: () => [],
+    serviceCatalog: () => [],
+});
+
+const isShortLineAvailable = computed(() => {
+    const s = props.serviceCatalog?.find(item => item.key === 'phone_line');
+    return s ? (s.is_active !== false && s.is_purchasable !== false) : true;
+});
+
+const isCustomIdAvailable = computed(() => {
+    const s = props.serviceCatalog?.find(item => item.key === 'custom_id');
+    return s ? (s.is_active !== false && s.is_purchasable !== false) : true;
+});
+
+const isWeb3DomainAvailable = computed(() => {
+    const s = props.serviceCatalog?.find(item => item.key === 'web3_email_package');
+    return s ? (s.is_active !== false && s.is_purchasable !== false) : true;
 });
 
 const emit = defineEmits<{
@@ -69,11 +86,7 @@ const idValidation = ref<{
 // Service 3: Web3 Domains state
 const requestedDomainName = ref<string>('');
 const selectedTld = ref<string>('web3');
-const availableTlds = ref<Array<{ id: number; tld: string; base_price: string }>>([
-    { id: 1, tld: 'web3', base_price: '50.0000' },
-    { id: 2, tld: 'id', base_price: '40.0000' },
-    { id: 3, tld: 'eth', base_price: '100.0000' },
-]);
+const availableTlds = ref<Array<{ id: number; tld: string; base_price: string; is_active?: boolean }>>([]);
 const domainValidation = ref<{
     loading: boolean;
     valid: boolean;
@@ -112,18 +125,22 @@ const fetchPoolNumbers = async () => {
     }
 };
 
-// Fetch only active TLDs from backend
+// Fetch strictly active TLDs from backend
 const fetchActiveTlds = async () => {
     try {
         const res = await axios.get(route('api.web3.active_tlds'));
         if (res.data?.tlds && res.data.tlds.length > 0) {
-            availableTlds.value = res.data.tlds;
-            if (!availableTlds.value.some(t => t.tld === selectedTld.value)) {
-                selectedTld.value = availableTlds.value[0].tld;
+            const activeOnly = res.data.tlds.filter((t: any) => t.is_active !== false);
+            availableTlds.value = activeOnly;
+            if (activeOnly.length > 0 && !activeOnly.some((t: any) => t.tld.replace(/^\./, '') === selectedTld.value.replace(/^\./, ''))) {
+                selectedTld.value = activeOnly[0].tld.replace(/^\./, '');
             }
         }
     } catch {
-        // keep defaults
+        availableTlds.value = [
+            { id: 1, tld: 'web3', base_price: '50.0000', is_active: true },
+            { id: 2, tld: 'dao', base_price: '40.0000', is_active: true },
+        ];
     }
 };
 
@@ -328,9 +345,15 @@ const selectService = (srv: ServiceType) => {
 };
 
 const canProceedToStep3 = computed(() => {
-    if (selectedService.value === 'short_line') return shortLineValidation.value.valid && !shortLineValidation.value.loading;
-    if (selectedService.value === 'custom_id') return idValidation.value.valid && !idValidation.value.loading;
-    if (selectedService.value === 'web3_domain') return domainValidation.value.valid && !domainValidation.value.loading;
+    if (selectedService.value === 'short_line') {
+        return shortLineValidation.value.valid && shortLineValidation.value.available !== false && !shortLineValidation.value.loading;
+    }
+    if (selectedService.value === 'custom_id') {
+        return idValidation.value.valid && idValidation.value.available !== false && !idValidation.value.loading;
+    }
+    if (selectedService.value === 'web3_domain') {
+        return domainValidation.value.valid && domainValidation.value.available !== false && !domainValidation.value.loading;
+    }
     return false;
 });
 
@@ -355,6 +378,9 @@ const submitFinalOrder = () => {
         order_context: 'organizational',
         payload: {
             service_key: serviceKey,
+            order_context: 'organizational',
+            allocation_mode: selectedService.value === 'short_line' ? 'enterprise_shortcode' : undefined,
+            requested_length: selectedService.value === 'short_line' ? shortLineLength.value : undefined,
             requested_identifier: finalIdentifier.value,
             preferred_number: requestedLineNumber.value || undefined,
             prefix_id: selectedPrefixId.value || undefined,
@@ -459,10 +485,17 @@ const formatPrice = (p: string | number) => {
                     <button
                         type="button"
                         @click="selectService('short_line')"
-                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-200 dark:border-indigo-500/20 hover:border-indigo-500"
+                        :disabled="!isShortLineAvailable"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all cursor-pointer group bg-gradient-to-br from-indigo-500/5 to-purple-500/5 border-indigo-200 dark:border-indigo-500/20"
+                        :class="isShortLineAvailable ? 'hover:scale-[1.02] hover:border-indigo-500' : 'opacity-40 cursor-not-allowed pointer-events-none'"
                     >
-                        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xl font-bold">
-                            📞
+                        <div class="flex items-center justify-between">
+                            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center text-xl font-bold">
+                                📞
+                            </div>
+                            <span v-if="!isShortLineAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                غیرفعال موقت
+                            </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
@@ -470,7 +503,7 @@ const formatPrice = (p: string | number) => {
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-bold">
-                            <span>انتخاب و پیکربندی</span>
+                            <span>{{ isShortLineAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -479,10 +512,17 @@ const formatPrice = (p: string | number) => {
                     <button
                         type="button"
                         @click="selectService('custom_id')"
-                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-200 dark:border-emerald-500/20 hover:border-emerald-500"
+                        :disabled="!isCustomIdAvailable"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all cursor-pointer group bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border-emerald-200 dark:border-emerald-500/20"
+                        :class="isCustomIdAvailable ? 'hover:scale-[1.02] hover:border-emerald-500' : 'opacity-40 cursor-not-allowed pointer-events-none'"
                     >
-                        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl font-bold">
-                            🆔
+                        <div class="flex items-center justify-between">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center text-xl font-bold">
+                                🆔
+                            </div>
+                            <span v-if="!isCustomIdAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                غیرفعال موقت
+                            </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
@@ -490,7 +530,7 @@ const formatPrice = (p: string | number) => {
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                            <span>انتخاب و پیکربندی</span>
+                            <span>{{ isCustomIdAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -499,10 +539,17 @@ const formatPrice = (p: string | number) => {
                     <button
                         type="button"
                         @click="selectService('web3_domain')"
-                        class="p-5 rounded-2xl border text-right space-y-3 transition-all hover:scale-[1.02] cursor-pointer group bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-amber-200 dark:border-amber-500/20 hover:border-amber-500"
+                        :disabled="!isWeb3DomainAvailable"
+                        class="p-5 rounded-2xl border text-right space-y-3 transition-all cursor-pointer group bg-gradient-to-br from-amber-500/5 to-orange-500/5 border-amber-200 dark:border-amber-500/20"
+                        :class="isWeb3DomainAvailable ? 'hover:scale-[1.02] hover:border-amber-500' : 'opacity-40 cursor-not-allowed pointer-events-none'"
                     >
-                        <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl font-bold">
-                            🌐
+                        <div class="flex items-center justify-between">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center text-xl font-bold">
+                                🌐
+                            </div>
+                            <span v-if="!isWeb3DomainAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                غیرفعال موقت
+                            </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
@@ -510,7 +557,7 @@ const formatPrice = (p: string | number) => {
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-bold">
-                            <span>انتخاب و پیکربندی</span>
+                            <span>{{ isWeb3DomainAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -901,12 +948,12 @@ const formatPrice = (p: string | number) => {
                     class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 flex items-center justify-between"
                 >
                     <span class="font-bold">⚠️ موجودی کیف‌پول شما جهت پرداخت این سفارش کافی نیست.</span>
-                    <a
-                        :href="route('payments.index')"
+                    <Link
+                        :href="route('wallet.deposit.create')"
                         class="px-3 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors"
                     >
                         شارژ کیف‌پول
-                    </a>
+                    </Link>
                 </div>
 
                 <!-- Error Alert -->

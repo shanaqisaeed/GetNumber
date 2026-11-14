@@ -207,9 +207,29 @@ class ValidationEngineController extends Controller
             ]);
         }
 
-        // Analyze Rarity
-        $basePrice = 30.0000;
+        // Resolve base price by length and rarity from custom_id ServiceDefinition
+        $idDef = ServiceDefinition::where('key', 'custom_id')->first();
+        $pricingConfig = $idDef?->pricing_config ?? [];
+        $len = strlen($cleanHandle);
+
+        if ($len <= 4) {
+            $basePrice = (float) ($pricingConfig['price_4_char'] ?? $pricingConfig['enterprise_short_4_price'] ?? 240.0000);
+        } elseif ($len === 5) {
+            $basePrice = (float) ($pricingConfig['price_5_char'] ?? $pricingConfig['enterprise_short_5_price'] ?? 140.0000);
+        } else {
+            $basePrice = (float) ($pricingConfig['price_6_plus_char'] ?? $pricingConfig['regular'] ?? 30.0000);
+        }
+
         $rarity = $this->idRarityEngine->analyze($cleanHandle, $basePrice);
+
+        // Apply custom rarity multiplier if configured
+        if ($rarity['tier'] === 'golden_rond' && ! empty($pricingConfig['multiplier_golden_rond'])) {
+            $rarity['multiplier'] = (float) $pricingConfig['multiplier_golden_rond'];
+            $rarity['calculated_price'] = (float) bcmul((string) $basePrice, (string) $rarity['multiplier'], 4);
+        } elseif ($rarity['tier'] === 'semi_rond' && ! empty($pricingConfig['multiplier_semi_rond'])) {
+            $rarity['multiplier'] = (float) $pricingConfig['multiplier_semi_rond'];
+            $rarity['calculated_price'] = (float) bcmul((string) $basePrice, (string) $rarity['multiplier'], 4);
+        }
 
         return response()->json([
             'available' => true,
@@ -221,7 +241,8 @@ class ValidationEngineController extends Controller
             'pattern_name' => $rarity['pattern_name'],
             'multiplier' => $rarity['multiplier'],
             'base_price' => $basePrice,
-            'final_price' => $rarity['calculated_price'],
+            'final_price' => (string) $rarity['calculated_price'],
+            'price' => (string) $rarity['calculated_price'],
             'currency' => 'COIN',
             'message' => "آیدی {$formattedHandle} آزاد و آماده ثبت سفارش می‌باشد.",
         ]);

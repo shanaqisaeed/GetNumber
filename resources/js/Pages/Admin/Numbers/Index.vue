@@ -668,44 +668,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeydown));
                             </td>
 
                             <td class="py-3.5 px-5 text-left">
-                                <div class="inline-flex items-center gap-1">
-                                    <!-- Edit line button -->
+                                <div class="inline-flex items-center">
+                                    <!-- Only single Edit link per requirement -->
                                     <Link
                                         :href="route('admin.numbers.edit', item.id)"
-                                        class="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-[11px] font-bold hover:bg-indigo-100 transition-colors inline-block"
-                                        title="ویرایش تخصصی و مانیتورینگ خط"
-                                    >ویرایش تخصصی</Link>
-
-                                    <!-- Assign button (if available) -->
-                                    <button
-                                        v-if="item.status === 'available'"
-                                        @click="openAssignModal(item)"
-                                        class="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 text-[11px] font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
-                                    >{{ __('admin.numbers.assign_btn') }}</button>
-
-                                    <!-- Release button (if allocated) -->
-                                    <button
-                                        v-if="item.status === 'allocated'"
-                                        @click="handleRelease(item)"
-                                        class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-rose-50 hover:text-rose-600 transition-colors cursor-pointer"
-                                    >{{ __('admin.numbers.release_btn') }}</button>
-
-                                    <!-- Status button -->
-                                    <button
-                                        @click="openStatusModal(item)"
-                                        class="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-[11px] font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                                    >{{ __('admin.numbers.status_btn') }}</button>
-
-                                    <!-- Delete button -->
-                                    <button
-                                        @click="handleDelete(item)"
-                                        class="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors cursor-pointer"
-                                        :title="__('admin.numbers.delete_tooltip')"
+                                        class="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors inline-flex items-center gap-1.5 shadow-xs"
                                     >
                                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                         </svg>
-                                    </button>
+                                        <span>ویرایش</span>
+                                    </Link>
                                 </div>
                             </td>
                         </tr>

@@ -51,18 +51,18 @@ class CustomIdServiceHandler extends AbstractServiceHandler
         $pricingConfig = $definition->pricing_config ?? config('service_policies.services.custom_id.pricing_config', []);
         $len = strlen($cleanHandle);
 
-        if ($len === 4) {
-            $basePrice = (string) ($pricingConfig['enterprise_short_4_price'] ?? '240.0000');
+        if ($len <= 4) {
+            $basePrice = (string) ($pricingConfig['price_4_char'] ?? $pricingConfig['enterprise_short_4_price'] ?? '240.0000');
             $tierBadge = 'vip_short';
         } elseif ($len === 5) {
-            $basePrice = (string) ($pricingConfig['enterprise_short_5_price'] ?? '140.0000');
+            $basePrice = (string) ($pricingConfig['price_5_char'] ?? $pricingConfig['enterprise_short_5_price'] ?? '140.0000');
             $tierBadge = 'vip_short';
         } elseif ($tierBadge === 'golden_rond') {
-            $basePrice = (string) ($pricingConfig['golden_rond_price'] ?? '120.0000');
+            $basePrice = (string) ($pricingConfig['golden_rond'] ?? $pricingConfig['golden_rond_price'] ?? '120.0000');
         } elseif ($tierBadge === 'semi_rond') {
-            $basePrice = (string) ($pricingConfig['semi_rond_price'] ?? '65.0000');
+            $basePrice = (string) ($pricingConfig['semi_rond'] ?? $pricingConfig['semi_rond_price'] ?? '65.0000');
         } else {
-            $basePrice = (string) ($plan?->base_price ?? $pricingConfig['standard_base_price'] ?? '30.0000');
+            $basePrice = (string) ($plan?->base_price ?? $pricingConfig['price_6_plus_char'] ?? $pricingConfig['regular'] ?? $pricingConfig['standard_base_price'] ?? '30.0000');
         }
 
         $priceData = $this->ruleEngine->calculateDiscountedPrice($basePrice, $policy);
