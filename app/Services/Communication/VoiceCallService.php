@@ -11,6 +11,7 @@ use App\Models\PhoneNumber;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\VoiceCall;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -65,6 +66,33 @@ class VoiceCallService implements VoiceCallServiceInterface
             );
         }
 
+        // Bridge & Signaling Orchestration (Go Voice Bridge Daemon)
+        $bridgeHost = SystemSetting::get('voice_bridge_host', '127.0.0.1');
+        $bridgeApiPort = (int) SystemSetting::get('voice_bridge_api_port', 49000);
+        $bridgeWsPort = (int) SystemSetting::get('voice_bridge_ws_port', 49001);
+        $bridgeEnabled = (bool) SystemSetting::get('voice_bridge_enabled', true);
+
+        $bridgeSessionId = null;
+        $pingMs = 22;
+
+        if ($bridgeEnabled) {
+            try {
+                $bridgeRes = Http::timeout(0.5)->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/start", [
+                    'call_id' => 0,
+                    'user_id' => $user->id,
+                    'source' => $fromNumber->number,
+                    'destination' => $cleanDestination,
+                ]);
+                if ($bridgeRes->successful()) {
+                    $bData = $bridgeRes->json();
+                    $bridgeSessionId = $bData['session']['id'] ?? null;
+                    $pingMs = (int) ($bData['session']['ping_ms'] ?? 22);
+                }
+            } catch (\Throwable) {
+                // Bridge daemon might not be running locally; gracefully fall back to native mock
+            }
+        }
+
         return VoiceCall::create([
             'user_id' => $user->id,
             'phone_number_id' => $fromNumber->id,
@@ -80,7 +108,10 @@ class VoiceCallService implements VoiceCallServiceInterface
             'cost' => 0.0000,
             'metadata' => [
                 'codec' => 'Opus/48000',
-                'mock_engine' => 'WebRTC-SIP-Stub-v1',
+                'ping_ms' => $pingMs,
+                'bridge_session_id' => $bridgeSessionId,
+                'bridge_ws_endpoint' => "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling",
+                'mock_engine' => $bridgeSessionId ? 'Go-VoiceBridge-v1' : 'WebRTC-SIP-Stub-v1',
             ],
         ]);
     }
@@ -129,6 +160,21 @@ class VoiceCallService implements VoiceCallServiceInterface
                 $meta = $voiceCall->metadata ?? [];
                 $meta['billing_error'] = $e->getMessage();
                 $voiceCall->metadata = $meta;
+            }
+        }
+
+        // Terminate bridge session if registered
+        $meta = $voiceCall->metadata ?? [];
+        if (! empty($meta['bridge_session_id'])) {
+            try {
+                $bridgeHost = SystemSetting::get('voice_bridge_host', '127.0.0.1');
+                $bridgeApiPort = (int) SystemSetting::get('voice_bridge_api_port', 49000);
+                Http::timeout(0.5)->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/end", [
+                    'session_id' => $meta['bridge_session_id'],
+                    'duration_seconds' => $costData['duration_seconds'],
+                ]);
+            } catch (\Throwable) {
+                // Ignore bridge connection timeout on teardown
             }
         }
 

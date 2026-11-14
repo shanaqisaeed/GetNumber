@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import UserLayout from '@/Layouts/UserLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import OrganizationalOrderWizard from '@/Components/OrganizationalOrderWizard.vue';
@@ -198,6 +199,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 <template>
     <UserLayout>
         <Head :title="__('catalog.enterprise_hub_title')" />
+
+        <!-- Breadcrumb Navigation -->
+        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'سازمانی' }]" class="mb-3" />
 
         <!-- Floating Toast Notification -->
         <teleport to="body">

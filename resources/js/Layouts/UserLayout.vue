@@ -7,7 +7,7 @@ import Breadcrumb from '@/Components/Breadcrumb.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import { useTheme } from '@/Composables/useTheme';
 import { PageProps } from '@/types';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 
 const page = usePage<PageProps>();
@@ -29,16 +29,96 @@ const handleUnreadCountUpdated = (e: any) => {
     }
 };
 
+// Global Incoming Voice Call state & Audio Ringtone engine
+interface IncomingCallState {
+    id: number;
+    caller: string;
+    callerName?: string;
+    line?: string;
+}
+
+const incomingCall = ref<IncomingCallState | null>(null);
+let audioCtx: AudioContext | null = null;
+let ringInterval: ReturnType<typeof setInterval> | null = null;
+
+const playRingSound = () => {
+    try {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContextClass) return;
+        audioCtx = new AudioContextClass();
+
+        const beep = () => {
+            if (!audioCtx || audioCtx.state === 'closed') return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+            osc.frequency.setValueAtTime(480, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 1.2);
+        };
+        beep();
+        ringInterval = setInterval(beep, 3000);
+    } catch {
+        // AudioContext policy handled gracefully
+    }
+};
+
+const stopRingSound = () => {
+    if (ringInterval) {
+        clearInterval(ringInterval);
+        ringInterval = null;
+    }
+    if (audioCtx) {
+        audioCtx.close().catch(() => {});
+        audioCtx = null;
+    }
+};
+
+const handleIncomingCallEvent = (e: any) => {
+    const detail = e.detail;
+    if (detail && detail.caller) {
+        incomingCall.value = {
+            id: detail.id || Date.now(),
+            caller: detail.caller,
+            callerName: detail.callerName || detail.caller,
+            line: detail.line || '',
+        };
+        playRingSound();
+    }
+};
+
+const acceptIncomingCall = () => {
+    stopRingSound();
+    if (incomingCall.value) {
+        const c = incomingCall.value;
+        incomingCall.value = null;
+        router.visit(route('calls.index', { to: c.caller, incoming: 1 }));
+    }
+};
+
+const declineIncomingCall = () => {
+    stopRingSound();
+    incomingCall.value = null;
+};
+
 onMounted(() => {
     if (typeof window !== 'undefined') {
         window.addEventListener('unread-count-updated', handleUnreadCountUpdated);
+        window.addEventListener('incoming-voice-call', handleIncomingCallEvent);
     }
 });
 
 onUnmounted(() => {
     if (typeof window !== 'undefined') {
         window.removeEventListener('unread-count-updated', handleUnreadCountUpdated);
+        window.removeEventListener('incoming-voice-call', handleIncomingCallEvent);
     }
+    stopRingSound();
 });
 
 const { isDark, toggleTheme } = useTheme();
@@ -89,21 +169,21 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
 
 const navItems = computed(() => [
     {
-        name: computed(() => __('ui.layouts.user.nav.dashboard')),
+        name: computed(() => 'خانه'),
         route: 'dashboard',
         href: route('dashboard'),
         active: route().current('dashboard'),
         icon: 'home',
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.numbers')),
-        route: 'numbers.*',
-        href: route('numbers.index'),
-        active: route().current('numbers.*'),
-        icon: 'phone',
+        name: computed(() => 'مخاطبین'),
+        route: 'contacts.*',
+        href: route('contacts.index'),
+        active: route().current('contacts.*'),
+        icon: 'contacts',
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.messages')),
+        name: computed(() => 'پیامک'),
         route: 'messages.*',
         href: route('messages.index'),
         active: route().current('messages.*'),
@@ -111,18 +191,11 @@ const navItems = computed(() => [
         badge: liveUnreadCount.value,
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.requests')),
-        route: 'requests.*',
-        href: route('requests.index'),
-        active: route().current('requests.*'),
-        icon: 'requests',
-    },
-    {
-        name: computed(() => __('ui.layouts.user.nav.profile')),
-        route: 'profile.*',
-        href: route('profile.edit'),
-        active: route().current('profile.*') || route().current('api-tokens.*') || route().current('tickets.*') || route().current('wallet.*'),
-        icon: 'user',
+        name: computed(() => 'تماس'),
+        route: 'calls.*',
+        href: route('calls.index'),
+        active: route().current('calls.*'),
+        icon: 'calls',
     },
 ]);
 </script>
@@ -158,6 +231,76 @@ const navItems = computed(() => [
                     <button @click="toastNotification = null" class="p-1 text-slate-400 hover:text-white text-xs">
                         ✕
                     </button>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Global Incoming Voice Call Alert Card -->
+        <transition
+            enter-active-class="transition ease-out duration-300"
+            enter-from-class="-translate-y-12 opacity-0 scale-90"
+            enter-to-class="translate-y-0 opacity-100 scale-100"
+            leave-active-class="transition ease-in duration-200"
+            leave-from-class="translate-y-0 opacity-100 scale-100"
+            leave-to-class="-translate-y-12 opacity-0 scale-90"
+        >
+            <div
+                v-if="incomingCall"
+                class="fixed top-5 left-1/2 -translate-x-1/2 z-[120] w-[92%] max-w-[440px] p-4 rounded-3xl border border-emerald-500/50 shadow-2xl backdrop-blur-2xl bg-slate-900/95 text-white"
+            >
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
+                            <span class="absolute inset-0 rounded-2xl bg-emerald-500/30 animate-ping"></span>
+                            <div class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50">
+                                <svg class="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <div class="min-w-0 space-y-0.5">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                    تماس صوتی ورودی
+                                </span>
+                                <span v-if="incomingCall.line" class="text-[10px] text-slate-400 truncate">
+                                    روی خط {{ incomingCall.line }}
+                                </span>
+                            </div>
+                            <div class="text-sm font-black font-mono tracking-wider truncate" dir="ltr">
+                                {{ incomingCall.callerName || incomingCall.caller }}
+                            </div>
+                            <div class="text-[11px] text-slate-400">
+                                در حال زنگ خوردن...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <div class="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            @click="declineIncomingCall"
+                            class="w-10 h-10 rounded-2xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/40 flex items-center justify-center transition-all"
+                            title="رد تماس"
+                        >
+                            <svg class="w-5 h-5 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="acceptIncomingCall"
+                            class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <span>پاسخ</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </transition>
@@ -315,30 +458,23 @@ const navItems = computed(() => [
 
                 <!-- Icon: Home / Dashboard -->
                 <svg v-if="item.icon === 'home'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
 
-                <!-- Icon: Phone / Numbers -->
-                <svg v-else-if="item.icon === 'phone'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <rect x="5" y="2" width="14" height="20" rx="2" stroke-linecap="round" stroke-linejoin="round"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18" stroke-linecap="round" stroke-linejoin="round"></line>
+                <!-- Icon: Contacts -->
+                <svg v-else-if="item.icon === 'contacts'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
 
                 <!-- Icon: Messages -->
                 <svg v-else-if="item.icon === 'chat'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
                 </svg>
 
-                <!-- Icon: Requests -->
-                <svg v-else-if="item.icon === 'requests'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                </svg>
-
-                <!-- Icon: User / Profile -->
-                <svg v-else-if="item.icon === 'user'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                <!-- Icon: Calls -->
+                <svg v-else-if="item.icon === 'calls'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
 
                 <span>{{ typeof item.name === 'function' || typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name }}</span>

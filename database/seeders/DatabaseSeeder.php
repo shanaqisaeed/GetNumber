@@ -24,6 +24,12 @@ class DatabaseSeeder extends Seeder
         $this->call(PhonePrefixSeeder::class);
         $this->call(ServiceCatalogSeeder::class);
 
+        // Seed Voice Bridge High Ports System Settings
+        \App\Models\SystemSetting::set('voice_bridge_host', '127.0.0.1');
+        \App\Models\SystemSetting::set('voice_bridge_api_port', 49000);
+        \App\Models\SystemSetting::set('voice_bridge_ws_port', 49001);
+        \App\Models\SystemSetting::set('voice_bridge_enabled', true);
+
         // Default System Administrator
         $admin = User::updateOrCreate(
             ['username' => 'admin'],

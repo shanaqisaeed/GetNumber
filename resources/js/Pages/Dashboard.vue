@@ -151,6 +151,136 @@ const isAllocateModalOpen = ref(false);
 // Computed helpers
 const creditBalance = computed(() => Math.floor(Number(props.wallet?.balance || 0)));
 const recentTransactions = computed(() => props.wallet?.recent_transactions || []);
+
+// Mobile OS Style App Grid (Every Single User Panel Feature Mapped to an App)
+const appLauncherItems = computed(() => [
+    {
+        id: 'wallet',
+        title: 'کیف پول و شارژ',
+        subtitle: `${creditBalance.value} TRX`,
+        href: route('wallet.deposit.create'),
+        gradient: 'from-amber-500 to-orange-500',
+        icon: 'wallet',
+        badge: null,
+    },
+    {
+        id: 'services',
+        title: 'سرویس‌ها و خطوط',
+        subtitle: `${props.quota.active} خط فعال`,
+        href: route('numbers.index'),
+        gradient: 'from-indigo-600 to-purple-600',
+        icon: 'phone',
+        badge: null,
+    },
+    {
+        id: 'enterprise',
+        title: 'خدمات سازمانی',
+        subtitle: 'سرشماره و برندینگ',
+        href: route('requests.index'),
+        gradient: 'from-blue-600 to-indigo-600',
+        icon: 'briefcase',
+        badge: props.stats.pending_requests > 0 ? `${props.stats.pending_requests}` : null,
+    },
+    {
+        id: 'contacts',
+        title: 'مخاطبین',
+        subtitle: 'دفترچه تلفن',
+        href: route('contacts.index'),
+        gradient: 'from-emerald-600 to-teal-600',
+        icon: 'contacts',
+        badge: null,
+    },
+    {
+        id: 'messages',
+        title: 'پیامک‌ها',
+        subtitle: 'صندوق پیام',
+        href: route('messages.index'),
+        gradient: 'from-sky-500 to-blue-600',
+        icon: 'chat',
+        badge: props.stats.unread_messages > 0 ? `${props.stats.unread_messages}` : null,
+    },
+    {
+        id: 'calls',
+        title: 'تماس صوتی',
+        subtitle: 'شماره‌گیر ابری',
+        href: route('calls.index'),
+        gradient: 'from-emerald-500 to-green-600',
+        icon: 'call',
+        badge: null,
+    },
+    {
+        id: 'transactions',
+        title: 'تراکنش‌ها',
+        subtitle: 'گردش حساب',
+        href: route('wallet.transactions'),
+        gradient: 'from-violet-600 to-purple-700',
+        icon: 'receipt',
+        badge: null,
+    },
+    {
+        id: 'tickets',
+        title: 'تیکت‌های پشتیبانی',
+        subtitle: 'پشتیبانی آنلاین',
+        href: route('tickets.index'),
+        gradient: 'from-rose-500 to-pink-600',
+        icon: 'ticket',
+        badge: (props.stats.answered_tickets || 0) > 0 ? `${props.stats.answered_tickets}` : null,
+    },
+    {
+        id: 'api_tokens',
+        title: 'کلید‌های API',
+        subtitle: 'دسترسی برنامه‌نویسی',
+        href: route('api-tokens.index'),
+        gradient: 'from-amber-400 to-amber-600',
+        icon: 'key',
+        badge: null,
+    },
+    {
+        id: 'profile_info',
+        title: 'اطلاعات حساب',
+        subtitle: 'مشخصات کاربری',
+        href: route('profile.edit', { tab: 'info' }),
+        gradient: 'from-slate-600 to-slate-800',
+        icon: 'user',
+        badge: null,
+    },
+    {
+        id: 'security',
+        title: 'امنیت و رمز',
+        subtitle: 'تغییر کلمه عبور',
+        href: route('profile.edit', { tab: 'security' }),
+        gradient: 'from-emerald-600 to-teal-700',
+        icon: 'shield',
+        badge: null,
+    },
+    {
+        id: 'identities',
+        title: 'روش‌های ورود',
+        subtitle: 'شناسه‌ها و 2FA',
+        href: route('profile.edit', { tab: 'identities' }),
+        gradient: 'from-indigo-500 to-blue-700',
+        icon: 'fingerprint',
+        badge: null,
+    },
+    {
+        id: 'sessions',
+        title: 'نشست‌های فعال',
+        subtitle: 'دستگاه‌های متصل',
+        href: route('profile.edit', { tab: 'sessions' }),
+        gradient: 'from-cyan-600 to-blue-700',
+        icon: 'devices',
+        badge: null,
+    },
+    {
+        id: 'delete_account',
+        title: 'حذف حساب',
+        subtitle: 'غیرفعال‌سازی',
+        href: route('profile.edit', { tab: 'danger' }),
+        gradient: 'from-red-600 to-rose-700',
+        icon: 'trash',
+        badge: null,
+    },
+]);
 </script>
 
 <template>
@@ -232,6 +362,108 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
                             <span class="truncate">{{ __('dashboard.charge_wallet_btn') }}</span>
                         </Link>
                     </div>
+                </div>
+            </div>
+
+            <!-- ========================================================================= -->
+            <!-- MOBILE OS APP LAUNCHER GRID (Every feature represented as a sleek App)   -->
+            <!-- ========================================================================= -->
+            <div class="p-4 sm:p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3.5">
+                <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                        <h2 class="text-xs font-black text-slate-900 dark:text-white">برنامه‌ها و امکانات سامانه</h2>
+                    </div>
+                    <span class="text-[10px] text-slate-400 font-bold">دسترسی سریع به همه امکانات</span>
+                </div>
+
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 gap-3">
+                    <Link
+                        v-for="app in appLauncherItems"
+                        :key="app.id"
+                        :href="app.href"
+                        class="p-2.5 rounded-2xl bg-slate-50/80 hover:bg-indigo-50/60 dark:bg-slate-800/40 dark:hover:bg-slate-800/80 border border-slate-200/60 dark:border-white/5 hover:border-indigo-500/30 flex flex-col items-center text-center transition-all group active:scale-95 shadow-xs relative"
+                    >
+                        <!-- Badge indicator if present -->
+                        <span
+                            v-if="app.badge"
+                            class="absolute top-1.5 left-1.5 px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono font-black text-[9px] shadow-sm z-10 animate-bounce"
+                        >
+                            {{ app.badge }}
+                        </span>
+
+                        <!-- App Squircle Icon -->
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-gradient-to-br flex items-center justify-center text-white shadow-md shadow-indigo-500/10 group-hover:scale-105 transition-transform shrink-0"
+                            :class="app.gradient"
+                        >
+                            <!-- Wallet -->
+                            <svg v-if="app.icon === 'wallet'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </svg>
+                            <!-- Phone Lines -->
+                            <svg v-else-if="app.icon === 'phone'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <rect x="5" y="2" width="14" height="20" rx="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></rect>
+                                <line x1="12" y1="18" x2="12.01" y2="18" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></line>
+                            </svg>
+                            <!-- Briefcase / Enterprise -->
+                            <svg v-else-if="app.icon === 'briefcase'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <!-- Contacts -->
+                            <svg v-else-if="app.icon === 'contacts'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <!-- Chat / SMS -->
+                            <svg v-else-if="app.icon === 'chat'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <!-- Call -->
+                            <svg v-else-if="app.icon === 'call'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <!-- Receipt / Transactions -->
+                            <svg v-else-if="app.icon === 'receipt'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z" />
+                            </svg>
+                            <!-- Ticket -->
+                            <svg v-else-if="app.icon === 'ticket'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+                            </svg>
+                            <!-- Key / API -->
+                            <svg v-else-if="app.icon === 'key'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                            <!-- User -->
+                            <svg v-else-if="app.icon === 'user'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                            </svg>
+                            <!-- Shield -->
+                            <svg v-else-if="app.icon === 'shield'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            <!-- Fingerprint / Identities -->
+                            <svg v-else-if="app.icon === 'fingerprint'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+                            </svg>
+                            <!-- Devices -->
+                            <svg v-else-if="app.icon === 'devices'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <!-- Trash / Danger -->
+                            <svg v-else-if="app.icon === 'trash'" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </div>
+
+                        <!-- App Title & Subtitle -->
+                        <span class="text-xs font-bold text-slate-800 dark:text-slate-100 mt-2 truncate w-full block">
+                            {{ app.title }}
+                        </span>
+                        <span class="text-[10px] text-slate-400 truncate w-full block mt-0.5">
+                            {{ app.subtitle }}
+                        </span>
+                    </Link>
                 </div>
             </div>
 

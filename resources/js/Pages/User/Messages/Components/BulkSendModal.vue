@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { calculateSmsSegments } from '@/Utils/smsCalculator';
+import ContactPickerModal, { type ContactItem } from '@/Components/ContactPickerModal.vue';
 
 const props = defineProps<{
     selectedLineId: number | null;
     tariffRate?: string;
+    initialRecipient?: string;
 }>();
 
 const emit = defineEmits<{
@@ -18,6 +20,21 @@ const recipientChips = ref<string[]>([]);
 const messageText = ref('');
 const isSending = ref(false);
 const sendFeedback = ref<{ success: boolean; message: string; results?: any[] } | null>(null);
+const isContactPickerOpen = ref(false);
+
+onMounted(() => {
+    if (props.initialRecipient) {
+        addRecipientChip(props.initialRecipient);
+    }
+});
+
+const handlePickerSingle = (c: ContactItem) => {
+    addRecipientChip(c.phone_number);
+};
+
+const handlePickerMultiple = (list: ContactItem[]) => {
+    list.forEach(c => addRecipientChip(c.phone_number));
+};
 
 // Bulk batch tracking state
 const activeBatch = ref<{
@@ -183,7 +200,19 @@ const submitSend = async () => {
         <!-- Recipient Field ("To:") -->
         <div class="glass-card !p-3.5 space-y-2 bg-white/95 dark:bg-slate-900/90 border-slate-200/90 dark:border-white/10">
             <div class="flex items-center justify-between">
-                <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ __('user.messages.recipient_label') }}</label>
+                <div class="flex items-center gap-2">
+                    <label class="text-[11px] font-bold text-slate-600 dark:text-slate-300">{{ __('user.messages.recipient_label') }}</label>
+                    <button
+                        type="button"
+                        @click="isContactPickerOpen = true"
+                        class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-0.5 rounded-lg hover:bg-indigo-500/10 transition-colors"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span>انتخاب از مخاطبین</span>
+                    </button>
+                </div>
                 <span v-if="recipientChips.length > 0" class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">
                     {{ __('user.messages.recipient_count', { count: recipientChips.length }) }}
                 </span>
@@ -289,6 +318,15 @@ const submitSend = async () => {
                 {{ __('user.messages.platform_disclaimer') }}
             </p>
         </div>
+
+        <!-- Contact Picker Modal -->
+        <ContactPickerModal
+            :show="isContactPickerOpen"
+            :allow-multiple="true"
+            @close="isContactPickerOpen = false"
+            @select="handlePickerSingle"
+            @select-multiple="handlePickerMultiple"
+        />
     </div>
 </template>
 

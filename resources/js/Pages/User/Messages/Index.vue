@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 
 // Subcomponents
 import LineSelector, { LineItem } from './Components/LineSelector.vue';
@@ -51,6 +52,7 @@ const conversationList = ref<ConversationItem[]>([...props.conversations]);
 const currentActivePeer = ref<string | null>(props.activePeer || null);
 const currentPeerInfo = ref<any>(props.activePeerDetails || null);
 const isComposingNew = ref<boolean>(false);
+const prefilledRecipient = ref<string>('');
 const searchQuery = ref(props.search || '');
 const isSendingMessage = ref<boolean>(false);
 
@@ -378,6 +380,22 @@ const handleEscape = (e: KeyboardEvent) => {
 
 onMounted(() => {
     window.addEventListener('keydown', handleEscape);
+    if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const toParam = params.get('to') || params.get('recipient') || params.get('phone');
+        if (toParam) {
+            const cleanTo = toParam.trim();
+            const existing = conversationList.value.find(
+                (c) => c.peer_number === cleanTo || c.peer_formatted === cleanTo
+            );
+            if (existing) {
+                selectConversation(existing);
+            } else {
+                prefilledRecipient.value = cleanTo;
+                isComposingNew.value = true;
+            }
+        }
+    }
 });
 
 onUnmounted(() => {
@@ -389,6 +407,9 @@ onUnmounted(() => {
     <Head :title="__('user.messages.page_title')" />
 
     <UserLayout>
+        <!-- Breadcrumb Navigation -->
+        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'پیامک‌ها' }]" class="mb-3" />
+
         <!-- Floating Toast Notification -->
         <teleport to="body">
             <transition
@@ -470,6 +491,7 @@ onUnmounted(() => {
                 <BulkSendModal
                     :selected-line-id="selectedLineId"
                     :tariff-rate="smsTariff?.rate_per_segment || '0.0500'"
+                    :initial-recipient="prefilledRecipient"
                     @close="closeChatOrComposer"
                     @sent="handleBulkSent"
                     @toast="showToast"

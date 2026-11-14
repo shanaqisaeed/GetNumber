@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
+import Breadcrumb from '@/Components/Breadcrumb.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 import VoiceCallModal from '@/Components/VoiceCallModal.vue';
 
@@ -399,6 +400,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
     <Head :title="__('catalog.module_title')" />
 
     <UserLayout>
+        <!-- Breadcrumb Navigation -->
+        <Breadcrumb :items="[{ label: 'پیشخوان', href: route('dashboard') }, { label: 'سرویس‌ها' }]" class="mb-3" />
+
         <!-- Floating Toast Notification -->
         <teleport to="body">
             <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 -translate-y-4 scale-95" enter-to-class="opacity-100 translate-y-0 scale-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 -translate-y-2 scale-95">
@@ -631,7 +635,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 {{ alloc.display_title }}
                             </span>
                         </div>
-                        <span class="text-[10px] text-emerald-500 font-bold">{{ __('catalog.ui.channel_ready_phase2') }}</span>
                     </div>
 
                     <div class="p-3 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between">

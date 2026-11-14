@@ -265,6 +265,9 @@ class UserController extends Controller
             'serviceAllocations' => function ($q) {
                 $q->with('serviceDefinition')->latest('id');
             },
+            'contacts' => function ($q) {
+                $q->latest('id');
+            },
         ]);
 
         $auditLogs = AuditLog::with('user')
@@ -320,6 +323,14 @@ class UserController extends Controller
                 'display_title' => $a->display_title,
                 'status' => $a->status,
                 'allocated_at' => $a->allocated_at?->format('Y/m/d H:i'),
+            ]),
+            'contacts' => $user->contacts->map(fn ($c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'phone_number' => $c->phone_number,
+                'avatar_color' => $c->avatar_color ?: 'indigo',
+                'notes' => $c->notes,
+                'created_at' => $c->created_at?->format('Y/m/d H:i'),
             ]),
             'audit_logs' => $auditLogs,
             'roles' => [

@@ -201,6 +201,13 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/two-factor/disable', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'destroy'])->name('two-factor.disable');
     Route::post('/two-factor/recovery-codes', [\App\Http\Controllers\User\TwoFactorAuthenticationController::class, 'regenerateRecoveryCodes'])->name('two-factor.recovery-codes');
 
+    // Dedicated User Contacts Directory & Picker API
+    Route::get('/contacts', [\App\Http\Controllers\User\ContactController::class, 'index'])->name('contacts.index');
+    Route::post('/contacts', [\App\Http\Controllers\User\ContactController::class, 'store'])->name('contacts.store');
+    Route::patch('/contacts/{contact}', [\App\Http\Controllers\User\ContactController::class, 'update'])->name('contacts.update');
+    Route::delete('/contacts/{contact}', [\App\Http\Controllers\User\ContactController::class, 'destroy'])->name('contacts.destroy');
+    Route::get('/contacts/picker', [\App\Http\Controllers\User\ContactController::class, 'pickerJson'])->name('contacts.picker');
+
     // Voice Calling & WebRTC Mock Infrastructure
     Route::get('/calls', [\App\Http\Controllers\User\VoiceCallController::class, 'index'])->name('calls.index');
     Route::post('/calls/contacts', [\App\Http\Controllers\User\VoiceCallController::class, 'storeContact'])->name('calls.contacts.store');
@@ -311,6 +318,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/messages/send', [\App\Http\Controllers\Admin\MessageController::class, 'send'])->name('messages.send');
     Route::get('/messages/poll', [\App\Http\Controllers\Admin\MessageController::class, 'poll'])->name('messages.poll');
     Route::delete('/messages/{message}', [\App\Http\Controllers\Admin\MessageController::class, 'destroy'])->name('messages.destroy');
+
+    // Admin Voice Call Logs & Communication Oversight
+    Route::get('/calls', [\App\Http\Controllers\Admin\VoiceCallLogController::class, 'index'])->name('calls.index');
 
     // Admin Audit Logs & Security Trails
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');

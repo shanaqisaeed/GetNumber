@@ -58,16 +58,26 @@ interface AuditLogItem {
     actor: string;
 }
 
+interface ContactItem {
+    id: number;
+    name: string;
+    phone_number: string;
+    avatar_color: string;
+    notes: string | null;
+    created_at: string;
+}
+
 const props = defineProps<{
     user: UserData;
     phone_numbers: NumberItem[];
     service_allocations: ServiceAllocationItem[];
+    contacts?: ContactItem[];
     audit_logs: AuditLogItem[];
     roles: RoleOption[];
     statuses: StatusOption[];
 }>();
 
-const activeTab = ref<'profile' | 'wallet' | 'resources' | 'audit'>('profile');
+const activeTab = ref<'profile' | 'wallet' | 'resources' | 'contacts' | 'audit'>('profile');
 
 // User Profile & Account Form
 const profileForm = useForm({
@@ -205,6 +215,16 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
                 >
                     📞 خطوط و آیدی‌های فعال ({{ phone_numbers.length + service_allocations.length }})
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'contacts'"
+                    class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'contacts'
+                        ? 'bg-blue-600 text-white shadow-md shadow-blue-600/20'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
+                >
+                    👥 مخاطبین کاربر ({{ contacts?.length || 0 }})
                 </button>
                 <button
                     type="button"
@@ -497,7 +517,51 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                 </div>
             </div>
 
-            <!-- TAB 4: Audit Logs -->
+            <!-- TAB 4: Contacts List -->
+            <div v-else-if="activeTab === 'contacts'" class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">مخاطبین ذخیره‌شده کاربر</h3>
+                        <p class="text-xs text-slate-400 mt-0.5">لیست افرادی که کاربر در دفترچه تلفن و آدرس‌بوک خود ذخیره کرده است</p>
+                    </div>
+                    <span class="text-xs font-mono font-bold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        مجموع: {{ contacts?.length || 0 }} مخاطب
+                    </span>
+                </div>
+
+                <div v-if="contacts && contacts.length > 0" class="overflow-x-auto">
+                    <table class="w-full text-right text-xs">
+                        <thead>
+                            <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                                <th class="py-2.5 px-3">نام مخاطب</th>
+                                <th class="py-2.5 px-3">شماره / آیدی</th>
+                                <th class="py-2.5 px-3">یادداشت</th>
+                                <th class="py-2.5 px-3">تاریخ ثبت</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                            <tr v-for="contact in contacts" :key="contact.id">
+                                <td class="py-3 px-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                    <div class="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-bold flex items-center justify-center text-xs">
+                                        {{ contact.name.charAt(0) }}
+                                    </div>
+                                    <span>{{ contact.name }}</span>
+                                </td>
+                                <td class="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">
+                                    {{ contact.phone_number }}
+                                </td>
+                                <td class="py-3 px-3 text-slate-500 dark:text-slate-400">{{ contact.notes || '-' }}</td>
+                                <td class="py-3 px-3 font-mono text-[11px]" dir="ltr">{{ contact.created_at || '-' }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-else class="text-center py-8 text-xs text-slate-400">
+                    این کاربر هنوز مخاطبی در دفترچه تلفن خود ذخیره نکرده است.
+                </div>
+            </div>
+
+            <!-- TAB 5: Audit Logs -->
             <div v-else-if="activeTab === 'audit'" class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4">
                 <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div>
