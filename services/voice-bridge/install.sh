@@ -33,6 +33,8 @@ API_PORT="${API_PORT:-49000}"
 WS_PORT="${WS_PORT:-49001}"
 HOST="${HOST:-0.0.0.0}"
 SECRET="${SECRET:-}"
+CALLBACK_URL="${BRIDGE_CALLBACK_URL:-}"
+CLEAN_INSTALL=false
 NON_INTERACTIVE=false
 
 # 3. Parse command line flags
@@ -54,6 +56,14 @@ while [[ $# -gt 0 ]]; do
             SECRET="$2"
             shift 2
             ;;
+        --callback-url|-c)
+            CALLBACK_URL="$2"
+            shift 2
+            ;;
+        --clean|--reinstall)
+            CLEAN_INSTALL=true
+            shift
+            ;;
         --yes|-y|--non-interactive)
             NON_INTERACTIVE=true
             shift
@@ -62,17 +72,20 @@ while [[ $# -gt 0 ]]; do
             echo "Usage: sudo bash install.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --api-port, -a <port>   Set REST API port (default: 49000)"
-            echo "  --ws-port,  -w <port>   Set WebSocket port (default: 49001)"
-            echo "  --host,     -h <ip>     Set bind host (default: 0.0.0.0)"
-            echo "  --secret,   -s <token>  Set custom secret token (default: auto-generate)"
-            echo "  --yes,      -y          Non-interactive mode (use defaults or passed args)"
-            echo "  --help                  Show this help message"
+            echo "  --api-port,     -a <port>  Set REST API port (default: 49000)"
+            echo "  --ws-port,      -w <port>  Set WebSocket port (default: 49001)"
+            echo "  --host,         -h <ip>    Set bind host (default: 0.0.0.0)"
+            echo "  --secret,       -s <token> Set custom secret token (default: auto-generate)"
+            echo "  --callback-url, -c <url>   Set default Laravel webhook callback URL"
+            echo "  --clean,        --reinstall Completely wipe old service and files first"
+            echo "  --yes,          -y         Non-interactive mode (use defaults or passed args)"
+            echo "  --help                     Show this help message"
             echo ""
             echo "Examples:"
             echo "  sudo bash install.sh"
-            echo "  sudo bash install.sh --api-port 50000 --ws-port 50001"
-            echo "  sudo API_PORT=50000 WS_PORT=50001 bash install.sh -y"
+            echo "  sudo bash install.sh --clean"
+            echo "  sudo bash install.sh --api-port 49000 --ws-port 49001 --clean"
+            echo "  sudo bash install.sh --callback-url https://your-domain.com/api/voice/bridge-event"
             exit 0
             ;;
         *)
@@ -122,9 +135,25 @@ SERVICE_NAME="getnumber-voice-bridge"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# If clean reinstall requested, clean up first
+if [ "$CLEAN_INSTALL" = true ]; then
+    echo -e "\n${YELLOW}🧹 Clean reinstall requested. Stopping and wiping old service...${NC}"
+    systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
+    systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
+    rm -f "${SERVICE_FILE}"
+    systemctl daemon-reload 2>/dev/null || true
+    pkill -9 -f "voice-bridge" 2>/dev/null || true
+fi
+
 echo -e "\n${BLUE}[1/5] Preparing installation directory...${NC}"
 mkdir -p "${INSTALL_DIR}"
 chmod 755 "${INSTALL_DIR}"
+
+# If secret is empty, check if one already exists in .secret to preserve it across reinstalls
+if [ -z "$SECRET" ] && [ -f "${INSTALL_DIR}/.secret" ] && [ "$CLEAN_INSTALL" = false ]; then
+    SECRET=$(cat "${INSTALL_DIR}/.secret" | tr -d '\r\n ')
+    echo -e "${GREEN}✓ Reusing existing bridge secret: ${SECRET}${NC}"
+fi
 
 # If custom secret was provided, pre-create the secret file
 if [ -n "$SECRET" ]; then
@@ -132,11 +161,12 @@ if [ -n "$SECRET" ]; then
     chmod 600 "${INSTALL_DIR}/.secret"
 fi
 
-# Write environment file with configured ports
+# Write environment file with configured ports and callback URL
 cat > "${INSTALL_DIR}/.env" << EOF
 BRIDGE_HOST=${HOST}
 BRIDGE_API_PORT=${API_PORT}
 BRIDGE_WS_PORT=${WS_PORT}
+BRIDGE_CALLBACK_URL=${CALLBACK_URL}
 EOF
 chmod 600 "${INSTALL_DIR}/.env"
 
@@ -238,13 +268,13 @@ echo -e "🔑 ${YELLOW}BRIDGE SECRET TOKEN:${NC} ${GREEN}${SECRET}${NC}"
 echo -e "💾 Configuration File:   ${BLUE}${INSTALL_DIR}/.env${NC}"
 echo -e "------------------------------------------------------------------"
 echo -e "\n${CYAN}👉 PLEASE CONFIGURE YOUR LARAVEL ADMIN PANEL:${NC}"
-echo -e "1. Go to: ${BLUE}Admin Panel -> Settings -> Voice Bridge (بریج صوتی)${NC}"
+echo -e "1. Go to: ${BLUE}Admin Panel -> Settings -> Voice Bridge${NC}"
 echo -e "2. Enter Host:        ${YELLOW}${SERVER_IP}${NC}"
 echo -e "3. Enter API Port:    ${YELLOW}${API_PORT}${NC}"
 echo -e "4. Enter WS Port:     ${YELLOW}${WS_PORT}${NC}"
 echo -e "5. Enter Secret:      ${GREEN}${SECRET}${NC}"
-echo -e "6. Click ${GREEN}'تست اتصال به سرور بریج'${NC} to confirm connection and authentication!"
-echo -e "7. Click ${GREEN}'ذخیره تنظیمات سرور بریج صوتی'${NC}"
+echo -e "6. Click ${GREEN}'Test Bridge Server Connection'${NC} to confirm connection and authentication!"
+echo -e "7. Click ${GREEN}'Save Audio Bridge Server Settings'${NC}"
 echo -e "\n${CYAN}🛠️ Useful Commands on this Ubuntu Server:${NC}"
 echo -e "• Check status:     ${YELLOW}systemctl status ${SERVICE_NAME}${NC}"
 echo -e "• View live logs:   ${YELLOW}journalctl -u ${SERVICE_NAME} -f${NC}"

@@ -28,11 +28,12 @@ import (
 // --- CONFIGURATION ---
 
 type Config struct {
-	Host       string
-	APIPort    int
-	WSPort     int
-	Secret     string
-	SecretFile string
+	Host        string
+	APIPort     int
+	WSPort      int
+	Secret      string
+	SecretFile  string
+	CallbackURL string
 }
 
 func loadConfig() Config {
@@ -42,6 +43,7 @@ func loadConfig() Config {
 	flagWSPort := flag.Int("ws-port", 0, "WebSocket signaling port (default 49001 or BRIDGE_WS_PORT)")
 	flagSecret := flag.String("secret", "", "Bridge authentication secret token")
 	flagSecretFile := flag.String("secret-file", "", "Path to .secret file")
+	flagCallbackURL := flag.String("callback-url", "", "Default Laravel webhook callback URL")
 	flag.Parse()
 
 	// Host
@@ -133,12 +135,18 @@ func loadConfig() Config {
 		log.Printf("[Voice Bridge] 💾 Saved secret to file: %s", secretFile)
 	}
 
+	callbackURL := *flagCallbackURL
+	if callbackURL == "" {
+		callbackURL = strings.TrimSpace(os.Getenv("BRIDGE_CALLBACK_URL"))
+	}
+
 	return Config{
-		Host:       host,
-		APIPort:    apiPort,
-		WSPort:     wsPort,
-		Secret:     secret,
-		SecretFile: secretFile,
+		Host:        host,
+		APIPort:     apiPort,
+		WSPort:      wsPort,
+		Secret:      secret,
+		SecretFile:  secretFile,
+		CallbackURL: callbackURL,
 	}
 }
 
@@ -303,16 +311,18 @@ type WSMessage struct {
 
 type SignalingHub struct {
 	sync.RWMutex
-	conns  map[net.Conn]string // conn -> sessionID
-	store  *SessionStore
-	secret string
+	conns              map[net.Conn]string // conn -> sessionID
+	store              *SessionStore
+	secret             string
+	defaultCallbackURL string
 }
 
-func NewSignalingHub(store *SessionStore, secret string) *SignalingHub {
+func NewSignalingHub(store *SessionStore, secret string, defaultCallbackURL string) *SignalingHub {
 	return &SignalingHub{
-		conns:  make(map[net.Conn]string),
-		store:  store,
-		secret: secret,
+		conns:              make(map[net.Conn]string),
+		store:              store,
+		secret:             secret,
+		defaultCallbackURL: defaultCallbackURL,
 	}
 }
 
@@ -519,11 +529,13 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		sess, hasSess := hub.store.Get(msg.SessionID)
 		srcNum := "مبدأ"
 		dstNum := "مقصد"
-		callbackURL := ""
+		callbackURL := hub.defaultCallbackURL
 		if hasSess {
 			srcNum = sess.Source
 			dstNum = sess.Destination
-			callbackURL = sess.CallbackURL
+			if sess.CallbackURL != "" {
+				callbackURL = sess.CallbackURL
+			}
 			hub.store.End(msg.SessionID, 0)
 		}
 		log.Printf("[VOICE-BRIDGE] 🛑 سیگنال قطع تماس از طرف یکی از کاربران دریافت شد (%s <-> %s | نشست: %s)", srcNum, dstNum, msg.SessionID)
@@ -689,12 +701,13 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":            "ok",
 			"service":           "GetNumber Voice Bridge Daemon",
-			"version":           "1.1.0",
+			"version":           "1.2.0",
 			"uptime_seconds":    uptime,
 			"active_sessions":   store.TotalActive(),
 			"bridge_host":       cfg.Host,
 			"api_port":          cfg.APIPort,
 			"ws_port":           cfg.WSPort,
+			"callback_url":      cfg.CallbackURL,
 			"auth_required":     cfg.Secret != "",
 			"auth_valid":        authValid,
 			"timestamp":         time.Now().Format(time.RFC3339),
@@ -732,7 +745,12 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 			return
 		}
 
-		session := store.Create(req.CallID, req.UserID, req.Source, req.Destination, req.CallbackURL)
+		effectiveCallback := req.CallbackURL
+		if effectiveCallback == "" {
+			effectiveCallback = cfg.CallbackURL
+		}
+
+		session := store.Create(req.CallID, req.UserID, req.Source, req.Destination, effectiveCallback)
 		log.Printf("[VOICE-BRIDGE] 📞 نشست تماس جدید ثبت شد: شماره مبدأ: %s -> شماره مقصد: %s | شناسه نشست: %s | کاربر: %d", req.Source, req.Destination, session.ID, req.UserID)
 
 		w.Header().Set("Content-Type", "application/json")
@@ -773,8 +791,12 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 
 		log.Printf("[VOICE-BRIDGE] ⏹️ پایان نشست تماس: شماره مبدأ: %s <-> شماره مقصد: %s | مدت مکالمه: %d ثانیه | شناسه نشست: %s", sess.Source, sess.Destination, sess.DurationSec, sess.ID)
 
-		if sess.CallbackURL != "" {
-			notifyLaravelWebhook(sess.CallbackURL, cfg.Secret, "session_ended", sess.ID, sess.DurationSec)
+		callbackURL := sess.CallbackURL
+		if callbackURL == "" {
+			callbackURL = cfg.CallbackURL
+		}
+		if callbackURL != "" {
+			notifyLaravelWebhook(callbackURL, cfg.Secret, "session_ended", sess.ID, sess.DurationSec)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -837,13 +859,16 @@ func main() {
 	cfg := loadConfig()
 	startTime := time.Now()
 	store := NewSessionStore()
-	hub := NewSignalingHub(store, cfg.Secret)
+	hub := NewSignalingHub(store, cfg.Secret, cfg.CallbackURL)
 
 	fmt.Println("==================================================================")
 	fmt.Println("🚀 GetNumber Voice Bridge & High-Port Audio Signaling Daemon")
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)
+	if cfg.CallbackURL != "" {
+		fmt.Printf("🌐 Default Callback:      %s\n", cfg.CallbackURL)
+	}
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("🔑 BRIDGE SECRET TOKEN:   %s\n", cfg.Secret)
 	fmt.Printf("💾 Secret File:            %s\n", cfg.SecretFile)
