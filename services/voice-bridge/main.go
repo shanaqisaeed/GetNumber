@@ -154,19 +154,20 @@ func loadConfig() Config {
 // --- CALL SESSION STORE ---
 
 type CallSession struct {
-	ID          string    `json:"id"`
-	CallID      int64     `json:"call_id"`
-	UserID      int64     `json:"user_id"`
-	Source      string    `json:"source"`
-	Destination string    `json:"destination"`
-	Status      string    `json:"status"` // initiated, ringing, active, completed
-	Codec       string    `json:"codec"`
-	PingMs      int       `json:"ping_ms"`
-	DurationSec int       `json:"duration_sec"`
-	CallbackURL string    `json:"callback_url,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	StartedAt   time.Time `json:"started_at"`
-	EndedAt     time.Time `json:"ended_at,omitempty"`
+	ID              string      `json:"id"`
+	CallID          int64       `json:"call_id"`
+	UserID          int64       `json:"user_id"`
+	Source          string      `json:"source"`
+	Destination     string      `json:"destination"`
+	Status          string      `json:"status"` // initiated, ringing, active, completed
+	Codec           string      `json:"codec"`
+	PingMs          int         `json:"ping_ms"`
+	DurationSec     int         `json:"duration_sec"`
+	CallbackURL     string      `json:"callback_url,omitempty"`
+	BufferedSignals []WSMessage `json:"-"`
+	CreatedAt       time.Time   `json:"created_at"`
+	StartedAt       time.Time   `json:"started_at"`
+	EndedAt         time.Time   `json:"ended_at,omitempty"`
 }
 
 type SessionStore struct {
@@ -186,20 +187,56 @@ func (s *SessionStore) Create(callID, userID int64, source, destination, callbac
 
 	uuid := generateID()
 	session := &CallSession{
-		ID:          uuid,
-		CallID:      callID,
-		UserID:      userID,
-		Source:      source,
-		Destination: destination,
-		Status:      "initiated",
-		Codec:       "Opus/48000/2",
-		PingMs:      22,
-		CallbackURL: callbackURL,
-		CreatedAt:   time.Now(),
-		StartedAt:   time.Now(),
+		ID:              uuid,
+		CallID:          callID,
+		UserID:          userID,
+		Source:          source,
+		Destination:     destination,
+		Status:          "initiated",
+		Codec:           "Opus/48000/2",
+		PingMs:          22,
+		CallbackURL:     callbackURL,
+		BufferedSignals: make([]WSMessage, 0),
+		CreatedAt:       time.Now(),
+		StartedAt:       time.Now(),
 	}
 	s.sessions[uuid] = session
 	return session
+}
+
+func (s *SessionStore) BufferSignal(id string, msg WSMessage) {
+	s.Lock()
+	defer s.Unlock()
+	sess, ok := s.sessions[id]
+	if !ok || sess.Status == "completed" {
+		return
+	}
+	if msg.Type == "offer" {
+		// Replace any previous offer and clear stale ICE candidates
+		filtered := make([]WSMessage, 0)
+		for _, m := range sess.BufferedSignals {
+			if m.Type != "offer" && m.Type != "ice_candidate" {
+				filtered = append(filtered, m)
+			}
+		}
+		sess.BufferedSignals = append(filtered, msg)
+	} else {
+		if len(sess.BufferedSignals) < 64 {
+			sess.BufferedSignals = append(sess.BufferedSignals, msg)
+		}
+	}
+}
+
+func (s *SessionStore) GetBufferedSignals(id string) []WSMessage {
+	s.RLock()
+	defer s.RUnlock()
+	sess, ok := s.sessions[id]
+	if !ok || len(sess.BufferedSignals) == 0 {
+		return nil
+	}
+	out := make([]WSMessage, len(sess.BufferedSignals))
+	copy(out, sess.BufferedSignals)
+	return out
 }
 
 func (s *SessionStore) Get(id string) (*CallSession, bool) {
@@ -328,11 +365,23 @@ func NewSignalingHub(store *SessionStore, secret string, defaultCallbackURL stri
 }
 
 func (hub *SignalingHub) HandleWS(w http.ResponseWriter, r *http.Request) {
-	// Check secret if configured
+	// Authorize via either master secret OR valid provisioned session ID (?session=vb-xxx)
+	sessionParam := strings.TrimSpace(r.URL.Query().Get("session"))
+	if sessionParam == "" {
+		sessionParam = strings.TrimSpace(r.URL.Query().Get("session_id"))
+	}
+
 	if hub.secret != "" {
 		provided := extractSecret(r)
-		if !validateSecret(provided, hub.secret) {
-			http.Error(w, "Unauthorized: invalid or missing bridge secret", http.StatusUnauthorized)
+		secretValid := validateSecret(provided, hub.secret)
+		sessionValid := false
+		if sessionParam != "" {
+			if sess, ok := hub.store.Get(sessionParam); ok && sess.Status != "completed" {
+				sessionValid = true
+			}
+		}
+		if !secretValid && !sessionValid {
+			http.Error(w, "Unauthorized: invalid or missing bridge secret or session token", http.StatusUnauthorized)
 			return
 		}
 	}
@@ -502,6 +551,15 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		data, _ := json.Marshal(resp)
 		_ = writeWSFrame(w, 0x01, data)
 
+		// Replay any buffered WebRTC offer / ICE candidates sent by the caller before the callee joined
+		if buffered := hub.store.GetBufferedSignals(msg.SessionID); len(buffered) > 0 && activeInSession >= 2 {
+			for _, bMsg := range buffered {
+				bData, _ := json.Marshal(bMsg)
+				_ = writeWSFrame(w, 0x01, bData)
+			}
+			log.Printf("[VOICE-BRIDGE] 🔁 Replayed %d buffered WebRTC signal(s) to newly joined peer (session: %s)", len(buffered), msg.SessionID)
+		}
+
 		if activeInSession >= 2 {
 			log.Printf("[VOICE-BRIDGE] 🚀 Two-way voice channel synchronized: %s <-> %s (session: %s)", srcNum, dstNum, msg.SessionID)
 			connectedMsg := WSMessage{
@@ -521,7 +579,7 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 			hub.RUnlock()
 		}
 
-	case "offer", "answer", "ice_candidate":
+	case "offer", "answer", "ice_candidate", "renegotiate":
 		sess, hasSess := hub.store.Get(msg.SessionID)
 		srcNum := "caller"
 		dstNum := "callee"
@@ -531,16 +589,23 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		}
 		log.Printf("[VOICE-BRIDGE] 🎙️ WebRTC signal relayed: %s (%s <-> %s | session: %s)", msg.Type, srcNum, dstNum, msg.SessionID)
 
-		// Broadcast to all peers in the same session
-		hub.RLock()
-		data, _ := json.Marshal(msg)
-		for c, sID := range hub.conns {
-			if c != conn && (sID == msg.SessionID || msg.SessionID == "") {
-				writer := bufio.NewWriter(c)
-				_ = writeWSFrame(writer, 0x01, data)
-			}
+		// Buffer offers and ICE candidates in session so late-joining peers receive them
+		if msg.SessionID != "" && (msg.Type == "offer" || msg.Type == "ice_candidate") {
+			hub.store.BufferSignal(msg.SessionID, msg)
 		}
-		hub.RUnlock()
+
+		// Broadcast ONLY to peers in the exact same session (never leak when SessionID is empty)
+		if msg.SessionID != "" {
+			hub.RLock()
+			data, _ := json.Marshal(msg)
+			for c, sID := range hub.conns {
+				if c != conn && sID == msg.SessionID {
+					writer := bufio.NewWriter(c)
+					_ = writeWSFrame(writer, 0x01, data)
+				}
+			}
+			hub.RUnlock()
+		}
 
 	case "end_call":
 		sess, hasSess := hub.store.Get(msg.SessionID)
@@ -558,21 +623,23 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		log.Printf("[VOICE-BRIDGE] 🛑 Call termination signal received from peer (%s <-> %s | session: %s)", srcNum, dstNum, msg.SessionID)
 
 		// Broadcast call_ended to all peers in this session so the other side immediately hangs up!
-		endMsg := WSMessage{
-			Type:       "call_ended",
-			SessionID:  msg.SessionID,
-			Status:     "completed",
-			ServerTime: nowMs,
-		}
-		data, _ := json.Marshal(endMsg)
-		hub.RLock()
-		for c, sID := range hub.conns {
-			if c != conn && (sID == msg.SessionID || msg.SessionID == "") {
-				writer := bufio.NewWriter(c)
-				_ = writeWSFrame(writer, 0x01, data)
+		if msg.SessionID != "" {
+			endMsg := WSMessage{
+				Type:       "call_ended",
+				SessionID:  msg.SessionID,
+				Status:     "completed",
+				ServerTime: nowMs,
 			}
+			data, _ := json.Marshal(endMsg)
+			hub.RLock()
+			for c, sID := range hub.conns {
+				if c != conn && sID == msg.SessionID {
+					writer := bufio.NewWriter(c)
+					_ = writeWSFrame(writer, 0x01, data)
+				}
+			}
+			hub.RUnlock()
 		}
-		hub.RUnlock()
 
 		if callbackURL != "" {
 			notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", msg.SessionID, 0)

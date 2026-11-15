@@ -9,6 +9,8 @@ use App\Models\Contact;
 use App\Models\PhoneNumber;
 use App\Models\SystemSetting;
 use App\Models\VoiceCall;
+use App\Models\VoiceCallSignal;
+use App\Services\Communication\IceServerProvider;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,7 +20,8 @@ use Inertia\Response;
 class VoiceCallController extends Controller
 {
     public function __construct(
-        protected VoiceCallServiceInterface $voiceCallService
+        protected VoiceCallServiceInterface $voiceCallService,
+        protected IceServerProvider $iceServerProvider
     ) {}
 
     /**
@@ -146,6 +149,7 @@ class VoiceCallController extends Controller
             'rate_per_minute' => $ratePerMinute,
             'wallet_balance' => $walletBalance,
             'currency' => 'COIN',
+            'rtc_config' => $this->iceServerProvider->rtcConfigFor($user),
         ]);
     }
 
@@ -316,6 +320,7 @@ class VoiceCallController extends Controller
                     'bridge_ws_endpoint' => $call->metadata['bridge_ws_endpoint'] ?? null,
                     'is_internal' => $call->metadata['is_internal'] ?? false,
                     'ping_ms' => $call->metadata['ping_ms'] ?? 22,
+                    'rtc_config' => $this->iceServerProvider->rtcConfigFor($user),
                 ],
                 'message' => 'تماس صوتی با موفقیت برقرار شد.',
             ]);
@@ -391,7 +396,18 @@ class VoiceCallController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'تماس پاسخ داده شد.',
-            'call' => $voiceCall,
+            'call' => [
+                'id' => $voiceCall->id,
+                'source' => $voiceCall->source_identifier,
+                'destination' => $voiceCall->destination,
+                'status' => $voiceCall->status,
+                'answered_at' => $voiceCall->answered_at?->toIso8601String(),
+                'bridge_session_id' => $voiceCall->metadata['bridge_session_id'] ?? null,
+                'bridge_ws_endpoint' => $voiceCall->metadata['bridge_ws_endpoint'] ?? null,
+                'ping_ms' => $voiceCall->metadata['ping_ms'] ?? 22,
+                'is_internal' => $voiceCall->metadata['is_internal'] ?? true,
+                'rtc_config' => $this->iceServerProvider->rtcConfigFor($user),
+            ],
         ]);
     }
 
@@ -540,7 +556,7 @@ class VoiceCallController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => ['required', 'string', 'in:offer,answer,ice_candidate,end_call'],
+            'type' => ['required', 'string', 'in:offer,answer,ice_candidate,end_call,renegotiate'],
             'payload' => ['required'],
         ]);
 
@@ -549,23 +565,19 @@ class VoiceCallController extends Controller
             return response()->json(['success' => false, 'message' => 'مخاطب متناظر یافت نشد.'], 404);
         }
 
-        $signalItem = [
+        // Atomic append-only insert in database mailbox (prevents Cache read-modify-write race conditions)
+        $signalRecord = VoiceCallSignal::create([
+            'voice_call_id' => $peerCallId,
+            'sender_call_id' => $voiceCall->id,
             'type' => $validated['type'],
             'payload' => $validated['payload'],
-            'from_user_id' => $user->id,
-            'timestamp' => microtime(true),
-        ];
+            'created_at' => now(),
+        ]);
 
-        // Store in cache queue for the peer call to pick up
-        $queueKey = "voice_signals_{$peerCallId}";
-        $existing = \Illuminate\Support\Facades\Cache::get($queueKey, []);
-        $existing[] = $signalItem;
-        if (count($existing) > 30) {
-            $existing = array_slice($existing, -30);
-        }
-        \Illuminate\Support\Facades\Cache::put($queueKey, $existing, now()->addMinutes(5));
-
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'signal_id' => $signalRecord->id,
+        ]);
     }
 
     /**
@@ -578,15 +590,38 @@ class VoiceCallController extends Controller
             abort(403);
         }
 
-        $queueKey = "voice_signals_{$voiceCall->id}";
-        $signals = \Illuminate\Support\Facades\Cache::pull($queueKey, []);
+        $afterId = (int) $request->input('after_id', 0);
 
+        $query = VoiceCallSignal::where('voice_call_id', $voiceCall->id)
+            ->orderBy('id');
+
+        if ($afterId > 0) {
+            $query->where('id', '>', $afterId);
+        }
+
+        $rows = $query->limit(50)->get();
+
+        // If client did not supply cursor (legacy / single-shot callers), delete retrieved rows like pull()
+        if (! $request->has('after_id') && $rows->isNotEmpty()) {
+            VoiceCallSignal::whereIn('id', $rows->pluck('id'))->delete();
+        }
+
+        $signals = $rows->map(fn (VoiceCallSignal $row) => [
+            'id' => $row->id,
+            'type' => $row->type,
+            'payload' => $row->payload,
+            'sender_call_id' => $row->sender_call_id,
+            'timestamp' => $row->created_at?->getTimestamp() ?? time(),
+        ])->values()->all();
+
+        $lastId = $rows->isNotEmpty() ? (int) $rows->last()->id : $afterId;
         $isActive = in_array($voiceCall->status, ['in_call', 'ringing']);
 
         return response()->json([
             'success' => true,
             'status' => $voiceCall->status,
             'is_active' => $isActive,
+            'last_signal_id' => $lastId,
             'signals' => $signals,
         ]);
     }

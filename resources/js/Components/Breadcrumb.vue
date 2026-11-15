@@ -56,14 +56,19 @@ const autoItems = computed<BreadcrumbItem[]>(() => {
         'admin.services.index': [{ label: __('ui.components.breadcrumb.admin_services') }],
         'admin.numbers.index': [{ label: __('ui.components.breadcrumb.admin_numbers') }],
         'admin.prefixes.index': [{ label: __('ui.components.breadcrumb.admin_prefixes') }],
+        'admin.tariffs.index': [{ label: 'تعرفه‌های ارتباطی و تماس' }],
+        'admin.orders.index': [{ label: 'بررسی سفارشات ثبت‌شده' }],
         'admin.requests.index': [{ label: __('ui.components.breadcrumb.admin_requests') }],
         'admin.messages.index': [{ label: __('ui.components.breadcrumb.admin_messages') }],
+        'admin.calls.index': [{ label: 'لاگ مکالمات صوتی' }],
         'admin.payments.index': [{ label: __('ui.components.breadcrumb.admin_payments') }],
         'admin.api-tokens.index': [{ label: __('ui.components.breadcrumb.admin_api_tokens') }],
         'admin.tickets.index': [{ label: __('ui.components.breadcrumb.admin_tickets') }],
         'admin.monitoring.index': [{ label: __('ui.components.breadcrumb.admin_monitoring') }],
         'admin.security.incidents.index': [{ label: __('ui.components.breadcrumb.admin_security_incidents') }],
         'admin.audit-logs.index': [{ label: __('ui.components.breadcrumb.admin_audit_logs') }],
+        'admin.settings.index': [{ label: 'تنظیمات یکپارچه سامانه' }],
+        'admin.settings.general': [{ label: 'تنظیمات یکپارچه سامانه' }],
     };
 
     for (const [key, trail] of Object.entries(routeMap)) {

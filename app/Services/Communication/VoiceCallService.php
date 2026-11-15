@@ -12,6 +12,7 @@ use App\Models\PhonePrefix;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\VoiceCall;
+use App\Models\VoiceCallSignal;
 use App\Services\PhoneNumberNormalizer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -162,9 +163,16 @@ class VoiceCallService implements VoiceCallServiceInterface
             }
         }
 
-        $wsEndpoint = "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling";
-        if (! empty($bridgeSecret)) {
-            $wsEndpoint .= '?secret=' . urlencode($bridgeSecret);
+        // Browser-facing signaling endpoint. SECURITY: never hand the master bridge
+        // secret to browsers; the bridge authorizes WS clients by the (random,
+        // unguessable) session id it just provisioned.
+        $wsEndpoint = null;
+        if ($bridgeSessionId) {
+            $publicWsUrl = trim((string) SystemSetting::get('voice_bridge_ws_public_url', ''));
+            $wsEndpoint = $publicWsUrl !== ''
+                ? $publicWsUrl
+                : "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling";
+            $wsEndpoint .= (str_contains($wsEndpoint, '?') ? '&' : '?') . 'session=' . urlencode($bridgeSessionId);
         }
 
         $outboundCall = VoiceCall::create([
@@ -309,6 +317,18 @@ class VoiceCallService implements VoiceCallServiceInterface
             'billed_minutes' => $costData['billed_minutes'],
             'cost' => $totalCostStr,
         ]);
+
+        // Drop the signaling mailbox of both legs; the peer detects the hangup via call status.
+        $legIds = array_filter([
+            $voiceCall->id,
+            $meta['callee_call_id'] ?? null,
+            $meta['peer_call_id'] ?? null,
+        ]);
+        try {
+            VoiceCallSignal::whereIn('voice_call_id', $legIds)->delete();
+        } catch (\Throwable) {
+            // Signaling cleanup must never block billing / call termination.
+        }
 
         // Also update matching callee call in their history
         if (! empty($meta['callee_call_id'])) {

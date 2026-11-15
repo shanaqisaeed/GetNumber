@@ -84,8 +84,15 @@ class SettingController extends Controller
                 'host' => SystemSetting::get('voice_bridge_host', '127.0.0.1'),
                 'api_port' => (int) SystemSetting::get('voice_bridge_api_port', 49000),
                 'ws_port' => (int) SystemSetting::get('voice_bridge_ws_port', 49001),
+                'ws_public_url' => SystemSetting::get('voice_bridge_ws_public_url', ''),
                 'secret' => SystemSetting::get('voice_bridge_secret', ''),
                 'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
+                'stun_urls' => SystemSetting::get('voice_stun_urls', \App\Services\Communication\IceServerProvider::DEFAULT_STUN_URLS),
+                'turn_urls' => SystemSetting::get('voice_turn_urls', ''),
+                'turn_username' => SystemSetting::get('voice_turn_username', ''),
+                'turn_credential' => SystemSetting::get('voice_turn_credential', ''),
+                'turn_secret' => SystemSetting::get('voice_turn_secret', ''),
+                'ice_transport_policy' => SystemSetting::get('voice_ice_transport_policy', 'all'),
             ],
         ]);
     }
@@ -350,8 +357,15 @@ class SettingController extends Controller
             'host' => ['required', 'string', 'max:100'],
             'api_port' => ['required', 'integer', 'min:1', 'max:65535'],
             'ws_port' => ['required', 'integer', 'min:1', 'max:65535'],
+            'ws_public_url' => ['nullable', 'string', 'max:255'],
             'secret' => ['nullable', 'string', 'max:255'],
             'enabled' => ['boolean'],
+            'stun_urls' => ['nullable', 'string', 'max:1000'],
+            'turn_urls' => ['nullable', 'string', 'max:1000'],
+            'turn_username' => ['nullable', 'string', 'max:255'],
+            'turn_credential' => ['nullable', 'string', 'max:255'],
+            'turn_secret' => ['nullable', 'string', 'max:255'],
+            'ice_transport_policy' => ['nullable', 'string', 'in:all,relay'],
         ], [
             'host.required' => 'آدرس هاست سرور بریج صوتی الزامی است.',
             'api_port.required' => 'پورت REST API الزامی است.',
@@ -361,12 +375,32 @@ class SettingController extends Controller
         SystemSetting::set('voice_bridge_host', $validated['host'], 'آدرس هاست سرور بریج صوتی گو');
         SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], 'پورت API سرور بریج صوتی');
         SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], 'پورت WebSocket سیگنالینگ صوتی');
+        SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), 'آدرس عمومی WebSocket (WSS) برای مرورگرها');
         SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), 'توکن امنیتی احراز هویت بریج صوتی');
         SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', 'فعال‌سازی بریج صوتی گو');
 
-        $this->logSettingChange($request, 'بروزرسانی تنظیمات سرور بریج صوتی Go Voice Bridge');
+        if ($request->has('stun_urls')) {
+            SystemSetting::set('voice_stun_urls', trim((string) ($validated['stun_urls'] ?? '')), 'لیست سرورهای STUN تماس صوتی');
+        }
+        if ($request->has('turn_urls')) {
+            SystemSetting::set('voice_turn_urls', trim((string) ($validated['turn_urls'] ?? '')), 'لیست سرورهای رله صوتی TURN/TURNS');
+        }
+        if ($request->has('turn_username')) {
+            SystemSetting::set('voice_turn_username', trim((string) ($validated['turn_username'] ?? '')), 'نام کاربری سرور TURN');
+        }
+        if ($request->has('turn_credential')) {
+            SystemSetting::set('voice_turn_credential', (string) ($validated['turn_credential'] ?? ''), 'گذرواژه سرور TURN');
+        }
+        if ($request->has('turn_secret')) {
+            SystemSetting::set('voice_turn_secret', trim((string) ($validated['turn_secret'] ?? '')), 'کلید مشترک HMAC سرور coturn');
+        }
+        if ($request->has('ice_transport_policy')) {
+            SystemSetting::set('voice_ice_transport_policy', (string) ($validated['ice_transport_policy'] ?? 'all'), 'سیاست مسیریابی ICE تماس صوتی');
+        }
 
-        return redirect()->route('admin.settings.general', ['tab' => 'bridge'])->with('success', 'تنظیمات ارتباطی سرور بریج صوتی با موفقیت بروزرسانی شد.');
+        $this->logSettingChange($request, 'بروزرسانی تنظیمات سرور بریج صوتی Go Voice Bridge و رله صوتی TURN');
+
+        return redirect()->route('admin.settings.general', ['tab' => 'bridge'])->with('success', 'تنظیمات ارتباطی سرور بریج صوتی و رله صوتی WebRTC با موفقیت بروزرسانی شد.');
     }
 
     /**

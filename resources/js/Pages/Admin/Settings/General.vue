@@ -74,8 +74,15 @@ interface VoiceBridgeSettings {
     host: string;
     api_port: number;
     ws_port: number;
+    ws_public_url?: string;
     secret?: string;
     enabled: boolean;
+    stun_urls?: string;
+    turn_urls?: string;
+    turn_username?: string;
+    turn_credential?: string;
+    turn_secret?: string;
+    ice_transport_policy?: 'all' | 'relay' | string;
 }
 
 interface Props {
@@ -301,12 +308,20 @@ const testSmtpConnection = async () => {
 
 // 7. Voice Bridge Form & Testing
 const showBridgeSecret = ref(false);
+const showTurnCredential = ref(false);
 const bridgeForm = useForm({
     host: props.voiceBridgeSettings?.host || '127.0.0.1',
     api_port: props.voiceBridgeSettings?.api_port || 49000,
     ws_port: props.voiceBridgeSettings?.ws_port || 49001,
+    ws_public_url: props.voiceBridgeSettings?.ws_public_url || '',
     secret: props.voiceBridgeSettings?.secret || '',
     enabled: props.voiceBridgeSettings?.enabled ?? true,
+    stun_urls: props.voiceBridgeSettings?.stun_urls ?? 'stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478',
+    turn_urls: props.voiceBridgeSettings?.turn_urls || '',
+    turn_username: props.voiceBridgeSettings?.turn_username || '',
+    turn_credential: props.voiceBridgeSettings?.turn_credential || '',
+    turn_secret: props.voiceBridgeSettings?.turn_secret || '',
+    ice_transport_policy: props.voiceBridgeSettings?.ice_transport_policy || 'all',
 });
 
 const submitVoiceBridge = () => {
@@ -963,9 +978,148 @@ const testBridgeConnection = async () => {
                                 </div>
                             </div>
                             <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                                هنگام راه‌اندازی Voice Bridge روی سرور لینوکس، یک کلید ۳۲ کاراکتری تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API و وب‌سوکت، آن را اینجا کپی کنید.
+                                هنگام راه‌اندازی Voice Bridge روی سرور لینوکس، یک کلید ۳۲ کاراکتری تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API، آن را اینجا کپی کنید.
                             </p>
                             <InputError :message="bridgeForm.errors.secret" class="mt-1" />
+                        </div>
+
+                        <!-- Public WSS URL for HTTPS Browsers -->
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                آدرس عمومی WebSocket امن برای مرورگرها (Public WSS URL - اختیاری)
+                            </label>
+                            <input
+                                v-model="bridgeForm.ws_public_url"
+                                type="text"
+                                placeholder="مثلاً: wss://yourdomain.com/ws/signaling"
+                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                dir="ltr"
+                            />
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                                در صورتی که سایت روی <code class="font-mono">HTTPS</code> قرار دارد و پورت وب‌سوکت را از طریق Reverse Proxy (مانند Nginx) روی مسیر امن پروکسی کرده‌اید، آدرس <code class="font-mono text-indigo-500">wss://...</code> را وارد کنید تا مرورگرها بدون مسدودشدن Mixed-Content مستقیماً به سوکت بریج متصل شوند.
+                            </p>
+                            <InputError :message="bridgeForm.errors.ws_public_url" class="mt-1" />
+                        </div>
+
+                        <!-- WebRTC Media Relay (STUN / TURN / coturn) Configuration Section -->
+                        <div class="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-200/60 dark:border-indigo-800/40 pb-3">
+                                <div>
+                                    <h4 class="text-xs font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                        <span>🎙️</span>
+                                        <span>تنظیمات کانال انتقال صوت و رله رسانه WebRTC (سرورهای STUN / TURN)</span>
+                                    </h4>
+                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-0.5 leading-relaxed">
+                                        دیمن Go Voice Bridge وظیفه سیگنالینگ (زنگ خوردن و هماهنگی نشست) را برعهده دارد، اما جریان بسته‌های صوتی (`SRTP Audio`) مستقیماً بین مرورگرها یا از طریق رله <strong>TURN (coturn)</strong> منتقل می‌شود. برای برقراری صدای دوطرفه روی اینترنت همراه و شبکه‌های دارای NAT متقارن (Symmetric NAT / CGNAT)، آدرس سرور TURN اختصاصی خود را وارد نمایید.
+                                    </p>
+                                </div>
+                                <span
+                                    class="shrink-0 self-start sm:self-center text-[10px] font-bold px-2.5 py-1 rounded-full border"
+                                    :class="bridgeForm.turn_urls && bridgeForm.turn_urls.trim()
+                                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'"
+                                >
+                                    {{ bridgeForm.turn_urls && bridgeForm.turn_urls.trim() ? '✓ رله TURN پیکربندی شده' : '⚠️ بدون TURN اختصاصی (فقط شبکه مستقیم)' }}
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        سرورهای STUN (هر خط یا با کاما جدا شود)
+                                    </label>
+                                    <textarea
+                                        v-model="bridgeForm.stun_urls"
+                                        rows="3"
+                                        placeholder="stun:stun.l.google.com:19302&#10;stun:stun.cloudflare.com:3478"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    ></textarea>
+                                    <InputError :message="bridgeForm.errors.stun_urls" class="mt-1" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        سرورهای رله صوتی TURN / TURNS (هر خط یک آدرس)
+                                    </label>
+                                    <textarea
+                                        v-model="bridgeForm.turn_urls"
+                                        rows="3"
+                                        placeholder="turn:YOUR_SERVER_IP:3478?transport=udp&#10;turn:YOUR_SERVER_IP:3478?transport=tcp&#10;turns:YOUR_DOMAIN:5349?transport=tcp"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    ></textarea>
+                                    <InputError :message="bridgeForm.errors.turn_urls" class="mt-1" />
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        نام کاربری ثابت TURN (Username)
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.turn_username"
+                                        type="text"
+                                        placeholder="مثلاً: getnumber"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                </div>
+
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                                            گذرواژه ثابت TURN (Password)
+                                        </label>
+                                        <button
+                                            type="button"
+                                            @click="showTurnCredential = !showTurnCredential"
+                                            class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                                        >
+                                            {{ showTurnCredential ? 'مخفی' : 'نمایش' }}
+                                        </button>
+                                    </div>
+                                    <input
+                                        v-model="bridgeForm.turn_credential"
+                                        :type="showTurnCredential ? 'text' : 'password'"
+                                        placeholder="گذرواژه کاربر در coturn"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        یا کلید HMAC REST (static-auth-secret)
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.turn_secret"
+                                        :type="showTurnCredential ? 'text' : 'password'"
+                                        placeholder="اختیاری (تولید خودکار توکن موقت)"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs font-bold text-gray-700 dark:text-gray-300">
+                                        حالت مسیریابی صوتی (ICE Transport Policy):
+                                    </label>
+                                    <select
+                                        v-model="bridgeForm.ice_transport_policy"
+                                        class="text-xs rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 px-3"
+                                    >
+                                        <option value="all">خودکار (اتصال مستقیم P2P + رله TURN در صورت نیاز)</option>
+                                        <option value="relay">اجبار عبور تمام صدا از رله سرور (TURN Relay Only)</option>
+                                    </select>
+                                </div>
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                                    پورت‌های پیش‌فرض <code class="font-mono">coturn</code>: پورت <code class="font-mono">3478</code> (TCP/UDP) و بازه رله <code class="font-mono">49152-65535/UDP</code>
+                                </span>
+                            </div>
                         </div>
 
                         <!-- Voice Bridge Deployment Guide Info Box -->

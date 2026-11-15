@@ -64,6 +64,11 @@ const props = defineProps<{
     rate_per_minute: number;
     wallet_balance: string;
     currency: string;
+    rtc_config?: {
+        iceServers?: RTCIceServer[];
+        iceTransportPolicy?: RTCIceTransportPolicy;
+        hasTurn?: boolean;
+    };
 }>();
 
 const activeTab = ref<'dialer' | 'history'>('dialer');
@@ -238,26 +243,40 @@ const toggleSpeaker = () => {
 const remoteAudio = ref<HTMLAudioElement | null>(null);
 let peerConnection: RTCPeerConnection | null = null;
 let signalPollTimer: ReturnType<typeof setInterval> | null = null;
+let lastSignalId = 0;
+let isPollingSignals = false;
+let processedSignalHashes = new Set<string>();
+const mediaConnectionState = ref<'new' | 'connecting' | 'connected' | 'disconnected' | 'failed'>('new');
+const isAudioPlaybackBlocked = ref(false);
+const activeRtcConfig = ref<{
+    iceServers?: RTCIceServer[];
+    iceTransportPolicy?: RTCIceTransportPolicy;
+    hasTurn?: boolean;
+} | null>(props.rtc_config || null);
 
-const rtcConfig: RTCConfiguration = {
-    iceServers: [
+const buildRtcConfiguration = (): RTCConfiguration => {
+    const cfg = activeRtcConfig.value || props.rtc_config;
+    const defaultIceServers: RTCIceServer[] = [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' },
-        { urls: 'stun:stun.nextcloud.com:443' },
-        { urls: 'stun:openrelay.metered.ca:80' },
-        {
-            urls: [
-                'turn:openrelay.metered.ca:80',
-                'turn:openrelay.metered.ca:443',
-                'turn:openrelay.metered.ca:443?transport=tcp',
-            ],
-            username: 'openrelayproject',
-            credential: 'openrelayproject',
-        },
-    ],
-    iceCandidatePoolSize: 10,
+    ];
+    return {
+        iceServers: cfg?.iceServers && cfg.iceServers.length > 0 ? cfg.iceServers : defaultIceServers,
+        iceTransportPolicy: (cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
+        iceCandidatePoolSize: 4,
+    };
+};
+
+const unblockRemoteAudioPlayback = async () => {
+    if (!remoteAudio.value) return;
+    try {
+        remoteAudio.value.muted = false;
+        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
+        await remoteAudio.value.play();
+        isAudioPlaybackBlocked.value = false;
+    } catch {
+        isAudioPlaybackBlocked.value = true;
+    }
 };
 
 const sendSignalingMessage = async (type: string, payload: any) => {
@@ -274,7 +293,7 @@ const sendSignalingMessage = async (type: string, payload: any) => {
         } catch {}
     }
 
-    // 2. HTTP signaling queue in Laravel (guaranteed across all networks/devices)
+    // 2. Atomic DB signaling mailbox in Laravel (guaranteed across all networks/devices)
     try {
         await axios.post(route('voice.signal', activeCallId.value), {
             type: type,
@@ -293,21 +312,22 @@ const createPeerConnection = () => {
         peerConnection = null;
     }
     pendingCandidates = [];
+    mediaConnectionState.value = 'connecting';
 
-    const pc = new RTCPeerConnection(rtcConfig);
+    const pc = new RTCPeerConnection(buildRtcConfiguration());
 
-    // Ensure audio transceiver exists with sendrecv
-    try {
-        pc.addTransceiver('audio', { direction: 'sendrecv' });
-    } catch {}
-
-    // Attach local microphone tracks
-    if (localMediaStream) {
-        localMediaStream.getAudioTracks().forEach(track => {
+    // Attach local microphone tracks (or create a sendrecv transceiver if mic is not yet available)
+    const audioTracks = localMediaStream ? localMediaStream.getAudioTracks() : [];
+    if (audioTracks.length > 0 && localMediaStream) {
+        audioTracks.forEach(track => {
             try {
                 pc.addTrack(track, localMediaStream!);
             } catch {}
         });
+    } else {
+        try {
+            pc.addTransceiver('audio', { direction: 'sendrecv' });
+        } catch {}
     }
 
     // Connect remote incoming audio stream to audio element
@@ -319,8 +339,15 @@ const createPeerConnection = () => {
         if (remoteAudio.value && stream) {
             remoteAudio.value.srcObject = stream;
             remoteAudio.value.muted = false;
-            remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.8;
-            remoteAudio.value.play().catch(e => console.warn('Audio play error:', e));
+            remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
+            remoteAudio.value.play()
+                .then(() => {
+                    isAudioPlaybackBlocked.value = false;
+                })
+                .catch(e => {
+                    console.warn('Audio autoplay blocked by browser, awaiting user tap:', e);
+                    isAudioPlaybackBlocked.value = true;
+                });
         }
     };
 
@@ -331,21 +358,52 @@ const createPeerConnection = () => {
         }
     };
 
-    pc.onconnectionstatechange = () => {
-        if (pc.connectionState === 'connected') {
+    const updateStateFromPc = () => {
+        const st = pc.iceConnectionState;
+        if (st === 'connected' || st === 'completed' || pc.connectionState === 'connected') {
+            mediaConnectionState.value = 'connected';
             isBridgeConnected.value = true;
+        } else if (st === 'failed' || pc.connectionState === 'failed') {
+            mediaConnectionState.value = 'failed';
+            const hasTurn = Boolean((activeRtcConfig.value || props.rtc_config)?.hasTurn);
+            if (!hasTurn) {
+                callError.value = 'مسیر مستقیم صوتی (UDP/NAT) بین دو شبکه مسدود است. لطفاً در تنظیمات مدیریت، سرور رله TURN (coturn) را تنظیم نمایید.';
+            }
+        } else if (st === 'disconnected') {
+            mediaConnectionState.value = 'disconnected';
+        } else if (st === 'checking') {
+            mediaConnectionState.value = 'connecting';
         }
     };
+
+    pc.onconnectionstatechange = updateStateFromPc;
+    pc.oniceconnectionstatechange = updateStateFromPc;
 
     peerConnection = pc;
     return pc;
 };
 
 const handleSignalingPayload = async (type: string, payload: any) => {
-    if (!peerConnection) return;
+    if (!peerConnection || !payload) return;
+
+    // Deduplicate identical signaling messages arriving via both WebSocket and HTTP poll
+    try {
+        const sigKey = `${type}:${typeof payload === 'string' ? payload : JSON.stringify(payload)}`;
+        if (type !== 'end_call' && type !== 'call_ended') {
+            if (processedSignalHashes.has(sigKey)) {
+                return;
+            }
+            processedSignalHashes.add(sigKey);
+        }
+    } catch {}
 
     try {
         if (type === 'offer') {
+            if (peerConnection.signalingState !== 'stable') {
+                try {
+                    await peerConnection.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
+                } catch {}
+            }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
             // Drain any pending ICE candidates queued before remote description was ready
             for (const cand of pendingCandidates) {
@@ -369,7 +427,7 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                 pendingCandidates = [];
             }
         } else if (type === 'ice_candidate') {
-            if (!peerConnection.remoteDescription) {
+            if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
                 pendingCandidates.push(payload);
             } else {
                 try {
@@ -386,10 +444,13 @@ const handleSignalingPayload = async (type: string, payload: any) => {
 };
 
 const pollSignals = async () => {
-    if (!activeCallId.value || !isCalling.value) return;
+    if (!activeCallId.value || !isCalling.value || isPollingSignals) return;
+    isPollingSignals = true;
 
     try {
-        const res = await axios.get(route('voice.signals', activeCallId.value));
+        const res = await axios.get(route('voice.signals', activeCallId.value), {
+            params: { after_id: lastSignalId },
+        });
         if (res.data?.success) {
             if (!res.data.is_active || res.data.status === 'completed' || res.data.status === 'declined') {
                 callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
@@ -397,13 +458,22 @@ const pollSignals = async () => {
                 return;
             }
 
+            if (typeof res.data.last_signal_id === 'number' && res.data.last_signal_id > lastSignalId) {
+                lastSignalId = res.data.last_signal_id;
+            }
+
             if (Array.isArray(res.data.signals)) {
                 for (const sig of res.data.signals) {
+                    if (typeof sig.id === 'number' && sig.id > lastSignalId) {
+                        lastSignalId = sig.id;
+                    }
                     await handleSignalingPayload(sig.type, sig.payload);
                 }
             }
         }
-    } catch {}
+    } catch {} finally {
+        isPollingSignals = false;
+    }
 };
 
 // WebSocket signaling connection to Voice Bridge
@@ -421,7 +491,12 @@ const connectBridgeWebSocket = (wsUrl: string) => {
             return;
         }
 
-        bridgeSocket = new WebSocket(wsUrl);
+        let targetWsUrl = wsUrl;
+        if (bridgeSessionId.value && !targetWsUrl.includes('session=')) {
+            targetWsUrl += (targetWsUrl.includes('?') ? '&' : '?') + 'session=' + encodeURIComponent(bridgeSessionId.value);
+        }
+
+        bridgeSocket = new WebSocket(targetWsUrl);
         bridgeSocket.onopen = () => {
             isBridgeConnected.value = true;
             if (bridgeSessionId.value) {
@@ -432,17 +507,24 @@ const connectBridgeWebSocket = (wsUrl: string) => {
             }
             bridgePingInterval = setInterval(() => {
                 if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
-                    const start = performance.now();
-                    bridgeSocket.send(JSON.stringify({ type: 'ping', t: start, session_id: bridgeSessionId.value }));
+                    bridgeSocket.send(JSON.stringify({
+                        type: 'ping',
+                        client_time: Date.now(),
+                        session_id: bridgeSessionId.value || undefined,
+                    }));
                 }
             }, 2500);
         };
         bridgeSocket.onmessage = (event) => {
             try {
                 const msg = JSON.parse(event.data);
-                if (msg.type === 'pong' && msg.t) {
-                    const rtt = Math.round(performance.now() - msg.t);
-                    if (rtt > 0) pingMs.value = rtt;
+                if (msg.type === 'pong') {
+                    if (typeof msg.client_time === 'number' && msg.client_time > 0) {
+                        const rtt = Math.max(1, Date.now() - msg.client_time);
+                        if (rtt < 2000) pingMs.value = rtt;
+                    } else if (typeof msg.ping_ms === 'number' && msg.ping_ms > 0) {
+                        pingMs.value = msg.ping_ms;
+                    }
                 } else if (msg.type === 'channel_connected') {
                     isBridgeConnected.value = true;
                 } else if (msg.type === 'call_ended') {
@@ -470,6 +552,10 @@ const startCall = async (skipMicCheck = false) => {
     if (!destinationInput.value.trim() || !selectedLine.value || isCalling.value) return;
 
     callError.value = '';
+    lastSignalId = 0;
+    processedSignalHashes.clear();
+    isAudioPlaybackBlocked.value = false;
+    mediaConnectionState.value = 'new';
     
     // Check & request microphone permission if not explicitly bypassed
     if (!skipMicCheck) {
@@ -502,6 +588,9 @@ const startCall = async (skipMicCheck = false) => {
             bridgeWsEndpoint.value = res.data.call.bridge_ws_endpoint || null;
             isInternalCall.value = Boolean(res.data.call.is_internal);
             pingMs.value = res.data.call.ping_ms || 22;
+            if (res.data.call.rtc_config) {
+                activeRtcConfig.value = res.data.call.rtc_config;
+            }
 
             if (bridgeWsEndpoint.value) {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);
@@ -531,14 +620,8 @@ const startCall = async (skipMicCheck = false) => {
                 } catch {}
             }, 2000);
 
-            // WebRTC Signaling Queue Poll (every 1 second)
-            signalPollTimer = setInterval(pollSignals, 1000);
-
-            if (!bridgeWsEndpoint.value) {
-                pingTimer = setInterval(() => {
-                    pingMs.value = Math.floor(Math.random() * 10) + 18;
-                }, 3000);
-            }
+            // WebRTC Signaling Queue Poll (every 800ms)
+            signalPollTimer = setInterval(pollSignals, 800);
         } else {
             throw new Error(res.data?.message || 'خطا در برقراری تماس');
         }
@@ -605,6 +688,10 @@ const endCall = async () => {
     }
     isBridgeConnected.value = false;
     bridgeSessionId.value = null;
+    mediaConnectionState.value = 'new';
+    isAudioPlaybackBlocked.value = false;
+    lastSignalId = 0;
+    processedSignalHashes.clear();
 
     const terminatingCallId = activeCallId.value;
     activeCallId.value = null;
@@ -657,6 +744,11 @@ const checkIncomingCall = async () => {
 const answerIncomingCall = async () => {
     if (!incomingCall.value) return;
     stopRingtone();
+    lastSignalId = 0;
+    processedSignalHashes.clear();
+    isAudioPlaybackBlocked.value = false;
+    mediaConnectionState.value = 'new';
+
     if (remoteAudio.value) {
         remoteAudio.value.muted = false;
         remoteAudio.value.play().catch(() => {});
@@ -665,15 +757,20 @@ const answerIncomingCall = async () => {
     try {
         const res = await axios.post(route('voice.answer', callId));
         if (res.data?.success) {
+            const answeredCall = res.data.call || {};
             isIncomingCallModalOpen.value = false;
             activeCallId.value = callId;
-            destinationInput.value = incomingCall.value.source;
+            destinationInput.value = answeredCall.source || incomingCall.value.source || '';
             isCalling.value = true;
             callDuration.value = 0;
-            pingMs.value = incomingCall.value.ping_ms || 22;
-            bridgeSessionId.value = incomingCall.value.bridge_session_id || null;
-            isBridgeConnected.value = Boolean(incomingCall.value.bridge_session_id);
+            pingMs.value = answeredCall.ping_ms || incomingCall.value.ping_ms || 22;
+            bridgeSessionId.value = answeredCall.bridge_session_id || incomingCall.value.bridge_session_id || null;
+            bridgeWsEndpoint.value = answeredCall.bridge_ws_endpoint || incomingCall.value.bridge_ws_endpoint || null;
+            isBridgeConnected.value = Boolean(bridgeSessionId.value);
             isInternalCall.value = true;
+            if (answeredCall.rtc_config) {
+                activeRtcConfig.value = answeredCall.rtc_config;
+            }
 
             await requestMicrophoneAccess();
 
@@ -684,8 +781,8 @@ const answerIncomingCall = async () => {
             // Establish Callee WebRTC Peer Connection
             createPeerConnection();
 
-            if (incomingCall.value.bridge_ws_endpoint) {
-                connectBridgeWebSocket(incomingCall.value.bridge_ws_endpoint);
+            if (bridgeWsEndpoint.value) {
+                connectBridgeWebSocket(bridgeWsEndpoint.value);
             }
 
             // Callee Pulse Heartbeat (Detects if caller hung up or balance expired)
@@ -703,7 +800,7 @@ const answerIncomingCall = async () => {
             }, 2000);
 
             // Callee Signaling Poll (Fetches caller's Offer & candidates)
-            signalPollTimer = setInterval(pollSignals, 1000);
+            signalPollTimer = setInterval(pollSignals, 800);
             await pollSignals();
         }
     } catch {}
@@ -942,13 +1039,31 @@ onUnmounted(() => {
                             {{ formatTimer(callDuration) }}
                         </div>
 
-                        <!-- Real-time Bridge / Fallback Status Indicator -->
+                        <!-- Real-time Bridge & WebRTC Media Channel Status Indicator -->
                         <div class="pt-2 flex flex-col items-center gap-1.5">
                             <div
-                                v-if="isBridgeConnected || bridgeSessionId"
+                                v-if="mediaConnectionState === 'connected'"
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                <span>کانال صوتی برقرار است</span>
+                                <span class="text-slate-400">|</span>
+                                <span>پینگ: {{ pingMs }} ms</span>
+                            </div>
+                            <div
+                                v-else-if="mediaConnectionState === 'failed'"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold"
+                            >
+                                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                                <span>خطا در اتصال صوتی P2P/TURN (مسیر شبکه مسدود است)</span>
+                            </div>
+                            <div
+                                v-else-if="isBridgeConnected || bridgeSessionId"
+                                class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 text-xs font-mono font-bold"
+                            >
+                                <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+                                <span>در حال همگام‌سازی کانال صوتی...</span>
+                                <span class="text-slate-400">|</span>
                                 <span>پینگ: {{ pingMs }} ms</span>
                             </div>
                             <div
@@ -956,10 +1071,20 @@ onUnmounted(() => {
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                <span>🟡 در حال ارتباط شبیه‌سازی شده سرور</span>
+                                <span>🟡 در حال اتصال کانال صوتی</span>
                                 <span class="text-slate-400">|</span>
                                 <span>پینگ: {{ pingMs }} ms</span>
                             </div>
+
+                            <!-- Browser Autoplay Unblock Prompt -->
+                            <button
+                                v-if="isAudioPlaybackBlocked"
+                                type="button"
+                                @click="unblockRemoteAudioPlayback"
+                                class="mt-1 px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-md animate-bounce"
+                            >
+                                🔊 برای پخش صدای مخاطب اینجا کلیک کنید
+                            </button>
 
                             <div v-if="isInternalCall" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
                                 ✨ تماس درون‌شبکه سامانه

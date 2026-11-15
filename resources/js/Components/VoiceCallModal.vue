@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onUnmounted } from 'vue';
+import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 
 interface UserLine {
@@ -58,38 +59,13 @@ const initiateCall = async () => {
     }
 
     errorMessage.value = '';
-    callState.value = 'initiating';
-    endSummary.value = null;
-
-    try {
-        const response = await axios.post(route('voice.initiate'), {
-            phone_number_id: selectedLineId.value,
-            destination_number: destination.value.trim(),
-        });
-
-        if (response.data.success) {
-            activeCallId.value = response.data.call.id;
-            perMinuteRate.value = Number(response.data.call.per_minute_rate) || 5.0;
-            callState.value = 'ringing';
-
-            // Simulate pickup after 2 seconds
-            setTimeout(() => {
-                if (callState.value === 'ringing') {
-                    callState.value = 'connected';
-                    callDurationSeconds.value = 0;
-                    durationTimer = setInterval(() => {
-                        callDurationSeconds.value++;
-                    }, 1000);
-                }
-            }, 2000);
-        } else {
-            errorMessage.value = response.data.message || 'خطا در برقراری تماس';
-            callState.value = 'idle';
-        }
-    } catch (err: any) {
-        errorMessage.value = err.response?.data?.message || 'خطا در شروع تماس';
-        callState.value = 'idle';
-    }
+    const targetDest = destination.value.trim();
+    const lineId = selectedLineId.value;
+    emit('close');
+    router.visit(route('calls.index', {
+        destination: targetDest,
+        phone_number_id: lineId || undefined,
+    }));
 };
 
 const endCall = async () => {

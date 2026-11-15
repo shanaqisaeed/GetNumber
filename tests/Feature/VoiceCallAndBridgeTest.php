@@ -395,5 +395,114 @@ class VoiceCallAndBridgeTest extends TestCase
         $signalsBAfterEnd->assertJsonPath('is_active', false);
         $signalsBAfterEnd->assertJsonPath('status', 'completed');
     }
+
+    public function test_concurrent_ice_candidates_and_cursor_polling_do_not_drop_signals(): void
+    {
+        $userA = User::factory()->create(['role' => UserRole::User]);
+        $userA->wallet()->create(['balance' => '10.0000']);
+        $userB = User::factory()->create(['role' => UserRole::User]);
+        $userB->wallet()->create(['balance' => '10.0000']);
+
+        $prefix = \App\Models\PhonePrefix::firstOrCreate(
+            ['prefix' => '+85'],
+            [
+                'clean_prefix' => '85',
+                'name' => 'Prefix 85',
+                'country_name' => 'Internal',
+                'flag' => '🌐',
+                'voice_intra_prefix_rate' => '0.0000',
+                'voice_inter_prefix_rate' => '0.2500',
+                'is_active' => true,
+            ]
+        );
+
+        $lineA = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '3001',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userA->id,
+            'allocated_at' => now(),
+        ]);
+
+        PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '3002',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userB->id,
+            'allocated_at' => now(),
+        ]);
+
+        $initRes = $this->actingAs($userA)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => '3002',
+        ]);
+        $callAId = $initRes->json('call.id');
+
+        $incRes = $this->actingAs($userB)->getJson(route('voice.active_incoming'));
+        $callBId = $incRes->json('call.id');
+
+        // Send offer + 6 rapid ICE candidates before User B answers
+        $this->actingAs($userA)->postJson(route('voice.signal', $callAId), [
+            'type' => 'offer',
+            'payload' => ['sdp' => 'v=0...', 'type' => 'offer'],
+        ])->assertOk();
+
+        for ($i = 1; $i <= 6; $i++) {
+            $this->actingAs($userA)->postJson(route('voice.signal', $callAId), [
+                'type' => 'ice_candidate',
+                'payload' => ['candidate' => "candidate:{$i} 1 UDP 2122252543 192.168.1.{$i} 5000{$i} typ host"],
+            ])->assertOk();
+        }
+
+        // Answer returns full bridge metadata and rtc_config
+        $ansRes = $this->actingAs($userB)->postJson(route('voice.answer', $callBId));
+        $ansRes->assertOk();
+        $ansRes->assertJsonStructure([
+            'success',
+            'call' => ['id', 'source', 'destination', 'status', 'bridge_session_id', 'bridge_ws_endpoint', 'rtc_config'],
+        ]);
+
+        // Poll with after_id=0 -> must receive all 7 signals in exact order
+        $poll1 = $this->actingAs($userB)->getJson(route('voice.signals', ['voiceCall' => $callBId, 'after_id' => 0]));
+        $poll1->assertOk();
+        $this->assertCount(7, $poll1->json('signals'));
+        $this->assertEquals('offer', $poll1->json('signals.0.type'));
+        $lastId = $poll1->json('last_signal_id');
+        $this->assertGreaterThan(0, $lastId);
+
+        // Subsequent poll with cursor after_id=$lastId returns 0 duplicates
+        $poll2 = $this->actingAs($userB)->getJson(route('voice.signals', ['voiceCall' => $callBId, 'after_id' => $lastId]));
+        $poll2->assertOk();
+        $this->assertCount(0, $poll2->json('signals'));
+    }
+
+    public function test_ice_server_provider_generates_turn_hmac_and_saves_settings(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->post(route('admin.settings.voice_bridge.update'), [
+            'host' => '10.0.0.5',
+            'api_port' => 49000,
+            'ws_port' => 49001,
+            'ws_public_url' => 'wss://voice.example.com/ws/signaling',
+            'secret' => 'sec_123456',
+            'enabled' => true,
+            'stun_urls' => "stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478",
+            'turn_urls' => "turn:10.0.0.5:3478?transport=udp\nturn:10.0.0.5:3478?transport=tcp",
+            'turn_secret' => 'coturn_shared_hmac_secret',
+            'ice_transport_policy' => 'relay',
+        ])->assertRedirect();
+
+        $provider = app(\App\Services\Communication\IceServerProvider::class);
+        $rtc = $provider->rtcConfigFor($admin);
+
+        $this->assertTrue($rtc['hasTurn']);
+        $this->assertEquals('relay', $rtc['iceTransportPolicy']);
+        $this->assertCount(2, $rtc['iceServers']);
+        $this->assertNotEmpty($rtc['iceServers'][1]['username']);
+        $this->assertNotEmpty($rtc['iceServers'][1]['credential']);
+    }
 }
 
