@@ -431,7 +431,7 @@ func notifyLaravelWebhook(callbackURL, secret, event, sessionID string, duration
 		resp, err := client.Do(req)
 		if err == nil && resp != nil {
 			_ = resp.Body.Close()
-			log.Printf("[VOICE-BRIDGE] 📡 گزارش رویداد به سامانه ارسال شد (رویداد: %s | نشست: %s)", event, sessionID)
+			log.Printf("[VOICE-BRIDGE] 📡 Laravel webhook dispatched (event: %s | session: %s)", event, sessionID)
 		}
 	}()
 }
@@ -467,14 +467,14 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		hub.Unlock()
 
 		sess, hasSess := hub.store.Get(msg.SessionID)
-		srcNum := "نامشخص"
-		dstNum := "نامشخص"
+		srcNum := "unknown"
+		dstNum := "unknown"
 		if hasSess {
 			srcNum = sess.Source
 			dstNum = sess.Destination
 		}
 
-		log.Printf("[VOICE-BRIDGE] 🔗 ارتباط وب‌سوکت برقرار شد: کانال صوتی فعال بین %s <-> %s (نشست: %s | کاربران آنلاین: %d)", srcNum, dstNum, msg.SessionID, activeInSession)
+		log.Printf("[VOICE-BRIDGE] 🔗 WebSocket connected: voice signaling channel active %s <-> %s (session: %s | active_peers: %d)", srcNum, dstNum, msg.SessionID, activeInSession)
 
 		resp := WSMessage{
 			Type:       "session_joined",
@@ -486,7 +486,7 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		_ = writeWSFrame(w, 0x01, data)
 
 		if activeInSession >= 2 {
-			log.Printf("[VOICE-BRIDGE] 🚀 کانال صوتی دوطرفه بین %s و %s با موفقیت همگام‌سازی شد (Two-Way Channel Connected)", srcNum, dstNum)
+			log.Printf("[VOICE-BRIDGE] 🚀 Two-way voice channel synchronized: %s <-> %s (session: %s)", srcNum, dstNum, msg.SessionID)
 			connectedMsg := WSMessage{
 				Type:       "channel_connected",
 				SessionID:  msg.SessionID,
@@ -506,13 +506,13 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 
 	case "offer", "answer", "ice_candidate":
 		sess, hasSess := hub.store.Get(msg.SessionID)
-		srcNum := "مبدأ"
-		dstNum := "مقصد"
+		srcNum := "caller"
+		dstNum := "callee"
 		if hasSess {
 			srcNum = sess.Source
 			dstNum = sess.Destination
 		}
-		log.Printf("[VOICE-BRIDGE] 🎙️ انتقال سیگنال وب‌آر‌تی‌سی (%s) در کانال صوتی %s <-> %s (نشست: %s)", msg.Type, srcNum, dstNum, msg.SessionID)
+		log.Printf("[VOICE-BRIDGE] 🎙️ WebRTC signal relayed: %s (%s <-> %s | session: %s)", msg.Type, srcNum, dstNum, msg.SessionID)
 
 		// Broadcast to all peers in the same session
 		hub.RLock()
@@ -527,8 +527,8 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 
 	case "end_call":
 		sess, hasSess := hub.store.Get(msg.SessionID)
-		srcNum := "مبدأ"
-		dstNum := "مقصد"
+		srcNum := "caller"
+		dstNum := "callee"
 		callbackURL := hub.defaultCallbackURL
 		if hasSess {
 			srcNum = sess.Source
@@ -538,7 +538,7 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 			}
 			hub.store.End(msg.SessionID, 0)
 		}
-		log.Printf("[VOICE-BRIDGE] 🛑 سیگنال قطع تماس از طرف یکی از کاربران دریافت شد (%s <-> %s | نشست: %s)", srcNum, dstNum, msg.SessionID)
+		log.Printf("[VOICE-BRIDGE] 🛑 Call termination signal received from peer (%s <-> %s | session: %s)", srcNum, dstNum, msg.SessionID)
 
 		// Broadcast call_ended to all peers in this session so the other side immediately hangs up!
 		endMsg := WSMessage{
@@ -751,7 +751,7 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 		}
 
 		session := store.Create(req.CallID, req.UserID, req.Source, req.Destination, effectiveCallback)
-		log.Printf("[VOICE-BRIDGE] 📞 نشست تماس جدید ثبت شد: شماره مبدأ: %s -> شماره مقصد: %s | شناسه نشست: %s | کاربر: %d", req.Source, req.Destination, session.ID, req.UserID)
+		log.Printf("[VOICE-BRIDGE] 📞 Provisioned new call session: %s -> %s | session_id: %s | user_id: %d", req.Source, req.Destination, session.ID, req.UserID)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -789,7 +789,7 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 			return
 		}
 
-		log.Printf("[VOICE-BRIDGE] ⏹️ پایان نشست تماس: شماره مبدأ: %s <-> شماره مقصد: %s | مدت مکالمه: %d ثانیه | شناسه نشست: %s", sess.Source, sess.Destination, sess.DurationSec, sess.ID)
+		log.Printf("[VOICE-BRIDGE] ⏹️ Terminated call session: %s <-> %s | duration: %ds | session_id: %s", sess.Source, sess.Destination, sess.DurationSec, sess.ID)
 
 		callbackURL := sess.CallbackURL
 		if callbackURL == "" {
