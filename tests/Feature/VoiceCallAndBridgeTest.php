@@ -560,5 +560,23 @@ class VoiceCallAndBridgeTest extends TestCase
         $expected = base64_encode(hash_hmac('sha1', $username, 'shared_bridge_sec_888', true));
         $this->assertEquals($expected, $credential);
     }
+
+    public function test_voice_call_service_builds_bridge_urls_cleanly(): void
+    {
+        $this->assertEquals(
+            'https://voice.company.ir/health',
+            \App\Services\Communication\VoiceCallService::buildBridgeUrl('voice.company.ir', 443, '/health')
+        );
+
+        $this->assertEquals(
+            'https://voice.company.ir/api/sessions/start',
+            \App\Services\Communication\VoiceCallService::buildBridgeUrl('https://voice.company.ir', 443, 'api/sessions/start')
+        );
+
+        $this->assertEquals(
+            'http://10.0.0.5:49000/health',
+            \App\Services\Communication\VoiceCallService::buildBridgeUrl('10.0.0.5', 49000, '/health')
+        );
+    }
 }
 

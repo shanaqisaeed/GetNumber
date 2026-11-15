@@ -146,7 +146,8 @@ class VoiceCallService implements VoiceCallServiceInterface
                 if (! empty($bridgeSecret)) {
                     $client = $client->withHeaders(['X-Bridge-Secret' => $bridgeSecret]);
                 }
-                $bridgeRes = $client->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/start", [
+                $startUrl = self::buildBridgeUrl($bridgeHost, $bridgeApiPort, '/api/sessions/start');
+                $bridgeRes = $client->post($startUrl, [
                     'call_id' => 0,
                     'user_id' => $user->id,
                     'source' => $fromNumber->number,
@@ -301,7 +302,8 @@ class VoiceCallService implements VoiceCallServiceInterface
                 if (! empty($bridgeSecret)) {
                     $client = $client->withHeaders(['X-Bridge-Secret' => $bridgeSecret]);
                 }
-                $client->post("http://{$bridgeHost}:{$bridgeApiPort}/api/sessions/end", [
+                $endUrl = self::buildBridgeUrl($bridgeHost, $bridgeApiPort, '/api/sessions/end');
+                $client->post($endUrl, [
                     'session_id' => $meta['bridge_session_id'],
                     'duration_seconds' => $costData['duration_seconds'],
                 ]);
@@ -395,6 +397,29 @@ class VoiceCallService implements VoiceCallServiceInterface
             'rate_per_minute' => $rate,
             'cost' => $cost,
         ];
+    }
+
+    /**
+     * Build an RFC-compliant HTTP/HTTPS endpoint for the Voice Bridge daemon.
+     * Supports standard ports 80/443 and domain names with SSL termination.
+     */
+    public static function buildBridgeUrl(string $host, int $port, string $path): string
+    {
+        $path = '/' . ltrim($path, '/');
+        $cleanHost = trim($host);
+
+        if (str_starts_with($cleanHost, 'http://') || str_starts_with($cleanHost, 'https://')) {
+            $base = rtrim($cleanHost, '/');
+            $parsedPort = parse_url($base, PHP_URL_PORT);
+            if ($parsedPort || $port === 80 || $port === 443) {
+                return "{$base}{$path}";
+            }
+            return "{$base}:{$port}{$path}";
+        }
+
+        $scheme = ($port === 443) ? 'https' : 'http';
+        $portSuffix = ($port === 80 || $port === 443) ? '' : ":{$port}";
+        return "{$scheme}://{$cleanHost}{$portSuffix}{$path}";
     }
 }
 

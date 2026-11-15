@@ -440,9 +440,10 @@ class SettingController extends Controller
 
         try {
             $startTime = microtime(true);
+            $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
             $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
                 ->timeout(3.0)
-                ->get("http://{$host}:{$port}/health");
+                ->get($healthUrl);
             $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
 
             if ($response->successful()) {
