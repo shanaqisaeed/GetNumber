@@ -249,7 +249,12 @@ export function useRealtimeMessages(options: UseRealtimeMessagesOptions = {}) {
             activeEchoChannelNames.push(userChannel);
             echo.private(userChannel)
                 .listen('.message.received', handleIncomingMessage)
-                .listen('.message.status.updated', handleStatusUpdate);
+                .listen('.message.status.updated', handleStatusUpdate)
+                .listen('.call.received', (e: any) => {
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(new CustomEvent('incoming-voice-call', { detail: e }));
+                    }
+                });
         }
 
         // 2. Subscribe to Line Private Channel if given

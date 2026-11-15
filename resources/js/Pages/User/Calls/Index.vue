@@ -4,6 +4,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Components/ContactPickerModal.vue';
+import { CalmRingtone } from '@/Utils/ringtone';
 
 interface LineItem {
     id: number;
@@ -126,8 +127,7 @@ const isSecureContext = ref(
 const incomingCall = ref<any>(null);
 const isIncomingCallModalOpen = ref(false);
 let incomingPollTimer: ReturnType<typeof setInterval> | null = null;
-let ringtoneAudioContext: AudioContext | null = null;
-let ringtoneOscillator: OscillatorNode | null = null;
+const calmRingtone = new CalmRingtone();
 
 const handleContactSelected = (contact: PickerContactItem) => {
     destinationInput.value = contact.phone_number.trim();
@@ -238,7 +238,10 @@ const rtcConfig: RTCConfiguration = {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.nextcloud.com:443' },
     ],
+    iceCandidatePoolSize: 10,
 };
 
 const sendSignalingMessage = async (type: string, payload: any) => {
@@ -250,7 +253,7 @@ const sendSignalingMessage = async (type: string, payload: any) => {
             bridgeSocket.send(JSON.stringify({
                 type: type,
                 session_id: bridgeSessionId.value,
-                data: payload,
+                payload: payload,
             }));
         } catch {}
     }
@@ -264,6 +267,8 @@ const sendSignalingMessage = async (type: string, payload: any) => {
     } catch {}
 };
 
+let pendingCandidates: RTCIceCandidateInit[] = [];
+
 const createPeerConnection = () => {
     if (peerConnection) {
         try {
@@ -271,21 +276,35 @@ const createPeerConnection = () => {
         } catch {}
         peerConnection = null;
     }
+    pendingCandidates = [];
 
     const pc = new RTCPeerConnection(rtcConfig);
+
+    // Ensure audio transceiver exists with sendrecv
+    try {
+        pc.addTransceiver('audio', { direction: 'sendrecv' });
+    } catch {}
 
     // Attach local microphone tracks
     if (localMediaStream) {
         localMediaStream.getAudioTracks().forEach(track => {
-            pc.addTrack(track, localMediaStream!);
+            try {
+                pc.addTrack(track, localMediaStream!);
+            } catch {}
         });
     }
 
     // Connect remote incoming audio stream to audio element
     pc.ontrack = (event) => {
-        if (remoteAudio.value && event.streams && event.streams[0]) {
-            remoteAudio.value.srcObject = event.streams[0];
-            remoteAudio.value.play().catch(() => {});
+        let stream = event.streams && event.streams[0] ? event.streams[0] : null;
+        if (!stream && event.track) {
+            stream = new MediaStream([event.track]);
+        }
+        if (remoteAudio.value && stream) {
+            remoteAudio.value.srcObject = stream;
+            remoteAudio.value.muted = false;
+            remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.8;
+            remoteAudio.value.play().catch(e => console.warn('Audio play error:', e));
         }
     };
 
@@ -312,17 +331,35 @@ const handleSignalingPayload = async (type: string, payload: any) => {
     try {
         if (type === 'offer') {
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+            // Drain any pending ICE candidates queued before remote description was ready
+            for (const cand of pendingCandidates) {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+                } catch {}
+            }
+            pendingCandidates = [];
+
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
             await sendSignalingMessage('answer', answer);
         } else if (type === 'answer') {
             if (peerConnection.signalingState === 'have-local-offer') {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+                for (const cand of pendingCandidates) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+                    } catch {}
+                }
+                pendingCandidates = [];
             }
         } else if (type === 'ice_candidate') {
-            try {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(payload));
-            } catch {}
+            if (!peerConnection.remoteDescription) {
+                pendingCandidates.push(payload);
+            } else {
+                try {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(payload));
+                } catch {}
+            }
         } else if (type === 'end_call' || type === 'call_ended') {
             callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
             await endCall();
@@ -567,36 +604,13 @@ const endCall = async () => {
     }
 };
 
-// Incoming Call Sound & Ringtone Simulation (Web Audio API)
+// Incoming Call Sound & Ringtone Simulation (Calm Acoustic Chime)
 const playRingtone = () => {
-    try {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioCtx) return;
-        ringtoneAudioContext = new AudioCtx();
-        const osc = ringtoneAudioContext.createOscillator();
-        const gain = ringtoneAudioContext.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(440, ringtoneAudioContext.currentTime);
-        gain.gain.setValueAtTime(0.08, ringtoneAudioContext.currentTime);
-        osc.connect(gain);
-        gain.connect(ringtoneAudioContext.destination);
-        osc.start();
-        ringtoneOscillator = osc;
-    } catch {}
+    calmRingtone.play();
 };
 
 const stopRingtone = () => {
-    try {
-        if (ringtoneOscillator) {
-            ringtoneOscillator.stop();
-            ringtoneOscillator.disconnect();
-            ringtoneOscillator = null;
-        }
-        if (ringtoneAudioContext) {
-            ringtoneAudioContext.close();
-            ringtoneAudioContext = null;
-        }
-    } catch {}
+    calmRingtone.stop();
 };
 
 const checkIncomingCall = async () => {
@@ -718,6 +732,28 @@ onMounted(() => {
                 if (matched) {
                     selectedLineKey.value = matched.key || null;
                 }
+            }
+        }
+    }
+
+    // Auto-answer or open incoming call if redirected from global call modal
+    if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        const autoAnswer = urlParams.get('auto_answer');
+        const incomingCallId = urlParams.get('incoming_call_id');
+        if (incomingCallId) {
+            incomingCall.value = {
+                id: parseInt(incomingCallId, 10),
+                source: urlParams.get('caller') || 'تماس ورودی',
+                destination: urlParams.get('line') || '',
+            };
+            if (autoAnswer === '1') {
+                setTimeout(() => {
+                    answerIncomingCall();
+                }, 300);
+            } else {
+                isIncomingCallModalOpen.value = true;
+                playRingtone();
             }
         }
     }

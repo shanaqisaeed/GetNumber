@@ -29,7 +29,10 @@ const handleUnreadCountUpdated = (e: any) => {
     }
 };
 
-// Global Incoming Voice Call state & Audio Ringtone engine
+import { CalmRingtone } from '@/Utils/ringtone';
+import axios from 'axios';
+
+// Global Incoming Voice Call state & Calm Audio Ringtone engine
 interface IncomingCallState {
     id: number;
     caller: string;
@@ -38,45 +41,55 @@ interface IncomingCallState {
 }
 
 const incomingCall = ref<IncomingCallState | null>(null);
-let audioCtx: AudioContext | null = null;
-let ringInterval: ReturnType<typeof setInterval> | null = null;
+const ringtone = new CalmRingtone();
+let globalCallCheckTimer: ReturnType<typeof setInterval> | null = null;
 
-const playRingSound = () => {
+const checkGlobalIncomingCall = async () => {
+    // If user is already on the calls index page, Calls/Index.vue handles interactive call UI
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/calls')) {
+        return;
+    }
+    if (!user.value?.id) return;
+
     try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContextClass) return;
-        audioCtx = new AudioContextClass();
+        const res = await axios.get(route('voice.active_incoming'));
+        if (res.data?.has_incoming && res.data.call) {
+            const call = res.data.call;
+            if (!incomingCall.value || incomingCall.value.id !== call.id) {
+                const callerDisplay = call.source || 'تماس ناشناس';
+                incomingCall.value = {
+                    id: call.id,
+                    caller: callerDisplay,
+                    callerName: callerDisplay,
+                    line: call.destination || '',
+                };
+                ringtone.play();
 
-        const beep = () => {
-            if (!audioCtx || audioCtx.state === 'closed') return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(440, audioCtx.currentTime);
-            osc.frequency.setValueAtTime(480, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + 1.2);
-        };
-        beep();
-        ringInterval = setInterval(beep, 3000);
-    } catch {
-        // AudioContext policy handled gracefully
-    }
-};
-
-const stopRingSound = () => {
-    if (ringInterval) {
-        clearInterval(ringInterval);
-        ringInterval = null;
-    }
-    if (audioCtx) {
-        audioCtx.close().catch(() => {});
-        audioCtx = null;
-    }
+                // Trigger browser / mobile push notification
+                if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                    try {
+                        const notif = new Notification('📞 تماس صوتی ورودی', {
+                            body: `تماس ورودی از ${callerDisplay} روی خط ${call.destination || ''}`,
+                            icon: '/icon-192.png',
+                            badge: '/icon-192.png',
+                            tag: 'incoming-call-' + call.id,
+                            requireInteraction: true,
+                        });
+                        notif.onclick = () => {
+                            notif.close();
+                            window.focus();
+                            acceptIncomingCall();
+                        };
+                    } catch {}
+                }
+            }
+        } else {
+            if (incomingCall.value) {
+                ringtone.stop();
+                incomingCall.value = null;
+            }
+        }
+    } catch {}
 };
 
 const handleIncomingCallEvent = (e: any) => {
@@ -88,28 +101,36 @@ const handleIncomingCallEvent = (e: any) => {
             callerName: detail.callerName || detail.caller,
             line: detail.line || '',
         };
-        playRingSound();
+        ringtone.play();
     }
 };
 
 const acceptIncomingCall = () => {
-    stopRingSound();
+    ringtone.stop();
     if (incomingCall.value) {
         const c = incomingCall.value;
         incomingCall.value = null;
-        router.visit(route('calls.index', { to: c.caller, incoming: 1 }));
+        router.visit(route('calls.index', { incoming_call_id: c.id, auto_answer: 1 }));
     }
 };
 
-const declineIncomingCall = () => {
-    stopRingSound();
-    incomingCall.value = null;
+const declineIncomingCall = async () => {
+    ringtone.stop();
+    if (incomingCall.value) {
+        const callId = incomingCall.value.id;
+        incomingCall.value = null;
+        try {
+            await axios.post(route('voice.decline', callId));
+        } catch {}
+    }
 };
 
 onMounted(() => {
     if (typeof window !== 'undefined') {
         window.addEventListener('unread-count-updated', handleUnreadCountUpdated);
         window.addEventListener('incoming-voice-call', handleIncomingCallEvent);
+        checkGlobalIncomingCall();
+        globalCallCheckTimer = setInterval(checkGlobalIncomingCall, 3000);
     }
 });
 
@@ -118,7 +139,11 @@ onUnmounted(() => {
         window.removeEventListener('unread-count-updated', handleUnreadCountUpdated);
         window.removeEventListener('incoming-voice-call', handleIncomingCallEvent);
     }
-    stopRingSound();
+    if (globalCallCheckTimer) {
+        clearInterval(globalCallCheckTimer);
+        globalCallCheckTimer = null;
+    }
+    ringtone.stop();
 });
 
 const { isDark, toggleTheme } = useTheme();

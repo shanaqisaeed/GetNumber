@@ -221,6 +221,15 @@ class VoiceCallService implements VoiceCallServiceInterface
             $outboundCall->status = 'ringing';
             $outboundCall->answered_at = null;
             $outboundCall->save();
+
+            // Notify callee via WebSocket broadcast & Web Push Notification
+            try {
+                broadcast(new \App\Events\CallReceived($calleeCall));
+            } catch (\Throwable) {}
+
+            try {
+                app(\App\Services\WebPushNotificationService::class)->sendVoiceCallNotification($calleeCall);
+            } catch (\Throwable) {}
         }
 
         return $outboundCall;

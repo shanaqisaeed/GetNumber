@@ -198,6 +198,101 @@ class WebPushNotificationService
     }
 
     /**
+     * Send Web Push notification to user's registered browser/phone when a voice call is incoming
+     */
+    public function sendVoiceCallNotification(\App\Models\VoiceCall $call): void
+    {
+        $userId = $call->user_id;
+        if (! $userId) {
+            return;
+        }
+
+        $subscriptions = PushSubscription::where('user_id', $userId)
+            ->get()
+            ->unique('endpoint_hash');
+
+        if ($subscriptions->isEmpty()) {
+            Log::info("[WebPush] No push subscriptions found for callee user ID: {$userId}");
+            return;
+        }
+
+        $publicKey = config('webpush.vapid.public_key');
+        $privateKey = config('webpush.vapid.private_key');
+        $subject = $this->resolveSubject();
+
+        if (! $publicKey || ! $privateKey) {
+            return;
+        }
+
+        if (! getenv('OPENSSL_CONF') && file_exists('E:\\php\\extras\\ssl\\openssl.cnf')) {
+            putenv('OPENSSL_CONF=E:\\php\\extras\\ssl\\openssl.cnf');
+        }
+
+        $caller = $call->source_identifier ?: __('services.web_push.unknown_sender');
+        $destLine = $call->destination ? "روی خط {$call->destination}" : '';
+        $body = "تماس ورودی از {$caller} {$destLine}";
+
+        $payload = json_encode([
+            'title' => '📞 تماس صوتی ورودی',
+            'body' => $body,
+            'icon' => '/icon-192.png',
+            'badge' => '/icon-192.png',
+            'tag' => 'getnumber-call-' . $call->id,
+            'renotify' => true,
+            'requireInteraction' => true,
+            'vibrate' => [300, 150, 300, 150, 300],
+            'data' => [
+                'url' => "/calls?incoming_call_id={$call->id}&auto_answer=1",
+                'callId' => $call->id,
+                'caller' => $caller,
+            ],
+        ], JSON_UNESCAPED_UNICODE);
+
+        try {
+            $auth = [
+                'VAPID' => [
+                    'subject' => $subject,
+                    'publicKey' => $publicKey,
+                    'privateKey' => $privateKey,
+                ],
+            ];
+
+            $defaultOptions = [
+                'TTL' => 60,
+                'urgency' => 'very-high',
+            ];
+
+            $webPush = new WebPush($auth, $defaultOptions);
+
+            foreach ($subscriptions as $sub) {
+                if (empty($sub->public_key) || empty($sub->auth_token)) {
+                    continue;
+                }
+
+                $webPushSubscription = Subscription::create([
+                    'endpoint' => $sub->endpoint,
+                    'publicKey' => $sub->public_key,
+                    'authToken' => $sub->auth_token,
+                    'contentEncoding' => $sub->content_encoding ?: 'aes128gcm',
+                ]);
+
+                $webPush->queueNotification($webPushSubscription, $payload);
+            }
+
+            foreach ($webPush->flush() as $report) {
+                $endpoint = $report->getRequest()->getUri()->__toString();
+                if ($report->isSuccess()) {
+                    Log::info("[WebPush] Incoming call push delivered to: " . substr($endpoint, 0, 45) . '...');
+                } elseif ($report->isSubscriptionExpired()) {
+                    PushSubscription::where('endpoint_hash', PushSubscription::hashEndpoint($endpoint))->delete();
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::error('[WebPush] Failed sending voice call push notification: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Send an immediate test push notification to user's registered browsers
      */
     public function sendTestNotification(User $user): array
