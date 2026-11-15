@@ -68,6 +68,7 @@ const props = defineProps<{
         iceServers?: RTCIceServer[];
         iceTransportPolicy?: RTCIceTransportPolicy;
         hasTurn?: boolean;
+        isOfflineMode?: boolean;
     };
 }>();
 
@@ -248,10 +249,12 @@ let isPollingSignals = false;
 let processedSignalHashes = new Set<string>();
 const mediaConnectionState = ref<'new' | 'connecting' | 'connected' | 'disconnected' | 'failed'>('new');
 const isAudioPlaybackBlocked = ref(false);
+const pendingWsMessages = ref<string[]>([]);
 const activeRtcConfig = ref<{
     iceServers?: RTCIceServer[];
     iceTransportPolicy?: RTCIceTransportPolicy;
     hasTurn?: boolean;
+    isOfflineMode?: boolean;
 } | null>(props.rtc_config || null);
 
 const buildRtcConfiguration = (): RTCConfiguration => {
@@ -260,8 +263,11 @@ const buildRtcConfiguration = (): RTCConfiguration => {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' },
     ];
+    const iceServers = cfg?.iceServers && cfg.iceServers.length > 0 ? cfg.iceServers : defaultIceServers;
+    console.log('[WebRTC] 🌐 Effective ICE Servers configuration:', JSON.stringify(iceServers, null, 2));
+    console.log('[WebRTC] 🛡️ Has TURN:', Boolean(cfg?.hasTurn), '| Policy:', cfg?.iceTransportPolicy || 'all', '| Offline Mode:', Boolean(cfg?.isOfflineMode));
     return {
-        iceServers: cfg?.iceServers && cfg.iceServers.length > 0 ? cfg.iceServers : defaultIceServers,
+        iceServers: iceServers,
         iceTransportPolicy: (cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
         iceCandidatePoolSize: 4,
     };
@@ -282,15 +288,23 @@ const unblockRemoteAudioPlayback = async () => {
 const sendSignalingMessage = async (type: string, payload: any) => {
     if (!activeCallId.value) return;
 
-    // 1. Go WebSocket bridge signaling (ultra-low latency if connected)
+    const rawWsPayload = JSON.stringify({
+        type: type,
+        session_id: bridgeSessionId.value,
+        payload: payload,
+    });
+
+    // 1. Go WebSocket bridge signaling (ultra-low latency if connected or queued)
     if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN && bridgeSessionId.value) {
         try {
-            bridgeSocket.send(JSON.stringify({
-                type: type,
-                session_id: bridgeSessionId.value,
-                payload: payload,
-            }));
-        } catch {}
+            bridgeSocket.send(rawWsPayload);
+            console.log('[WebRTC-WS] 📤 Sent signaling message directly via WebSocket:', type);
+        } catch (e) {
+            console.warn('[WebRTC-WS] ⚠️ WebSocket send error:', e);
+        }
+    } else if (bridgeSocket && bridgeSocket.readyState === WebSocket.CONNECTING && bridgeSessionId.value) {
+        pendingWsMessages.value.push(rawWsPayload);
+        console.log('[WebRTC-WS] ⏳ Queued signaling message until WebSocket open:', type);
     }
 
     // 2. Atomic DB signaling mailbox in Laravel (guaranteed across all networks/devices)
@@ -299,7 +313,10 @@ const sendSignalingMessage = async (type: string, payload: any) => {
             type: type,
             payload: payload,
         });
-    } catch {}
+        console.log('[WebRTC-DB] 📬 Saved signaling message in DB mailbox:', type);
+    } catch (e) {
+        console.warn('[WebRTC-DB] ⚠️ DB signaling mailbox error:', e);
+    }
 };
 
 let pendingCandidates: RTCIceCandidateInit[] = [];
@@ -501,13 +518,27 @@ const connectBridgeWebSocket = (wsUrl: string) => {
         }
 
         bridgeSocket = new WebSocket(targetWsUrl);
+        console.log('[WebRTC-WS] 🔌 Initiating WebSocket connection to:', targetWsUrl);
         bridgeSocket.onopen = () => {
+            console.log('[WebRTC-WS] 🟢 Connected to Voice Bridge signaling WebSocket');
             isBridgeConnected.value = true;
             if (bridgeSessionId.value) {
                 bridgeSocket?.send(JSON.stringify({
                     type: 'join_session',
                     session_id: bridgeSessionId.value,
                 }));
+            }
+            // Flush any signaling messages queued before socket opened (e.g. Offer, candidates)
+            while (pendingWsMessages.value.length > 0) {
+                const nextMsg = pendingWsMessages.value.shift();
+                if (nextMsg && bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
+                    try {
+                        bridgeSocket.send(nextMsg);
+                        console.log('[WebRTC-WS] 🚀 Flushed queued signaling message to bridge');
+                    } catch (e) {
+                        console.warn('[WebRTC-WS] ⚠️ Failed flushing queued message:', e);
+                    }
+                }
             }
             bridgePingInterval = setInterval(() => {
                 if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
@@ -530,19 +561,26 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                         pingMs.value = msg.ping_ms;
                     }
                 } else if (msg.type === 'channel_connected') {
+                    console.log('[WebRTC-WS] 🎉 Voice channel synchronized between peers!');
                     isBridgeConnected.value = true;
                 } else if (msg.type === 'call_ended') {
+                    console.log('[WebRTC-WS] ⏹️ Remote peer ended call via bridge');
                     callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
                     endCall();
                 } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice_candidate') {
+                    console.log('[WebRTC-WS] 📥 Inbound peer signaling payload received via WS:', msg.type);
                     handleSignalingPayload(msg.type, msg.data || msg.payload);
                 }
-            } catch {}
+            } catch (e) {
+                console.warn('[WebRTC-WS] ⚠️ Error parsing WebSocket message:', e);
+            }
         };
-        bridgeSocket.onerror = () => {
+        bridgeSocket.onerror = (e) => {
+            console.warn('[WebRTC-WS] ❌ WebSocket error:', e);
             isBridgeConnected.value = false;
         };
-        bridgeSocket.onclose = () => {
+        bridgeSocket.onclose = (e) => {
+            console.log('[WebRTC-WS] 🔌 WebSocket closed. Code:', e.code, 'Reason:', e.reason);
             isBridgeConnected.value = false;
             if (bridgePingInterval) clearInterval(bridgePingInterval);
         };
@@ -558,6 +596,7 @@ const startCall = async (skipMicCheck = false) => {
     callError.value = '';
     lastSignalId = 0;
     processedSignalHashes.clear();
+    pendingWsMessages.value = [];
     isAudioPlaybackBlocked.value = false;
     mediaConnectionState.value = 'new';
     
@@ -694,6 +733,7 @@ const endCall = async () => {
     bridgeSessionId.value = null;
     mediaConnectionState.value = 'new';
     isAudioPlaybackBlocked.value = false;
+    pendingWsMessages.value = [];
     lastSignalId = 0;
     processedSignalHashes.clear();
 
@@ -750,6 +790,7 @@ const answerIncomingCall = async () => {
     stopRingtone();
     lastSignalId = 0;
     processedSignalHashes.clear();
+    pendingWsMessages.value = [];
     isAudioPlaybackBlocked.value = false;
     mediaConnectionState.value = 'new';
 

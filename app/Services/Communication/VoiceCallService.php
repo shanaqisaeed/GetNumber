@@ -142,7 +142,7 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         if ($bridgeEnabled) {
             try {
-                $client = Http::timeout(0.5);
+                $client = Http::timeout(2.5);
                 if (! empty($bridgeSecret)) {
                     $client = $client->withHeaders(['X-Bridge-Secret' => $bridgeSecret]);
                 }
@@ -158,9 +158,16 @@ class VoiceCallService implements VoiceCallServiceInterface
                     $bData = $bridgeRes->json();
                     $bridgeSessionId = $bData['session']['id'] ?? null;
                     $pingMs = (int) ($bData['session']['ping_ms'] ?? 22);
+                } else {
+                    \Illuminate\Support\Facades\Log::warning('[VoiceCallService] Voice Bridge start session responded with HTTP ' . $bridgeRes->status(), [
+                        'body' => $bridgeRes->body(),
+                        'url' => $startUrl,
+                    ]);
                 }
-            } catch (\Throwable) {
-                // Bridge daemon might not be running locally; gracefully fall back to native mock
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('[VoiceCallService] Failed contacting Voice Bridge API: ' . $e->getMessage(), [
+                    'url' => $startUrl ?? null,
+                ]);
             }
         }
 
