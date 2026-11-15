@@ -337,10 +337,11 @@ const bridgeForm = useForm({
 const applyIntranetPreset = () => {
     bridgeForm.offline_mode = true;
     const target = bridgeForm.turn_domain_or_ip.trim() || bridgeForm.host || '127.0.0.1';
+    const port = bridgeForm.turn_port || 3479;
     bridgeForm.turn_domain_or_ip = target;
-    bridgeForm.turn_port = 3478;
-    bridgeForm.stun_urls = `stun:${target}:3478`;
-    bridgeForm.turn_urls = `turn:${target}:3478?transport=udp\nturn:${target}:3478?transport=tcp`;
+    bridgeForm.turn_port = port;
+    bridgeForm.stun_urls = `stun:${target}:${port}`;
+    bridgeForm.turn_urls = `turn:${target}:${port}?transport=udp\nturn:${target}:${port}?transport=tcp`;
     if (!bridgeForm.turn_secret && bridgeForm.secret) {
         bridgeForm.turn_secret = bridgeForm.secret;
     }
@@ -349,12 +350,14 @@ const applyIntranetPreset = () => {
 const applyCloudDomainPreset = () => {
     bridgeForm.offline_mode = false;
     const target = bridgeForm.turn_domain_or_ip.trim() || 'voice.yourdomain.ir';
+    const port = bridgeForm.turn_port || 3479;
+    const sPort = bridgeForm.turns_port || 5350;
     bridgeForm.turn_domain_or_ip = target;
-    bridgeForm.turn_port = 3478;
-    bridgeForm.turns_port = 5349;
+    bridgeForm.turn_port = port;
+    bridgeForm.turns_port = sPort;
     bridgeForm.turns_enabled = true;
-    bridgeForm.stun_urls = `stun:${target}:3478\nstun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478`;
-    bridgeForm.turn_urls = `turn:${target}:3478?transport=udp\nturn:${target}:3478?transport=tcp\nturns:${target}:5349?transport=tcp`;
+    bridgeForm.stun_urls = `stun:${target}:${port}\nstun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478`;
+    bridgeForm.turn_urls = `turn:${target}:${port}?transport=udp\nturn:${target}:${port}?transport=tcp\nturns:${target}:${sPort}?transport=tcp`;
     if (!bridgeForm.turn_secret && bridgeForm.secret) {
         bridgeForm.turn_secret = bridgeForm.secret;
     }

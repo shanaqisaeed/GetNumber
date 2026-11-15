@@ -49,9 +49,10 @@ HOST="${HOST:-0.0.0.0}"
 SECRET="${SECRET:-}"
 CALLBACK_URL="${BRIDGE_CALLBACK_URL:-}"
 TURN_ENABLED="${TURN_ENABLED:-true}"
-TURN_PORT="${TURN_PORT:-3478}"
-TURNS_PORT="${TURNS_PORT:-5349}"
+TURN_PORT="${TURN_PORT:-3479}"
+TURNS_PORT="${TURNS_PORT:-5350}"
 TURN_REALM="${TURN_REALM:-getnumber}"
+TURN_PUBLIC_IP="${TURN_PUBLIC_IP:-}"
 TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
 TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
 CLEAN_INSTALL=false
@@ -79,6 +80,42 @@ while [[ $# -gt 0 ]]; do
             CALLBACK_URL="$2"
             shift 2
             ;;
+        --turn-enabled)
+            TURN_ENABLED="$2"
+            shift 2
+            ;;
+        --disable-turn|--no-turn)
+            TURN_ENABLED="false"
+            shift
+            ;;
+        --enable-turn)
+            TURN_ENABLED="true"
+            shift
+            ;;
+        --turn-port)
+            TURN_PORT="$2"
+            shift 2
+            ;;
+        --turns-port)
+            TURNS_PORT="$2"
+            shift 2
+            ;;
+        --turn-public-ip)
+            TURN_PUBLIC_IP="$2"
+            shift 2
+            ;;
+        --turn-realm)
+            TURN_REALM="$2"
+            shift 2
+            ;;
+        --turn-min-port)
+            TURN_MIN_PORT="$2"
+            shift 2
+            ;;
+        --turn-max-port)
+            TURN_MAX_PORT="$2"
+            shift 2
+            ;;
         --clean|--reinstall)
             CLEAN_INSTALL=true
             shift
@@ -89,12 +126,21 @@ while [[ $# -gt 0 ]]; do
             ;;
         --help)
             echo -e "${CYAN}${BOLD}Usage:${RESET} sudo bash install.sh [OPTIONS]\n"
-            echo -e "${WHITE}Options:${RESET}"
+            echo -e "${WHITE}Core Daemon Options:${RESET}"
             echo -e "  ${CYAN}--api-port,     -a <port>${RESET}   REST API listen port ${DIM}(default: 49000)${RESET}"
             echo -e "  ${CYAN}--ws-port,      -w <port>${RESET}   WebSocket listen port ${DIM}(default: 49001)${RESET}"
             echo -e "  ${CYAN}--host,         -h <ip>${RESET}     Interface bind address ${DIM}(default: 0.0.0.0)${RESET}"
             echo -e "  ${CYAN}--secret,       -s <token>${RESET}  Custom 32-hex secret token ${DIM}(default: auto-generate)${RESET}"
             echo -e "  ${CYAN}--callback-url, -c <url>${RESET}    Default Laravel webhook callback URL"
+            echo -e "${WHITE}STUN / TURN Media Relay Options:${RESET}"
+            echo -e "  ${CYAN}--enable-turn / --disable-turn${RESET}  Enable/disable embedded STUN/TURN server ${DIM}(default: enabled)${RESET}"
+            echo -e "  ${CYAN}--turn-port <port>${RESET}              STUN/TURN UDP/TCP port ${DIM}(default: 3479)${RESET}"
+            echo -e "  ${CYAN}--turns-port <port>${RESET}             TURNS TLS port ${DIM}(default: 5350)${RESET}"
+            echo -e "  ${CYAN}--turn-public-ip <ip>${RESET}           Explicit public IP for media relay"
+            echo -e "  ${CYAN}--turn-realm <realm>${RESET}            TURN auth realm ${DIM}(default: getnumber)${RESET}"
+            echo -e "  ${CYAN}--turn-min-port <port>${RESET}          Media relay min UDP port ${DIM}(default: 49152)${RESET}"
+            echo -e "  ${CYAN}--turn-max-port <port>${RESET}          Media relay max UDP port ${DIM}(default: 49250)${RESET}"
+            echo -e "${WHITE}System Options:${RESET}"
             echo -e "  ${CYAN}--clean,        --reinstall${RESET} Clean wipe old services & files prior to install"
             echo -e "  ${CYAN}--yes,          -y${RESET}         Non-interactive mode (accept defaults)"
             echo -e "  ${CYAN}--help${RESET}                     Display this reference guide\n"
@@ -127,6 +173,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ARCH=$(uname -m)
 KERNEL=$(uname -r)
 SYS_RAM=$(free -m 2>/dev/null | awk '/^Mem:/{print $2}' || echo "N/A")
+AUTO_PUBLIC_IP=$(curl -s -m 2 https://api.ipify.org 2>/dev/null || curl -s -m 2 https://icanhazip.com 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+TURN_PUBLIC_IP="${TURN_PUBLIC_IP:-$AUTO_PUBLIC_IP}"
 
 echo -e "  ${PURPLE}${BOLD}◈ SYSTEM ENVIRONMENT TELEMETRY${RESET}"
 echo -e "    ${GREEN}✔${RESET} ${GRAY}Kernel Architecture${RESET}  ${WHITE}${ARCH} (${KERNEL})${RESET}"
@@ -157,6 +205,35 @@ if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
         CALLBACK_URL="$input_cb"
     fi
     echo ""
+
+    echo -e "  ${PURPLE}${BOLD}◈ STUN & TURN MEDIA RELAY CONFIGURATION${RESET} ${DIM}(RFC 5389 / RFC 5766)${RESET}"
+    read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Enable STUN/TURN Media Relay? (Y/n)${RESET} ${DIM}[Y]${RESET} › ")" input_turn_en
+    if [[ "$input_turn_en" =~ ^[Nn] ]]; then
+        TURN_ENABLED="false"
+        echo -e "      ${AMBER}↳ Embedded STUN/TURN Relay: DISABLED${RESET}\n"
+    else
+        TURN_ENABLED="true"
+        echo -e "      ${GREEN}↳ Embedded STUN/TURN Relay: ENABLED${RESET}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}STUN/TURN Port (UDP/TCP)${RESET}  ${DIM}[${TURN_PORT}]${RESET} › ")" input_tport
+        TURN_PORT="${input_tport:-$TURN_PORT}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}TURNS TLS Port (TCP)${RESET}      ${DIM}[${TURNS_PORT}]${RESET} › ")" input_tsport
+        TURNS_PORT="${input_tsport:-$TURNS_PORT}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Public IP for Media Relay${RESET} ${DIM}[${TURN_PUBLIC_IP}]${RESET} › ")" input_pubip
+        TURN_PUBLIC_IP="${input_pubip:-$TURN_PUBLIC_IP}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Relay Min UDP Port${RESET}  ${DIM}[${TURN_MIN_PORT}]${RESET} › ")" input_min
+        TURN_MIN_PORT="${input_min:-$TURN_MIN_PORT}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Relay Max UDP Port${RESET}  ${DIM}[${TURN_MAX_PORT}]${RESET} › ")" input_max
+        TURN_MAX_PORT="${input_max:-$TURN_MAX_PORT}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}TURN Auth Realm${RESET}           ${DIM}[${TURN_REALM}]${RESET} › ")" input_realm
+        TURN_REALM="${input_realm:-$TURN_REALM}"
+        echo ""
+    fi
 fi
 
 # Normalize Callback URL if provided
@@ -185,6 +262,25 @@ fi
 if [ "$API_PORT" -eq "$WS_PORT" ]; then
     echo -e "${RED}✖ Port Conflict:${RESET} API port and WebSocket port cannot share the same port (${API_PORT}).\n"
     exit 1
+fi
+
+if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
+    if ! [[ "$TURN_PORT" =~ ^[0-9]+$ ]] || [ "$TURN_PORT" -lt 1 ] || [ "$TURN_PORT" -gt 65535 ]; then
+        echo -e "${RED}✖ Validation Error:${RESET} Invalid TURN Port '${TURN_PORT}'. Must be integer 1-65535.\n"
+        exit 1
+    fi
+    if ! [[ "$TURNS_PORT" =~ ^[0-9]+$ ]] || [ "$TURNS_PORT" -lt 1 ] || [ "$TURNS_PORT" -gt 65535 ]; then
+        echo -e "${RED}✖ Validation Error:${RESET} Invalid TURNS Port '${TURNS_PORT}'. Must be integer 1-65535.\n"
+        exit 1
+    fi
+    if ! [[ "$TURN_MIN_PORT" =~ ^[0-9]+$ ]] || ! [[ "$TURN_MAX_PORT" =~ ^[0-9]+$ ]] || [ "$TURN_MIN_PORT" -gt "$TURN_MAX_PORT" ]; then
+        echo -e "${RED}✖ Validation Error:${RESET} Invalid media relay port range (${TURN_MIN_PORT}-${TURN_MAX_PORT}).\n"
+        exit 1
+    fi
+    if [ "$TURN_PORT" -eq "$API_PORT" ] || [ "$TURN_PORT" -eq "$WS_PORT" ]; then
+        echo -e "${RED}✖ Port Conflict:${RESET} TURN port (${TURN_PORT}) conflicts with API or WebSocket port.\n"
+        exit 1
+    fi
 fi
 
 # 6. Deployment Pipeline
@@ -254,6 +350,7 @@ TURN_ENABLED=${TURN_ENABLED}
 TURN_PORT=${TURN_PORT}
 TURNS_PORT=${TURNS_PORT}
 TURN_REALM=${TURN_REALM}
+TURN_PUBLIC_IP=${TURN_PUBLIC_IP}
 TURN_MIN_PORT=${TURN_MIN_PORT}
 TURN_MAX_PORT=${TURN_MAX_PORT}
 TURN_SECRET=${SECRET}
@@ -264,10 +361,12 @@ chmod 600 "${INSTALL_DIR}/.env"
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     ufw allow ${API_PORT}/tcp >/dev/null 2>&1 || true
     ufw allow ${WS_PORT}/tcp >/dev/null 2>&1 || true
-    ufw allow ${TURN_PORT}/udp >/dev/null 2>&1 || true
-    ufw allow ${TURN_PORT}/tcp >/dev/null 2>&1 || true
-    ufw allow ${TURNS_PORT}/tcp >/dev/null 2>&1 || true
-    ufw allow ${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp >/dev/null 2>&1 || true
+    if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
+        ufw allow ${TURN_PORT}/udp >/dev/null 2>&1 || true
+        ufw allow ${TURN_PORT}/tcp >/dev/null 2>&1 || true
+        ufw allow ${TURNS_PORT}/tcp >/dev/null 2>&1 || true
+        ufw allow ${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp >/dev/null 2>&1 || true
+    fi
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/5] Cryptographic tokens sealed into .env & .secret${RESET} ${GREEN}[DONE]${RESET}\n"
 
@@ -341,8 +440,16 @@ echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE DAEMON IS ONLINE A
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
+if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔒 TURNS TLS Relay" "turns:${SERVER_IP}:${TURNS_PORT} (TCP)"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
+    if [ -n "$TURN_PUBLIC_IP" ]; then
+        printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌍 Relay Public IP" "${TURN_PUBLIC_IP}"
+    fi
+else
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "Disabled (TURN_ENABLED=false)"
+fi
 printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge & TURN Secret" "${SECRET}"
 if [ -n "$CALLBACK_URL" ]; then
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌐 Default Callback URL" "${CALLBACK_URL}"

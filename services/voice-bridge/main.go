@@ -23,10 +23,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/pion/logging"
+	"github.com/pion/stun/v3"
 	"github.com/pion/turn/v4"
 )
 
@@ -55,6 +57,14 @@ type Config struct {
 	TurnKeyFile    string
 }
 
+// --- STRING CLEANING HELPER ---
+
+func cleanEnvStr(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	return strings.TrimSpace(s)
+}
+
 func loadConfig() Config {
 	// 1. Command-line flags
 	flagHost := flag.String("host", "", "Bridge bind host (default 0.0.0.0 or BRIDGE_HOST)")
@@ -80,9 +90,9 @@ func loadConfig() Config {
 	flag.Parse()
 
 	// Host
-	host := *flagHost
+	host := cleanEnvStr(*flagHost)
 	if host == "" {
-		host = os.Getenv("BRIDGE_HOST")
+		host = cleanEnvStr(os.Getenv("BRIDGE_HOST"))
 	}
 	if host == "" {
 		host = "0.0.0.0"
@@ -91,7 +101,7 @@ func loadConfig() Config {
 	// API Port
 	apiPort := *flagAPIPort
 	if apiPort == 0 {
-		if p := os.Getenv("BRIDGE_API_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("BRIDGE_API_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				apiPort = val
 			}
@@ -104,7 +114,7 @@ func loadConfig() Config {
 	// WS Port
 	wsPort := *flagWSPort
 	if wsPort == 0 {
-		if p := os.Getenv("BRIDGE_WS_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("BRIDGE_WS_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				wsPort = val
 			}
@@ -115,9 +125,9 @@ func loadConfig() Config {
 	}
 
 	// Secret File Path
-	secretFile := *flagSecretFile
+	secretFile := cleanEnvStr(*flagSecretFile)
 	if secretFile == "" {
-		secretFile = os.Getenv("BRIDGE_SECRET_FILE")
+		secretFile = cleanEnvStr(os.Getenv("BRIDGE_SECRET_FILE"))
 	}
 	if secretFile == "" {
 		// Look in executable directory or current working directory
@@ -129,18 +139,18 @@ func loadConfig() Config {
 	}
 
 	// Secret Value
-	secret := *flagSecret
+	secret := cleanEnvStr(*flagSecret)
 	if secret == "" {
-		secret = os.Getenv("BRIDGE_SECRET")
+		secret = cleanEnvStr(os.Getenv("BRIDGE_SECRET"))
 	}
 	if secret == "" {
-		secret = os.Getenv("BRIDGE_AUTH_TOKEN")
+		secret = cleanEnvStr(os.Getenv("BRIDGE_AUTH_TOKEN"))
 	}
 
 	// If still empty, check .secret file
 	if secret == "" {
 		if data, err := os.ReadFile(secretFile); err == nil {
-			s := strings.TrimSpace(string(data))
+			s := cleanEnvStr(string(data))
 			if s != "" {
 				secret = s
 			}
@@ -168,21 +178,21 @@ func loadConfig() Config {
 		log.Printf("[Voice Bridge] 💾 Saved secret to file: %s", secretFile)
 	}
 
-	callbackURL := *flagCallbackURL
+	callbackURL := cleanEnvStr(*flagCallbackURL)
 	if callbackURL == "" {
-		callbackURL = strings.TrimSpace(os.Getenv("BRIDGE_CALLBACK_URL"))
+		callbackURL = cleanEnvStr(os.Getenv("BRIDGE_CALLBACK_URL"))
 	}
 	callbackURL = normalizeCallbackURL(callbackURL)
 
 	// Embedded STUN / TURN Configuration
 	turnEnabled := *flagTurnEnabled
-	if te := os.Getenv("TURN_ENABLED"); te != "" {
+	if te := cleanEnvStr(os.Getenv("TURN_ENABLED")); te != "" {
 		turnEnabled = te == "true" || te == "1" || te == "yes"
 	}
 
 	turnPort := *flagTurnPort
 	if turnPort == 0 {
-		if p := os.Getenv("TURN_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("TURN_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				turnPort = val
 			}
@@ -194,7 +204,7 @@ func loadConfig() Config {
 
 	turnsPort := *flagTurnsPort
 	if turnsPort == 0 {
-		if p := os.Getenv("TURNS_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("TURNS_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				turnsPort = val
 			}
@@ -204,22 +214,22 @@ func loadConfig() Config {
 		turnsPort = 5349
 	}
 
-	turnRealm := *flagTurnRealm
+	turnRealm := cleanEnvStr(*flagTurnRealm)
 	if turnRealm == "" {
-		turnRealm = os.Getenv("TURN_REALM")
+		turnRealm = cleanEnvStr(os.Getenv("TURN_REALM"))
 	}
 	if turnRealm == "" {
 		turnRealm = "getnumber"
 	}
 
-	turnPublicIP := strings.TrimSpace(*flagTurnPublicIP)
+	turnPublicIP := cleanEnvStr(*flagTurnPublicIP)
 	if turnPublicIP == "" {
-		turnPublicIP = strings.TrimSpace(os.Getenv("TURN_PUBLIC_IP"))
+		turnPublicIP = cleanEnvStr(os.Getenv("TURN_PUBLIC_IP"))
 	}
 
 	turnMinPort := *flagTurnMinPort
 	if turnMinPort == 0 {
-		if p := os.Getenv("TURN_MIN_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("TURN_MIN_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				turnMinPort = val
 			}
@@ -231,7 +241,7 @@ func loadConfig() Config {
 
 	turnMaxPort := *flagTurnMaxPort
 	if turnMaxPort == 0 {
-		if p := os.Getenv("TURN_MAX_PORT"); p != "" {
+		if p := cleanEnvStr(os.Getenv("TURN_MAX_PORT")); p != "" {
 			if val, err := strconv.Atoi(p); err == nil {
 				turnMaxPort = val
 			}
@@ -241,44 +251,44 @@ func loadConfig() Config {
 		turnMaxPort = 49250
 	}
 
-	turnSecret := strings.TrimSpace(*flagTurnSecret)
+	turnSecret := cleanEnvStr(*flagTurnSecret)
 	if turnSecret == "" {
-		turnSecret = strings.TrimSpace(os.Getenv("TURN_SECRET"))
+		turnSecret = cleanEnvStr(os.Getenv("TURN_SECRET"))
 	}
 	if turnSecret == "" {
 		turnSecret = secret // Default to bridge secret token
 	}
 
-	turnStaticUser := strings.TrimSpace(*flagTurnStaticUser)
+	turnStaticUser := cleanEnvStr(*flagTurnStaticUser)
 	if turnStaticUser == "" {
-		turnStaticUser = strings.TrimSpace(os.Getenv("TURN_STATIC_USER"))
+		turnStaticUser = cleanEnvStr(os.Getenv("TURN_STATIC_USER"))
 	}
 	if turnStaticUser == "" {
-		turnStaticUser = strings.TrimSpace(os.Getenv("TURN_USER"))
+		turnStaticUser = cleanEnvStr(os.Getenv("TURN_USER"))
 	}
 
-	turnStaticPass := strings.TrimSpace(*flagTurnStaticPass)
+	turnStaticPass := cleanEnvStr(*flagTurnStaticPass)
 	if turnStaticPass == "" {
-		turnStaticPass = strings.TrimSpace(os.Getenv("TURN_STATIC_PASS"))
+		turnStaticPass = cleanEnvStr(os.Getenv("TURN_STATIC_PASS"))
 	}
 	if turnStaticPass == "" {
-		turnStaticPass = strings.TrimSpace(os.Getenv("TURN_PASS"))
+		turnStaticPass = cleanEnvStr(os.Getenv("TURN_PASS"))
 	}
 
-	turnCertFile := strings.TrimSpace(*flagTurnCertFile)
+	turnCertFile := cleanEnvStr(*flagTurnCertFile)
 	if turnCertFile == "" {
-		turnCertFile = strings.TrimSpace(os.Getenv("TURN_CERT_FILE"))
+		turnCertFile = cleanEnvStr(os.Getenv("TURN_CERT_FILE"))
 	}
 	if turnCertFile == "" {
-		turnCertFile = strings.TrimSpace(os.Getenv("TURN_CERT"))
+		turnCertFile = cleanEnvStr(os.Getenv("TURN_CERT"))
 	}
 
-	turnKeyFile := strings.TrimSpace(*flagTurnKeyFile)
+	turnKeyFile := cleanEnvStr(*flagTurnKeyFile)
 	if turnKeyFile == "" {
-		turnKeyFile = strings.TrimSpace(os.Getenv("TURN_KEY_FILE"))
+		turnKeyFile = cleanEnvStr(os.Getenv("TURN_KEY_FILE"))
 	}
 	if turnKeyFile == "" {
-		turnKeyFile = strings.TrimSpace(os.Getenv("TURN_KEY"))
+		turnKeyFile = cleanEnvStr(os.Getenv("TURN_KEY"))
 	}
 
 	return Config{
@@ -739,7 +749,26 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 			srcNum = sess.Source
 			dstNum = sess.Destination
 		}
-		log.Printf("[VOICE-BRIDGE] 🎙️ WebRTC signal relayed: %s (%s <-> %s | session: %s)", msg.Type, srcNum, dstNum, msg.SessionID)
+
+		extraInfo := ""
+		if msg.Type == "ice_candidate" && len(msg.Payload) > 0 {
+			var candMap map[string]interface{}
+			if err := json.Unmarshal(msg.Payload, &candMap); err == nil {
+				if candStr, ok := candMap["candidate"].(string); ok {
+					if strings.Contains(candStr, "typ relay") {
+						extraInfo = " [RELAY (TURN)]"
+					} else if strings.Contains(candStr, "typ srflx") {
+						extraInfo = " [SRFLX (STUN)]"
+					} else if strings.Contains(candStr, "typ host") {
+						extraInfo = " [HOST (LAN)]"
+					}
+				}
+			}
+		} else if msg.Type == "offer" || msg.Type == "answer" {
+			extraInfo = fmt.Sprintf(" [SDP %d bytes]", len(msg.Payload))
+		}
+
+		log.Printf("[VOICE-BRIDGE] 🎙️ WebRTC signal relayed: %s%s (%s <-> %s | session: %s)", msg.Type, extraInfo, srcNum, dstNum, msg.SessionID)
 
 		// Buffer offers and ICE candidates in session so late-joining peers receive them
 		if msg.SessionID != "" && (msg.Type == "offer" || msg.Type == "ice_candidate") {
@@ -943,30 +972,182 @@ func resolveRelayIP(explicitIP string) net.IP {
 	return net.ParseIP("127.0.0.1")
 }
 
+// --- STUN & TURN LOGGING WRAPPERS ---
+
+type stunLoggingPacketConn struct {
+	net.PacketConn
+	label string
+}
+
+func (s *stunLoggingPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, addr, err = s.PacketConn.ReadFrom(p)
+	if err == nil && n > 0 && stun.IsMessage(p[:n]) {
+		var m stun.Message
+		m.Raw = p[:n]
+		if dErr := m.Decode(); dErr == nil {
+			log.Printf("[Voice Bridge STUN/TURN] 📥 INBOUND %s %s from %s (%d bytes)",
+				m.Type.Class, m.Type.Method, addr.String(), n)
+		}
+	}
+	return
+}
+
+func (s *stunLoggingPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	n, err = s.PacketConn.WriteTo(p, addr)
+	if err == nil && n > 0 && stun.IsMessage(p[:n]) {
+		var m stun.Message
+		m.Raw = p[:n]
+		if dErr := m.Decode(); dErr == nil {
+			var errCode stun.ErrorCodeAttribute
+			statusExtra := ""
+			if errCode.GetFrom(&m) == nil {
+				statusExtra = fmt.Sprintf(" [%d: %s]", errCode.Code, errCode.Reason)
+			}
+			log.Printf("[Voice Bridge STUN/TURN] 📤 OUTBOUND %s %s to %s (%d bytes)%s",
+				m.Type.Class, m.Type.Method, addr.String(), n, statusExtra)
+		}
+	}
+	return
+}
+
+type mediaLoggingPacketConn struct {
+	net.PacketConn
+	relayAddr    string
+	readPackets  uint64
+	readBytes    uint64
+	writePackets uint64
+	writeBytes   uint64
+}
+
+func (m *mediaLoggingPacketConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	n, addr, err = m.PacketConn.ReadFrom(p)
+	if err == nil && n > 0 {
+		pkts := atomic.AddUint64(&m.readPackets, 1)
+		atomic.AddUint64(&m.readBytes, uint64(n))
+		if pkts == 1 {
+			log.Printf("[Voice Bridge MEDIA] 🔊 FIRST Inbound audio packet on relay %s: %d bytes from %s",
+				m.relayAddr, n, addr.String())
+		} else if pkts%100 == 0 {
+			log.Printf("[Voice Bridge MEDIA] 📈 Inbound audio traffic on %s: %d pkts (%d KB) from %s",
+				m.relayAddr, pkts, atomic.LoadUint64(&m.readBytes)/1024, addr.String())
+		}
+	}
+	return
+}
+
+func (m *mediaLoggingPacketConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
+	n, err = m.PacketConn.WriteTo(p, addr)
+	if err == nil && n > 0 {
+		pkts := atomic.AddUint64(&m.writePackets, 1)
+		atomic.AddUint64(&m.writeBytes, uint64(n))
+		if pkts == 1 {
+			log.Printf("[Voice Bridge MEDIA] 🔊 FIRST Outbound audio packet on relay %s: %d bytes to %s",
+				m.relayAddr, n, addr.String())
+		} else if pkts%100 == 0 {
+			log.Printf("[Voice Bridge MEDIA] 📈 Outbound audio traffic on %s: %d pkts (%d KB) to %s",
+				m.relayAddr, pkts, atomic.LoadUint64(&m.writeBytes)/1024, addr.String())
+		}
+	}
+	return
+}
+
+func (m *mediaLoggingPacketConn) Close() error {
+	inPkts := atomic.LoadUint64(&m.readPackets)
+	outPkts := atomic.LoadUint64(&m.writePackets)
+	inBytes := atomic.LoadUint64(&m.readBytes)
+	outBytes := atomic.LoadUint64(&m.writeBytes)
+	log.Printf("[Voice Bridge MEDIA] ⏹️ Media relay session ended on %s (In: %d pkts/%d KB | Out: %d pkts/%d KB)",
+		m.relayAddr, inPkts, inBytes/1024, outPkts, outBytes/1024)
+	return m.PacketConn.Close()
+}
+
+type loggingRelayGenerator struct {
+	gen turn.RelayAddressGenerator
+}
+
+func (g *loggingRelayGenerator) Validate() error {
+	return g.gen.Validate()
+}
+
+func (g *loggingRelayGenerator) AllocateConn(network string, requestedPort int) (net.Conn, net.Addr, error) {
+	conn, addr, err := g.gen.AllocateConn(network, requestedPort)
+	if err != nil {
+		log.Printf("[Voice Bridge RELAY] ❌ AllocateConn failed (port %d): %v", requestedPort, err)
+		return nil, nil, err
+	}
+	log.Printf("[Voice Bridge RELAY] 🎯 Relay TCP socket ALLOCATED on %s", addr.String())
+	return conn, addr, nil
+}
+
+func (g *loggingRelayGenerator) AllocatePacketConn(network string, requestedPort int) (net.PacketConn, net.Addr, error) {
+	conn, addr, err := g.gen.AllocatePacketConn(network, requestedPort)
+	if err != nil {
+		log.Printf("[Voice Bridge RELAY] ❌ AllocatePacketConn failed (port %d): %v", requestedPort, err)
+		return nil, nil, err
+	}
+	log.Printf("[Voice Bridge RELAY] 🎯 Relay UDP socket ALLOCATED on %s (Ready for bidirectional voice stream!)", addr.String())
+	return &mediaLoggingPacketConn{PacketConn: conn, relayAddr: addr.String()}, addr, nil
+}
+
 func buildTurnAuthHandler(sharedSecret, realm, staticUser, staticPass string) turn.AuthHandler {
+	cleanSecret := cleanEnvStr(sharedSecret)
+	cleanRealm := cleanEnvStr(realm)
+	cleanStaticUser := cleanEnvStr(staticUser)
+	cleanStaticPass := cleanEnvStr(staticPass)
+
 	return func(username, reqRealm string, srcAddr net.Addr) ([]byte, bool) {
+		clientIP := "unknown"
+		if srcAddr != nil {
+			clientIP = srcAddr.String()
+		}
+
+		effectiveRealm := cleanEnvStr(reqRealm)
+		if effectiveRealm == "" {
+			effectiveRealm = cleanRealm
+		}
+
+		log.Printf("[Voice Bridge TURN-AUTH] 🔍 Auth attempt: User='%s' | ReqRealm='%s' (Using '%s') from %s",
+			username, reqRealm, effectiveRealm, clientIP)
+
 		// 1. Static user/pass fallback
-		if staticUser != "" && username == staticUser {
-			return turn.GenerateAuthKey(username, realm, staticPass), true
+		if cleanStaticUser != "" && username == cleanStaticUser {
+			log.Printf("[Voice Bridge TURN-AUTH] ✅ Static auth SUCCESS for user: '%s' from %s", username, clientIP)
+			return turn.GenerateAuthKey(username, effectiveRealm, cleanStaticPass), true
 		}
 
 		// 2. TURN REST ephemeral credentials: "timestamp:userId"
-		if sharedSecret != "" {
+		if cleanSecret != "" {
 			parts := strings.SplitN(username, ":", 2)
 			if len(parts) == 2 {
 				expiry, err := strconv.ParseInt(parts[0], 10, 64)
 				if err == nil {
-					// Allow 5 minutes clock skew
-					if time.Now().Unix() <= expiry+300 {
-						mac := hmac.New(sha1.New, []byte(sharedSecret))
+					now := time.Now().Unix()
+					// Allow 5 minutes clock skew between server and client/Laravel
+					if now <= expiry+300 {
+						mac := hmac.New(sha1.New, []byte(cleanSecret))
 						mac.Write([]byte(username))
 						expectedPassword := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-						return turn.GenerateAuthKey(username, realm, expectedPassword), true
+						key := turn.GenerateAuthKey(username, effectiveRealm, expectedPassword)
+						log.Printf("[Voice Bridge TURN-AUTH] ✅ HMAC REST auth SUCCESS for user: '%s' (expires in %ds) from %s",
+							username, expiry-now, clientIP)
+						return key, true
+					} else {
+						log.Printf("[Voice Bridge TURN-AUTH] ❌ HMAC auth FAILED: Token expired! (Expiry: %d, ServerNow: %d, Skew: %ds) for user: '%s' from %s",
+							expiry, now, now-expiry, username, clientIP)
 					}
+				} else {
+					log.Printf("[Voice Bridge TURN-AUTH] ❌ HMAC auth FAILED: Non-numeric timestamp in username '%s' from %s",
+						username, clientIP)
 				}
+			} else {
+				log.Printf("[Voice Bridge TURN-AUTH] ❌ HMAC auth FAILED: Username '%s' does not contain 'timestamp:id' delimiter from %s",
+					username, clientIP)
 			}
+		} else {
+			log.Printf("[Voice Bridge TURN-AUTH] ❌ Auth FAILED: No shared secret configured on server! from %s", clientIP)
 		}
 
+		log.Printf("[Voice Bridge TURN-AUTH] ❌ Auth REJECTED for user: '%s' from %s", username, clientIP)
 		return nil, false
 	}
 }
@@ -1009,6 +1190,14 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 
 	authHandler := buildTurnAuthHandler(cfg.TurnSecret, cfg.TurnRealm, cfg.TurnStaticUser, cfg.TurnStaticPass)
 
+	rawRelayGen := &turn.RelayAddressGeneratorPortRange{
+		RelayAddress: relayIP,
+		Address:      "0.0.0.0",
+		MinPort:      uint16(cfg.TurnMinPort),
+		MaxPort:      uint16(cfg.TurnMaxPort),
+	}
+	relayGen := &loggingRelayGenerator{gen: rawRelayGen}
+
 	var packetConnConfigs []turn.PacketConnConfig
 	var listenerConfigs []turn.ListenerConfig
 
@@ -1027,13 +1216,8 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 	}
 
 	packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
-		PacketConn: udpConn,
-		RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
-			RelayAddress: relayIP,
-			Address:      "0.0.0.0",
-			MinPort:      uint16(cfg.TurnMinPort),
-			MaxPort:      uint16(cfg.TurnMaxPort),
-		},
+		PacketConn:             &stunLoggingPacketConn{PacketConn: udpConn, label: fmt.Sprintf("UDP:%d", cfg.TurnPort)},
+		RelayAddressGenerator: relayGen,
 	})
 
 	// 2. TCP Listener for TURN over TCP
@@ -1043,13 +1227,8 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 		log.Printf("[Voice Bridge TURN] ⚠️ Warning: Failed to bind TCP on %s (UDP only): %v", tcpAddr, err)
 	} else {
 		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
-			Listener: tcpListener,
-			RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
-				RelayAddress: relayIP,
-				Address:      "0.0.0.0",
-				MinPort:      uint16(cfg.TurnMinPort),
-				MaxPort:      uint16(cfg.TurnMaxPort),
-			},
+			Listener:               tcpListener,
+			RelayAddressGenerator: relayGen,
 		})
 	}
 
@@ -1071,23 +1250,21 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 			} else {
 				hasTLS = true
 				listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
-					Listener: tlsListener,
-					RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
-						RelayAddress: relayIP,
-						Address:      "0.0.0.0",
-						MinPort:      uint16(cfg.TurnMinPort),
-						MaxPort:      uint16(cfg.TurnMaxPort),
-					},
+					Listener:               tlsListener,
+					RelayAddressGenerator: relayGen,
 				})
 				log.Printf("[Voice Bridge TURNS] 🔒 TURNS (TLS) active on turns://%s:%d", cfg.Host, cfg.TurnsPort)
 			}
 		}
 	}
 
+	pionLoggerFactory := logging.NewDefaultLoggerFactory()
+	pionLoggerFactory.DefaultLogLevel = logging.LogLevelInfo
+
 	server, err := turn.NewServer(turn.ServerConfig{
 		Realm:             cfg.TurnRealm,
 		AuthHandler:       authHandler,
-		LoggerFactory:     logging.NewDefaultLoggerFactory(),
+		LoggerFactory:     pionLoggerFactory,
 		PacketConnConfigs: packetConnConfigs,
 		ListenerConfigs:   listenerConfigs,
 	})

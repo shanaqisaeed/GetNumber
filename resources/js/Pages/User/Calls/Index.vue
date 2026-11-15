@@ -354,12 +354,16 @@ const createPeerConnection = () => {
     // Relay local ICE candidates
     pc.onicecandidate = (event) => {
         if (event.candidate) {
+            console.log('[WebRTC] ❄️ Local candidate gathered:', event.candidate.type, event.candidate.address || event.candidate.relatedAddress, event.candidate.port, event.candidate.candidate);
             sendSignalingMessage('ice_candidate', event.candidate.toJSON());
+        } else {
+            console.log('[WebRTC] ❄️ ICE candidate gathering complete');
         }
     };
 
     const updateStateFromPc = () => {
         const st = pc.iceConnectionState;
+        console.log('[WebRTC] 🔄 ICE State:', st, '| Connection:', pc.connectionState, '| Signaling:', pc.signalingState);
         if (st === 'connected' || st === 'completed' || pc.connectionState === 'connected') {
             mediaConnectionState.value = 'connected';
             isBridgeConnected.value = true;

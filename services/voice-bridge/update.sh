@@ -43,6 +43,9 @@ INSTALL_DIR="/opt/getnumber-bridge"
 SERVICE_NAME="getnumber-voice-bridge"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CALLBACK_URL=""
+CLI_TURN_PORT=""
+CLI_TURN_ENABLED=""
+CLI_TURN_PUBLIC_IP=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -50,10 +53,33 @@ while [[ $# -gt 0 ]]; do
             CALLBACK_URL="$2"
             shift 2
             ;;
+        --turn-port)
+            CLI_TURN_PORT="$2"
+            shift 2
+            ;;
+        --turn-enabled)
+            CLI_TURN_ENABLED="$2"
+            shift 2
+            ;;
+        --enable-turn)
+            CLI_TURN_ENABLED="true"
+            shift
+            ;;
+        --disable-turn|--no-turn)
+            CLI_TURN_ENABLED="false"
+            shift
+            ;;
+        --turn-public-ip)
+            CLI_TURN_PUBLIC_IP="$2"
+            shift 2
+            ;;
         --help)
             echo -e "${CYAN}${BOLD}Usage:${RESET} sudo bash update.sh [OPTIONS]\n"
             echo -e "${WHITE}Options:${RESET}"
             echo -e "  ${CYAN}--callback-url, -c <url>${RESET}  Update default Laravel webhook callback URL"
+            echo -e "  ${CYAN}--turn-port <port>${RESET}        Update STUN/TURN UDP/TCP port (e.g. 3479)"
+            echo -e "  ${CYAN}--enable-turn / --disable-turn${RESET} Enable/disable embedded STUN/TURN"
+            echo -e "  ${CYAN}--turn-public-ip <ip>${RESET}     Update public IP for media relay"
             echo -e "  ${CYAN}--help${RESET}                    Display this reference guide\n"
             exit 0
             ;;
@@ -142,18 +168,45 @@ fi
 
 # Ensure STUN & TURN parameters are provisioned into existing .env
 SECRET_FOR_TURN=$(cat "${INSTALL_DIR}/.secret" 2>/dev/null | tr -d '\r\n ' || echo "")
-if ! grep -q "^TURN_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+AUTO_PUBLIC_IP=$(curl -s -m 2 https://api.ipify.org 2>/dev/null || curl -s -m 2 https://icanhazip.com 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+
+if [ -n "$CLI_TURN_ENABLED" ]; then
+    if grep -q "^TURN_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+        sed -i "s|^TURN_ENABLED=.*|TURN_ENABLED=${CLI_TURN_ENABLED}|" "${INSTALL_DIR}/.env"
+    else
+        echo "TURN_ENABLED=${CLI_TURN_ENABLED}" >> "${INSTALL_DIR}/.env"
+    fi
+elif ! grep -q "^TURN_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null; then
     echo "TURN_ENABLED=true" >> "${INSTALL_DIR}/.env"
 fi
-if ! grep -q "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
-    echo "TURN_PORT=3478" >> "${INSTALL_DIR}/.env"
+
+if [ -n "$CLI_TURN_PORT" ]; then
+    if grep -q "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+        sed -i "s|^TURN_PORT=.*|TURN_PORT=${CLI_TURN_PORT}|" "${INSTALL_DIR}/.env"
+    else
+        echo "TURN_PORT=${CLI_TURN_PORT}" >> "${INSTALL_DIR}/.env"
+    fi
+elif ! grep -q "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_PORT=3479" >> "${INSTALL_DIR}/.env"
 fi
+
 if ! grep -q "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
-    echo "TURNS_PORT=5349" >> "${INSTALL_DIR}/.env"
+    echo "TURNS_PORT=5350" >> "${INSTALL_DIR}/.env"
 fi
 if ! grep -q "^TURN_REALM=" "${INSTALL_DIR}/.env" 2>/dev/null; then
     echo "TURN_REALM=getnumber" >> "${INSTALL_DIR}/.env"
 fi
+
+if [ -n "$CLI_TURN_PUBLIC_IP" ]; then
+    if grep -q "^TURN_PUBLIC_IP=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+        sed -i "s|^TURN_PUBLIC_IP=.*|TURN_PUBLIC_IP=${CLI_TURN_PUBLIC_IP}|" "${INSTALL_DIR}/.env"
+    else
+        echo "TURN_PUBLIC_IP=${CLI_TURN_PUBLIC_IP}" >> "${INSTALL_DIR}/.env"
+    fi
+elif ! grep -q "^TURN_PUBLIC_IP=" "${INSTALL_DIR}/.env" 2>/dev/null && [ -n "$AUTO_PUBLIC_IP" ]; then
+    echo "TURN_PUBLIC_IP=${AUTO_PUBLIC_IP}" >> "${INSTALL_DIR}/.env"
+fi
+
 if ! grep -q "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
     echo "TURN_MIN_PORT=49152" >> "${INSTALL_DIR}/.env"
 fi
@@ -164,12 +217,20 @@ if ! grep -q "^TURN_SECRET=" "${INSTALL_DIR}/.env" 2>/dev/null; then
     echo "TURN_SECRET=${SECRET_FOR_TURN}" >> "${INSTALL_DIR}/.env"
 fi
 
+ACTIVE_TURN_EN=$(grep "^TURN_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "true")
+ACTIVE_TURN_PORT=$(grep "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "3479")
+ACTIVE_TURNS_PORT=$(grep "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "5350")
+ACTIVE_TURN_MIN=$(grep "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49152")
+ACTIVE_TURN_MAX=$(grep "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49250")
+
 # Firewall update if UFW active
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
-    ufw allow 3478/udp >/dev/null 2>&1 || true
-    ufw allow 3478/tcp >/dev/null 2>&1 || true
-    ufw allow 5349/tcp >/dev/null 2>&1 || true
-    ufw allow 49152:49250/udp >/dev/null 2>&1 || true
+    if [ "$ACTIVE_TURN_EN" = "true" ] || [ "$ACTIVE_TURN_EN" = "1" ] || [ "$ACTIVE_TURN_EN" = "yes" ]; then
+        ufw allow ${ACTIVE_TURN_PORT}/udp >/dev/null 2>&1 || true
+        ufw allow ${ACTIVE_TURN_PORT}/tcp >/dev/null 2>&1 || true
+        ufw allow ${ACTIVE_TURNS_PORT}/tcp >/dev/null 2>&1 || true
+        ufw allow ${ACTIVE_TURN_MIN}:${ACTIVE_TURN_MAX}/udp >/dev/null 2>&1 || true
+    fi
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/4] Auth secret preserved & environment synchronized${RESET} ${GREEN}[DONE]${RESET}\n"
 
