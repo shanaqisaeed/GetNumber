@@ -186,8 +186,7 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
     micPermissionGranted.value = null;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         micPermissionGranted.value = false;
-        isMicModalOpen.value = true;
-        callError.value = 'مرورگر شما از دریافت صدای میکروفون پشتیبانی نمی‌کند یا پروتکل امن HTTPS برقرار نیست.';
+        callError.value = 'مرورگر شما از دریافت صدای میکروفون پشتیبانی نمی‌کند یا دسترسی مسدود است.';
         return false;
     }
 
@@ -196,12 +195,20 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
         localMediaStream = stream;
         micPermissionGranted.value = true;
         isMicModalOpen.value = false;
+        callError.value = '';
         return true;
     } catch {
         micPermissionGranted.value = false;
         isMicModalOpen.value = true;
-        callError.value = 'دسترسی به میکروفون توسط کاربر یا مرورگر مسدود شده است. لطفاً در نوار آدرس دسترسی میکروفون را مجاز کنید.';
+        callError.value = 'دسترسی به میکروفون توسط مرورگر مسدود شده است. لطفاً دسترسی میکروفون را فعال نمایید.';
         return false;
+    }
+};
+
+const retryMicrophoneAndCall = async () => {
+    const ok = await requestMicrophoneAccess();
+    if (ok) {
+        await startCall(false);
     }
 };
 
@@ -1045,36 +1052,25 @@ onUnmounted(() => {
                 </div>
 
                 <div class="space-y-1.5">
-                    <h3 class="text-sm font-black text-slate-900 dark:text-white">راهنمای دسترسی به میکروفون</h3>
-                    <p v-if="!isSecureContext" class="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
-                        مرورگرها به دلیل ضوابط امنیتی وب، اجازه ضبط صدا را فقط روی پروتکل امن <strong>HTTPS</strong> یا دامنه محلی <strong>localhost</strong> صادر می‌کنند. از آنجا که اتصال شما روی <code>HTTP</code> است، مرورگر پنجره درخواست دسترسی را نشان نمی‌دهد.
-                    </p>
-                    <p v-else class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                        دسترسی میکروفون در مرورگر صادر نشده یا مسدود است. لطفاً روی آیکون قفل 🔒 در نوار آدرس کلیک کرده و دسترسی میکروفون را روی حالت مجاز (Allow) قرار دهید.
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white">مجوز دسترسی به میکروفون</h3>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                        برای برقراری تماس صوتی، نیاز به تایید دسترسی میکروفون در مرورگر است. لطفاً روی دکمه زیر کلیک کرده و در پنجره مرورگر گزینه <strong>Allow (مجاز)</strong> را انتخاب نمایید.
                     </p>
                 </div>
 
                 <div class="space-y-2 pt-2">
                     <button
                         type="button"
-                        @click="requestMicrophoneAccess"
-                        class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-md shadow-indigo-600/20"
+                        @click="retryMicrophoneAndCall"
+                        class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-md shadow-emerald-600/20"
                     >
-                        تلاش مجدد برای درخواست دسترسی
-                    </button>
-
-                    <button
-                        type="button"
-                        @click="startCall(true)"
-                        class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-slate-200 font-bold text-xs transition-colors"
-                    >
-                        برقراری تماس در حالت آزمایشی (شنیداری بدون میکروفون)
+                        تایید مجوز و برقراری تماس
                     </button>
 
                     <button
                         type="button"
                         @click="isMicModalOpen = false"
-                        class="w-full py-1.5 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        class="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                         انصراف
                     </button>
