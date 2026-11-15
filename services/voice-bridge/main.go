@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -23,6 +25,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/pion/logging"
+	"github.com/pion/turn/v4"
 )
 
 // --- CONFIGURATION ---
@@ -34,6 +39,20 @@ type Config struct {
 	Secret      string
 	SecretFile  string
 	CallbackURL string
+
+	// Embedded STUN / TURN Relay Configuration
+	TurnEnabled    bool
+	TurnPort       int
+	TurnsPort      int
+	TurnRealm      string
+	TurnPublicIP   string
+	TurnMinPort    int
+	TurnMaxPort    int
+	TurnSecret     string
+	TurnStaticUser string
+	TurnStaticPass string
+	TurnCertFile   string
+	TurnKeyFile    string
 }
 
 func loadConfig() Config {
@@ -44,6 +63,20 @@ func loadConfig() Config {
 	flagSecret := flag.String("secret", "", "Bridge authentication secret token")
 	flagSecretFile := flag.String("secret-file", "", "Path to .secret file")
 	flagCallbackURL := flag.String("callback-url", "", "Default Laravel webhook callback URL")
+
+	// STUN / TURN Relay flags
+	flagTurnEnabled := flag.Bool("turn-enabled", true, "Enable embedded STUN and TURN relay (default true or TURN_ENABLED)")
+	flagTurnPort := flag.Int("turn-port", 0, "STUN/TURN UDP/TCP port (default 3478 or TURN_PORT)")
+	flagTurnsPort := flag.Int("turns-port", 0, "TURNS TLS port (default 5349 or TURNS_PORT)")
+	flagTurnRealm := flag.String("turn-realm", "", "TURN authentication realm (default getnumber or TURN_REALM)")
+	flagTurnPublicIP := flag.String("turn-public-ip", "", "Explicit public or routable IP for TURN relay (default auto-detected or TURN_PUBLIC_IP)")
+	flagTurnMinPort := flag.Int("turn-min-port", 0, "TURN media relay min UDP port (default 49152 or TURN_MIN_PORT)")
+	flagTurnMaxPort := flag.Int("turn-max-port", 0, "TURN media relay max UDP port (default 49250 or TURN_MAX_PORT)")
+	flagTurnSecret := flag.String("turn-secret", "", "Shared secret for TURN REST API authentication (default bridge secret or TURN_SECRET)")
+	flagTurnStaticUser := flag.String("turn-user", "", "Optional static TURN username (or TURN_STATIC_USER)")
+	flagTurnStaticPass := flag.String("turn-pass", "", "Optional static TURN password (or TURN_STATIC_PASS)")
+	flagTurnCertFile := flag.String("turn-cert", "", "Path to TLS certificate for TURNS (or TURN_CERT_FILE)")
+	flagTurnKeyFile := flag.String("turn-key", "", "Path to TLS private key for TURNS (or TURN_KEY_FILE)")
 	flag.Parse()
 
 	// Host
@@ -141,13 +174,132 @@ func loadConfig() Config {
 	}
 	callbackURL = normalizeCallbackURL(callbackURL)
 
+	// Embedded STUN / TURN Configuration
+	turnEnabled := *flagTurnEnabled
+	if te := os.Getenv("TURN_ENABLED"); te != "" {
+		turnEnabled = te == "true" || te == "1" || te == "yes"
+	}
+
+	turnPort := *flagTurnPort
+	if turnPort == 0 {
+		if p := os.Getenv("TURN_PORT"); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				turnPort = val
+			}
+		}
+	}
+	if turnPort == 0 {
+		turnPort = 3478
+	}
+
+	turnsPort := *flagTurnsPort
+	if turnsPort == 0 {
+		if p := os.Getenv("TURNS_PORT"); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				turnsPort = val
+			}
+		}
+	}
+	if turnsPort == 0 {
+		turnsPort = 5349
+	}
+
+	turnRealm := *flagTurnRealm
+	if turnRealm == "" {
+		turnRealm = os.Getenv("TURN_REALM")
+	}
+	if turnRealm == "" {
+		turnRealm = "getnumber"
+	}
+
+	turnPublicIP := strings.TrimSpace(*flagTurnPublicIP)
+	if turnPublicIP == "" {
+		turnPublicIP = strings.TrimSpace(os.Getenv("TURN_PUBLIC_IP"))
+	}
+
+	turnMinPort := *flagTurnMinPort
+	if turnMinPort == 0 {
+		if p := os.Getenv("TURN_MIN_PORT"); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				turnMinPort = val
+			}
+		}
+	}
+	if turnMinPort == 0 {
+		turnMinPort = 49152
+	}
+
+	turnMaxPort := *flagTurnMaxPort
+	if turnMaxPort == 0 {
+		if p := os.Getenv("TURN_MAX_PORT"); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				turnMaxPort = val
+			}
+		}
+	}
+	if turnMaxPort == 0 {
+		turnMaxPort = 49250
+	}
+
+	turnSecret := strings.TrimSpace(*flagTurnSecret)
+	if turnSecret == "" {
+		turnSecret = strings.TrimSpace(os.Getenv("TURN_SECRET"))
+	}
+	if turnSecret == "" {
+		turnSecret = secret // Default to bridge secret token
+	}
+
+	turnStaticUser := strings.TrimSpace(*flagTurnStaticUser)
+	if turnStaticUser == "" {
+		turnStaticUser = strings.TrimSpace(os.Getenv("TURN_STATIC_USER"))
+	}
+	if turnStaticUser == "" {
+		turnStaticUser = strings.TrimSpace(os.Getenv("TURN_USER"))
+	}
+
+	turnStaticPass := strings.TrimSpace(*flagTurnStaticPass)
+	if turnStaticPass == "" {
+		turnStaticPass = strings.TrimSpace(os.Getenv("TURN_STATIC_PASS"))
+	}
+	if turnStaticPass == "" {
+		turnStaticPass = strings.TrimSpace(os.Getenv("TURN_PASS"))
+	}
+
+	turnCertFile := strings.TrimSpace(*flagTurnCertFile)
+	if turnCertFile == "" {
+		turnCertFile = strings.TrimSpace(os.Getenv("TURN_CERT_FILE"))
+	}
+	if turnCertFile == "" {
+		turnCertFile = strings.TrimSpace(os.Getenv("TURN_CERT"))
+	}
+
+	turnKeyFile := strings.TrimSpace(*flagTurnKeyFile)
+	if turnKeyFile == "" {
+		turnKeyFile = strings.TrimSpace(os.Getenv("TURN_KEY_FILE"))
+	}
+	if turnKeyFile == "" {
+		turnKeyFile = strings.TrimSpace(os.Getenv("TURN_KEY"))
+	}
+
 	return Config{
-		Host:        host,
-		APIPort:     apiPort,
-		WSPort:      wsPort,
-		Secret:      secret,
-		SecretFile:  secretFile,
-		CallbackURL: callbackURL,
+		Host:           host,
+		APIPort:        apiPort,
+		WSPort:         wsPort,
+		Secret:         secret,
+		SecretFile:     secretFile,
+		CallbackURL:    callbackURL,
+		TurnEnabled:    turnEnabled,
+		TurnPort:       turnPort,
+		TurnsPort:      turnsPort,
+		TurnRealm:      turnRealm,
+		TurnPublicIP:   turnPublicIP,
+		TurnMinPort:    turnMinPort,
+		TurnMaxPort:    turnMaxPort,
+		TurnSecret:     turnSecret,
+		TurnStaticUser: turnStaticUser,
+		TurnStaticPass: turnStaticPass,
+		TurnCertFile:   turnCertFile,
+		TurnKeyFile:    turnKeyFile,
 	}
 }
 
@@ -734,9 +886,232 @@ func writeWSFrame(w *bufio.Writer, opcode byte, payload []byte) error {
 	return w.Flush()
 }
 
+// --- EMBEDDED STUN & TURN RELAY SERVER ---
+
+func resolveRelayIP(explicitIP string) net.IP {
+	if explicitIP != "" {
+		if ip := net.ParseIP(strings.TrimSpace(explicitIP)); ip != nil {
+			return ip
+		}
+		// Try resolving hostname or domain name
+		if ips, err := net.LookupIP(strings.TrimSpace(explicitIP)); err == nil && len(ips) > 0 {
+			for _, ip := range ips {
+				if ip4 := ip.To4(); ip4 != nil {
+					return ip4
+				}
+			}
+		}
+		log.Printf("[Voice Bridge TURN] ⚠️ Could not parse or resolve explicit IP '%s', auto-detecting...", explicitIP)
+	}
+
+	// 1. Dial dummy UDP packet to detect primary default route interface
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err == nil {
+		defer conn.Close()
+		localAddr := conn.LocalAddr().(*net.UDPAddr)
+		if localAddr.IP != nil && !localAddr.IP.IsLoopback() && localAddr.IP.To4() != nil {
+			return localAddr.IP.To4()
+		}
+	}
+
+	// 2. Scan network interfaces for the first active non-loopback IPv4 address
+	ifaces, err := net.Interfaces()
+	if err == nil {
+		for _, iface := range ifaces {
+			if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+				continue
+			}
+			addrs, err := iface.Addrs()
+			if err != nil {
+				continue
+			}
+			for _, addr := range addrs {
+				var ip net.IP
+				switch v := addr.(type) {
+				case *net.IPNet:
+					ip = v.IP
+				case *net.IPAddr:
+					ip = v.IP
+				}
+				if ip != nil && !ip.IsLoopback() && ip.To4() != nil {
+					return ip.To4()
+				}
+			}
+		}
+	}
+
+	return net.ParseIP("127.0.0.1")
+}
+
+func buildTurnAuthHandler(sharedSecret, realm, staticUser, staticPass string) turn.AuthHandler {
+	return func(username, reqRealm string, srcAddr net.Addr) ([]byte, bool) {
+		// 1. Static user/pass fallback
+		if staticUser != "" && username == staticUser {
+			return turn.GenerateAuthKey(username, realm, staticPass), true
+		}
+
+		// 2. TURN REST ephemeral credentials: "timestamp:userId"
+		if sharedSecret != "" {
+			parts := strings.SplitN(username, ":", 2)
+			if len(parts) == 2 {
+				expiry, err := strconv.ParseInt(parts[0], 10, 64)
+				if err == nil {
+					// Allow 5 minutes clock skew
+					if time.Now().Unix() <= expiry+300 {
+						mac := hmac.New(sha1.New, []byte(sharedSecret))
+						mac.Write([]byte(username))
+						expectedPassword := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+						return turn.GenerateAuthKey(username, realm, expectedPassword), true
+					}
+				}
+			}
+		}
+
+		return nil, false
+	}
+}
+
+type TurnServer struct {
+	server       *turn.Server
+	udpConn      net.PacketConn
+	tcpListener  net.Listener
+	tlsListener  net.Listener
+	relayIP      net.IP
+	port         int
+	turnsPort    int
+	realm        string
+	minPort      int
+	maxPort      int
+	hasTLS       bool
+}
+
+func (t *TurnServer) Close() error {
+	if t == nil || t.server == nil {
+		return nil
+	}
+	log.Println("[Voice Bridge TURN] Stopping STUN/TURN server...")
+	return t.server.Close()
+}
+
+func startTurnServer(cfg Config) (*TurnServer, error) {
+	if !cfg.TurnEnabled {
+		log.Println("[Voice Bridge TURN] Embedded STUN/TURN server is disabled by configuration.")
+		return nil, nil
+	}
+
+	relayIP := resolveRelayIP(cfg.TurnPublicIP)
+	log.Printf("[Voice Bridge STUN/TURN] 🌍 Relay address bound to IP: %s (media relay range: %d-%d)",
+		relayIP.String(), cfg.TurnMinPort, cfg.TurnMaxPort)
+
+	authHandler := buildTurnAuthHandler(cfg.TurnSecret, cfg.TurnRealm, cfg.TurnStaticUser, cfg.TurnStaticPass)
+
+	var packetConnConfigs []turn.PacketConnConfig
+	var listenerConfigs []turn.ListenerConfig
+
+	// 1. UDP Listener for STUN (RFC 5389) and TURN (RFC 5766 / RFC 8656)
+	udpAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnPort)
+	udpConn, err := net.ListenPacket("udp4", udpAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to bind UDP STUN/TURN on %s: %w", udpAddr, err)
+	}
+
+	packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
+		PacketConn: udpConn,
+		RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
+			RelayAddress: relayIP,
+			Address:      "0.0.0.0",
+			MinPort:      uint16(cfg.TurnMinPort),
+			MaxPort:      uint16(cfg.TurnMaxPort),
+		},
+	})
+
+	// 2. TCP Listener for TURN over TCP
+	tcpAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnPort)
+	tcpListener, err := net.Listen("tcp4", tcpAddr)
+	if err != nil {
+		log.Printf("[Voice Bridge TURN] ⚠️ Warning: Failed to bind TCP on %s (UDP only): %v", tcpAddr, err)
+	} else {
+		listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
+			Listener: tcpListener,
+			RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
+				RelayAddress: relayIP,
+				Address:      "0.0.0.0",
+				MinPort:      uint16(cfg.TurnMinPort),
+				MaxPort:      uint16(cfg.TurnMaxPort),
+			},
+		})
+	}
+
+	// 3. Optional TLS Listener for TURNS (RFC 5766 TLS on port 5349)
+	var tlsListener net.Listener
+	hasTLS := false
+	if cfg.TurnCertFile != "" && cfg.TurnKeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.TurnCertFile, cfg.TurnKeyFile)
+		if err != nil {
+			log.Printf("[Voice Bridge TURNS] ⚠️ Failed to load TLS certificates (%s, %s): %v", cfg.TurnCertFile, cfg.TurnKeyFile, err)
+		} else {
+			tlsConfig := &tls.Config{
+				Certificates: []tls.Certificate{cert},
+			}
+			turnsAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnsPort)
+			tlsListener, err = tls.Listen("tcp4", turnsAddr, tlsConfig)
+			if err != nil {
+				log.Printf("[Voice Bridge TURNS] ⚠️ Failed to bind TURNS TLS listener on %s: %v", turnsAddr, err)
+			} else {
+				hasTLS = true
+				listenerConfigs = append(listenerConfigs, turn.ListenerConfig{
+					Listener: tlsListener,
+					RelayAddressGenerator: &turn.RelayAddressGeneratorPortRange{
+						RelayAddress: relayIP,
+						Address:      "0.0.0.0",
+						MinPort:      uint16(cfg.TurnMinPort),
+						MaxPort:      uint16(cfg.TurnMaxPort),
+					},
+				})
+				log.Printf("[Voice Bridge TURNS] 🔒 TURNS (TLS) active on turns://%s:%d", cfg.Host, cfg.TurnsPort)
+			}
+		}
+	}
+
+	server, err := turn.NewServer(turn.ServerConfig{
+		Realm:             cfg.TurnRealm,
+		AuthHandler:       authHandler,
+		LoggerFactory:     logging.NewDefaultLoggerFactory(),
+		PacketConnConfigs: packetConnConfigs,
+		ListenerConfigs:   listenerConfigs,
+	})
+	if err != nil {
+		_ = udpConn.Close()
+		if tcpListener != nil {
+			_ = tcpListener.Close()
+		}
+		if tlsListener != nil {
+			_ = tlsListener.Close()
+		}
+		return nil, fmt.Errorf("failed to start TURN server: %w", err)
+	}
+
+	log.Printf("[Voice Bridge STUN/TURN] 📡 Listening on UDP/TCP :%d (Relay UDP: %d-%d, Realm: %s)",
+		cfg.TurnPort, cfg.TurnMinPort, cfg.TurnMaxPort, cfg.TurnRealm)
+
+	return &TurnServer{
+		server:      server,
+		udpConn:     udpConn,
+		tcpListener: tcpListener,
+		tlsListener: tlsListener,
+		relayIP:     relayIP,
+		port:        cfg.TurnPort,
+		turnsPort:   cfg.TurnsPort,
+		realm:       cfg.TurnRealm,
+		minPort:     cfg.TurnMinPort,
+		maxPort:     cfg.TurnMaxPort,
+		hasTLS:      hasTLS,
+	}, nil
+}
+
 // --- REST API SERVER ---
 
-func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.Server {
+func startAPIServer(cfg Config, store *SessionStore, turnSrv *TurnServer, startTime time.Time) *http.Server {
 	mux := http.NewServeMux()
 
 	// CORS & Auth Middleware Helper
@@ -782,10 +1157,27 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 			authValid = validateSecret(providedSecret, cfg.Secret)
 		}
 
+		turnInfo := map[string]interface{}{
+			"enabled": cfg.TurnEnabled,
+			"port":    cfg.TurnPort,
+			"realm":   cfg.TurnRealm,
+		}
+		if turnSrv != nil {
+			turnInfo["active"] = true
+			if turnSrv.relayIP != nil {
+				turnInfo["relay_ip"] = turnSrv.relayIP.String()
+			}
+			turnInfo["relay_range"] = fmt.Sprintf("%d-%d", turnSrv.minPort, turnSrv.maxPort)
+			turnInfo["has_tls"] = turnSrv.hasTLS
+			turnInfo["turns_port"] = turnSrv.turnsPort
+		} else {
+			turnInfo["active"] = false
+		}
+
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":            "ok",
 			"service":           "GetNumber Voice Bridge Daemon",
-			"version":           "1.2.0",
+			"version":           "2.1.0",
 			"uptime_seconds":    uptime,
 			"active_sessions":   store.TotalActive(),
 			"bridge_host":       cfg.Host,
@@ -794,6 +1186,7 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 			"callback_url":      cfg.CallbackURL,
 			"auth_required":     cfg.Secret != "",
 			"auth_valid":        authValid,
+			"stun_turn":         turnInfo,
 			"timestamp":         time.Now().Format(time.RFC3339),
 		})
 	}))
@@ -901,6 +1294,66 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 		})
 	}))
 
+	// 6. Generate Ephemeral TURN REST Credentials & ICE Server List (Protected by Secret)
+	mux.HandleFunc("/turn/credentials", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		userID := strings.TrimSpace(r.URL.Query().Get("user_id"))
+		if userID == "" {
+			userID = "guest"
+		}
+
+		durationSec := int64(6 * 3600) // 6 hours
+		expiresAt := time.Now().Unix() + durationSec
+		username := fmt.Sprintf("%d:%s", expiresAt, userID)
+
+		mac := hmac.New(sha1.New, []byte(cfg.TurnSecret))
+		mac.Write([]byte(username))
+		credential := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+		hostName := cfg.TurnPublicIP
+		if hostName == "" && turnSrv != nil && turnSrv.relayIP != nil {
+			hostName = turnSrv.relayIP.String()
+		}
+		if hostName == "" {
+			hostName = cfg.Host
+		}
+
+		stunURL := fmt.Sprintf("stun:%s:%d", hostName, cfg.TurnPort)
+		turnUDP := fmt.Sprintf("turn:%s:%d?transport=udp", hostName, cfg.TurnPort)
+		turnTCP := fmt.Sprintf("turn:%s:%d?transport=tcp", hostName, cfg.TurnPort)
+
+		iceServers := []map[string]interface{}{
+			{
+				"urls": []string{stunURL},
+			},
+			{
+				"urls":       []string{turnUDP, turnTCP},
+				"username":   username,
+				"credential": credential,
+			},
+		}
+
+		if turnSrv != nil && turnSrv.hasTLS {
+			turnsTLS := fmt.Sprintf("turns:%s:%d?transport=tcp", hostName, cfg.TurnsPort)
+			iceServers = append(iceServers, map[string]interface{}{
+				"urls":       []string{turnsTLS},
+				"username":   username,
+				"credential": credential,
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":     true,
+			"realm":       cfg.TurnRealm,
+			"username":    username,
+			"credential":  credential,
+			"expires_at":  expiresAt,
+			"ttl":         durationSec,
+			"relay_ip":    hostName,
+			"ice_servers": iceServers,
+		})
+	}))
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.APIPort),
 		Handler: mux,
@@ -945,11 +1398,26 @@ func main() {
 	store := NewSessionStore()
 	hub := NewSignalingHub(store, cfg.Secret, cfg.CallbackURL)
 
+	turnSrv, err := startTurnServer(cfg)
+	if err != nil {
+		log.Printf("[Voice Bridge TURN] ⚠️ Warning: Failed to start embedded TURN server: %v", err)
+	}
+
 	fmt.Println("==================================================================")
-	fmt.Println("🚀 GetNumber Voice Bridge & High-Port Audio Signaling Daemon")
+	fmt.Println("🚀 GetNumber Voice Bridge & Embedded STUN/TURN Media Relay 2.1")
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)
+	if cfg.TurnEnabled {
+		fmt.Printf("🔄 STUN Server:           stun:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
+		fmt.Printf("🛡️  TURN Relay Server:     turn:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
+		if turnSrv != nil && turnSrv.hasTLS {
+			fmt.Printf("🔒 TURNS TLS Relay:       turns:%s:%d (TLS)\n", cfg.Host, cfg.TurnsPort)
+		}
+		if turnSrv != nil && turnSrv.relayIP != nil {
+			fmt.Printf("🌍 Relay Bound IP:        %s (Ports %d-%d)\n", turnSrv.relayIP.String(), cfg.TurnMinPort, cfg.TurnMaxPort)
+		}
+	}
 	if cfg.CallbackURL != "" {
 		fmt.Printf("🌐 Default Callback:      %s\n", cfg.CallbackURL)
 	}
@@ -959,7 +1427,7 @@ func main() {
 	fmt.Println("👉 Set this secret in Admin: Settings > Voice Bridge > Secret")
 	fmt.Println("==================================================================")
 
-	apiServer := startAPIServer(cfg, store, startTime)
+	apiServer := startAPIServer(cfg, store, turnSrv, startTime)
 	wsServer := startWSServer(cfg, hub)
 
 	// Graceful shutdown handling
@@ -968,6 +1436,9 @@ func main() {
 	<-stop
 
 	log.Println("[Voice Bridge] Shutting down servers gracefully...")
+	if turnSrv != nil {
+		_ = turnSrv.Close()
+	}
 	_ = apiServer.Close()
 	_ = wsServer.Close()
 	log.Println("[Voice Bridge] Stopped cleanly.")

@@ -87,6 +87,11 @@ class SettingController extends Controller
                 'ws_public_url' => SystemSetting::get('voice_bridge_ws_public_url', ''),
                 'secret' => SystemSetting::get('voice_bridge_secret', ''),
                 'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
+                'turn_domain_or_ip' => SystemSetting::get('voice_turn_domain_or_ip', ''),
+                'turn_port' => (int) SystemSetting::get('voice_turn_port', 3478),
+                'turns_port' => (int) SystemSetting::get('voice_turns_port', 5349),
+                'turns_enabled' => (bool) (int) SystemSetting::get('voice_turns_enabled', '0'),
+                'offline_mode' => (bool) (int) SystemSetting::get('voice_offline_mode', '0'),
                 'stun_urls' => SystemSetting::get('voice_stun_urls', \App\Services\Communication\IceServerProvider::DEFAULT_STUN_URLS),
                 'turn_urls' => SystemSetting::get('voice_turn_urls', ''),
                 'turn_username' => SystemSetting::get('voice_turn_username', ''),
@@ -360,6 +365,11 @@ class SettingController extends Controller
             'ws_public_url' => ['nullable', 'string', 'max:255'],
             'secret' => ['nullable', 'string', 'max:255'],
             'enabled' => ['boolean'],
+            'turn_domain_or_ip' => ['nullable', 'string', 'max:255'],
+            'turn_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'turns_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
+            'turns_enabled' => ['boolean'],
+            'offline_mode' => ['boolean'],
             'stun_urls' => ['nullable', 'string', 'max:1000'],
             'turn_urls' => ['nullable', 'string', 'max:1000'],
             'turn_username' => ['nullable', 'string', 'max:255'],
@@ -378,6 +388,22 @@ class SettingController extends Controller
         SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), 'آدرس عمومی WebSocket (WSS) برای مرورگرها');
         SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), 'توکن امنیتی احراز هویت بریج صوتی');
         SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', 'فعال‌سازی بریج صوتی گو');
+
+        if ($request->has('turn_domain_or_ip')) {
+            SystemSetting::set('voice_turn_domain_or_ip', trim((string) ($validated['turn_domain_or_ip'] ?? '')), 'دامنه یا آی‌پی سرور اختصاصی STUN/TURN');
+        }
+        if ($request->has('turn_port')) {
+            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3478), 'پورت STUN و TURN سرور بریج');
+        }
+        if ($request->has('turns_port')) {
+            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5349), 'پورت TLS امن TURNS');
+        }
+        if ($request->has('turns_enabled')) {
+            SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', 'فعال‌سازی پروتکل امن TURNS');
+        }
+        if ($request->has('offline_mode')) {
+            SystemSetting::set('voice_offline_mode', $request->boolean('offline_mode') ? '1' : '0', 'حالت اینترانت / آفلاین مستقل از اینترنت جهانی');
+        }
 
         if ($request->has('stun_urls')) {
             SystemSetting::set('voice_stun_urls', trim((string) ($validated['stun_urls'] ?? '')), 'لیست سرورهای STUN تماس صوتی');

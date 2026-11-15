@@ -8,16 +8,12 @@ use App\Models\User;
 /**
  * Builds the WebRTC ICE server list (STUN + TURN) handed to browsers.
  *
- * IMPORTANT: The Go Voice Bridge only relays *signaling* (offer/answer/ICE).
- * Audio (SRTP over UDP) flows peer-to-peer between browsers, or through a
- * TURN relay when a direct path is impossible (CGNAT / symmetric NAT /
- * restrictive firewalls - very common on mobile networks). Without a working
- * TURN server, calls ring and "connect" but no audio is ever exchanged.
- *
- * Supported TURN auth modes:
- *  - coturn REST API (`use-auth-secret` + `static-auth-secret`): set `voice_turn_secret`
- *    and short-lived credentials are generated per user.
- *  - static long-term credentials: set `voice_turn_username` + `voice_turn_credential`.
+ * Supports:
+ *  - Self-hosted embedded STUN & TURN relay (in Go Voice Bridge daemon)
+ *  - Offline / Intranet Mode (100% independent of external cloud providers / internet)
+ *  - Domain & SSL/TLS (TURNS / WSS) deployment
+ *  - Ephemeral REST HMAC credentials (draft-uberti-behave-turn-rest-00)
+ *  - Static long-term TURN credentials fallback
  */
 class IceServerProvider
 {
@@ -27,20 +23,109 @@ class IceServerProvider
     private const TURN_CREDENTIAL_TTL = 6 * 3600;
 
     /**
+     * Determine if offline / intranet mode is active.
+     */
+    public function isOfflineMode(): bool
+    {
+        return (bool) (int) SystemSetting::get('voice_offline_mode', '0');
+    }
+
+    /**
+     * Resolve effective STUN server URLs.
+     *
+     * @return array<int, string>
+     */
+    public function resolveStunUrls(): array
+    {
+        $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        $turnPort = (int) SystemSetting::get('voice_turn_port', 3478);
+        if ($turnPort <= 0) {
+            $turnPort = 3478;
+        }
+
+        $selfStun = [];
+        if ($domainOrIp !== '') {
+            $selfStun[] = "stun:{$domainOrIp}:{$turnPort}";
+        }
+
+        if ($this->isOfflineMode()) {
+            // In offline/intranet mode, strictly purge any external internet STUN hosts
+            $configuredStun = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', ''));
+            $localStun = array_filter($configuredStun, function (string $url) {
+                return ! str_contains($url, 'google.com') && ! str_contains($url, 'cloudflare.com');
+            });
+
+            $merged = array_merge($selfStun, $localStun);
+            return array_values(array_unique($merged));
+        }
+
+        // Online mode: self-hosted STUN first, then configured/default public STUNs
+        $configuredStun = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', self::DEFAULT_STUN_URLS));
+        $merged = array_merge($selfStun, $configuredStun);
+
+        return array_values(array_unique($merged));
+    }
+
+    /**
+     * Resolve effective TURN server URLs.
+     *
+     * @return array<int, string>
+     */
+    public function resolveTurnUrls(): array
+    {
+        $explicitUrls = self::parseUrlList((string) SystemSetting::get('voice_turn_urls', ''));
+        if ($explicitUrls !== []) {
+            return $explicitUrls;
+        }
+
+        $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        if ($domainOrIp === '') {
+            return [];
+        }
+
+        $port = (int) SystemSetting::get('voice_turn_port', 3478);
+        if ($port <= 0) {
+            $port = 3478;
+        }
+
+        $turnsPort = (int) SystemSetting::get('voice_turns_port', 5349);
+        if ($turnsPort <= 0) {
+            $turnsPort = 5349;
+        }
+
+        $hasTurns = (bool) (int) SystemSetting::get('voice_turns_enabled', '0');
+
+        $urls = [
+            "turn:{$domainOrIp}:{$port}?transport=udp",
+            "turn:{$domainOrIp}:{$port}?transport=tcp",
+        ];
+
+        if ($hasTurns) {
+            $urls[] = "turns:{$domainOrIp}:{$turnsPort}?transport=tcp";
+        }
+
+        return $urls;
+    }
+
+    /**
      * @return array<int, array{urls: array<int, string>, username?: string, credential?: string}>
      */
     public function iceServersFor(?User $user = null): array
     {
         $servers = [];
 
-        $stunUrls = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', self::DEFAULT_STUN_URLS));
+        $stunUrls = $this->resolveStunUrls();
         if ($stunUrls !== []) {
             $servers[] = ['urls' => $stunUrls];
         }
 
-        $turnUrls = self::parseUrlList((string) SystemSetting::get('voice_turn_urls', ''));
+        $turnUrls = $this->resolveTurnUrls();
         if ($turnUrls !== []) {
-            $turnSecret = (string) SystemSetting::get('voice_turn_secret', '');
+            // Turn secret defaults to bridge secret if not explicitly configured
+            $turnSecret = trim((string) SystemSetting::get('voice_turn_secret', ''));
+            if ($turnSecret === '') {
+                $turnSecret = trim((string) SystemSetting::get('voice_bridge_secret', ''));
+            }
 
             if ($turnSecret !== '') {
                 $expiresAt = time() + self::TURN_CREDENTIAL_TTL;
@@ -66,7 +151,7 @@ class IceServerProvider
         $policy = (string) SystemSetting::get('voice_ice_transport_policy', 'all');
 
         // Forcing relay without any TURN server would make every call silent.
-        if ($policy === 'relay' && self::parseUrlList((string) SystemSetting::get('voice_turn_urls', '')) === []) {
+        if ($policy === 'relay' && ! $this->hasTurn()) {
             return 'all';
         }
 
@@ -75,13 +160,13 @@ class IceServerProvider
 
     public function hasTurn(): bool
     {
-        return self::parseUrlList((string) SystemSetting::get('voice_turn_urls', '')) !== [];
+        return $this->resolveTurnUrls() !== [];
     }
 
     /**
      * Full RTCConfiguration-compatible payload for the browser.
      *
-     * @return array{iceServers: array, iceTransportPolicy: string, hasTurn: bool}
+     * @return array{iceServers: array, iceTransportPolicy: string, hasTurn: bool, isOfflineMode: bool}
      */
     public function rtcConfigFor(?User $user = null): array
     {
@@ -89,6 +174,7 @@ class IceServerProvider
             'iceServers' => $this->iceServersFor($user),
             'iceTransportPolicy' => $this->transportPolicy(),
             'hasTurn' => $this->hasTurn(),
+            'isOfflineMode' => $this->isOfflineMode(),
         ];
     }
 
@@ -108,4 +194,5 @@ class IceServerProvider
         return array_values(array_unique($urls));
     }
 }
+
 

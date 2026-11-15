@@ -77,6 +77,11 @@ interface VoiceBridgeSettings {
     ws_public_url?: string;
     secret?: string;
     enabled: boolean;
+    turn_domain_or_ip?: string;
+    turn_port?: number;
+    turns_port?: number;
+    turns_enabled?: boolean;
+    offline_mode?: boolean;
     stun_urls?: string;
     turn_urls?: string;
     turn_username?: string;
@@ -316,6 +321,11 @@ const bridgeForm = useForm({
     ws_public_url: props.voiceBridgeSettings?.ws_public_url || '',
     secret: props.voiceBridgeSettings?.secret || '',
     enabled: props.voiceBridgeSettings?.enabled ?? true,
+    turn_domain_or_ip: props.voiceBridgeSettings?.turn_domain_or_ip || '',
+    turn_port: props.voiceBridgeSettings?.turn_port || 3478,
+    turns_port: props.voiceBridgeSettings?.turns_port || 5349,
+    turns_enabled: props.voiceBridgeSettings?.turns_enabled ?? false,
+    offline_mode: props.voiceBridgeSettings?.offline_mode ?? false,
     stun_urls: props.voiceBridgeSettings?.stun_urls ?? 'stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478',
     turn_urls: props.voiceBridgeSettings?.turn_urls || '',
     turn_username: props.voiceBridgeSettings?.turn_username || '',
@@ -323,6 +333,41 @@ const bridgeForm = useForm({
     turn_secret: props.voiceBridgeSettings?.turn_secret || '',
     ice_transport_policy: props.voiceBridgeSettings?.ice_transport_policy || 'all',
 });
+
+const applyIntranetPreset = () => {
+    bridgeForm.offline_mode = true;
+    const target = bridgeForm.turn_domain_or_ip.trim() || bridgeForm.host || '127.0.0.1';
+    bridgeForm.turn_domain_or_ip = target;
+    bridgeForm.turn_port = 3478;
+    bridgeForm.stun_urls = `stun:${target}:3478`;
+    bridgeForm.turn_urls = `turn:${target}:3478?transport=udp\nturn:${target}:3478?transport=tcp`;
+    if (!bridgeForm.turn_secret && bridgeForm.secret) {
+        bridgeForm.turn_secret = bridgeForm.secret;
+    }
+};
+
+const applyCloudDomainPreset = () => {
+    bridgeForm.offline_mode = false;
+    const target = bridgeForm.turn_domain_or_ip.trim() || 'voice.yourdomain.ir';
+    bridgeForm.turn_domain_or_ip = target;
+    bridgeForm.turn_port = 3478;
+    bridgeForm.turns_port = 5349;
+    bridgeForm.turns_enabled = true;
+    bridgeForm.stun_urls = `stun:${target}:3478\nstun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478`;
+    bridgeForm.turn_urls = `turn:${target}:3478?transport=udp\nturn:${target}:3478?transport=tcp\nturns:${target}:5349?transport=tcp`;
+    if (!bridgeForm.turn_secret && bridgeForm.secret) {
+        bridgeForm.turn_secret = bridgeForm.secret;
+    }
+    if (!bridgeForm.ws_public_url) {
+        bridgeForm.ws_public_url = `wss://${target}/ws/signaling`;
+    }
+};
+
+const copyBridgeSecretToTurn = () => {
+    if (bridgeForm.secret) {
+        bridgeForm.turn_secret = bridgeForm.secret;
+    }
+};
 
 const submitVoiceBridge = () => {
     bridgeForm.post(route('admin.settings.voice_bridge.update'), {
@@ -1001,32 +1046,149 @@ const testBridgeConnection = async () => {
                             <InputError :message="bridgeForm.errors.ws_public_url" class="mt-1" />
                         </div>
 
-                        <!-- WebRTC Media Relay (STUN / TURN / coturn) Configuration Section -->
-                        <div class="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
-                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-200/60 dark:border-indigo-800/40 pb-3">
+                        <!-- WebRTC Media Relay (STUN / TURN / Embedded Go Bridge) Configuration Section -->
+                        <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-indigo-50/40 to-slate-50 dark:from-indigo-950/30 dark:via-indigo-950/20 dark:to-slate-900/40 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4 shadow-sm">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-indigo-200/60 dark:border-indigo-800/40 pb-3">
                                 <div>
-                                    <h4 class="text-xs font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
-                                        <span>🎙️</span>
-                                        <span>تنظیمات کانال انتقال صوت و رله رسانه WebRTC (سرورهای STUN / TURN)</span>
+                                    <h4 class="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                                        <span>🛡️</span>
+                                        <span>سرور اختصاصی STUN / TURN و رله صوتی WebRTC (مستقل از اینترنت)</span>
                                     </h4>
-                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-0.5 leading-relaxed">
-                                        دیمن Go Voice Bridge وظیفه سیگنالینگ (زنگ خوردن و هماهنگی نشست) را برعهده دارد، اما جریان بسته‌های صوتی (`SRTP Audio`) مستقیماً بین مرورگرها یا از طریق رله <strong>TURN (coturn)</strong> منتقل می‌شود. برای برقراری صدای دوطرفه روی اینترنت همراه و شبکه‌های دارای NAT متقارن (Symmetric NAT / CGNAT)، آدرس سرور TURN اختصاصی خود را وارد نمایید.
+                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-1 leading-relaxed">
+                                        دیمن Go Voice Bridge نسخه ۲.۱ دارای سرور <strong>STUN</strong> و رله مدیا <strong>TURN</strong> داخلی است. با تنظیم دامنه یا آی‌پی، ارتباط صوتی حتی در زمان قطعی کامل اینترنت بین‌الملل (روی شبکه ملی / اینترانت محلی) بدون وقفه و با کیفیت بالا برقرار خواهد بود.
                                     </p>
                                 </div>
-                                <span
-                                    class="shrink-0 self-start sm:self-center text-[10px] font-bold px-2.5 py-1 rounded-full border"
-                                    :class="bridgeForm.turn_urls && bridgeForm.turn_urls.trim()
-                                        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                                        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'"
-                                >
-                                    {{ bridgeForm.turn_urls && bridgeForm.turn_urls.trim() ? '✓ رله TURN پیکربندی شده' : '⚠️ بدون TURN اختصاصی (فقط شبکه مستقیم)' }}
-                                </span>
+                                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                    <span
+                                        class="text-[10px] font-bold px-2.5 py-1 rounded-full border"
+                                        :class="bridgeForm.offline_mode
+                                            ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                            : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30'"
+                                    >
+                                        {{ bridgeForm.offline_mode ? '⚡ حالت اینترانت (آفلاین)' : '🌐 حالت آنلاین اینترنت' }}
+                                    </span>
+                                    <span
+                                        class="text-[10px] font-bold px-2.5 py-1 rounded-full border"
+                                        :class="(bridgeForm.turn_domain_or_ip || (bridgeForm.turn_urls && bridgeForm.turn_urls.trim()))
+                                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                            : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'"
+                                    >
+                                        {{ (bridgeForm.turn_domain_or_ip || (bridgeForm.turn_urls && bridgeForm.turn_urls.trim())) ? '✓ رله TURN فعال' : '⚠️ بدون TURN' }}
+                                    </span>
+                                </div>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <!-- Quick Presets -->
+                            <div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-white/70 dark:bg-gray-800/60 border border-indigo-100 dark:border-indigo-900/40 text-xs">
+                                <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                                    <span>⚡</span>
+                                    <span>پیکربندی سریع:</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    @click="applyIntranetPreset"
+                                    class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition"
+                                >
+                                    🏢 حالت شبکه داخلی / آفلاین (بدون وابستگی به اینترنت)
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="applyCloudDomainPreset"
+                                    class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 transition"
+                                >
+                                    🌐 حالت دامنه اختصاصی اینترنت (با TLS/TURNS)
+                                </button>
+                            </div>
+
+                            <!-- Dedicated STUN/TURN Host & Ports -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div class="sm:col-span-1">
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        دامنه یا آی‌پی سرور STUN/TURN
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.turn_domain_or_ip"
+                                        type="text"
+                                        placeholder="مثلاً: voice.domain.ir یا 192.168.1.100"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                        آدرس سرور برای تولید خودکار آدرس‌های STUN و TURN.
+                                    </p>
+                                    <InputError :message="bridgeForm.errors.turn_domain_or_ip" class="mt-1" />
+                                </div>
+
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        سرورهای STUN (هر خط یا با کاما جدا شود)
+                                        پورت STUN / TURN (RFC 5389/5766)
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.turn_port"
+                                        type="number"
+                                        min="1"
+                                        max="65535"
+                                        placeholder="3478"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                        پورت استاندارد UDP/TCP (پیش‌فرض: ۳۴۷۸).
+                                    </p>
+                                    <InputError :message="bridgeForm.errors.turn_port" class="mt-1" />
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        پورت امن TURNS (TLS)
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.turns_port"
+                                        type="number"
+                                        min="1"
+                                        max="65535"
+                                        placeholder="5349"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                    <div class="flex items-center gap-2 mt-1.5">
+                                        <input
+                                            id="voice_turns_toggle"
+                                            v-model="bridgeForm.turns_enabled"
+                                            type="checkbox"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                        />
+                                        <label for="voice_turns_toggle" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                            فعال‌سازی پروتکل امن TURNS
+                                        </label>
+                                    </div>
+                                    <InputError :message="bridgeForm.errors.turns_port" class="mt-1" />
+                                </div>
+                            </div>
+
+                            <!-- Offline Mode Switch -->
+                            <div class="p-3 rounded-xl bg-amber-500/10 dark:bg-amber-950/20 border border-amber-300/60 dark:border-amber-800/50 flex items-start sm:items-center gap-3">
+                                <input
+                                    id="voice_offline_mode_toggle"
+                                    v-model="bridgeForm.offline_mode"
+                                    type="checkbox"
+                                    class="rounded border-gray-300 text-amber-600 focus:ring-amber-500 w-4 h-4 mt-0.5 sm:mt-0"
+                                />
+                                <div class="flex-1">
+                                    <label for="voice_offline_mode_toggle" class="text-xs font-bold text-amber-900 dark:text-amber-200 cursor-pointer select-none">
+                                        حالت شبکه داخلی / آفلاین مستقل از اینترنت بین‌الملل (Intranet / Offline Mode)
+                                    </label>
+                                    <p class="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
+                                        با فعال بودن این گزینه، کلیه سرورهای خارجی (مانند گوگل و کلودفلر) حذف شده و مرورگرها فقط از سرور STUN/TURN اختصاصی شما استفاده می‌کنند؛ به این ترتیب در زمان قطعی اینترنت بین‌الملل، مرورگر معطل پاسخ سرورهای خارجی نمانده و صدا بلافاصله وصل می‌شود.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- STUN & TURN Manual URL Lists -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        لیست سرورهای STUN سفارشی (اختیاری)
                                     </label>
                                     <textarea
                                         v-model="bridgeForm.stun_urls"
@@ -1035,12 +1197,15 @@ const testBridgeConnection = async () => {
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     ></textarea>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                        در صورت خالی بودن، به صورت خودکار از دامنه بالا و سرورهای استاندارد استفاده می‌شود.
+                                    </p>
                                     <InputError :message="bridgeForm.errors.stun_urls" class="mt-1" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        سرورهای رله صوتی TURN / TURNS (هر خط یک آدرس)
+                                        لیست سرورهای TURN سفارشی (اختیاری)
                                     </label>
                                     <textarea
                                         v-model="bridgeForm.turn_urls"
@@ -1049,14 +1214,43 @@ const testBridgeConnection = async () => {
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     ></textarea>
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                        در صورت خالی بودن، بر اساس دامنه یا آی‌پی ثبت‌شده در بالا خودکار ساخته می‌شود.
+                                    </p>
                                     <InputError :message="bridgeForm.errors.turn_urls" class="mt-1" />
                                 </div>
                             </div>
 
+                            <!-- Credentials & HMAC Secret -->
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                                            کلید HMAC REST سرور TURN
+                                        </label>
+                                        <button
+                                            type="button"
+                                            @click="copyBridgeSecretToTurn"
+                                            class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                                        >
+                                            همگام با سکرت بریج
+                                        </button>
+                                    </div>
+                                    <input
+                                        v-model="bridgeForm.turn_secret"
+                                        :type="showTurnCredential ? 'text' : 'password'"
+                                        placeholder="خالی = استفاده خودکار از سکرت بریج"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                    <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                        برای احراز هویت توکن‌های موقت و ایمن صوتی هر تماس.
+                                    </p>
+                                </div>
+
+                                <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        نام کاربری ثابت TURN (Username)
+                                        نام کاربری ثابت TURN (اختیاری)
                                     </label>
                                     <input
                                         v-model="bridgeForm.turn_username"
@@ -1070,7 +1264,7 @@ const testBridgeConnection = async () => {
                                 <div>
                                     <div class="flex items-center justify-between mb-1">
                                         <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                            گذرواژه ثابت TURN (Password)
+                                            گذرواژه ثابت TURN (اختیاری)
                                         </label>
                                         <button
                                             type="button"
@@ -1083,20 +1277,7 @@ const testBridgeConnection = async () => {
                                     <input
                                         v-model="bridgeForm.turn_credential"
                                         :type="showTurnCredential ? 'text' : 'password'"
-                                        placeholder="گذرواژه کاربر در coturn"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                        dir="ltr"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        یا کلید HMAC REST (static-auth-secret)
-                                    </label>
-                                    <input
-                                        v-model="bridgeForm.turn_secret"
-                                        :type="showTurnCredential ? 'text' : 'password'"
-                                        placeholder="اختیاری (تولید خودکار توکن موقت)"
+                                        placeholder="گذرواژه کاربر ثابت TURN"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     />
@@ -1106,18 +1287,18 @@ const testBridgeConnection = async () => {
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                                 <div class="flex items-center gap-2">
                                     <label class="text-xs font-bold text-gray-700 dark:text-gray-300">
-                                        حالت مسیریابی صوتی (ICE Transport Policy):
+                                        سیاست مسیریابی صوتی (ICE Transport Policy):
                                     </label>
                                     <select
                                         v-model="bridgeForm.ice_transport_policy"
                                         class="text-xs rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 px-3"
                                     >
-                                        <option value="all">خودکار (اتصال مستقیم P2P + رله TURN در صورت نیاز)</option>
+                                        <option value="all">خودکار (اتصال مستقیم P2P + رله TURN در صورت مسدودی)</option>
                                         <option value="relay">اجبار عبور تمام صدا از رله سرور (TURN Relay Only)</option>
                                     </select>
                                 </div>
                                 <span class="text-[11px] text-gray-500 dark:text-gray-400">
-                                    پورت‌های پیش‌فرض <code class="font-mono">coturn</code>: پورت <code class="font-mono">3478</code> (TCP/UDP) و بازه رله <code class="font-mono">49152-65535/UDP</code>
+                                    پورت‌های خودکار سرور: پورت <code class="font-mono">3478</code> (TCP/UDP)، پورت <code class="font-mono">5349</code> (TLS) و بازه مدیا <code class="font-mono">49152-49250/UDP</code>
                                 </span>
                             </div>
                         </div>

@@ -504,5 +504,61 @@ class VoiceCallAndBridgeTest extends TestCase
         $this->assertNotEmpty($rtc['iceServers'][1]['username']);
         $this->assertNotEmpty($rtc['iceServers'][1]['credential']);
     }
+
+    public function test_ice_server_provider_offline_mode_purges_external_cloud_stun(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        $this->actingAs($admin)->post(route('admin.settings.voice_bridge.update'), [
+            'host' => '192.168.1.50',
+            'api_port' => 49000,
+            'ws_port' => 49001,
+            'secret' => 'intranet_secret_999',
+            'enabled' => true,
+            'turn_domain_or_ip' => '192.168.1.50',
+            'turn_port' => 3478,
+            'offline_mode' => true,
+        ])->assertRedirect();
+
+        $provider = app(\App\Services\Communication\IceServerProvider::class);
+        $rtc = $provider->rtcConfigFor($admin);
+
+        $this->assertTrue($rtc['isOfflineMode']);
+        $this->assertTrue($rtc['hasTurn']);
+
+        $allStunUrls = $rtc['iceServers'][0]['urls'];
+        $this->assertContains('stun:192.168.1.50:3478', $allStunUrls);
+        foreach ($allStunUrls as $url) {
+            $this->assertStringNotContainsString('google.com', $url);
+            $this->assertStringNotContainsString('cloudflare.com', $url);
+        }
+    }
+
+    public function test_ice_server_provider_auto_generates_turn_urls_and_uses_bridge_secret(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+
+        SystemSetting::set('voice_turn_domain_or_ip', 'voice.company.ir');
+        SystemSetting::set('voice_turn_port', '3478');
+        SystemSetting::set('voice_turns_port', '5349');
+        SystemSetting::set('voice_turns_enabled', '1');
+        SystemSetting::set('voice_turn_urls', '');
+        SystemSetting::set('voice_turn_secret', '');
+        SystemSetting::set('voice_bridge_secret', 'shared_bridge_sec_888');
+
+        $provider = app(\App\Services\Communication\IceServerProvider::class);
+        $rtc = $provider->rtcConfigFor($admin);
+
+        $this->assertTrue($rtc['hasTurn']);
+        $turnUrls = $rtc['iceServers'][1]['urls'];
+        $this->assertContains('turn:voice.company.ir:3478?transport=udp', $turnUrls);
+        $this->assertContains('turn:voice.company.ir:3478?transport=tcp', $turnUrls);
+        $this->assertContains('turns:voice.company.ir:5349?transport=tcp', $turnUrls);
+
+        $username = $rtc['iceServers'][1]['username'];
+        $credential = $rtc['iceServers'][1]['credential'];
+        $expected = base64_encode(hash_hmac('sha1', $username, 'shared_bridge_sec_888', true));
+        $this->assertEquals($expected, $credential);
+    }
 }
 

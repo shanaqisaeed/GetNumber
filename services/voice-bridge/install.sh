@@ -48,6 +48,12 @@ WS_PORT="${WS_PORT:-49001}"
 HOST="${HOST:-0.0.0.0}"
 SECRET="${SECRET:-}"
 CALLBACK_URL="${BRIDGE_CALLBACK_URL:-}"
+TURN_ENABLED="${TURN_ENABLED:-true}"
+TURN_PORT="${TURN_PORT:-3478}"
+TURNS_PORT="${TURNS_PORT:-5349}"
+TURN_REALM="${TURN_REALM:-getnumber}"
+TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
+TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
 CLEAN_INSTALL=false
 NON_INTERACTIVE=false
 
@@ -242,8 +248,27 @@ BRIDGE_API_PORT=${API_PORT}
 BRIDGE_WS_PORT=${WS_PORT}
 BRIDGE_SECRET=${SECRET}
 BRIDGE_CALLBACK_URL=${CALLBACK_URL}
+
+# Embedded STUN & TURN Relay Settings (RFC 5389 / RFC 5766)
+TURN_ENABLED=${TURN_ENABLED}
+TURN_PORT=${TURN_PORT}
+TURNS_PORT=${TURNS_PORT}
+TURN_REALM=${TURN_REALM}
+TURN_MIN_PORT=${TURN_MIN_PORT}
+TURN_MAX_PORT=${TURN_MAX_PORT}
+TURN_SECRET=${SECRET}
 EOF
 chmod 600 "${INSTALL_DIR}/.env"
+
+# Configure Firewall (UFW) if active
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw allow ${API_PORT}/tcp >/dev/null 2>&1 || true
+    ufw allow ${WS_PORT}/tcp >/dev/null 2>&1 || true
+    ufw allow ${TURN_PORT}/udp >/dev/null 2>&1 || true
+    ufw allow ${TURN_PORT}/tcp >/dev/null 2>&1 || true
+    ufw allow ${TURNS_PORT}/tcp >/dev/null 2>&1 || true
+    ufw allow ${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp >/dev/null 2>&1 || true
+fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/5] Cryptographic tokens sealed into .env & .secret${RESET} ${GREEN}[DONE]${RESET}\n"
 
 # Step 4: Systemd Service Unit Generation
@@ -316,7 +341,9 @@ echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE DAEMON IS ONLINE A
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
-printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge Secret Token" "${SECRET}"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
+printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge & TURN Secret" "${SECRET}"
 if [ -n "$CALLBACK_URL" ]; then
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌐 Default Callback URL" "${CALLBACK_URL}"
 fi
