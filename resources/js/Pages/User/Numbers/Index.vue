@@ -721,7 +721,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <div class="grid grid-cols-2 gap-2">
                                 <!-- SMS -->
                                 <Link
-                                    :href="route('messages.index', { custom_id: alloc.resource_identifier })"
+                                    :href="route('messages.index', { line_key: 'custom_' + alloc.id, custom_id: alloc.resource_identifier })"
                                     class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors group"
                                 >
                                     <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
@@ -740,7 +740,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                                 <!-- Voice -->
                                 <Link
-                                    :href="route('calls.index', { custom_id: alloc.resource_identifier })"
+                                    :href="route('calls.index', { line_key: 'custom_' + alloc.id, custom_id: alloc.resource_identifier })"
                                     class="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-emerald-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors group"
                                 >
                                     <span class="flex items-center gap-2 text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">

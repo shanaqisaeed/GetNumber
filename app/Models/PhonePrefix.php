@@ -56,7 +56,13 @@ class PhonePrefix extends Model
      */
     public function getIntraSmsRate(): string
     {
-        return (string) ($this->sms_intra_prefix_rate ?: $this->sms_price_per_segment ?: SystemSetting::get('sms_intra_prefix_rate', '0.0500'));
+        if ($this->sms_intra_prefix_rate !== null && $this->sms_intra_prefix_rate !== '') {
+            return (string) $this->sms_intra_prefix_rate;
+        }
+        if ($this->sms_price_per_segment !== null && $this->sms_price_per_segment !== '') {
+            return (string) $this->sms_price_per_segment;
+        }
+        return (string) SystemSetting::get('sms_intra_prefix_rate', '0.0500');
     }
 
     /**
@@ -64,7 +70,10 @@ class PhonePrefix extends Model
      */
     public function getInterSmsRate(): string
     {
-        return (string) ($this->sms_inter_prefix_rate ?: SystemSetting::get('sms_inter_prefix_rate', '0.1200'));
+        if ($this->sms_inter_prefix_rate !== null && $this->sms_inter_prefix_rate !== '') {
+            return (string) $this->sms_inter_prefix_rate;
+        }
+        return (string) SystemSetting::get('sms_inter_prefix_rate', '0.1200');
     }
 
     /**
@@ -72,7 +81,10 @@ class PhonePrefix extends Model
      */
     public function getIntraVoiceRate(): string
     {
-        return (string) ($this->voice_intra_prefix_rate ?: SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
+        if ($this->voice_intra_prefix_rate !== null && $this->voice_intra_prefix_rate !== '') {
+            return (string) $this->voice_intra_prefix_rate;
+        }
+        return (string) SystemSetting::get('voice_intra_prefix_rate', '0.1000');
     }
 
     /**
@@ -80,7 +92,10 @@ class PhonePrefix extends Model
      */
     public function getInterVoiceRate(): string
     {
-        return (string) ($this->voice_inter_prefix_rate ?: SystemSetting::get('voice_inter_prefix_rate', '0.2500'));
+        if ($this->voice_inter_prefix_rate !== null && $this->voice_inter_prefix_rate !== '') {
+            return (string) $this->voice_inter_prefix_rate;
+        }
+        return (string) SystemSetting::get('voice_inter_prefix_rate', '0.2500');
     }
 
     /**

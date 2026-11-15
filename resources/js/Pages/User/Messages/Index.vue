@@ -16,6 +16,7 @@ import { useChatConversation, ChatMessage } from '@/Composables/useChatConversat
 const props = defineProps<{
     allocatedNumbers: LineItem[];
     currentNumber: LineItem | null;
+    selected_line_key?: string | null;
     conversations: ConversationItem[];
     activePeer: string | null;
     activePeerDetails: any | null;
@@ -34,15 +35,22 @@ const props = defineProps<{
 
 // Line / SIM selection
 const selectedLineId = ref<number | null>(props.currentNumber?.id || null);
+const selectedLineKey = ref<string | null>(
+    props.selected_line_key || (props.currentNumber ? (props.currentNumber.type === 'custom_id' ? 'custom_' + props.currentNumber.id : 'phone_' + props.currentNumber.id) : null)
+);
 const allocatedNumbersList = ref<LineItem[]>(JSON.parse(JSON.stringify(props.allocatedNumbers || [])));
 
 // Current active line item
 const currentLine = computed(() => {
+    if (selectedLineKey.value) {
+        const found = allocatedNumbersList.value.find(l => (l.key || (l.type === 'custom_id' ? 'custom_' + l.id : 'phone_' + l.id)) === selectedLineKey.value);
+        if (found) return found;
+    }
     return allocatedNumbersList.value.find(l => l.id === selectedLineId.value) || null;
 });
 
 const currentSimIndex = computed(() => {
-    const idx = allocatedNumbersList.value.findIndex(l => l.id === selectedLineId.value);
+    const idx = allocatedNumbersList.value.findIndex(l => currentLine.value && l.id === currentLine.value.id && l.type === currentLine.value.type);
     return idx >= 0 ? idx + 1 : 1;
 });
 
@@ -209,12 +217,13 @@ const { connectionLabel, connectionStatusDotClass, isWebSocketActive, performPol
 });
 
 // Switching sending line
-const switchLine = (lineId: number) => {
-    if (selectedLineId.value === lineId) return;
+const switchLine = (lineId: number, lineKey?: string) => {
     selectedLineId.value = lineId;
+    if (lineKey) selectedLineKey.value = lineKey;
     router.get(
         route('messages.index'),
         {
+            line_key: lineKey || undefined,
             phone_number_id: lineId,
             search: searchQuery.value || undefined,
         },
@@ -439,6 +448,7 @@ onUnmounted(() => {
                 <LineSelector
                     :lines="allocatedNumbersList"
                     :selected-line-id="selectedLineId"
+                    :selected-line-key="selectedLineKey"
                     :is-web-socket-active="isWebSocketActive"
                     :connection-label="connectionLabel"
                     :connection-status-dot-class="connectionStatusDotClass"

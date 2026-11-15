@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 
 export interface LineItem {
     id: number;
+    key?: string;
     number: string;
     formatted_number: string;
     effective_title: string;
@@ -15,24 +16,29 @@ export interface LineItem {
 const props = defineProps<{
     lines: LineItem[];
     selectedLineId: number | null;
+    selectedLineKey?: string | null;
     isWebSocketActive: boolean;
     connectionLabel: string;
     connectionStatusDotClass: string;
 }>();
 
 const emit = defineEmits<{
-    (e: 'switch-line', lineId: number): void;
+    (e: 'switch-line', lineId: number, lineKey?: string): void;
 }>();
 
 const isSimSwitcherModalOpen = ref(false);
 
-const currentSimIndex = computed(() => {
-    const idx = props.lines.findIndex(l => l.id === props.selectedLineId);
-    return idx >= 0 ? idx + 1 : 1;
+const currentLine = computed(() => {
+    if (props.selectedLineKey) {
+        const found = props.lines.find(l => (l.key || (l.type === 'custom_id' ? 'custom_' + l.id : 'phone_' + l.id)) === props.selectedLineKey);
+        if (found) return found;
+    }
+    return props.lines.find(l => l.id === props.selectedLineId) || null;
 });
 
-const currentLine = computed(() => {
-    return props.lines.find(l => l.id === props.selectedLineId) || null;
+const currentSimIndex = computed(() => {
+    const idx = props.lines.findIndex(l => currentLine.value && l.id === currentLine.value.id && l.type === currentLine.value.type);
+    return idx >= 0 ? idx + 1 : 1;
 });
 
 const currentLineUnreadCount = computed(() => {
@@ -41,13 +47,21 @@ const currentLineUnreadCount = computed(() => {
 
 const otherLinesTotalUnreadCount = computed(() => {
     return props.lines
-        .filter(l => l.id !== props.selectedLineId)
+        .filter(l => currentLine.value && !(l.id === currentLine.value.id && l.type === currentLine.value.type))
         .reduce((sum, l) => sum + (l.unread_count || 0), 0);
 });
 
-const selectLine = (id: number) => {
+const isSimActive = (sim: LineItem) => {
+    if (props.selectedLineKey) {
+        return (sim.key || (sim.type === 'custom_id' ? 'custom_' + sim.id : 'phone_' + sim.id)) === props.selectedLineKey;
+    }
+    return currentLine.value ? (sim.id === currentLine.value.id && sim.type === currentLine.value.type) : false;
+};
+
+const selectLine = (sim: LineItem) => {
     isSimSwitcherModalOpen.value = false;
-    emit('switch-line', id);
+    const key = sim.key || (sim.type === 'custom_id' ? 'custom_' + sim.id : 'phone_' + sim.id);
+    emit('switch-line', sim.id, key);
 };
 </script>
 
@@ -135,12 +149,12 @@ const selectLine = (id: number) => {
         <div v-if="lines.length > 1" class="mt-3 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
             <button
                 v-for="(sim, idx) in lines"
-                :key="sim.id"
+                :key="sim.key || (sim.type + '_' + sim.id)"
                 type="button"
-                @click="selectLine(sim.id)"
+                @click="selectLine(sim)"
                 class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border relative"
                 :class="[
-                    selectedLineId === sim.id
+                    isSimActive(sim)
                         ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/25'
                         : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
                 ]"
@@ -185,11 +199,11 @@ const selectLine = (id: number) => {
             <div class="space-y-2.5">
                 <div
                     v-for="(sim, idx) in lines"
-                    :key="sim.id"
-                    @click="selectLine(sim.id)"
+                    :key="sim.key || (sim.type + '_' + sim.id)"
+                    @click="selectLine(sim)"
                     class="p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between"
                     :class="[
-                        selectedLineId === sim.id
+                        isSimActive(sim)
                             ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500/60 shadow-sm'
                             : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-indigo-400/50'
                     ]"
@@ -197,7 +211,7 @@ const selectLine = (id: number) => {
                     <div class="flex items-center gap-3">
                         <div
                             class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs"
-                            :class="selectedLineId === sim.id ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'"
+                            :class="isSimActive(sim) ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'"
                         >
                             {{ sim.type === 'custom_id' ? '@' : 'S' + (idx + 1) }}
                         </div>
@@ -220,12 +234,12 @@ const selectLine = (id: number) => {
                     </div>
 
                     <div class="flex items-center gap-2">
-                        <span v-if="selectedLineId === sim.id" class="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{{ __('user.messages.line_active') }}</span>
+                        <span v-if="isSimActive(sim)" class="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{{ __('user.messages.line_active') }}</span>
                         <div
                             class="w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                            :class="selectedLineId === sim.id ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'"
+                            :class="isSimActive(sim) ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'"
                         >
-                            <div v-if="selectedLineId === sim.id" class="w-2 h-2 rounded-full bg-white"></div>
+                            <div v-if="isSimActive(sim)" class="w-2 h-2 rounded-full bg-white"></div>
                         </div>
                     </div>
                 </div>

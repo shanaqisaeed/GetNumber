@@ -58,7 +58,8 @@ class SmsService implements SmsServiceInterface
         }
 
         // Calculate Cost per recipient
-        $costInfo = $this->calculateCost($body, $fromNumber, $destinationsList->count());
+        $sampleDest = $destinationsList->first();
+        $costInfo = $this->calculateCost($body, $fromNumber, $destinationsList->count(), $sampleDest);
         $totalRequiredAmount = number_format($costInfo['total_cost'], 4, '.', '');
 
         // Verify & Deduct Wallet if amount > 0
@@ -93,11 +94,42 @@ class SmsService implements SmsServiceInterface
         $failedCount = 0;
 
         foreach ($destinationsList as $rawDest) {
-            $cleanDest = PhoneNumberNormalizer::resolveToStoredNumber((string) $rawDest);
-            /** @var PhoneNumber|null $destPhone */
-            $destPhone = PhoneNumber::where('number', $cleanDest)->first();
+            $destIdentifier = trim((string) $rawDest);
+            $isCustomIdDest = str_starts_with($destIdentifier, '@');
 
-            if (! $destPhone) {
+            $destPhone = null;
+            $destAllocation = null;
+
+            if ($isCustomIdDest) {
+                $cleanHandle = ltrim($destIdentifier, '@');
+                $destAllocation = \App\Models\ServiceResourceAllocation::with('user', 'phoneNumber')
+                    ->where('service_key', 'custom_id')
+                    ->where('status', 'active')
+                    ->where(function ($q) use ($destIdentifier, $cleanHandle) {
+                        $q->where('resource_identifier', $destIdentifier)
+                            ->orWhere('resource_identifier', '@' . $cleanHandle)
+                            ->orWhere('resource_identifier', $cleanHandle);
+                    })
+                    ->first();
+
+                if (! $destAllocation) {
+                    $results[] = [
+                        'destination' => $rawDest,
+                        'status' => 'failed',
+                        'reason' => 'آیدی اختصاصی مقصد یافت نشد یا در وضعیت فعال نمی‌باشد.',
+                    ];
+                    $failedCount++;
+                    continue;
+                }
+
+                $destPhone = $destAllocation->phoneNumber
+                    ?? PhoneNumber::where('user_id', $destAllocation->user_id)->where('status', PhoneNumberStatus::Allocated)->first();
+            } else {
+                $cleanDest = PhoneNumberNormalizer::resolveToStoredNumber($destIdentifier);
+                $destPhone = PhoneNumber::where('number', $cleanDest)->first();
+            }
+
+            if (! $destPhone && ! $destAllocation) {
                 $results[] = [
                     'destination' => $rawDest,
                     'status' => 'failed',
@@ -107,48 +139,59 @@ class SmsService implements SmsServiceInterface
                 continue;
             }
 
-            // Check receive permission
-            $permission = $destPhone->canReceiveMessagesFrom($fromNumber, $senderUser);
-            if (! $permission['allowed']) {
-                $results[] = [
-                    'destination' => $rawDest,
-                    'status' => 'failed',
-                    'reason' => $permission['reason'],
-                ];
-                $failedCount++;
-                continue;
+            if ($destPhone) {
+                // Check receive permission
+                $permission = $destPhone->canReceiveMessagesFrom($fromNumber, $senderUser);
+                if (! $permission['allowed']) {
+                    $results[] = [
+                        'destination' => $rawDest,
+                        'status' => 'failed',
+                        'reason' => $permission['reason'],
+                    ];
+                    $failedCount++;
+                    continue;
+                }
             }
 
             // Deliver atomically
-            $messagePair = DB::transaction(function () use ($fromNumber, $destPhone, $body) {
+            $messagePair = DB::transaction(function () use ($fromNumber, $destPhone, $destAllocation, $destIdentifier, $body) {
+                $destNum = $destAllocation ? $destAllocation->resource_identifier : $destPhone->number;
+                $peerNum = $destAllocation ? $destAllocation->resource_identifier : $destPhone->number;
+
                 $outbound = Message::create([
                     'phone_number_id' => $fromNumber->id,
-                    'destination_number' => $destPhone->number,
+                    'destination_number' => $destNum,
                     'sender' => $fromNumber->number,
-                    'peer_number' => $destPhone->number,
+                    'peer_number' => $peerNum,
                     'body' => $body,
                     'server_received_at' => now(),
                     'processing_status' => MessageProcessingStatus::Received,
                     'direction' => MessageDirection::Outbound,
                 ]);
 
-                $inbound = Message::create([
-                    'phone_number_id' => $destPhone->id,
-                    'destination_number' => $destPhone->number,
-                    'sender' => $fromNumber->number,
-                    'peer_number' => $fromNumber->number,
-                    'body' => $body,
-                    'server_received_at' => now(),
-                    'processing_status' => MessageProcessingStatus::Received,
-                    'direction' => MessageDirection::Inbound,
-                ]);
+                $inbound = null;
+                $recipientPhoneId = $destPhone?->id;
+                if ($recipientPhoneId) {
+                    $inbound = Message::create([
+                        'phone_number_id' => $recipientPhoneId,
+                        'destination_number' => $destNum,
+                        'sender' => $fromNumber->number,
+                        'peer_number' => $fromNumber->number,
+                        'body' => $body,
+                        'server_received_at' => now(),
+                        'processing_status' => MessageProcessingStatus::Received,
+                        'direction' => MessageDirection::Inbound,
+                    ]);
+                }
 
                 return [$outbound, $inbound];
             });
 
             try {
                 broadcast(new MessageReceived($messagePair[0]))->toOthers();
-                broadcast(new MessageReceived($messagePair[1]))->toOthers();
+                if ($messagePair[1]) {
+                    broadcast(new MessageReceived($messagePair[1]))->toOthers();
+                }
             } catch (\Throwable) {
             }
 
@@ -213,8 +256,8 @@ class SmsService implements SmsServiceInterface
         $fromPrefix = $fromNumber?->prefix;
 
         if ($sampleDestination !== null && (str_starts_with($sampleDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $sampleDestination))) {
-            // ID message tariff
-            $tariffPerPart = (float) SystemSetting::get('id_sms_rate', 0.0200);
+            // ID message tariff (from system settings, defaults to 0.0000)
+            $tariffPerPart = (float) SystemSetting::get('id_sms_rate', '0.0000');
         } else {
             // If sample destination is provided, check if intra or inter
             $isIntra = true;
@@ -225,9 +268,9 @@ class SmsService implements SmsServiceInterface
             }
 
             if ($isIntra) {
-                $tariffPerPart = (float) ($fromPrefix?->getIntraSmsRate() ?? SystemSetting::get('sms_intra_prefix_rate', 0.0500));
+                $tariffPerPart = (float) ($fromPrefix?->getIntraSmsRate() ?? SystemSetting::get('sms_intra_prefix_rate', '0.0000'));
             } else {
-                $tariffPerPart = (float) ($fromPrefix?->getInterSmsRate() ?? SystemSetting::get('sms_inter_prefix_rate', 0.1200));
+                $tariffPerPart = (float) ($fromPrefix?->getInterSmsRate() ?? SystemSetting::get('sms_inter_prefix_rate', '0.1200'));
             }
         }
 

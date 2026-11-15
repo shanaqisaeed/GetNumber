@@ -115,6 +115,12 @@ let bridgeSocket: WebSocket | null = null;
 let bridgePingInterval: ReturnType<typeof setInterval> | null = null;
 let localMediaStream: MediaStream | null = null;
 const micPermissionGranted = ref<boolean | null>(null);
+const isMicModalOpen = ref(false);
+const isSecureContext = ref(
+    typeof window !== 'undefined'
+        ? (window.isSecureContext ?? (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1'))
+        : true
+);
 
 // Incoming Call Notification State
 const incomingCall = ref<any>(null);
@@ -180,6 +186,7 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
     micPermissionGranted.value = null;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         micPermissionGranted.value = false;
+        isMicModalOpen.value = true;
         callError.value = 'مرورگر شما از دریافت صدای میکروفون پشتیبانی نمی‌کند یا پروتکل امن HTTPS برقرار نیست.';
         return false;
     }
@@ -188,9 +195,11 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         localMediaStream = stream;
         micPermissionGranted.value = true;
+        isMicModalOpen.value = false;
         return true;
     } catch {
         micPermissionGranted.value = false;
+        isMicModalOpen.value = true;
         callError.value = 'دسترسی به میکروفون توسط کاربر یا مرورگر مسدود شده است. لطفاً در نوار آدرس دسترسی میکروفون را مجاز کنید.';
         return false;
     }
@@ -248,14 +257,20 @@ const connectBridgeWebSocket = (wsUrl: string) => {
 };
 
 // Start Voice Call
-const startCall = async () => {
+const startCall = async (skipMicCheck = false) => {
     if (!destinationInput.value.trim() || !selectedLine.value || isCalling.value) return;
 
     callError.value = '';
     
-    // Check & request microphone permission
-    const hasMic = await requestMicrophoneAccess();
-    if (!hasMic) return;
+    // Check & request microphone permission if not explicitly bypassed
+    if (!skipMicCheck) {
+        const hasMic = await requestMicrophoneAccess();
+        if (!hasMic) return;
+    }
+
+    if (isMicModalOpen.value) {
+        isMicModalOpen.value = false;
+    }
 
     isCalling.value = true;
     callDuration.value = 0;
@@ -312,6 +327,10 @@ const startCall = async () => {
             localMediaStream = null;
         }
     }
+};
+
+const initiateCallAction = () => {
+    startCall(false);
 };
 
 // End Voice Call
@@ -848,7 +867,7 @@ onUnmounted(() => {
                     <div class="pt-2 flex justify-center">
                         <button
                             type="button"
-                            @click="startCall"
+                            @click="initiateCallAction"
                             :disabled="!destinationInput.trim() || !selectedLine"
                             class="w-full max-w-xs py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -1007,6 +1026,57 @@ onUnmounted(() => {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                         </svg>
                         <span>پاسخ به تماس</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Microphone Access & Permission Helper Modal -->
+        <div
+            v-if="isMicModalOpen"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md"
+            @click.self="isMicModalOpen = false"
+        >
+            <div class="glass-card w-full max-w-sm p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl space-y-4 shadow-2xl text-center">
+                <div class="w-14 h-14 rounded-2xl bg-amber-500/15 text-amber-500 mx-auto flex items-center justify-center">
+                    <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </div>
+
+                <div class="space-y-1.5">
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white">راهنمای دسترسی به میکروفون</h3>
+                    <p v-if="!isSecureContext" class="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
+                        مرورگرها به دلیل ضوابط امنیتی وب، اجازه ضبط صدا را فقط روی پروتکل امن <strong>HTTPS</strong> یا دامنه محلی <strong>localhost</strong> صادر می‌کنند. از آنجا که اتصال شما روی <code>HTTP</code> است، مرورگر پنجره درخواست دسترسی را نشان نمی‌دهد.
+                    </p>
+                    <p v-else class="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                        دسترسی میکروفون در مرورگر صادر نشده یا مسدود است. لطفاً روی آیکون قفل 🔒 در نوار آدرس کلیک کرده و دسترسی میکروفون را روی حالت مجاز (Allow) قرار دهید.
+                    </p>
+                </div>
+
+                <div class="space-y-2 pt-2">
+                    <button
+                        type="button"
+                        @click="requestMicrophoneAccess"
+                        class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-md shadow-indigo-600/20"
+                    >
+                        تلاش مجدد برای درخواست دسترسی
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="startCall(true)"
+                        class="w-full py-2.5 rounded-xl bg-slate-100 dark:bg-white/10 hover:bg-slate-200 dark:hover:bg-white/15 text-slate-800 dark:text-slate-200 font-bold text-xs transition-colors"
+                    >
+                        برقراری تماس در حالت آزمایشی (شنیداری بدون میکروفون)
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="isMicModalOpen = false"
+                        class="w-full py-1.5 text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    >
+                        انصراف
                     </button>
                 </div>
             </div>

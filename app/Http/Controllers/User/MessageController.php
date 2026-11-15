@@ -38,37 +38,117 @@ class MessageController extends Controller
             ->where('service_key', 'custom_id')
             ->get();
 
+        $lineKeyParam = $request->input('line_key');
         $selectedCidParam = $request->input('custom_id');
         $selectedCustomId = null;
-        if ($selectedCidParam) {
-            $selectedCustomId = $userCustomIds->firstWhere('resource_identifier', $selectedCidParam);
-        }
-
         /** @var PhoneNumber|null $currentNumber */
         $currentNumber = null;
-        if ($request->filled('phone_number_id')) {
+
+        // Resolve active line from line_key composite if provided
+        if ($lineKeyParam) {
+            if (str_starts_with($lineKeyParam, 'custom_')) {
+                $cidId = (int) substr($lineKeyParam, 7);
+                $selectedCustomId = $userCustomIds->firstWhere('id', $cidId);
+            } elseif (str_starts_with($lineKeyParam, 'phone_')) {
+                $pId = (int) substr($lineKeyParam, 6);
+                $currentNumber = $allocatedNumbers->firstWhere('id', $pId);
+            }
+        }
+
+        // Resolve active line from custom_id param
+        if (! $selectedCustomId && ! $currentNumber && $selectedCidParam) {
+            $cleanParam = ltrim(trim($selectedCidParam), '@');
+            $selectedCustomId = $userCustomIds->first(function ($c) use ($selectedCidParam, $cleanParam) {
+                return $c->resource_identifier === $selectedCidParam
+                    || ltrim($c->resource_identifier, '@') === $cleanParam;
+            });
+        }
+
+        // Fallback to phone_number_id param if line_key was not used
+        if (! $selectedCustomId && ! $currentNumber && $request->filled('phone_number_id')) {
             $reqLineId = (int) $request->input('phone_number_id');
             $currentNumber = $allocatedNumbers->firstWhere('id', $reqLineId);
-            if (! $currentNumber && ! $selectedCustomId) {
+            if (! $currentNumber) {
                 $selectedCustomId = $userCustomIds->firstWhere('id', $reqLineId);
             }
         }
 
-        if (! $currentNumber && ! $selectedCustomId && $allocatedNumbers->isNotEmpty()) {
-            $currentNumber = $allocatedNumbers->first();
+        // Default to first available line
+        if (! $currentNumber && ! $selectedCustomId) {
+            if ($allocatedNumbers->isNotEmpty()) {
+                $currentNumber = $allocatedNumbers->first();
+            } elseif ($userCustomIds->isNotEmpty()) {
+                $selectedCustomId = $userCustomIds->first();
+            }
         }
 
         $conversations = collect();
+        // Only set activePeer if user explicitly asked for a peer conversation
         $activePeer = $request->filled('peer')
             ? \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($request->input('peer'))
             : null;
-        if (! $activePeer && $selectedCidParam && ! $selectedCustomId) {
-            $activePeer = $selectedCidParam;
-        }
         $activeMessages = collect();
         $activePeerDetails = null;
 
-        if ($currentNumber) {
+        if ($selectedCustomId) {
+            $cidHandle = $selectedCustomId->resource_identifier;
+            $search = $request->input('search');
+
+            $rawMessages = Message::where(function ($q) use ($cidHandle) {
+                $q->where('sender', $cidHandle)
+                    ->orWhere('destination_number', $cidHandle)
+                    ->orWhere('peer_number', $cidHandle);
+            })
+            ->latest('server_received_at')
+            ->get();
+
+            if ($search) {
+                $rawMessages = $rawMessages->filter(fn ($m) => str_contains($m->body, $search) || str_contains($m->peer_number, $search));
+            }
+
+            $conversations = $rawMessages->groupBy('peer_number')->map(function ($msgs, $peer) use ($cidHandle) {
+                $latest = $msgs->first();
+                return [
+                    'peer_number' => $peer,
+                    'peer_formatted' => $peer,
+                    'peer_title' => $peer,
+                    'peer_type' => 'custom_id',
+                    'peer_type_label' => 'مخاطب',
+                    'peer_badge_class' => 'bg-blue-500/15 text-blue-600',
+                    'latest_message' => [
+                        'id' => $latest->id,
+                        'body' => $latest->body,
+                        'direction' => $latest->direction->value,
+                        'server_received_at' => $latest->server_received_at->toIso8601String(),
+                        'server_received_at_formatted' => $latest->server_received_at->diffForHumans(),
+                    ],
+                    'messages_count' => $msgs->count(),
+                    'unread_count' => $msgs->where('direction', MessageDirection::Inbound)->where('processing_status', MessageProcessingStatus::Received)->count(),
+                    'is_own_number' => false,
+                    'is_commercial' => false,
+                    'accepts_incoming_sms' => true,
+                    'can_reply' => true,
+                    'can_reply_reason' => null,
+                ];
+            })->values();
+
+            if ($activePeer) {
+                $activeMessages = $rawMessages->where('peer_number', $activePeer)->sortBy('id')->values();
+                $activePeerDetails = [
+                    'number' => $activePeer,
+                    'formatted_number' => $activePeer,
+                    'title' => $activePeer,
+                    'type' => 'custom_id',
+                    'type_label' => 'شناسه',
+                    'badge_class' => 'bg-blue-500/15 text-blue-600',
+                    'is_own_number' => false,
+                    'is_commercial' => false,
+                    'accepts_incoming_sms' => true,
+                    'can_reply' => true,
+                    'can_reply_reason' => null,
+                ];
+            }
+        } elseif ($currentNumber) {
             $search = $request->input('search');
 
             // 1. If an active conversation is open, mark messages as read first
@@ -133,6 +213,7 @@ class MessageController extends Controller
 
         $customIdLines = $userCustomIds->map(fn ($cid) => [
             'id' => $cid->id,
+            'key' => 'custom_' . $cid->id,
             'is_custom_id' => true,
             'number' => $cid->resource_identifier,
             'formatted_number' => $cid->resource_identifier,
@@ -143,11 +224,12 @@ class MessageController extends Controller
             'unread_count' => 0,
             'phone_prefix_id' => null,
             'prefix_code' => '@',
-            'sms_rate_per_segment' => (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+            'sms_rate_per_segment' => (string) \App\Models\SystemSetting::get('id_sms_rate', '0.0000'),
         ]);
 
         $allAllocatedLines = $allocatedNumbers->map(fn (PhoneNumber $p) => [
             'id' => $p->id,
+            'key' => 'phone_' . $p->id,
             'is_custom_id' => false,
             'number' => $p->number,
             'formatted_number' => $p->formatted_number,
@@ -160,13 +242,14 @@ class MessageController extends Controller
             'prefix_code' => $p->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
             'sms_rate_per_segment' => $p->prefix?->getSmsRatePerSegment()
                 ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
-                ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+                ?? (string) \App\Models\SystemSetting::get('sms_intra_prefix_rate', '0.0500'),
         ])->concat($customIdLines)->values();
 
         $currentNumberPayload = null;
         if ($currentNumber) {
             $currentNumberPayload = [
                 'id' => $currentNumber->id,
+                'key' => 'phone_' . $currentNumber->id,
                 'number' => $currentNumber->number,
                 'formatted_number' => $currentNumber->formatted_number,
                 'effective_title' => $currentNumber->effective_title,
@@ -178,15 +261,18 @@ class MessageController extends Controller
                 'prefix_code' => $currentNumber->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
                 'sms_rate_per_segment' => $currentNumber->prefix?->getSmsRatePerSegment()
                     ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
-                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
+                    ?? (string) \App\Models\SystemSetting::get('sms_intra_prefix_rate', '0.0500'),
             ];
         } elseif ($selectedCustomId) {
             $currentNumberPayload = $customIdLines->firstWhere('id', $selectedCustomId->id);
         }
 
+        $activeLineKey = $selectedCustomId ? 'custom_' . $selectedCustomId->id : ($currentNumber ? 'phone_' . $currentNumber->id : null);
+
         return Inertia::render('User/Messages/Index', [
             'allocatedNumbers' => $allAllocatedLines,
             'currentNumber' => $currentNumberPayload,
+            'selected_line_key' => $activeLineKey,
             'conversations' => $conversations,
             'activePeer' => $activePeer,
             'activePeerDetails' => $activePeerDetails,
@@ -204,10 +290,12 @@ class MessageController extends Controller
             ]),
             'stats' => $stats,
             'smsTariff' => [
-                'rate_per_segment' => $currentNumber?->prefix?->getSmsRatePerSegment()
-                    ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
-                    ?? (string) \App\Models\SystemSetting::get('sms_price_per_segment', '0.0500'),
-                'prefix_code' => $currentNumber?->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString(),
+                'rate_per_segment' => $selectedCustomId
+                    ? (string) \App\Models\SystemSetting::get('id_sms_rate', '0.0000')
+                    : ($currentNumber?->prefix?->getSmsRatePerSegment()
+                        ?? \App\Models\PhonePrefix::getDefaultPrefix()?->getSmsRatePerSegment()
+                        ?? (string) \App\Models\SystemSetting::get('sms_intra_prefix_rate', '0.0500')),
+                'prefix_code' => $selectedCustomId ? '@' : ($currentNumber?->prefix?->prefix ?? \App\Models\PhonePrefix::getDefaultPrefixString()),
                 'currency' => 'COIN',
                 'by_prefix' => \App\Models\PhonePrefix::active()->get(['id', 'prefix', 'country_name', 'flag', 'sms_price_per_segment', 'inbound_sms_price']),
             ],
