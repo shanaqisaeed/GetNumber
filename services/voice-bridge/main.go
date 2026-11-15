@@ -139,6 +139,7 @@ func loadConfig() Config {
 	if callbackURL == "" {
 		callbackURL = strings.TrimSpace(os.Getenv("BRIDGE_CALLBACK_URL"))
 	}
+	callbackURL = normalizeCallbackURL(callbackURL)
 
 	return Config{
 		Host:        host,
@@ -408,7 +409,23 @@ func (hub *SignalingHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func normalizeCallbackURL(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	raw = strings.TrimRight(raw, "/")
+	if !strings.Contains(raw, "bridge-event") {
+		if strings.HasSuffix(raw, "/api") {
+			return raw + "/voice/bridge-event"
+		}
+		return raw + "/api/voice/bridge-event"
+	}
+	return raw
+}
+
 func notifyLaravelWebhook(callbackURL, secret, event, sessionID string, duration int) {
+	callbackURL = normalizeCallbackURL(callbackURL)
 	if callbackURL == "" {
 		return
 	}

@@ -153,6 +153,18 @@ if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
     echo ""
 fi
 
+# Normalize Callback URL if provided
+if [ -n "$CALLBACK_URL" ]; then
+    CALLBACK_URL="${CALLBACK_URL%/}"
+    if [[ "$CALLBACK_URL" != *"/bridge-event"* ]]; then
+        if [[ "$CALLBACK_URL" == *"/api" ]]; then
+            CALLBACK_URL="${CALLBACK_URL}/voice/bridge-event"
+        else
+            CALLBACK_URL="${CALLBACK_URL}/api/voice/bridge-event"
+        fi
+    fi
+fi
+
 # 5. Validation Check
 if ! [[ "$API_PORT" =~ ^[0-9]+$ ]] || [ "$API_PORT" -lt 1 ] || [ "$API_PORT" -gt 65535 ]; then
     echo -e "${RED}✖ Validation Error:${RESET} Invalid API Port '${API_PORT}'. Must be integer 1-65535.\n"

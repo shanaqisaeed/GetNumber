@@ -125,6 +125,14 @@ printf "\r    ${GREEN}✔${RESET} ${WHITE}[2/4] Binary replaced with production 
 # Step 3: Preserving Secrets & Updating Environment
 printf "    ${CYAN}➜${RESET} ${GRAY}[3/4] Verifying security tokens & environment sync...${RESET}"
 if [ -n "$CALLBACK_URL" ]; then
+    CALLBACK_URL="${CALLBACK_URL%/}"
+    if [[ "$CALLBACK_URL" != *"/bridge-event"* ]]; then
+        if [[ "$CALLBACK_URL" == *"/api" ]]; then
+            CALLBACK_URL="${CALLBACK_URL}/voice/bridge-event"
+        else
+            CALLBACK_URL="${CALLBACK_URL}/api/voice/bridge-event"
+        fi
+    fi
     if grep -q "^BRIDGE_CALLBACK_URL=" "${INSTALL_DIR}/.env" 2>/dev/null; then
         sed -i "s|^BRIDGE_CALLBACK_URL=.*|BRIDGE_CALLBACK_URL=${CALLBACK_URL}|" "${INSTALL_DIR}/.env"
     else
