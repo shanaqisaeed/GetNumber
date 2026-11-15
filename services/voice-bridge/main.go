@@ -999,7 +999,11 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 		return nil, nil
 	}
 
-	relayIP := resolveRelayIP(cfg.TurnPublicIP)
+	publicIP := cfg.TurnPublicIP
+	if publicIP == "" && cfg.Host != "" && cfg.Host != "0.0.0.0" && cfg.Host != "127.0.0.1" && cfg.Host != "localhost" {
+		publicIP = cfg.Host
+	}
+	relayIP := resolveRelayIP(publicIP)
 	log.Printf("[Voice Bridge STUN/TURN] 🌍 Relay address bound to IP: %s (media relay range: %d-%d)",
 		relayIP.String(), cfg.TurnMinPort, cfg.TurnMaxPort)
 
@@ -1008,8 +1012,15 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 	var packetConnConfigs []turn.PacketConnConfig
 	var listenerConfigs []turn.ListenerConfig
 
+	// Bind to 0.0.0.0 (all interfaces) so STUN/TURN accepts packets on any interface,
+	// and never fails with "bind: cannot assign requested address" when Host is a public IP.
+	bindHost := "0.0.0.0"
+	if cfg.Host == "127.0.0.1" || cfg.Host == "localhost" {
+		bindHost = "127.0.0.1"
+	}
+
 	// 1. UDP Listener for STUN (RFC 5389) and TURN (RFC 5766 / RFC 8656)
-	udpAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnPort)
+	udpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
 	udpConn, err := net.ListenPacket("udp4", udpAddr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to bind UDP STUN/TURN on %s: %w", udpAddr, err)
@@ -1026,7 +1037,7 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 	})
 
 	// 2. TCP Listener for TURN over TCP
-	tcpAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnPort)
+	tcpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
 	tcpListener, err := net.Listen("tcp4", tcpAddr)
 	if err != nil {
 		log.Printf("[Voice Bridge TURN] ⚠️ Warning: Failed to bind TCP on %s (UDP only): %v", tcpAddr, err)
@@ -1053,7 +1064,7 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 			tlsConfig := &tls.Config{
 				Certificates: []tls.Certificate{cert},
 			}
-			turnsAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.TurnsPort)
+			turnsAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnsPort)
 			tlsListener, err = tls.Listen("tcp4", turnsAddr, tlsConfig)
 			if err != nil {
 				log.Printf("[Voice Bridge TURNS] ⚠️ Failed to bind TURNS TLS listener on %s: %v", turnsAddr, err)

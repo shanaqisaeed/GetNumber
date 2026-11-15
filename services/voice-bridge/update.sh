@@ -139,6 +139,38 @@ if [ -n "$CALLBACK_URL" ]; then
         echo "BRIDGE_CALLBACK_URL=${CALLBACK_URL}" >> "${INSTALL_DIR}/.env"
     fi
 fi
+
+# Ensure STUN & TURN parameters are provisioned into existing .env
+SECRET_FOR_TURN=$(cat "${INSTALL_DIR}/.secret" 2>/dev/null | tr -d '\r\n ' || echo "")
+if ! grep -q "^TURN_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_ENABLED=true" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_PORT=3478" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURNS_PORT=5349" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURN_REALM=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_REALM=getnumber" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_MIN_PORT=49152" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_MAX_PORT=49250" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^TURN_SECRET=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "TURN_SECRET=${SECRET_FOR_TURN}" >> "${INSTALL_DIR}/.env"
+fi
+
+# Firewall update if UFW active
+if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
+    ufw allow 3478/udp >/dev/null 2>&1 || true
+    ufw allow 3478/tcp >/dev/null 2>&1 || true
+    ufw allow 5349/tcp >/dev/null 2>&1 || true
+    ufw allow 49152:49250/udp >/dev/null 2>&1 || true
+fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/4] Auth secret preserved & environment synchronized${RESET} ${GREEN}[DONE]${RESET}\n"
 
 # Step 4: Daemon Restart & Health Verification
@@ -174,13 +206,22 @@ SERVER_IP="${SERVER_IP:-127.0.0.1}"
 
 LATENCY_MS=$(curl -s -w "%{time_total}\n" -o /dev/null -m 2 "http://127.0.0.1:${API_PORT}/ping" 2>/dev/null | awk '{printf "%.1f", $1 * 1000}' || echo "0.7")
 
+TURN_PORT=$(grep "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+TURN_PORT="${TURN_PORT:-3478}"
+TURN_MIN_PORT=$(grep "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
+TURN_MAX_PORT=$(grep "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
+
 # Result Card
 echo -e "${GREEN}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
 echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE UPGRADED SUCCESSFULLY (2026 RUNTIME ENGINE)${RESET}            ${GREEN}│${RESET}"
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
-printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge Secret Token" "${SECRET}"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
+printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge & TURN Secret" "${SECRET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚙️ Systemd Status" "active (running) • Latency: ${LATENCY_MS}ms"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "💾 Local Configuration" "${INSTALL_DIR}/.env"
 echo -e "${GREEN}╰─────────────────────────────────────────────────────────────────────────╯${RESET}\n"
