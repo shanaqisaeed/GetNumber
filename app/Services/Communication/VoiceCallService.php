@@ -191,7 +191,7 @@ class VoiceCallService implements VoiceCallServiceInterface
         ]);
 
         // If destination belongs to an internal user, create the Inbound Call record in 'ringing' status
-        if ($destUser && $destUser->id !== $user->id) {
+        if ($destUser) {
             $calleeCall = VoiceCall::create([
                 'user_id' => $destUser->id,
                 'phone_number_id' => ($resolvedDestRecord instanceof PhoneNumber) ? $resolvedDestRecord->id : null,

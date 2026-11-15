@@ -42,8 +42,9 @@ self.addEventListener('push', (event) => {
         icon: payload.icon || '/icon-192.png',
         badge: payload.badge || '/icon-192.png',
         tag: tag,
-        renotify: false,
-        vibrate: [200, 100, 200],
+        renotify: payload.renotify ?? true,
+        vibrate: payload.vibrate || [200, 100, 200],
+        requireInteraction: payload.requireInteraction ?? false,
         data: payload.data || { url: '/messages' },
     };
 

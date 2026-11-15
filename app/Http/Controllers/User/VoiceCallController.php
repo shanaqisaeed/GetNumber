@@ -345,7 +345,7 @@ class VoiceCallController extends Controller
         $user = $request->user();
         $incoming = VoiceCall::where('user_id', $user->id)
             ->where('direction', 'inbound')
-            ->whereIn('status', ['ringing', 'in_call'])
+            ->where('status', 'ringing')
             ->where('created_at', '>=', now()->subSeconds(60))
             ->latest('id')
             ->first();

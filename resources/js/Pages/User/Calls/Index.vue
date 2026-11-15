@@ -191,7 +191,13 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+            },
+        });
         localMediaStream = stream;
         micPermissionGranted.value = true;
         isMicModalOpen.value = false;
@@ -240,6 +246,16 @@ const rtcConfig: RTCConfiguration = {
         { urls: 'stun:stun2.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' },
         { urls: 'stun:stun.nextcloud.com:443' },
+        { urls: 'stun:openrelay.metered.ca:80' },
+        {
+            urls: [
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:443?transport=tcp',
+            ],
+            username: 'openrelayproject',
+            credential: 'openrelayproject',
+        },
     ],
     iceCandidatePoolSize: 10,
 };
@@ -468,6 +484,11 @@ const startCall = async (skipMicCheck = false) => {
     isCalling.value = true;
     callDuration.value = 0;
 
+    if (remoteAudio.value) {
+        remoteAudio.value.muted = false;
+        remoteAudio.value.play().catch(() => {});
+    }
+
     try {
         const res = await axios.post(route('voice.initiate'), {
             line_key: selectedLineKey.value || undefined,
@@ -636,6 +657,10 @@ const checkIncomingCall = async () => {
 const answerIncomingCall = async () => {
     if (!incomingCall.value) return;
     stopRingtone();
+    if (remoteAudio.value) {
+        remoteAudio.value.muted = false;
+        remoteAudio.value.play().catch(() => {});
+    }
     const callId = incomingCall.value.id;
     try {
         const res = await axios.post(route('voice.answer', callId));
@@ -1324,8 +1349,8 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <!-- Hidden WebRTC Remote Audio Player -->
-        <audio ref="remoteAudio" autoplay playsinline class="hidden"></audio>
+        <!-- Offscreen WebRTC Remote Audio Player (rendered in DOM to prevent browser autoplay throttling) -->
+        <audio ref="remoteAudio" autoplay playsinline class="fixed -top-96 -left-96 w-1 h-1 opacity-0 pointer-events-none"></audio>
     </UserLayout>
 </template>
 

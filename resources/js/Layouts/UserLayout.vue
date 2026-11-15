@@ -110,7 +110,12 @@ const acceptIncomingCall = () => {
     if (incomingCall.value) {
         const c = incomingCall.value;
         incomingCall.value = null;
-        router.visit(route('calls.index', { incoming_call_id: c.id, auto_answer: 1 }));
+        router.visit(route('calls.index', {
+            incoming_call_id: c.id,
+            auto_answer: 1,
+            caller: c.caller,
+            line: c.line,
+        }));
     }
 };
 
