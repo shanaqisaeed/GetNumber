@@ -952,7 +952,7 @@ const testBridgeConnection = async () => {
                                 <input
                                     v-model="bridgeForm.secret"
                                     :type="showBridgeSecret ? 'text' : 'password'"
-                                    placeholder="توکن ۳۲ کاراکتری تولید شده توسط سرور اوبونتو (فایل .secret)"
+                                    placeholder="توکن ۳۲ کاراکتری تولید شده توسط Voice Bridge (فایل .secret)"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10 pr-3"
                                     dir="ltr"
                                 />
@@ -963,16 +963,16 @@ const testBridgeConnection = async () => {
                                 </div>
                             </div>
                             <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                                هنگام راه‌اندازی Voice Bridge روی سرور اوبونتو، یک کلید ۳۲ کاراکتری منحصر‌به‌فرد تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API و وب‌سوکت، آن را اینجا کپی کنید.
+                                هنگام راه‌اندازی Voice Bridge روی سرور لینوکس، یک کلید ۳۲ کاراکتری تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API و وب‌سوکت، آن را اینجا کپی کنید.
                             </p>
                             <InputError :message="bridgeForm.errors.secret" class="mt-1" />
                         </div>
 
-                        <!-- Ubuntu Quick Deployment Guide Info Box -->
+                        <!-- Voice Bridge Deployment Guide Info Box -->
                         <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
                             <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                 <span class="text-base">🐧</span>
-                                <span>دستور نصب آسان و سریع روی سرور اوبونتو (Ubuntu Quick Setup):</span>
+                                <span>دستور نصب آسان و سریع Voice Bridge روی سرور لینوکس (Linux Server Setup):</span>
                             </div>
                             <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
                                 پوشه <code class="font-mono text-indigo-600 dark:text-indigo-400">services/voice-bridge</code> شامل فایل اجرایی لینوکس و اسکریپت خودکار است. کافیست دستور زیر را با دسترسی root اجرا کنید تا سرویس systemd ساخته شده و شروع به کار کند:

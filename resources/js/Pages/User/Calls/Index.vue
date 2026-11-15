@@ -223,6 +223,134 @@ const toggleMute = () => {
 
 const toggleSpeaker = () => {
     isSpeakerOn.value = !isSpeakerOn.value;
+    if (remoteAudio.value) {
+        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.7;
+    }
+};
+
+// WebRTC & Audio Infrastructure
+const remoteAudio = ref<HTMLAudioElement | null>(null);
+let peerConnection: RTCPeerConnection | null = null;
+let signalPollTimer: ReturnType<typeof setInterval> | null = null;
+
+const rtcConfig: RTCConfiguration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+    ],
+};
+
+const sendSignalingMessage = async (type: string, payload: any) => {
+    if (!activeCallId.value) return;
+
+    // 1. Go WebSocket bridge signaling (ultra-low latency if connected)
+    if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN && bridgeSessionId.value) {
+        try {
+            bridgeSocket.send(JSON.stringify({
+                type: type,
+                session_id: bridgeSessionId.value,
+                data: payload,
+            }));
+        } catch {}
+    }
+
+    // 2. HTTP signaling queue in Laravel (guaranteed across all networks/devices)
+    try {
+        await axios.post(route('voice.signal', activeCallId.value), {
+            type: type,
+            payload: payload,
+        });
+    } catch {}
+};
+
+const createPeerConnection = () => {
+    if (peerConnection) {
+        try {
+            peerConnection.close();
+        } catch {}
+        peerConnection = null;
+    }
+
+    const pc = new RTCPeerConnection(rtcConfig);
+
+    // Attach local microphone tracks
+    if (localMediaStream) {
+        localMediaStream.getAudioTracks().forEach(track => {
+            pc.addTrack(track, localMediaStream!);
+        });
+    }
+
+    // Connect remote incoming audio stream to audio element
+    pc.ontrack = (event) => {
+        if (remoteAudio.value && event.streams && event.streams[0]) {
+            remoteAudio.value.srcObject = event.streams[0];
+            remoteAudio.value.play().catch(() => {});
+        }
+    };
+
+    // Relay local ICE candidates
+    pc.onicecandidate = (event) => {
+        if (event.candidate) {
+            sendSignalingMessage('ice_candidate', event.candidate.toJSON());
+        }
+    };
+
+    pc.onconnectionstatechange = () => {
+        if (pc.connectionState === 'connected') {
+            isBridgeConnected.value = true;
+        }
+    };
+
+    peerConnection = pc;
+    return pc;
+};
+
+const handleSignalingPayload = async (type: string, payload: any) => {
+    if (!peerConnection) return;
+
+    try {
+        if (type === 'offer') {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            await sendSignalingMessage('answer', answer);
+        } else if (type === 'answer') {
+            if (peerConnection.signalingState === 'have-local-offer') {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+            }
+        } else if (type === 'ice_candidate') {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(payload));
+            } catch {}
+        } else if (type === 'end_call' || type === 'call_ended') {
+            callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
+            await endCall();
+        }
+    } catch (err) {
+        console.warn('Signaling error:', err);
+    }
+};
+
+const pollSignals = async () => {
+    if (!activeCallId.value || !isCalling.value) return;
+
+    try {
+        const res = await axios.get(route('voice.signals', activeCallId.value));
+        if (res.data?.success) {
+            if (!res.data.is_active || res.data.status === 'completed' || res.data.status === 'declined') {
+                callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
+                await endCall();
+                return;
+            }
+
+            if (Array.isArray(res.data.signals)) {
+                for (const sig of res.data.signals) {
+                    await handleSignalingPayload(sig.type, sig.payload);
+                }
+            }
+        }
+    } catch {}
 };
 
 // WebSocket signaling connection to Voice Bridge
@@ -243,10 +371,16 @@ const connectBridgeWebSocket = (wsUrl: string) => {
         bridgeSocket = new WebSocket(wsUrl);
         bridgeSocket.onopen = () => {
             isBridgeConnected.value = true;
+            if (bridgeSessionId.value) {
+                bridgeSocket?.send(JSON.stringify({
+                    type: 'join_session',
+                    session_id: bridgeSessionId.value,
+                }));
+            }
             bridgePingInterval = setInterval(() => {
                 if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
                     const start = performance.now();
-                    bridgeSocket.send(JSON.stringify({ type: 'ping', t: start }));
+                    bridgeSocket.send(JSON.stringify({ type: 'ping', t: start, session_id: bridgeSessionId.value }));
                 }
             }, 2500);
         };
@@ -256,6 +390,13 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                 if (msg.type === 'pong' && msg.t) {
                     const rtt = Math.round(performance.now() - msg.t);
                     if (rtt > 0) pingMs.value = rtt;
+                } else if (msg.type === 'channel_connected') {
+                    isBridgeConnected.value = true;
+                } else if (msg.type === 'call_ended') {
+                    callError.value = 'مکالمه توسط طرف مقابل پایان یافت.';
+                    endCall();
+                } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice_candidate') {
+                    handleSignalingPayload(msg.type, msg.data || msg.payload);
                 }
             } catch {}
         };
@@ -312,19 +453,28 @@ const startCall = async (skipMicCheck = false) => {
                 callDuration.value++;
             }, 1000);
 
-            // Periodic Balance Heartbeat (Auto-disconnects if balance is exhausted)
+            // Establish WebRTC Audio Peer Connection
+            const pc = createPeerConnection();
+            const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            await pc.setLocalDescription(offer);
+            await sendSignalingMessage('offer', offer);
+
+            // Periodic Balance & Active Status Heartbeat (every 2 seconds)
             pulseTimer = setInterval(async () => {
                 if (!activeCallId.value || !isCalling.value) return;
                 try {
                     const pulseRes = await axios.post(route('voice.pulse', activeCallId.value), {
                         elapsed_seconds: callDuration.value,
                     });
-                    if (pulseRes.data?.can_continue === false) {
-                        callError.value = pulseRes.data.message || 'مکالمه به دلیل اتمام موجودی کیف‌پول پایان یافت.';
+                    if (pulseRes.data?.can_continue === false || pulseRes.data?.active === false) {
+                        callError.value = pulseRes.data.message || 'مکالمه پایان یافت.';
                         endCall();
                     }
                 } catch {}
-            }, 15000);
+            }, 2000);
+
+            // WebRTC Signaling Queue Poll (every 1 second)
+            signalPollTimer = setInterval(pollSignals, 1000);
 
             if (!bridgeWsEndpoint.value) {
                 pingTimer = setInterval(() => {
@@ -348,46 +498,71 @@ const initiateCallAction = () => {
     startCall(false);
 };
 
-// End Voice Call
+// End Voice Call (Mutual Hangup)
 const endCall = async () => {
+    if (signalPollTimer) {
+        clearInterval(signalPollTimer);
+        signalPollTimer = null;
+    }
     if (pulseTimer) {
         clearInterval(pulseTimer);
         pulseTimer = null;
     }
-    if (bridgeSocket) {
-        bridgeSocket.close();
-        bridgeSocket = null;
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+    }
+    if (pingTimer) {
+        clearInterval(pingTimer);
+        pingTimer = null;
     }
     if (bridgePingInterval) {
         clearInterval(bridgePingInterval);
         bridgePingInterval = null;
     }
+
+    // Send hangup signal to peer first so both sides hang up together
+    if (activeCallId.value) {
+        sendSignalingMessage('end_call', { reason: 'user_hangup' });
+    }
+
+    if (peerConnection) {
+        try {
+            peerConnection.close();
+        } catch {}
+        peerConnection = null;
+    }
     if (localMediaStream) {
         localMediaStream.getTracks().forEach(t => t.stop());
         localMediaStream = null;
     }
+    if (remoteAudio.value) {
+        remoteAudio.value.srcObject = null;
+    }
+    if (bridgeSocket) {
+        try {
+            bridgeSocket.close();
+        } catch {}
+        bridgeSocket = null;
+    }
     isBridgeConnected.value = false;
     bridgeSessionId.value = null;
 
-    if (!activeCallId.value) {
-        isCalling.value = false;
-        if (callTimer) clearInterval(callTimer);
-        if (pingTimer) clearInterval(pingTimer);
-        return;
-    }
+    const terminatingCallId = activeCallId.value;
+    activeCallId.value = null;
+    isCalling.value = false;
+    const finalDuration = callDuration.value;
+    callDuration.value = 0;
+
+    if (!terminatingCallId) return;
 
     try {
-        await axios.post(route('voice.end', activeCallId.value), {
-            duration_seconds: callDuration.value,
+        await axios.post(route('voice.end', terminatingCallId), {
+            duration_seconds: finalDuration,
         });
     } catch {
         // continue clean-up
     } finally {
-        if (callTimer) clearInterval(callTimer);
-        if (pingTimer) clearInterval(pingTimer);
-        isCalling.value = false;
-        activeCallId.value = null;
-        callDuration.value = 0;
         router.reload({ only: ['calls', 'wallet_balance'] });
     }
 };
@@ -467,9 +642,30 @@ const answerIncomingCall = async () => {
                 callDuration.value++;
             }, 1000);
 
+            // Establish Callee WebRTC Peer Connection
+            createPeerConnection();
+
             if (incomingCall.value.bridge_ws_endpoint) {
                 connectBridgeWebSocket(incomingCall.value.bridge_ws_endpoint);
             }
+
+            // Callee Pulse Heartbeat (Detects if caller hung up or balance expired)
+            pulseTimer = setInterval(async () => {
+                if (!activeCallId.value || !isCalling.value) return;
+                try {
+                    const pulseRes = await axios.post(route('voice.pulse', activeCallId.value), {
+                        elapsed_seconds: callDuration.value,
+                    });
+                    if (pulseRes.data?.can_continue === false || pulseRes.data?.active === false) {
+                        callError.value = pulseRes.data.message || 'مکالمه پایان یافت.';
+                        endCall();
+                    }
+                } catch {}
+            }, 2000);
+
+            // Callee Signaling Poll (Fetches caller's Offer & candidates)
+            signalPollTimer = setInterval(pollSignals, 1000);
+            await pollSignals();
         }
     } catch {}
 };
@@ -534,10 +730,15 @@ onMounted(() => {
 onUnmounted(() => {
     if (callTimer) clearInterval(callTimer);
     if (pulseTimer) clearInterval(pulseTimer);
+    if (signalPollTimer) clearInterval(signalPollTimer);
     if (pingTimer) clearInterval(pingTimer);
     if (bridgePingInterval) clearInterval(bridgePingInterval);
     if (incomingPollTimer) clearInterval(incomingPollTimer);
     stopRingtone();
+    if (peerConnection) {
+        try { peerConnection.close(); } catch {}
+        peerConnection = null;
+    }
     if (bridgeSocket) {
         bridgeSocket.close();
         bridgeSocket = null;
@@ -545,6 +746,9 @@ onUnmounted(() => {
     if (localMediaStream) {
         localMediaStream.getTracks().forEach(t => t.stop());
         localMediaStream = null;
+    }
+    if (remoteAudio.value) {
+        remoteAudio.value.srcObject = null;
     }
 });
 </script>
@@ -684,22 +888,20 @@ onUnmounted(() => {
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>🟢 متصل به بریج صوتی سرور (سرور ابری اوبونتو)</span>
-                                <span class="text-slate-400">|</span>
-                                <span>پینگ زنده: {{ pingMs }} ms</span>
+                                <span>پینگ: {{ pingMs }} ms</span>
                             </div>
                             <div
                                 v-else
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-                                <span>🟡 در حال ارتباط شبیه‌سازی شده سرور (Fallback Mode)</span>
+                                <span>🟡 در حال ارتباط شبیه‌سازی شده سرور</span>
                                 <span class="text-slate-400">|</span>
                                 <span>پینگ: {{ pingMs }} ms</span>
                             </div>
 
                             <div v-if="isInternalCall" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
-                                ✨ تماس درون‌شبکه سامانه GetNumber (۱۰۰٪ رایگان)
+                                ✨ تماس درون‌شبکه سامانه
                             </div>
                         </div>
                     </div>
@@ -1085,6 +1287,9 @@ onUnmounted(() => {
                 </div>
             </div>
         </div>
+
+        <!-- Hidden WebRTC Remote Audio Player -->
+        <audio ref="remoteAudio" autoplay playsinline class="hidden"></audio>
     </UserLayout>
 </template>
 

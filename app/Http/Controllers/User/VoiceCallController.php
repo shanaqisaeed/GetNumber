@@ -528,5 +528,100 @@ class VoiceCallController extends Controller
 
         return response()->json($status);
     }
+
+    /**
+     * Send WebRTC signaling payload (offer, answer, candidate, end_call) to the peer.
+     */
+    public function signal(Request $request, VoiceCall $voiceCall): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user->isAdmin() && $voiceCall->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'type' => ['required', 'string', 'in:offer,answer,ice_candidate,end_call'],
+            'payload' => ['required'],
+        ]);
+
+        $peerCallId = $voiceCall->metadata['callee_call_id'] ?? $voiceCall->metadata['peer_call_id'] ?? null;
+        if (! $peerCallId) {
+            return response()->json(['success' => false, 'message' => 'مخاطب متناظر یافت نشد.'], 404);
+        }
+
+        $signalItem = [
+            'type' => $validated['type'],
+            'payload' => $validated['payload'],
+            'from_user_id' => $user->id,
+            'timestamp' => microtime(true),
+        ];
+
+        // Store in cache queue for the peer call to pick up
+        $queueKey = "voice_signals_{$peerCallId}";
+        $existing = \Illuminate\Support\Facades\Cache::get($queueKey, []);
+        $existing[] = $signalItem;
+        if (count($existing) > 30) {
+            $existing = array_slice($existing, -30);
+        }
+        \Illuminate\Support\Facades\Cache::put($queueKey, $existing, now()->addMinutes(5));
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
+     * Poll pending WebRTC signals and active call status for this peer.
+     */
+    public function signals(Request $request, VoiceCall $voiceCall): JsonResponse
+    {
+        $user = $request->user();
+        if (! $user->isAdmin() && $voiceCall->user_id !== $user->id) {
+            abort(403);
+        }
+
+        $queueKey = "voice_signals_{$voiceCall->id}";
+        $signals = \Illuminate\Support\Facades\Cache::pull($queueKey, []);
+
+        $isActive = in_array($voiceCall->status, ['in_call', 'ringing']);
+
+        return response()->json([
+            'success' => true,
+            'status' => $voiceCall->status,
+            'is_active' => $isActive,
+            'signals' => $signals,
+        ]);
+    }
+
+    /**
+     * Handle incoming webhook events from the Go Voice Bridge Daemon.
+     */
+    public function bridgeWebhook(Request $request): JsonResponse
+    {
+        $secret = SystemSetting::get('voice_bridge_secret', '');
+        if (! empty($secret)) {
+            $provided = $request->header('X-Bridge-Secret') ?: $request->input('secret');
+            if ($provided !== $secret) {
+                return response()->json(['error' => 'Unauthorized bridge token'], 401);
+            }
+        }
+
+        $event = $request->input('event');
+        $sessionId = $request->input('session_id');
+        $durationSeconds = (int) $request->input('duration_seconds', 0);
+
+        if ($event === 'session_ended' && $sessionId) {
+            $call = VoiceCall::where('metadata->bridge_session_id', $sessionId)
+                ->whereNotIn('status', ['completed', 'declined'])
+                ->first();
+
+            if ($call) {
+                $this->voiceCallService->endCall($call, $durationSeconds);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bridge event processed successfully.',
+        ]);
+    }
 }
 

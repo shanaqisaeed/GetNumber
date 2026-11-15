@@ -168,8 +168,8 @@ onUnmounted(() => {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold">شماره‌گیر ارتباط صوتی (Voice Call)</h3>
-                        <p class="text-[11px] text-indigo-200">زیرساخت ارتباط زنده بر بستر شبکه اختصاصی</p>
+                        <h3 class="text-sm font-bold">ارتباط صوتی</h3>
+                        <p class="text-[11px] text-indigo-200">زیرساخت ارتباط اختصاصی</p>
                     </div>
                 </div>
                 <button
@@ -230,7 +230,7 @@ onUnmounted(() => {
                             {{ destination }}
                         </div>
                         <div class="text-xs font-semibold mt-1" :class="callState === 'connected' ? 'text-emerald-500' : 'text-indigo-500'">
-                            <span v-if="callState === 'initiating'">در حال اتصال به سرور مخابراتی...</span>
+                            <span v-if="callState === 'initiating'">در حال اتصال به سرور...</span>
                             <span v-else-if="callState === 'ringing'">در حال زنگ خوردن...</span>
                             <span v-else-if="callState === 'connected'">مکالمه برقرار است — {{ formattedDuration }}</span>
                         </div>
@@ -340,4 +340,3 @@ onUnmounted(() => {
         </div>
     </div>
 </template>
-

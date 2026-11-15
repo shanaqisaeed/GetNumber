@@ -154,6 +154,7 @@ type CallSession struct {
 	Codec       string    `json:"codec"`
 	PingMs      int       `json:"ping_ms"`
 	DurationSec int       `json:"duration_sec"`
+	CallbackURL string    `json:"callback_url,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	StartedAt   time.Time `json:"started_at"`
 	EndedAt     time.Time `json:"ended_at,omitempty"`
@@ -170,7 +171,7 @@ func NewSessionStore() *SessionStore {
 	}
 }
 
-func (s *SessionStore) Create(callID, userID int64, source, destination string) *CallSession {
+func (s *SessionStore) Create(callID, userID int64, source, destination, callbackURL string) *CallSession {
 	s.Lock()
 	defer s.Unlock()
 
@@ -184,6 +185,7 @@ func (s *SessionStore) Create(callID, userID int64, source, destination string) 
 		Status:      "initiated",
 		Codec:       "Opus/48000/2",
 		PingMs:      22,
+		CallbackURL: callbackURL,
 		CreatedAt:   time.Now(),
 		StartedAt:   time.Now(),
 	}
@@ -396,6 +398,34 @@ func (hub *SignalingHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func notifyLaravelWebhook(callbackURL, secret, event, sessionID string, duration int) {
+	if callbackURL == "" {
+		return
+	}
+	go func() {
+		payload := map[string]interface{}{
+			"event":            event,
+			"session_id":       sessionID,
+			"duration_seconds": duration,
+		}
+		data, _ := json.Marshal(payload)
+		req, err := http.NewRequest("POST", callbackURL, strings.NewReader(string(data)))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if secret != "" {
+			req.Header.Set("X-Bridge-Secret", secret)
+		}
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil && resp != nil {
+			_ = resp.Body.Close()
+			log.Printf("[VOICE-BRIDGE] 📡 گزارش رویداد به سامانه ارسال شد (رویداد: %s | نشست: %s)", event, sessionID)
+		}
+	}()
+}
+
 func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMessage) {
 	nowMs := time.Now().UnixMilli()
 
@@ -418,7 +448,23 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 	case "join_session":
 		hub.Lock()
 		hub.conns[conn] = msg.SessionID
+		activeInSession := 0
+		for _, sID := range hub.conns {
+			if sID == msg.SessionID {
+				activeInSession++
+			}
+		}
 		hub.Unlock()
+
+		sess, hasSess := hub.store.Get(msg.SessionID)
+		srcNum := "نامشخص"
+		dstNum := "نامشخص"
+		if hasSess {
+			srcNum = sess.Source
+			dstNum = sess.Destination
+		}
+
+		log.Printf("[VOICE-BRIDGE] 🔗 ارتباط وب‌سوکت برقرار شد: کانال صوتی فعال بین %s <-> %s (نشست: %s | کاربران آنلاین: %d)", srcNum, dstNum, msg.SessionID, activeInSession)
 
 		resp := WSMessage{
 			Type:       "session_joined",
@@ -429,7 +475,35 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		data, _ := json.Marshal(resp)
 		_ = writeWSFrame(w, 0x01, data)
 
+		if activeInSession >= 2 {
+			log.Printf("[VOICE-BRIDGE] 🚀 کانال صوتی دوطرفه بین %s و %s با موفقیت همگام‌سازی شد (Two-Way Channel Connected)", srcNum, dstNum)
+			connectedMsg := WSMessage{
+				Type:       "channel_connected",
+				SessionID:  msg.SessionID,
+				Status:     "connected",
+				ServerTime: nowMs,
+			}
+			cData, _ := json.Marshal(connectedMsg)
+			hub.RLock()
+			for c, sID := range hub.conns {
+				if sID == msg.SessionID {
+					writer := bufio.NewWriter(c)
+					_ = writeWSFrame(writer, 0x01, cData)
+				}
+			}
+			hub.RUnlock()
+		}
+
 	case "offer", "answer", "ice_candidate":
+		sess, hasSess := hub.store.Get(msg.SessionID)
+		srcNum := "مبدأ"
+		dstNum := "مقصد"
+		if hasSess {
+			srcNum = sess.Source
+			dstNum = sess.Destination
+		}
+		log.Printf("[VOICE-BRIDGE] 🎙️ انتقال سیگنال وب‌آر‌تی‌سی (%s) در کانال صوتی %s <-> %s (نشست: %s)", msg.Type, srcNum, dstNum, msg.SessionID)
+
 		// Broadcast to all peers in the same session
 		hub.RLock()
 		data, _ := json.Marshal(msg)
@@ -440,6 +514,40 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 			}
 		}
 		hub.RUnlock()
+
+	case "end_call":
+		sess, hasSess := hub.store.Get(msg.SessionID)
+		srcNum := "مبدأ"
+		dstNum := "مقصد"
+		callbackURL := ""
+		if hasSess {
+			srcNum = sess.Source
+			dstNum = sess.Destination
+			callbackURL = sess.CallbackURL
+			hub.store.End(msg.SessionID, 0)
+		}
+		log.Printf("[VOICE-BRIDGE] 🛑 سیگنال قطع تماس از طرف یکی از کاربران دریافت شد (%s <-> %s | نشست: %s)", srcNum, dstNum, msg.SessionID)
+
+		// Broadcast call_ended to all peers in this session so the other side immediately hangs up!
+		endMsg := WSMessage{
+			Type:       "call_ended",
+			SessionID:  msg.SessionID,
+			Status:     "completed",
+			ServerTime: nowMs,
+		}
+		data, _ := json.Marshal(endMsg)
+		hub.RLock()
+		for c, sID := range hub.conns {
+			if c != conn && (sID == msg.SessionID || msg.SessionID == "") {
+				writer := bufio.NewWriter(c)
+				_ = writeWSFrame(writer, 0x01, data)
+			}
+		}
+		hub.RUnlock()
+
+		if callbackURL != "" {
+			notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", msg.SessionID, 0)
+		}
 	}
 }
 
@@ -617,13 +725,15 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 			UserID      int64  `json:"user_id"`
 			Source      string `json:"source"`
 			Destination string `json:"destination"`
+			CallbackURL string `json:"callback_url"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
 
-		session := store.Create(req.CallID, req.UserID, req.Source, req.Destination)
+		session := store.Create(req.CallID, req.UserID, req.Source, req.Destination, req.CallbackURL)
+		log.Printf("[VOICE-BRIDGE] 📞 نشست تماس جدید ثبت شد: شماره مبدأ: %s -> شماره مقصد: %s | شناسه نشست: %s | کاربر: %d", req.Source, req.Destination, session.ID, req.UserID)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -659,6 +769,12 @@ func startAPIServer(cfg Config, store *SessionStore, startTime time.Time) *http.
 				"error":   "Session Not Found",
 			})
 			return
+		}
+
+		log.Printf("[VOICE-BRIDGE] ⏹️ پایان نشست تماس: شماره مبدأ: %s <-> شماره مقصد: %s | مدت مکالمه: %d ثانیه | شناسه نشست: %s", sess.Source, sess.Destination, sess.DurationSec, sess.ID)
+
+		if sess.CallbackURL != "" {
+			notifyLaravelWebhook(sess.CallbackURL, cfg.Secret, "session_ended", sess.ID, sess.DurationSec)
 		}
 
 		w.Header().Set("Content-Type", "application/json")

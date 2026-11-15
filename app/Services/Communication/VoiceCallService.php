@@ -150,6 +150,7 @@ class VoiceCallService implements VoiceCallServiceInterface
                     'user_id' => $user->id,
                     'source' => $fromNumber->number,
                     'destination' => $cleanDestination,
+                    'callback_url' => url('/api/voice/bridge-event'),
                 ]);
                 if ($bridgeRes->successful()) {
                     $bData = $bridgeRes->json();

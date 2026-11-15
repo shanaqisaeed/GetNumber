@@ -220,6 +220,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/voice/{voiceCall}/end', [\App\Http\Controllers\User\VoiceCallController::class, 'end'])->name('voice.end');
     Route::post('/voice/{voiceCall}/pulse', [\App\Http\Controllers\User\VoiceCallController::class, 'pulse'])->name('voice.pulse');
     Route::get('/voice/{voiceCall}/status', [\App\Http\Controllers\User\VoiceCallController::class, 'status'])->name('voice.status');
+    Route::post('/voice/{voiceCall}/signal', [\App\Http\Controllers\User\VoiceCallController::class, 'signal'])->name('voice.signal');
+    Route::get('/voice/{voiceCall}/signals', [\App\Http\Controllers\User\VoiceCallController::class, 'signals'])->name('voice.signals');
 
     // Web3 Domains & Sub-Email Engine
     Route::get('/web3-domains', [\App\Http\Controllers\User\Web3DomainController::class, 'index'])->name('web3-domains.index');

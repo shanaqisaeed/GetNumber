@@ -27,3 +27,6 @@ Route::prefix('v1')->middleware(['auth.api_token', 'throttle:api-token'])->group
 Route::post('/telemetry/errors', [\App\Http\Controllers\HealthCheckController::class, 'reportClientError'])
     ->middleware('throttle:60,1')
     ->name('api.telemetry.errors');
+
+Route::post('/voice/bridge-event', [\App\Http\Controllers\User\VoiceCallController::class, 'bridgeWebhook'])
+    ->name('api.voice.bridge_event');

@@ -300,5 +300,100 @@ class VoiceCallAndBridgeTest extends TestCase
         $callCid->assertJsonPath('success', true);
         $callCid->assertJsonPath('call.destination', '@saeed');
     }
+
+    public function test_webrtc_signaling_and_mutual_hangup_between_peers(): void
+    {
+        $userA = User::factory()->create(['role' => UserRole::User]);
+        $userA->wallet()->create(['balance' => '10.0000']);
+        $userB = User::factory()->create(['role' => UserRole::User]);
+        $userB->wallet()->create(['balance' => '10.0000']);
+
+        $prefix = \App\Models\PhonePrefix::firstOrCreate(
+            ['prefix' => '+85'],
+            [
+                'clean_prefix' => '85',
+                'name' => 'Prefix 85',
+                'country_name' => 'Internal',
+                'flag' => '🌐',
+                'voice_intra_prefix_rate' => '0.0000',
+                'voice_inter_prefix_rate' => '0.2500',
+                'is_active' => true,
+            ]
+        );
+
+        $lineA = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '2001',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userA->id,
+            'allocated_at' => now(),
+        ]);
+
+        $lineB = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '2002',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userB->id,
+            'allocated_at' => now(),
+        ]);
+
+        // 1. User A initiates call to User B
+        $initRes = $this->actingAs($userA)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => '2002',
+        ]);
+        $initRes->assertOk();
+        $callAId = $initRes->json('call.id');
+
+        // User B gets incoming call
+        $incRes = $this->actingAs($userB)->getJson(route('voice.active_incoming'));
+        $incRes->assertOk();
+        $callBId = $incRes->json('call.id');
+
+        // 2. User A sends SDP Offer
+        $offerRes = $this->actingAs($userA)->postJson(route('voice.signal', $callAId), [
+            'type' => 'offer',
+            'payload' => ['sdp' => 'v=0\r\no=caller...', 'type' => 'offer'],
+        ]);
+        $offerRes->assertOk();
+
+        // 3. User B answers call and polls signals to receive User A's Offer
+        $this->actingAs($userB)->postJson(route('voice.answer', $callBId))->assertOk();
+
+        $signalsB = $this->actingAs($userB)->getJson(route('voice.signals', $callBId));
+        $signalsB->assertOk();
+        $signalsB->assertJsonPath('is_active', true);
+        $this->assertCount(1, $signalsB->json('signals'));
+        $this->assertEquals('offer', $signalsB->json('signals.0.type'));
+
+        // 4. User B sends SDP Answer back
+        $answerRes = $this->actingAs($userB)->postJson(route('voice.signal', $callBId), [
+            'type' => 'answer',
+            'payload' => ['sdp' => 'v=0\r\no=callee...', 'type' => 'answer'],
+        ]);
+        $answerRes->assertOk();
+
+        // 5. User A polls signals to receive User B's Answer
+        $signalsA = $this->actingAs($userA)->getJson(route('voice.signals', $callAId));
+        $signalsA->assertOk();
+        $this->assertCount(1, $signalsA->json('signals'));
+        $this->assertEquals('answer', $signalsA->json('signals.0.type'));
+
+        // 6. User A ends the call -> User B must be notified of termination
+        $this->actingAs($userA)->postJson(route('voice.end', $callAId), ['duration_seconds' => 10])->assertOk();
+
+        // User B polls signals / pulse -> is_active must now be false
+        $pulseB = $this->actingAs($userB)->postJson(route('voice.pulse', $callBId), ['elapsed_seconds' => 10]);
+        $pulseB->assertOk();
+        $pulseB->assertJsonPath('active', false);
+        $pulseB->assertJsonPath('can_continue', false);
+
+        $signalsBAfterEnd = $this->actingAs($userB)->getJson(route('voice.signals', $callBId));
+        $signalsBAfterEnd->assertOk();
+        $signalsBAfterEnd->assertJsonPath('is_active', false);
+        $signalsBAfterEnd->assertJsonPath('status', 'completed');
+    }
 }
 
