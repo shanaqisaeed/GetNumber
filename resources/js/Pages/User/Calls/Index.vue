@@ -232,6 +232,14 @@ const connectBridgeWebSocket = (wsUrl: string) => {
             bridgeSocket.close();
             bridgeSocket = null;
         }
+
+        // On remote/production HTTPS domain, if wsUrl points to localhost/127.0.0.1 or insecure ws://, avoid connecting to prevent mixed content or localhost connection refused
+        const isRemote = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+        if (isRemote && (wsUrl.includes('127.0.0.1') || wsUrl.includes('localhost') || (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')))) {
+            isBridgeConnected.value = false;
+            return;
+        }
+
         bridgeSocket = new WebSocket(wsUrl);
         bridgeSocket.onopen = () => {
             isBridgeConnected.value = true;

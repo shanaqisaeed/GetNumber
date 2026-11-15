@@ -50,8 +50,19 @@ export function getEchoInstance(): Echo<'reverb'> | null {
         return null;
     }
 
+    const isLocalBrowser = typeof window !== 'undefined' && 
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const configuredHost = import.meta.env.VITE_REVERB_HOST;
+
+    // If running in production browser on a remote domain but Reverb host is left as localhost/127.0.0.1,
+    // do not attempt connecting to the client machine's localhost to prevent connection errors
+    if (!isLocalBrowser && (configuredHost === 'localhost' || configuredHost === '127.0.0.1')) {
+        notifyStateChange('polling');
+        return null;
+    }
+
     try {
-        const host = import.meta.env.VITE_REVERB_HOST || window.location.hostname;
+        const host = configuredHost || window.location.hostname;
         const port = Number(import.meta.env.VITE_REVERB_PORT || 8080);
         const scheme = import.meta.env.VITE_REVERB_SCHEME || 'http';
         const useTLS = scheme === 'https';

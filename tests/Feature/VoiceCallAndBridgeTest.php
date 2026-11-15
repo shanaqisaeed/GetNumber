@@ -206,5 +206,99 @@ class VoiceCallAndBridgeTest extends TestCase
         $paidCallRes->assertJsonPath('success', false);
         $this->assertStringContainsString('کافی نمی‌باشد', $paidCallRes->json('message'));
     }
+
+    public function test_calling_short_extension_and_custom_id_without_sql_errors(): void
+    {
+        $userA = User::factory()->create(['role' => UserRole::User]);
+        $userA->wallet()->create(['balance' => '10.0000']);
+
+        $userB = User::factory()->create(['role' => UserRole::User]);
+        $userB->wallet()->create(['balance' => '10.0000']);
+
+        $prefix = \App\Models\PhonePrefix::firstOrCreate(
+            ['prefix' => '+85'],
+            [
+                'clean_prefix' => '85',
+                'name' => 'Prefix 85',
+                'country_name' => 'Internal',
+                'flag' => '🌐',
+                'voice_intra_prefix_rate' => '0.0000',
+                'voice_inter_prefix_rate' => '0.2500',
+                'is_active' => true,
+            ]
+        );
+
+        $lineA = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '1010',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userA->id,
+            'allocated_at' => now(),
+        ]);
+
+        $lineB = PhoneNumber::create([
+            'phone_prefix_id' => $prefix->id,
+            'number' => '1000',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'user_id' => $userB->id,
+            'allocated_at' => now(),
+        ]);
+
+        // 1. Dial short extension '1000'
+        $call1000 = $this->actingAs($userA)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => '1000',
+        ]);
+        $call1000->assertOk();
+        $call1000->assertJsonPath('success', true);
+        $call1000->assertJsonPath('call.is_internal', true);
+
+        // Verify callee received incoming call
+        $incomingRes = $this->actingAs($userB)->getJson(route('voice.active_incoming'));
+        $incomingRes->assertOk();
+        $incomingRes->assertJsonPath('has_incoming', true);
+
+        // 2. Dial with prefix '851000'
+        $call851000 = $this->actingAs($userA)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => '851000',
+        ]);
+        $call851000->assertOk();
+        $call851000->assertJsonPath('success', true);
+
+        // 3. Dial Custom ID allocation
+        $def = \App\Models\ServiceDefinition::create([
+            'key' => 'custom_id',
+            'driver_class' => 'App\\Services\\Catalog\\Drivers\\CustomIdDriver',
+            'category' => 'identity',
+            'channel_type' => 'custom_id',
+            'translation_prefix' => 'services.custom_id',
+            'is_active' => true,
+            'is_purchasable' => true,
+            'requires_approval_for_enterprise' => false,
+            'available_for_roles' => ['user', 'admin'],
+            'sort_order' => 1,
+        ]);
+
+        $cidAlloc = \App\Models\ServiceResourceAllocation::create([
+            'service_definition_id' => $def->id,
+            'user_id' => $userB->id,
+            'service_key' => 'custom_id',
+            'channel_type' => 'custom_id',
+            'resource_identifier' => '@saeed',
+            'status' => 'active',
+            'allocated_at' => now(),
+        ]);
+
+        $callCid = $this->actingAs($userA)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => '@saeed',
+        ]);
+        $callCid->assertOk();
+        $callCid->assertJsonPath('success', true);
+        $callCid->assertJsonPath('call.destination', '@saeed');
+    }
 }
 

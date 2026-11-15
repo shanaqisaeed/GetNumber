@@ -8,9 +8,11 @@ use App\Enums\PhoneNumberStatus;
 use App\Enums\WalletTransactionType;
 use App\Exceptions\InsufficientWalletBalanceException;
 use App\Models\PhoneNumber;
+use App\Models\PhonePrefix;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\VoiceCall;
+use App\Services\PhoneNumberNormalizer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -44,38 +46,55 @@ class VoiceCallService implements VoiceCallServiceInterface
         $resolvedDestRecord = null;
         $destUser = null;
 
-        if (str_starts_with($cleanDestination, '@')) {
+        if (str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination)) {
             // Custom ID lookup
-            $resolvedDestRecord = \App\Models\ServiceResourceAllocation::with('user')
-                ->where('resource_identifier', $cleanDestination)
+            $handleWithAt = '@' . ltrim($cleanDestination, '@');
+            $resolvedDestRecord = \App\Models\ServiceResourceAllocation::with(['user', 'phoneNumber'])
+                ->where('resource_identifier', $handleWithAt)
                 ->where('status', 'active')
                 ->first();
             if ($resolvedDestRecord) {
                 $destUser = $resolvedDestRecord->user;
+                $cleanDestination = $handleWithAt;
             }
         } else {
-            // Check exact number match
-            $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
-            $resolvedDestRecord = PhoneNumber::with('user')
+            // Numeric destination lookup (pure database columns: number & prefix)
+            $cleanDestDigits = PhoneNumberNormalizer::clean($cleanDestination);
+
+            // 1. Exact match on stored number
+            $resolvedDestRecord = PhoneNumber::with(['user', 'prefix'])
                 ->where('number', $cleanDestDigits)
-                ->orWhere('formatted_number', $cleanDestination)
-                ->orWhere('formatted_number', '+' . $cleanDestDigits)
                 ->first();
 
-            // Try with caller's prefix if not found and digits are short
-            if (! $resolvedDestRecord && $cleanFromPrefix !== '' && ! str_starts_with($cleanDestDigits, $cleanFromPrefix)) {
-                $prefixed = $cleanFromPrefix . $cleanDestDigits;
-                $resolvedDestRecord = PhoneNumber::with('user')
-                    ->where('number', $prefixed)
-                    ->orWhere('formatted_number', '+' . $prefixed)
-                    ->first();
-                if ($resolvedDestRecord) {
-                    $cleanDestination = $resolvedDestRecord->formatted_number ?: ('+' . $prefixed);
+            // 2. Check if destination was entered with an active system prefix (e.g. 851000 or +851000)
+            if (! $resolvedDestRecord) {
+                $activeCleanPrefixes = PhonePrefix::getActiveCleanPrefixes();
+                usort($activeCleanPrefixes, fn ($a, $b) => strlen($b) <=> strlen($a));
+                foreach ($activeCleanPrefixes as $prefixStr) {
+                    if (str_starts_with($cleanDestDigits, $prefixStr) && strlen($cleanDestDigits) > strlen($prefixStr)) {
+                        $withoutPrefix = substr($cleanDestDigits, strlen($prefixStr));
+                        $found = PhoneNumber::with(['user', 'prefix'])
+                            ->where('number', $withoutPrefix)
+                            ->first();
+                        if ($found) {
+                            $resolvedDestRecord = $found;
+                            break;
+                        }
+                    }
                 }
+            }
+
+            // 3. If caller has prefix and destination entered was short extension (e.g. 1000), check with prefix attached
+            if (! $resolvedDestRecord && $cleanFromPrefix !== '') {
+                $prefixed = $cleanFromPrefix . $cleanDestDigits;
+                $resolvedDestRecord = PhoneNumber::with(['user', 'prefix'])
+                    ->where('number', $prefixed)
+                    ->first();
             }
 
             if ($resolvedDestRecord) {
                 $destUser = $resolvedDestRecord->user;
+                $cleanDestination = $resolvedDestRecord->formatted_number ?: ('+' . $cleanDestDigits);
             }
         }
 
@@ -86,9 +105,9 @@ class VoiceCallService implements VoiceCallServiceInterface
             // ID-to-ID or Custom ID communication tariff (configured in global admin tariffs)
             $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', '0.0500');
         } else {
-            $cleanDestDigits = preg_replace('/^\+/', '', $cleanDestination);
-            // Check if call is intra-prefix (same prefix / internal extension)
-            $isIntra = $cleanFromPrefix !== '' && str_starts_with($cleanDestDigits, $cleanFromPrefix);
+            $cleanDestDigits = PhoneNumberNormalizer::clean($cleanDestination);
+            // Check if call is intra-prefix (internal extension, same prefix, or short extension)
+            $isIntra = $isInternal || ($cleanFromPrefix !== '' && (str_starts_with($cleanDestDigits, $cleanFromPrefix) || strlen($cleanDestDigits) <= 7));
             if ($isIntra) {
                 // Intra-prefix voice call rate (configured per prefix or global intra rate)
                 $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
@@ -170,7 +189,7 @@ class VoiceCallService implements VoiceCallServiceInterface
             ],
         ]);
 
-        // If destination belongs to an internal user, also create the Inbound Call record for their history
+        // If destination belongs to an internal user, create the Inbound Call record in 'ringing' status
         if ($destUser && $destUser->id !== $user->id) {
             $calleeCall = VoiceCall::create([
                 'user_id' => $destUser->id,
@@ -178,9 +197,9 @@ class VoiceCallService implements VoiceCallServiceInterface
                 'source_identifier' => $fromNumber->formatted_number ?: $fromNumber->number,
                 'destination' => $cleanDestination,
                 'direction' => 'inbound',
-                'status' => 'in_call',
+                'status' => 'ringing',
                 'started_at' => now(),
-                'answered_at' => now(),
+                'answered_at' => null,
                 'duration_seconds' => 0,
                 'billed_minutes' => 0,
                 'rate_per_minute' => 0.0000,
@@ -198,6 +217,8 @@ class VoiceCallService implements VoiceCallServiceInterface
             $outMeta = $outboundCall->metadata;
             $outMeta['callee_call_id'] = $calleeCall->id;
             $outboundCall->metadata = $outMeta;
+            $outboundCall->status = 'ringing';
+            $outboundCall->answered_at = null;
             $outboundCall->save();
         }
 
