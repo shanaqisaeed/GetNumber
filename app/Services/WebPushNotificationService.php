@@ -12,6 +12,14 @@ use Minishlink\WebPush\WebPush;
 class WebPushNotificationService
 {
     /**
+     * Check if WebPush library is installed and available
+     */
+    public function isSupported(): bool
+    {
+        return class_exists(\Minishlink\WebPush\WebPush::class);
+    }
+
+    /**
      * Get the VAPID Public Key for client subscription
      */
     public function getPublicKey(): string
@@ -126,6 +134,11 @@ class WebPushNotificationService
             return;
         }
 
+        if (!$this->isSupported()) {
+            Log::info('[WebPush] minishlink/web-push package is not installed on this host. Skipping push notification.');
+            return;
+        }
+
         // On Windows environments, ensure OPENSSL_CONF is configured if present
         if (!getenv('OPENSSL_CONF') && file_exists('E:\\php\\extras\\ssl\\openssl.cnf')) {
             putenv('OPENSSL_CONF=E:\\php\\extras\\ssl\\openssl.cnf');
@@ -224,6 +237,11 @@ class WebPushNotificationService
             return;
         }
 
+        if (! $this->isSupported()) {
+            Log::info('[WebPush] minishlink/web-push package is not installed on this host. Skipping voice call push.');
+            return;
+        }
+
         if (! getenv('OPENSSL_CONF') && file_exists('E:\\php\\extras\\ssl\\openssl.cnf')) {
             putenv('OPENSSL_CONF=E:\\php\\extras\\ssl\\openssl.cnf');
         }
@@ -302,6 +320,13 @@ class WebPushNotificationService
             return [
                 'success' => false,
                 'message' => __('services.web_push.no_subscriptions'),
+            ];
+        }
+
+        if (!$this->isSupported()) {
+            return [
+                'success' => false,
+                'message' => 'پکیج ارسال نوتیفیکیشن وب (minishlink/web-push) روی سرور نصب نیست.',
             ];
         }
 
