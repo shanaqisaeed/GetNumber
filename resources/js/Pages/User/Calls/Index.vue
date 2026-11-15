@@ -111,6 +111,11 @@ const pingMs = ref<number>(24);
 let pingTimer: ReturnType<typeof setInterval> | null = null;
 const isMuted = ref(false);
 const isSpeakerOn = ref(false);
+const isNoiseCancellationEnabled = ref(
+    typeof window !== 'undefined'
+        ? localStorage.getItem('getnumber_noise_cancellation') !== 'false'
+        : true
+);
 const callError = ref('');
 
 // Bridge & WebRTC State
@@ -187,7 +192,7 @@ const ensureAtPrefix = () => {
     }
 };
 
-// Request Microphone Access
+// Request Microphone Access with Intelligent Acoustic Noise Suppression
 const requestMicrophoneAccess = async (): Promise<boolean> => {
     micPermissionGranted.value = null;
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -199,15 +204,29 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
+                echoCancellation: { ideal: true },
+                noiseSuppression: { ideal: isNoiseCancellationEnabled.value },
+                autoGainControl: { ideal: true },
+                // Advanced WebRTC & Chromium constraints for crystal-clear noise reduction
+                // @ts-ignore
+                googEchoCancellation: { ideal: true },
+                // @ts-ignore
+                googAutoGainControl: { ideal: true },
+                // @ts-ignore
+                googNoiseSuppression: { ideal: isNoiseCancellationEnabled.value },
+                // @ts-ignore
+                googHighpassFilter: { ideal: isNoiseCancellationEnabled.value },
+                // @ts-ignore
+                googTypingNoiseDetection: { ideal: isNoiseCancellationEnabled.value },
+                // @ts-ignore
+                googAudioMirroring: { ideal: false },
             },
         });
         localMediaStream = stream;
         micPermissionGranted.value = true;
         isMicModalOpen.value = false;
         callError.value = '';
+        console.log('[WebRTC] 🎙️ Microphone initialized with Noise Cancellation:', isNoiseCancellationEnabled.value);
         return true;
     } catch {
         micPermissionGranted.value = false;
@@ -237,6 +256,70 @@ const toggleSpeaker = () => {
     isSpeakerOn.value = !isSpeakerOn.value;
     if (remoteAudio.value) {
         remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.7;
+    }
+};
+
+// Toggle Noise Cancellation live during or before a call
+const toggleNoiseCancellation = async () => {
+    isNoiseCancellationEnabled.value = !isNoiseCancellationEnabled.value;
+    if (typeof window !== 'undefined') {
+        localStorage.setItem('getnumber_noise_cancellation', String(isNoiseCancellationEnabled.value));
+    }
+    if (localMediaStream) {
+        const audioTracks = localMediaStream.getAudioTracks();
+        for (const track of audioTracks) {
+            try {
+                await track.applyConstraints({
+                    echoCancellation: true,
+                    noiseSuppression: isNoiseCancellationEnabled.value,
+                    autoGainControl: true,
+                    // @ts-ignore
+                    googEchoCancellation: true,
+                    // @ts-ignore
+                    googAutoGainControl: true,
+                    // @ts-ignore
+                    googNoiseSuppression: isNoiseCancellationEnabled.value,
+                    // @ts-ignore
+                    googHighpassFilter: isNoiseCancellationEnabled.value,
+                    // @ts-ignore
+                    googTypingNoiseDetection: isNoiseCancellationEnabled.value,
+                });
+                console.log('[WebRTC] 🎧 Live track noise cancellation updated:', isNoiseCancellationEnabled.value);
+            } catch (err) {
+                console.warn('[WebRTC] ⚠️ Failed applying live track noise cancellation constraints:', err);
+            }
+        }
+    }
+};
+
+// Enhance Opus SDP with In-Band FEC & DTX (Discontinuous Transmission to eliminate background noise during silence)
+const enhanceOpusSdp = (sdp?: string): string => {
+    if (!sdp || !sdp.includes('opus/48000')) {
+        return sdp || '';
+    }
+    const match = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+    if (!match) {
+        return sdp;
+    }
+    const pt = match[1];
+    const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+([^\\r\\n]+)`, 'i');
+    const existing = sdp.match(fmtpRegex);
+
+    if (existing) {
+        let params = existing[1];
+        if (!params.includes('useinbandfec=')) {
+            params += ';useinbandfec=1';
+        }
+        if (!params.includes('usedtx=')) {
+            params += ';usedtx=1';
+        }
+        if (!params.includes('stereo=')) {
+            params += ';stereo=0';
+        }
+        return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${params}`);
+    } else {
+        const replacement = `a=rtpmap:${pt} opus/48000/2\r\na=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0`;
+        return sdp.replace(new RegExp(`a=rtpmap:${pt}\\s+opus\\/48000\\/2`, 'i'), replacement);
     }
 };
 
@@ -435,6 +518,9 @@ const handleSignalingPayload = async (type: string, payload: any) => {
             pendingCandidates = [];
 
             const answer = await peerConnection.createAnswer();
+            if (answer.sdp) {
+                answer.sdp = enhanceOpusSdp(answer.sdp);
+            }
             await peerConnection.setLocalDescription(answer);
             await sendSignalingMessage('answer', answer);
         } else if (type === 'answer') {
@@ -646,6 +732,9 @@ const startCall = async (skipMicCheck = false) => {
             // Establish WebRTC Audio Peer Connection
             const pc = createPeerConnection();
             const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            if (offer.sdp) {
+                offer.sdp = enhanceOpusSdp(offer.sdp);
+            }
             await pc.setLocalDescription(offer);
             await sendSignalingMessage('offer', offer);
 
@@ -1131,22 +1220,52 @@ onUnmounted(() => {
                                 🔊 برای پخش صدای مخاطب اینجا کلیک کنید
                             </button>
 
-                            <div v-if="isInternalCall" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
-                                ✨ تماس درون‌شبکه سامانه
+                            <div class="flex items-center gap-1.5 flex-wrap justify-center">
+                                <div v-if="isInternalCall" class="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full">
+                                    ✨ تماس درون‌شبکه سامانه
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="toggleNoiseCancellation"
+                                    class="text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-all flex items-center gap-1 cursor-pointer"
+                                    :class="isNoiseCancellationEnabled ? 'text-purple-600 dark:text-purple-400 bg-purple-500/15 border border-purple-500/30' : 'text-slate-400 bg-slate-500/10 border border-slate-500/20'"
+                                    :title="isNoiseCancellationEnabled ? 'نویز کنسلینگ فعال است. برای خاموش کردن کلیک کنید' : 'نویز کنسلینگ خاموش است. برای روشن کردن کلیک کنید'"
+                                >
+                                    <span>🎧</span>
+                                    <span>{{ isNoiseCancellationEnabled ? 'نویز کنسلینگ فعال' : 'نویز کنسلینگ خاموش' }}</span>
+                                </button>
                             </div>
                         </div>
                     </div>
 
                     <!-- Call Controls -->
-                    <div class="flex items-center justify-center gap-4 pt-3">
+                    <div class="flex items-center justify-center gap-3 sm:gap-4 pt-3">
+                        <!-- Mute / Unmute -->
                         <button
                             type="button"
                             @click="toggleMute"
-                            class="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
                             :class="isMuted ? 'bg-amber-500/20 border-amber-500 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
                             :title="isMuted ? 'میکروفون غیرفعال است' : 'میکروفون فعال است'"
                         >
-                            <span class="text-xs font-bold">{{ isMuted ? 'بی‌صدا' : 'صدا فعال' }}</span>
+                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ isMuted ? 'بی‌صدا' : 'صدا فعال' }}</span>
+                        </button>
+
+                        <!-- Noise Cancellation Live Toggle -->
+                        <button
+                            type="button"
+                            @click="toggleNoiseCancellation"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
+                            :class="isNoiseCancellationEnabled ? 'bg-purple-500/20 border-purple-500 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'"
+                            :title="isNoiseCancellationEnabled ? 'نویز کنسلینگ هوشمند فعال است (حذف صدای محیط)' : 'نویز کنسلینگ غیرفعال است'"
+                        >
+                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ isNoiseCancellationEnabled ? 'نویزگیر' : 'عادی' }}</span>
                         </button>
 
                         <!-- Hang up button -->
@@ -1161,14 +1280,18 @@ onUnmounted(() => {
                             </svg>
                         </button>
 
+                        <!-- Speaker / Earpiece -->
                         <button
                             type="button"
                             @click="toggleSpeaker"
-                            class="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
                             :class="isSpeakerOn ? 'bg-blue-500/20 border-blue-500 text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
                             :title="isSpeakerOn ? 'پخش از اسپیکر' : 'پخش از گوشی/هدفون'"
                         >
-                            <span class="text-xs font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
+                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
                         </button>
                     </div>
                 </div>
@@ -1309,6 +1432,31 @@ onUnmounted(() => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Noise Cancelling Quick Option in Dialer -->
+                    <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-100/70 dark:bg-slate-900/40 border border-slate-200/60 dark:border-white/5 text-xs max-w-xs mx-auto">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">🎧</span>
+                            <div class="text-right">
+                                <span class="font-bold text-slate-800 dark:text-slate-200 text-xs">حذف نویز محیط (Noise Cancelling)</span>
+                                <p class="text-[10px] text-slate-400">حذف خودکار صدای باد، تایپ و همهمه</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            @click="toggleNoiseCancellation"
+                            class="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                            :class="isNoiseCancellationEnabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'"
+                            role="switch"
+                            :aria-checked="isNoiseCancellationEnabled"
+                            :title="isNoiseCancellationEnabled ? 'نویز کنسلینگ فعال است' : 'نویز کنسلینگ غیرفعال است'"
+                        >
+                            <span
+                                class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out"
+                                :class="isNoiseCancellationEnabled ? 'translate-x-0' : '-translate-x-4'"
+                            />
+                        </button>
                     </div>
 
                     <!-- Green Action Call Button -->
