@@ -156,7 +156,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.host"
-                                placeholder="e.g. ldap.organization.local"
+                                :placeholder="__('admin.settings.ldap_host_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -205,7 +205,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.base_dn"
-                                placeholder="dc=organization,dc=local"
+                                :placeholder="__('admin.settings.ldap_base_dn_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -231,7 +231,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.bind_dn"
-                                placeholder="cn=admin,dc=organization,dc=local"
+                                :placeholder="__('admin.settings.ldap_bind_dn_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                             />
                             <InputError class="mt-1" :message="form.errors.bind_dn" />
@@ -287,7 +287,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.uid_attribute"
-                                placeholder="uid or sAMAccountName"
+                                :placeholder="__('admin.settings.ldap_uid_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -303,7 +303,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.email_attribute"
-                                placeholder="mail"
+                                :placeholder="__('admin.settings.ldap_email_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -319,7 +319,7 @@ const runConnectionTest = async () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.name_attribute"
-                                placeholder="cn or displayName"
+                                :placeholder="__('admin.settings.ldap_name_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-purple-500 focus:outline-none dark:text-white"
                                 required
                             />

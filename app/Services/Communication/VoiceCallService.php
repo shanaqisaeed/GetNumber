@@ -27,16 +27,16 @@ class VoiceCallService implements VoiceCallServiceInterface
     public function initiateCall(User $user, PhoneNumber $fromNumber, string $destinationNumber): VoiceCall
     {
         if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
-            throw new AccessDeniedHttpException('شما مالک این خط ارتباطی نمی‌باشید.');
+            throw new AccessDeniedHttpException(__('services.communication.voice.not_owner'));
         }
 
         if ($fromNumber->status !== PhoneNumberStatus::Allocated) {
-            throw new AccessDeniedHttpException('خط انتخابی در وضعیت فعال قرار ندارد.');
+            throw new AccessDeniedHttpException(__('services.communication.voice.line_not_active'));
         }
 
         $cleanDestination = trim($destinationNumber);
         if ($cleanDestination === '') {
-            throw new \InvalidArgumentException('شماره یا آیدی مقصد نباید خالی باشد.');
+            throw new \InvalidArgumentException(__('services.communication.voice.dest_empty'));
         }
 
         // 1. Auto-resolve short extensions / numbers without prefix
@@ -125,7 +125,7 @@ class VoiceCallService implements VoiceCallServiceInterface
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: (string) $ratePerMinute,
                     currentBalance: (string) $wallet->balance,
-                    message: "موجودی کیف‌پول شما جهت برقراری تماس صوتی (حداقل {$ratePerMinute} کوین برای دقیقه اول) کافی نمی‌باشد."
+                    message: __('services.communication.voice.insufficient_balance_first_minute', ['rate' => $ratePerMinute])
                 );
             }
         }
@@ -280,7 +280,11 @@ class VoiceCallService implements VoiceCallServiceInterface
                     amount: $totalCostStr,
                     referenceId: $refId,
                     type: WalletTransactionType::VoiceCall,
-                    description: "هزینه مکالمه صوتی به مقصد {$voiceCall->destination} ({$costData['duration_seconds']} ثانیه - {$costData['billed_minutes']} دقیقه)",
+                    description: __('services.communication.voice.desc_call_charge', [
+                        'destination' => $voiceCall->destination,
+                        'seconds' => $costData['duration_seconds'],
+                        'minutes' => $costData['billed_minutes'],
+                    ]),
                     metadata: [
                         'call_id' => $voiceCall->id,
                         'source' => $voiceCall->source_identifier,

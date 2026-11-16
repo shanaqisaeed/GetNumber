@@ -441,7 +441,7 @@ class PhoneNumberController extends Controller
                 'sent_sms_count' => $sentCount,
                 'received_sms_count' => $receivedCount,
                 'voice_calls_count' => $voiceCallsCount,
-                'last_activity' => $lastActivity ? \Carbon\Carbon::parse($lastActivity)->diffForHumans() : 'بدون فعالیت',
+                'last_activity' => $lastActivity ? \Carbon\Carbon::parse($lastActivity)->diffForHumans() : __('controllers.admin.phone_numbers.no_activity'),
             ],
             'users' => $users,
             'prefixes' => $prefixes,

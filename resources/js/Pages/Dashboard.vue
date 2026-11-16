@@ -156,7 +156,7 @@ const recentTransactions = computed(() => props.wallet?.recent_transactions || [
 const appLauncherItems = computed(() => [
     {
         id: 'wallet',
-        title: 'کیف پول و شارژ',
+        title: __('dashboard.app_grid.wallet_title'),
         subtitle: `${creditBalance.value} TRX`,
         href: route('wallet.deposit.create'),
         gradient: 'from-amber-500 to-orange-500',
@@ -165,8 +165,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'services',
-        title: 'سرویس‌ها و خطوط',
-        subtitle: `${props.quota.active} خط فعال`,
+        title: __('dashboard.app_grid.services_title'),
+        subtitle: __('dashboard.app_grid.services_subtitle', { count: props.quota.active }),
         href: route('numbers.index'),
         gradient: 'from-indigo-600 to-purple-600',
         icon: 'phone',
@@ -174,8 +174,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'enterprise',
-        title: 'خدمات سازمانی',
-        subtitle: 'سرشماره و برندینگ',
+        title: __('dashboard.app_grid.enterprise_title'),
+        subtitle: __('dashboard.app_grid.enterprise_subtitle'),
         href: route('requests.index'),
         gradient: 'from-blue-600 to-indigo-600',
         icon: 'briefcase',
@@ -183,8 +183,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'contacts',
-        title: 'مخاطبین',
-        subtitle: 'دفترچه تلفن',
+        title: __('dashboard.app_grid.contacts_title'),
+        subtitle: __('dashboard.app_grid.contacts_subtitle'),
         href: route('contacts.index'),
         gradient: 'from-emerald-600 to-teal-600',
         icon: 'contacts',
@@ -192,8 +192,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'messages',
-        title: 'پیامک‌ها',
-        subtitle: 'صندوق پیام',
+        title: __('dashboard.app_grid.messages_title'),
+        subtitle: __('dashboard.app_grid.messages_subtitle'),
         href: route('messages.index'),
         gradient: 'from-sky-500 to-blue-600',
         icon: 'chat',
@@ -201,8 +201,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'calls',
-        title: 'تماس صوتی',
-        subtitle: 'شماره‌گیر ابری',
+        title: __('dashboard.app_grid.calls_title'),
+        subtitle: __('dashboard.app_grid.calls_subtitle'),
         href: route('calls.index'),
         gradient: 'from-emerald-500 to-green-600',
         icon: 'call',
@@ -210,8 +210,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'transactions',
-        title: 'تراکنش‌ها',
-        subtitle: 'گردش حساب',
+        title: __('dashboard.app_grid.transactions_title'),
+        subtitle: __('dashboard.app_grid.transactions_subtitle'),
         href: route('wallet.transactions'),
         gradient: 'from-violet-600 to-purple-700',
         icon: 'receipt',
@@ -219,8 +219,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'tickets',
-        title: 'تیکت‌های پشتیبانی',
-        subtitle: 'پشتیبانی آنلاین',
+        title: __('dashboard.app_grid.tickets_title'),
+        subtitle: __('dashboard.app_grid.tickets_subtitle'),
         href: route('tickets.index'),
         gradient: 'from-rose-500 to-pink-600',
         icon: 'ticket',
@@ -228,8 +228,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'api_tokens',
-        title: 'کلید‌های API',
-        subtitle: 'دسترسی برنامه‌نویسی',
+        title: __('dashboard.app_grid.api_tokens_title'),
+        subtitle: __('dashboard.app_grid.api_tokens_subtitle'),
         href: route('api-tokens.index'),
         gradient: 'from-amber-400 to-amber-600',
         icon: 'key',
@@ -237,8 +237,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'profile_info',
-        title: 'اطلاعات حساب',
-        subtitle: 'مشخصات کاربری',
+        title: __('dashboard.app_grid.profile_info_title'),
+        subtitle: __('dashboard.app_grid.profile_info_subtitle'),
         href: route('profile.edit', { tab: 'info' }),
         gradient: 'from-slate-600 to-slate-800',
         icon: 'user',
@@ -246,8 +246,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'security',
-        title: 'امنیت و رمز',
-        subtitle: 'تغییر کلمه عبور',
+        title: __('dashboard.app_grid.security_title'),
+        subtitle: __('dashboard.app_grid.security_subtitle'),
         href: route('profile.edit', { tab: 'security' }),
         gradient: 'from-emerald-600 to-teal-700',
         icon: 'shield',
@@ -255,8 +255,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'identities',
-        title: 'روش‌های ورود',
-        subtitle: 'شناسه‌ها و 2FA',
+        title: __('dashboard.app_grid.identities_title'),
+        subtitle: __('dashboard.app_grid.identities_subtitle'),
         href: route('profile.edit', { tab: 'identities' }),
         gradient: 'from-indigo-500 to-blue-700',
         icon: 'fingerprint',
@@ -264,8 +264,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'sessions',
-        title: 'نشست‌های فعال',
-        subtitle: 'دستگاه‌های متصل',
+        title: __('dashboard.app_grid.sessions_title'),
+        subtitle: __('dashboard.app_grid.sessions_subtitle'),
         href: route('profile.edit', { tab: 'sessions' }),
         gradient: 'from-cyan-600 to-blue-700',
         icon: 'devices',
@@ -273,8 +273,8 @@ const appLauncherItems = computed(() => [
     },
     {
         id: 'delete_account',
-        title: 'حذف حساب',
-        subtitle: 'غیرفعال‌سازی',
+        title: __('dashboard.app_grid.delete_account_title'),
+        subtitle: __('dashboard.app_grid.delete_account_subtitle'),
         href: route('profile.edit', { tab: 'danger' }),
         gradient: 'from-red-600 to-rose-700',
         icon: 'trash',
@@ -372,9 +372,9 @@ const appLauncherItems = computed(() => [
                 <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 dark:border-slate-800">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        <h2 class="text-xs font-black text-slate-900 dark:text-white">برنامه‌ها و امکانات سامانه</h2>
+                        <h2 class="text-xs font-black text-slate-900 dark:text-white">{{ __('dashboard.app_grid.heading') }}</h2>
                     </div>
-                    <span class="text-[10px] text-slate-400 font-bold">دسترسی سریع به همه امکانات</span>
+                    <span class="text-[10px] text-slate-400 font-bold">{{ __('dashboard.app_grid.subheading') }}</span>
                 </div>
 
                 <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-4 gap-3">
@@ -498,7 +498,7 @@ const appLauncherItems = computed(() => [
                                     {{ alloc.service_title }}
                                 </span>
                                 <span v-if="alloc.quota_total > 1" class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400" dir="ltr">
-                                    {{ alloc.quota_used }}/{{ alloc.quota_total }} Quota
+                                    {{ __('dashboard.quota_badge', { used: alloc.quota_used, total: alloc.quota_total }) }}
                                 </span>
                             </div>
                             <div class="font-mono font-black text-sm text-indigo-600 dark:text-indigo-400" dir="ltr">

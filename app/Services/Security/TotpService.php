@@ -150,7 +150,7 @@ class TotpService
         for ($i = 0; $i < $length; $i++) {
             $val = strpos(self::BASE32_ALPHABET, $base32[$i]);
             if ($val === false) {
-                throw new InvalidArgumentException("Invalid Base32 character: {$base32[$i]}");
+                throw new InvalidArgumentException(__('services.security.totp.invalid_base32_char', ['char' => $base32[$i]]));
             }
             $bits .= str_pad(decbin($val), 5, '0', STR_PAD_LEFT);
         }

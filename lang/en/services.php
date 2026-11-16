@@ -116,6 +116,9 @@ return [
         'desc_reversal' => 'Reversal transaction for ID #:id: :reason',
         'audit_reversal' => 'Reversal adjustment for transaction #:id: :reason',
         'amount_must_be_positive' => 'Transaction amount must be a positive number greater than zero.',
+        'desc_free_communication' => 'Free communication usage',
+        'desc_voice_call_charge' => 'Voice call usage charge',
+        'desc_sms_send_charge' => 'SMS sending usage charge',
     ],
     'web_push' => [
         'unknown_sender' => 'Unknown Number',
@@ -127,6 +130,10 @@ return [
         'test_sender' => 'GetNumber System',
         'test_sent_summary' => 'Test notification dispatched (Successful: :success, Failed: :fail).',
         'test_failed' => 'Error dispatching test notification: :error',
+        'incoming_call_title' => '📞 Incoming Voice Call',
+        'incoming_call_on_line' => 'on line :destination',
+        'incoming_call_body' => 'Incoming call from :caller :line',
+        'package_not_installed' => 'The web push notification package (minishlink/web-push) is not installed on the server.',
     ],
     'auth' => [
         'identity' => [
@@ -234,6 +241,9 @@ return [
             'rejected_in_nobitex' => 'Transaction was rejected on Nobitex exchange (status: :status).',
             'pending_nobitex' => 'Transaction received and currently being processed by Nobitex (status: :status).',
             'network_error' => 'Error connecting to Nobitex web service: :error',
+            'not_in_confirmed_deposits' => 'Transaction hash is not yet listed in Nobitex confirmed deposits. Network synchronization may take a few minutes.',
+            'pending_verification_step' => 'Transaction received and currently awaiting exchange verification (status: :status).',
+            'raw_unauthorized_token' => 'Invalid token',
         ],
         'manager' => [
             'gateway_not_found' => 'Payment gateway ":code" is not configured or was not found in the system.',
@@ -255,6 +265,13 @@ return [
             'tx_pending' => 'Transaction is still pending finalization on the Tron network.',
             'tx_not_found' => 'Transaction is not yet recorded on the blockchain.',
             'query_error' => 'Error communicating with the Tron network: :error',
+            'network_config_valid' => 'TronGrid network configuration is valid.',
+            'rx_address_checked' => 'TronGrid wallet address checked.',
+            'no_rx_address_configured_runtime' => 'Tron (TRX) receive wallet address is not configured in TronGrid gateway settings. Generating mock addresses is disabled.',
+            'wallet_address_invalid' => 'Invalid TronGrid wallet address format.',
+            'tx_not_synced' => 'Transaction is not yet recorded or synchronized on the Tron blockchain.',
+            'tx_failed_result' => 'Transaction failed on the Tron network (:result).',
+            'contract_checking' => 'Tron transaction contract type is being evaluated.',
         ],
         'tronscan' => [
             'name' => 'TronScan & TronView Direct',
@@ -331,12 +348,51 @@ return [
                 'standard_regular' => 'Standard regular number',
             ],
         ],
+        'id_rarity' => [
+            'tiers' => [
+                'regular' => 'Regular',
+                'golden_vip' => 'Golden Rond (Golden VIP)',
+                'semi_rond' => 'Semi-Rond',
+            ],
+            'patterns' => [
+                'invalid_input' => 'Invalid input',
+                'short_3_ultra_rare' => 'Ultra-rare 3-character short ID',
+                'short_4_golden' => 'Golden Rond 4-character ID',
+                'vip_keyword' => 'Golden VIP Keyword ID',
+                'all_same_chars' => 'Uniform single-character repetition',
+                'palindrome' => 'Symmetric mirror pattern (Palindrome)',
+                'sequential' => 'Sequential character order (Sequential)',
+                'short_5_chars' => 'Short 5-character ID',
+                'repeated_blocks' => 'Repeated double or triple character blocks',
+                'memorable_numeric_suffix' => 'Memorable rond numeric suffix',
+                'standard_id' => 'Standard ID',
+            ],
+        ],
     ],
     'security' => [
         'filter' => [
             'blocked_phishing' => 'Message sending blocked due to suspicious phishing and fraud patterns.',
             'reason_keywords' => 'Detection of high-frequency banking or judicial phishing keywords',
             'reason_url' => 'Detection of suspicious web address or phishing URL',
+            'phishing_keywords' => [
+                'سامانه ثنا',
+                'ابلاغیه الکترونیکی',
+                'ابلاغیه قضایی',
+                'واریز یارانه',
+                'سهام عدالت',
+                'مسدودی حساب',
+                'رمز دوم یکبار مصرف',
+                'شکایت علیه شما',
+                'حکم جلب',
+                'قطع یارانه',
+                'لغو امتیاز سیمکارت',
+                'برنده قرعه کشی',
+                'برنده شدید',
+                'جایزه نقدی',
+                'اطلاعات کارت بانکی',
+                'رمز پویا',
+                'توقیف حساب',
+            ],
         ],
         'behavior' => [
             'repetitive_body' => 'Repetitive identical body sent to more than :threshold destinations within 10 minutes',
@@ -355,6 +411,39 @@ return [
             'per_minute_exceeded' => 'Per-minute message limit (:count SMS) reached. Please wait a moment.',
             'per_hour_exceeded' => 'Hourly message limit (:count SMS) reached for your account.',
             'daily_destinations_exceeded' => 'Daily destination limit (:count destinations) reached for your account level.',
+        ],
+        'totp' => [
+            'invalid_base32_char' => 'Invalid Base32 character: :char',
+        ],
+    ],
+    'communication' => [
+        'email' => [
+            'sent_mock_success' => 'Email sent successfully (Mock/Stub).',
+        ],
+        'sms' => [
+            'insufficient_balance' => 'Your wallet balance is insufficient to send this SMS (:amount COIN required).',
+            'desc_usage_charge' => 'SMS sent from line :number (:recipients destination(s) - :parts segment(s))',
+            'dest_custom_id_not_found' => 'Destination custom ID was not found or is not active.',
+        ],
+        'voice' => [
+            'not_owner' => 'You do not own this communication line.',
+            'line_not_active' => 'The selected line is not in an active status.',
+            'dest_empty' => 'Destination number or ID cannot be empty.',
+            'insufficient_balance_first_minute' => 'Your wallet balance is insufficient to initiate a voice call (at least :rate COIN required for the first minute).',
+            'desc_call_charge' => 'Voice call charge to :destination (:seconds seconds - :minutes billed minute(s))',
+        ],
+    ],
+    'mail' => [
+        'connection_failed' => 'Cannot connect to :host::port (:error - code :code)',
+    ],
+    'monitoring' => [
+        'health' => [
+            'db_connection_failed' => 'Database connection failed',
+            'cache_unavailable' => 'Cache store unavailable',
+        ],
+        'error_tracker' => [
+            'no_message' => 'No message',
+            'js_runtime_error' => 'JavaScript runtime error',
         ],
     ],
 ];

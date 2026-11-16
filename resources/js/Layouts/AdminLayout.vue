@@ -71,13 +71,13 @@ const adminNavigation = [
         icon: 'M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z',
     },
     {
-        name: computed(() => 'تعرفه‌های ارتباطی و تماس'),
+        name: computed(() => __('ui.layouts.admin.nav.tariffs')),
         href: route('admin.tariffs.index'),
         active: route().current('admin.tariffs.*'),
         icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
     },
     {
-        name: computed(() => 'بررسی سفارشات ثبت‌شده'),
+        name: computed(() => __('ui.layouts.admin.nav.orders')),
         href: route('admin.orders.index'),
         active: route().current('admin.orders.*') || route().current('admin.requests.*'),
         badge: computed(() => (page.props as any).pending_count || 0),
@@ -90,7 +90,7 @@ const adminNavigation = [
         icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z',
     },
     {
-        name: computed(() => 'لاگ مکالمات صوتی'),
+        name: computed(() => __('ui.layouts.admin.nav.calls')),
         href: route('admin.calls.index'),
         active: route().current('admin.calls.*'),
         icon: 'M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z',
@@ -132,7 +132,7 @@ const adminNavigation = [
         icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
     },
     {
-        name: computed(() => 'تنظیمات یکپارچه سامانه'),
+        name: computed(() => __('ui.layouts.admin.nav.settings_unified')),
         href: route('admin.settings.index'),
         active: route().current('admin.settings.*'),
         icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z',
@@ -162,10 +162,10 @@ const activeNavItem = computed(() => {
 
 // Quick bottom dock items for mobile/tablet viewports (< lg)
 const mobileBottomDockItems = computed(() => [
-    adminNavigation[0], // داشبورد
-    adminNavigation[1], // کاربران
-    adminNavigation[6], // سفارشات (با بج)
-    adminNavigation[7], // پیامک‌ها
+    adminNavigation[0], // Dashboard
+    adminNavigation[1], // Users
+    adminNavigation[6], // Orders (with badge)
+    adminNavigation[7], // Messages
 ]);
 </script>
 
@@ -393,14 +393,14 @@ const mobileBottomDockItems = computed(() => [
                     <div class="px-5 py-3.5 border-b border-slate-800 flex items-center justify-between shrink-0">
                         <div class="flex items-center gap-2">
                             <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                            <span class="text-xs font-extrabold text-white">منوی سریع مدیریت سامانه (تمامی بخش‌ها)</span>
+                            <span class="text-xs font-extrabold text-white">{{ __('ui.layouts.admin.sheet.quick_menu_title') }}</span>
                         </div>
                         <button
                             type="button"
                             @click="isMobileGridSheetOpen = false"
                             class="px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:text-white text-xs font-bold"
                         >
-                            بستن ✕
+                            {{ __('ui.layouts.admin.sheet.close') }}
                         </button>
                     </div>
 
@@ -475,7 +475,7 @@ const mobileBottomDockItems = computed(() => [
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
-                        <span>منوی مدیریت</span>
+                        <span>{{ __('ui.layouts.admin.header.menu_button') }}</span>
                     </button>
 
                     <!-- Page Header Slot or Automatic Active Section Title on Responsive Screens -->
@@ -503,7 +503,7 @@ const mobileBottomDockItems = computed(() => [
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
-                        <span class="hidden sm:inline">پنل کاربری</span>
+                        <span class="hidden sm:inline">{{ __('ui.layouts.admin.header.user_panel_short') }}</span>
                     </Link>
 
                     <LanguageSwitcher />
@@ -540,7 +540,7 @@ const mobileBottomDockItems = computed(() => [
 
             <!-- Responsive Bottom Quick Navigation Bar (Visible on Mobile & Tablet < lg) -->
             <nav
-                aria-label="منوی پایین مدیریت"
+                :aria-label="__('ui.layouts.admin.bottom_bar.aria_label')"
                 class="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-2xl"
             >
                 <Link
@@ -572,7 +572,7 @@ const mobileBottomDockItems = computed(() => [
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                     </svg>
-                    <span>همه منوها</span>
+                    <span>{{ __('ui.layouts.admin.bottom_bar.all_menus') }}</span>
                 </button>
             </nav>
         </div>

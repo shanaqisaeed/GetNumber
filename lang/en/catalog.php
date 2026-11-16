@@ -187,6 +187,13 @@ return [
         'web3_premium' => 'Enterprise Premium Web3',
     ],
 
+    'patterns' => [
+        'vip_short' => 'VIP Short (:length chars)',
+        'symmetric_triple' => 'Symmetric / Triple Repeat',
+        'rhythmic_pair' => 'Rhythmic Pair',
+        'standard' => 'Standard',
+    ],
+
     'orders' => [
         'order_placed_instant' => 'Order for ":service" (:identifier) completed and provisioned to your account.',
         'order_placed_approval' => 'Enterprise order for ":service" (:identifier) submitted; :amount TRX held in escrow pending approval.',
@@ -194,6 +201,8 @@ return [
         'sub_account_deleted' => 'Sub-account removed and 1 quota unit restored to domain.',
         'resource_released' => 'Service resource released and deactivated successfully.',
         'quota_upgraded' => 'Quota for domain ":domain" increased by :added sub-account units.',
+        'desc_quota_upgrade' => ':identifier (+:units Quota)',
+        'default_mailbox_display_name' => ':name Mailbox',
     ],
 
     'ui' => [

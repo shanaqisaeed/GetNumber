@@ -53,5 +53,17 @@ return [
             'preferred_number_regex' => 'The requested phone number format is invalid.',
             'display_title_max' => 'Display title cannot exceed 100 characters.',
         ],
+        'store_sub_resource' => [
+            'sub_identifier_required' => 'Sub-account identifier is required.',
+            'sub_identifier_min' => 'Sub-account identifier must be at least 2 characters.',
+            'sub_identifier_max' => 'Sub-account identifier cannot exceed 48 characters.',
+            'display_name_max' => 'Display label cannot exceed 120 characters.',
+        ],
+        'validate_service_order' => [
+            'service_key_required' => 'Selecting a service is required.',
+            'order_context_in' => 'The selected order context is invalid.',
+            'requested_length_between' => 'The requested number length must be between 4 and 9 digits.',
+            'display_title_max' => 'Display title cannot exceed 120 characters.',
+        ],
     ],
 ];

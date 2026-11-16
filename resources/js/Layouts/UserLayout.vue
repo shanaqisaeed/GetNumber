@@ -56,7 +56,7 @@ const checkGlobalIncomingCall = async () => {
         if (res.data?.has_incoming && res.data.call) {
             const call = res.data.call;
             if (!incomingCall.value || incomingCall.value.id !== call.id) {
-                const callerDisplay = call.source || 'تماس ناشناس';
+                const callerDisplay = call.source || __('ui.layouts.user.unknown_caller');
                 incomingCall.value = {
                     id: call.id,
                     caller: callerDisplay,
@@ -68,8 +68,8 @@ const checkGlobalIncomingCall = async () => {
                 // Trigger browser / mobile push notification
                 if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                     try {
-                        const notif = new Notification('📞 تماس صوتی ورودی', {
-                            body: `تماس ورودی از ${callerDisplay} روی خط ${call.destination || ''}`,
+                        const notif = new Notification(__('ui.layouts.user.incoming_call_notif_title'), {
+                            body: __('ui.layouts.user.incoming_call_notif_body', { caller: callerDisplay, line: call.destination || '' }),
                             icon: '/icon-192.png',
                             badge: '/icon-192.png',
                             tag: 'incoming-call-' + call.id,
@@ -199,21 +199,21 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
 
 const navItems = computed(() => [
     {
-        name: computed(() => 'خانه'),
+        name: computed(() => __('ui.layouts.user.nav.home')),
         route: 'dashboard',
         href: route('dashboard'),
         active: route().current('dashboard'),
         icon: 'home',
     },
     {
-        name: computed(() => 'مخاطبین'),
+        name: computed(() => __('ui.layouts.user.nav.contacts')),
         route: 'contacts.*',
         href: route('contacts.index'),
         active: route().current('contacts.*'),
         icon: 'contacts',
     },
     {
-        name: computed(() => 'پیامک'),
+        name: computed(() => __('ui.layouts.user.nav.sms')),
         route: 'messages.*',
         href: route('messages.index'),
         active: route().current('messages.*'),
@@ -221,7 +221,7 @@ const navItems = computed(() => [
         badge: liveUnreadCount.value,
     },
     {
-        name: computed(() => 'تماس'),
+        name: computed(() => __('ui.layouts.user.nav.calls')),
         route: 'calls.*',
         href: route('calls.index'),
         active: route().current('calls.*'),
@@ -292,17 +292,17 @@ const navItems = computed(() => [
                         <div class="min-w-0 space-y-0.5">
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                    تماس صوتی ورودی
+                                    {{ __('ui.layouts.user.incoming_call_badge') }}
                                 </span>
                                 <span v-if="incomingCall.line" class="text-[10px] text-slate-400 truncate">
-                                    روی خط {{ incomingCall.line }}
+                                    {{ __('ui.layouts.user.incoming_call_on_line', { line: incomingCall.line }) }}
                                 </span>
                             </div>
                             <div class="text-sm font-black font-mono tracking-wider truncate" dir="ltr">
                                 {{ incomingCall.callerName || incomingCall.caller }}
                             </div>
                             <div class="text-[11px] text-slate-400">
-                                در حال زنگ خوردن...
+                                {{ __('ui.layouts.user.incoming_call_ringing') }}
                             </div>
                         </div>
                     </div>
@@ -313,7 +313,7 @@ const navItems = computed(() => [
                             type="button"
                             @click="declineIncomingCall"
                             class="w-10 h-10 rounded-2xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/40 flex items-center justify-center transition-all"
-                            title="رد تماس"
+                            :title="__('ui.layouts.user.decline_call')"
                         >
                             <svg class="w-5 h-5 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -328,7 +328,7 @@ const navItems = computed(() => [
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span>پاسخ</span>
+                            <span>{{ __('ui.layouts.user.answer_call') }}</span>
                         </button>
                     </div>
                 </div>

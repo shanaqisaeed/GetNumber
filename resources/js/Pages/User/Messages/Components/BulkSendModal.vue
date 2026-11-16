@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { calculateSmsSegments } from '@/Utils/smsCalculator';
 import ContactPickerModal, { type ContactItem } from '@/Components/ContactPickerModal.vue';
+import { __ } from '@/Composables/useTrans';
 
 const props = defineProps<{
     selectedLineId: number | null;
@@ -210,7 +211,7 @@ const submitSend = async () => {
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
-                        <span>انتخاب از مخاطبین</span>
+                        <span>{{ __('user.messages.contacts_book_btn') }}</span>
                     </button>
                 </div>
                 <span v-if="recipientChips.length > 0" class="text-[10px] font-mono text-indigo-600 dark:text-indigo-400 font-bold">

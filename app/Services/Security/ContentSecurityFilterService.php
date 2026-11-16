@@ -9,29 +9,6 @@ use App\Models\User;
 class ContentSecurityFilterService
 {
     /**
-     * High-risk phishing / scam keyword phrases (in Persian & English).
-     */
-    protected const PHISHING_KEYWORDS = [
-        'سامانه ثنا',
-        'ابلاغیه الکترونیکی',
-        'ابلاغیه قضایی',
-        'واریز یارانه',
-        'سهام عدالت',
-        'مسدودی حساب',
-        'رمز دوم یکبار مصرف',
-        'شکایت علیه شما',
-        'حکم جلب',
-        'قطع یارانه',
-        'لغو امتیاز سیمکارت',
-        'برنده قرعه کشی',
-        'برنده شدید',
-        'جایزه نقدی',
-        'اطلاعات کارت بانکی',
-        'رمز پویا',
-        'توقیف حساب',
-    ];
-
-    /**
      * Suspicious URL regex patterns:
      * 1. Raw IP addresses in URL
      * 2. Spoofed bank / judicial domains
@@ -91,8 +68,15 @@ class ContentSecurityFilterService
         $matchedPhrases = [];
 
         // 1. Phishing keywords check
-        foreach (self::PHISHING_KEYWORDS as $keyword) {
-            if (mb_strpos($cleanText, mb_strtolower($keyword)) !== false) {
+        $keywordsFa = __('services.security.filter.phishing_keywords', [], 'fa');
+        $keywordsEn = __('services.security.filter.phishing_keywords', [], 'en');
+        $keywords = array_values(array_unique(array_merge(
+            is_array($keywordsFa) ? $keywordsFa : [],
+            is_array($keywordsEn) ? $keywordsEn : []
+        )));
+
+        foreach ($keywords as $keyword) {
+            if (is_string($keyword) && $keyword !== '' && mb_strpos($cleanText, mb_strtolower($keyword)) !== false) {
                 $matchedPhrases[] = $keyword;
             }
         }

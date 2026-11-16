@@ -324,7 +324,7 @@ const deletePrefix = (prefix: PrefixItem) => {
                                     <Link
                                         :href="route('admin.tariffs.index')"
                                         class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 text-[11px] font-black text-emerald-700 dark:text-emerald-400 transition-colors"
-                                        title="مدیریت تعرفه‌های پیامک و مکالمه"
+                                        :title="__('admin.prefixes.manage_tariffs_tooltip')"
                                     >
                                         <span>{{ prefix.sms_intra_prefix_rate || prefix.sms_price_per_segment }}</span>
                                         <span class="text-[9px] font-bold opacity-80">TRX</span>
@@ -502,12 +502,12 @@ const deletePrefix = (prefix: PrefixItem) => {
                             <div class="flex items-center gap-2.5">
                                 <span class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 text-sm">💬</span>
                                 <div class="text-xs">
-                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">تعرفه‌های پیامک و مکالمه این سرشماره</div>
-                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">تعرفه‌های درون‌شبکه، بین‌الملل و تماس در بخش اختصاصی تعرفه‌ها مدیریت می‌شوند.</div>
+                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">{{ __('admin.prefixes.tariff_notice_title') }}</div>
+                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">{{ __('admin.prefixes.tariff_notice_desc') }}</div>
                                 </div>
                             </div>
                             <Link :href="route('admin.tariffs.index')" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 shrink-0">
-                                مدیریت تعرفه‌ها ←
+                                {{ __('admin.prefixes.manage_tariffs_link') }}
                             </Link>
                         </div>
 
@@ -632,12 +632,12 @@ const deletePrefix = (prefix: PrefixItem) => {
                             <div class="flex items-center gap-2.5">
                                 <span class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 text-sm">💬</span>
                                 <div class="text-xs">
-                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">تعرفه‌های پیامک و مکالمه این سرشماره</div>
-                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">تعرفه‌های درون‌شبکه، بین‌الملل و تماس در بخش اختصاصی تعرفه‌ها مدیریت می‌شوند.</div>
+                                    <div class="font-bold text-indigo-950 dark:text-indigo-200">{{ __('admin.prefixes.tariff_notice_title') }}</div>
+                                    <div class="text-[11px] text-indigo-600/80 dark:text-indigo-300/80 mt-0.5">{{ __('admin.prefixes.tariff_notice_desc') }}</div>
                                 </div>
                             </div>
                             <Link :href="route('admin.tariffs.index')" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-700 hover:bg-indigo-50 shrink-0">
-                                مدیریت تعرفه‌ها ←
+                                {{ __('admin.prefixes.manage_tariffs_link') }}
                             </Link>
                         </div>
 

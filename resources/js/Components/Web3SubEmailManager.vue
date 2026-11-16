@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
+import { __ } from '@/Composables/useTrans';
 
 interface EmailAlias {
     id: number;
@@ -98,7 +99,7 @@ const createMailbox = async () => {
             await loadDomains();
         }
     } catch (err: any) {
-        actionMessage.value = { type: 'error', text: err.response?.data?.message || 'خطا در ایجاد صندوق ایمیل' };
+        actionMessage.value = { type: 'error', text: err.response?.data?.message || __('ui.components.web3_email_manager.create_mailbox_error') };
     } finally {
         isSubmittingMailbox.value = false;
     }
@@ -126,14 +127,14 @@ const createAlias = async () => {
             await loadDomains();
         }
     } catch (err: any) {
-        actionMessage.value = { type: 'error', text: err.response?.data?.message || 'خطا در ثبت نام مستعار' };
+        actionMessage.value = { type: 'error', text: err.response?.data?.message || __('ui.components.web3_email_manager.create_alias_error') };
     } finally {
         isSubmittingAlias.value = false;
     }
 };
 
 const deleteAlias = async (aliasId: number) => {
-    if (!confirm('آیا از حذف این نام مستعار اطمینان دارید؟')) return;
+    if (!confirm(__('ui.components.web3_email_manager.confirm_delete_alias'))) return;
     try {
         const res = await axios.delete(route('aliases.destroy', aliasId));
         if (res.data.success) {
@@ -141,7 +142,7 @@ const deleteAlias = async (aliasId: number) => {
             await loadDomains();
         }
     } catch (err: any) {
-        actionMessage.value = { type: 'error', text: 'خطا در حذف نام مستعار' };
+        actionMessage.value = { type: 'error', text: __('ui.components.web3_email_manager.delete_alias_error') };
     }
 };
 </script>
@@ -161,8 +162,8 @@ const deleteAlias = async (aliasId: number) => {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-base font-bold">موتور مدیریت ساب‌ایمیل دامنه‌های Web3</h3>
-                        <p class="text-xs text-emerald-200">تعریف صندوق، ساب‌الایس‌ها و نام‌های مستعار نامحدود</p>
+                        <h3 class="text-base font-bold">{{ __('ui.components.web3_email_manager.title') }}</h3>
+                        <p class="text-xs text-emerald-200">{{ __('ui.components.web3_email_manager.subtitle') }}</p>
                     </div>
                 </div>
                 <button
@@ -187,8 +188,8 @@ const deleteAlias = async (aliasId: number) => {
 
                 <!-- Domains Tabs / Selector -->
                 <div v-if="domains.length === 0" class="py-12 text-center text-sm text-gray-400">
-                    <p>هنوز هیچ دامنه Web3 فعالی در حساب شما ثبت نشده است.</p>
-                    <p class="text-xs mt-1">از طریق دکمه «سفارش سرویس‌های ویژه» می‌توانید دامنه اختصاصی خود را تهیه نمایید.</p>
+                    <p>{{ __('ui.components.web3_email_manager.no_domains_title') }}</p>
+                    <p class="text-xs mt-1">{{ __('ui.components.web3_email_manager.no_domains_desc') }}</p>
                 </div>
 
                 <div v-else class="space-y-6">
@@ -209,25 +210,25 @@ const deleteAlias = async (aliasId: number) => {
                     <!-- Selected Domain Controls -->
                     <div class="flex items-center justify-between">
                         <h4 class="text-sm font-bold text-gray-900 dark:text-white">
-                            صندوق‌های ایمیل فعال زیر دامنه
+                            {{ __('ui.components.web3_email_manager.mailboxes_heading') }}
                         </h4>
                         <button
                             type="button"
                             @click="isNewMailboxOpen = true"
                             class="px-3 py-1.5 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 transition-colors shadow-sm"
                         >
-                            + ایجاد صندوق ایمیل جدید
+                            {{ __('ui.components.web3_email_manager.new_mailbox_btn') }}
                         </button>
                     </div>
 
                     <!-- Create Mailbox Form (Collapsible) -->
                     <div v-if="isNewMailboxOpen" class="p-4 rounded-2xl bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 space-y-3">
-                        <h5 class="text-xs font-bold text-gray-800 dark:text-gray-200">افزودن صندوق ایمیل جدید</h5>
+                        <h5 class="text-xs font-bold text-gray-800 dark:text-gray-200">{{ __('ui.components.web3_email_manager.add_mailbox_title') }}</h5>
                         <div class="flex items-center gap-2">
                             <input
                                 v-model="newMailboxLocalPart"
                                 type="text"
-                                placeholder="مثال: support یا ceo"
+                                :placeholder="__('ui.components.web3_email_manager.local_part_placeholder')"
                                 class="flex-1 text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             />
                             <span class="text-xs font-mono font-bold text-gray-500">
@@ -237,12 +238,12 @@ const deleteAlias = async (aliasId: number) => {
                         <div class="flex items-center justify-between pt-2">
                             <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer">
                                 <input v-model="isCatchAll" type="checkbox" class="w-4 h-4 text-emerald-600 rounded" />
-                                <span>صندوق پیش‌فرض دریافت همه ایمیل‌ها (Catch-All)</span>
+                                <span>{{ __('ui.components.web3_email_manager.catch_all_label') }}</span>
                             </label>
                             <div class="flex gap-2">
-                                <button type="button" @click="isNewMailboxOpen = false" class="px-3 py-1 text-xs rounded-lg text-gray-500 hover:bg-gray-200">انصراف</button>
+                                <button type="button" @click="isNewMailboxOpen = false" class="px-3 py-1 text-xs rounded-lg text-gray-500 hover:bg-gray-200">{{ __('ui.components.web3_email_manager.cancel') }}</button>
                                 <button type="button" :disabled="isSubmittingMailbox || !newMailboxLocalPart" @click="createMailbox" class="px-4 py-1 text-xs font-bold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700">
-                                    {{ isSubmittingMailbox ? 'در حال ایجاد...' : 'ثبت صندوق' }}
+                                    {{ isSubmittingMailbox ? __('ui.components.web3_email_manager.creating_mailbox') : __('ui.components.web3_email_manager.submit_mailbox') }}
                                 </button>
                             </div>
                         </div>
@@ -253,7 +254,7 @@ const deleteAlias = async (aliasId: number) => {
                         <template v-for="domain in domains" :key="domain.id">
                             <div v-if="domain.id === selectedDomainId" class="space-y-3">
                                 <div v-if="domain.mailboxes.length === 0" class="py-8 text-center text-xs text-gray-400">
-                                    هیچ صندوقی برای این دامنه تعریف نشده است.
+                                    {{ __('ui.components.web3_email_manager.no_mailboxes') }}
                                 </div>
 
                                 <div
@@ -272,13 +273,13 @@ const deleteAlias = async (aliasId: number) => {
                                             @click="openAddAliasModal(mbox)"
                                             class="px-2.5 py-1 text-[11px] font-bold rounded-lg text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100"
                                         >
-                                            + ساب‌الایس (نام مستعار)
+                                            {{ __('ui.components.web3_email_manager.add_alias_btn') }}
                                         </button>
                                     </div>
 
                                     <!-- Aliases List under this Mailbox -->
                                     <div v-if="mbox.aliases && mbox.aliases.length > 0" class="pt-2 border-t border-gray-100 dark:border-gray-700/60 space-y-1.5">
-                                        <div class="text-[11px] font-semibold text-gray-400">ساب‌الایس‌ها و فورواردها:</div>
+                                        <div class="text-[11px] font-semibold text-gray-400">{{ __('ui.components.web3_email_manager.aliases_heading') }}</div>
                                         <div
                                             v-for="al in mbox.aliases"
                                             :key="al.id"
@@ -286,13 +287,13 @@ const deleteAlias = async (aliasId: number) => {
                                         >
                                             <div class="font-mono text-gray-700 dark:text-gray-300">
                                                 <span>{{ al.alias_address }}</span>
-                                                <span v-if="al.forward_to" class="text-gray-400 text-[11px] mr-2">&rarr; فوروارد به: {{ al.forward_to }}</span>
+                                                <span v-if="al.forward_to" class="text-gray-400 text-[11px] mr-2">&rarr; {{ __('ui.components.web3_email_manager.forward_to', { target: al.forward_to }) }}</span>
                                             </div>
                                             <button
                                                 type="button"
                                                 @click="deleteAlias(al.id)"
                                                 class="text-rose-500 hover:text-rose-700 text-xs px-1"
-                                                title="حذف نام مستعار"
+                                                :title="__('ui.components.web3_email_manager.delete_alias_title')"
                                             >
                                                 &times;
                                             </button>
@@ -309,19 +310,19 @@ const deleteAlias = async (aliasId: number) => {
         <!-- Add Alias Sub-Modal -->
         <div v-if="activeMailboxForAlias" class="fixed inset-0 z-60 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-gray-100 dark:border-gray-700 text-right">
-                <h4 class="text-sm font-bold text-gray-900 dark:text-white">افزودن نام مستعار برای {{ activeMailboxForAlias.email_address }}</h4>
+                <h4 class="text-sm font-bold text-gray-900 dark:text-white">{{ __('ui.components.web3_email_manager.add_alias_modal_title', { email: activeMailboxForAlias.email_address }) }}</h4>
                 <div class="mt-3 space-y-3">
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">نام مستعار درخواستی</label>
+                        <label class="block text-xs text-gray-500 mb-1">{{ __('ui.components.web3_email_manager.alias_address_label') }}</label>
                         <input
                             v-model="newAliasAddress"
                             type="text"
-                            placeholder="مثال: info@mydomain.web3"
+                            :placeholder="__('ui.components.web3_email_manager.alias_placeholder')"
                             class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-500 mb-1">فوروارد خودکار به ایمیل خارجی (اختیاری)</label>
+                        <label class="block text-xs text-gray-500 mb-1">{{ __('ui.components.web3_email_manager.forward_to_label') }}</label>
                         <input
                             v-model="newAliasForwardTo"
                             type="email"
@@ -331,9 +332,9 @@ const deleteAlias = async (aliasId: number) => {
                     </div>
                 </div>
                 <div class="mt-5 flex items-center justify-end gap-2">
-                    <button type="button" @click="activeMailboxForAlias = null" class="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 dark:bg-gray-700 rounded-xl">انصراف</button>
+                    <button type="button" @click="activeMailboxForAlias = null" class="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 dark:bg-gray-700 rounded-xl">{{ __('ui.components.web3_email_manager.cancel') }}</button>
                     <button type="button" :disabled="isSubmittingAlias || !newAliasAddress" @click="createAlias" class="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl">
-                        {{ isSubmittingAlias ? 'در حال ثبت...' : 'ثبت ساب‌الایس' }}
+                        {{ isSubmittingAlias ? __('ui.components.web3_email_manager.submitting_alias') : __('ui.components.web3_email_manager.submit_alias') }}
                     </button>
                 </div>
             </div>

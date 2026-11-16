@@ -24,7 +24,7 @@ class ErrorTrackerService
             $request = $request ?? (request()->hasHeader('host') ? request() : null);
 
             $exceptionClass = get_class($e);
-            $message = $this->maskSensitiveData($e->getMessage() ?: 'No message');
+            $message = $this->maskSensitiveData($e->getMessage() ?: __('services.monitoring.error_tracker.no_message'));
             $file = $this->maskFilePath($e->getFile());
             $line = $e->getLine();
             $trace = $this->maskSensitiveData($e->getTraceAsString());
@@ -61,7 +61,7 @@ class ErrorTrackerService
         try {
             $request = $request ?? (request()->hasHeader('host') ? request() : null);
 
-            $message = $this->maskSensitiveData((string) ($data['message'] ?? 'JavaScript runtime error'));
+            $message = $this->maskSensitiveData((string) ($data['message'] ?? __('services.monitoring.error_tracker.js_runtime_error')));
             $file = $this->maskFilePath((string) ($data['file'] ?? 'unknown'));
             $line = isset($data['line']) ? (int) $data['line'] : null;
             $stack = isset($data['stack']) ? $this->maskSensitiveData((string) $data['stack']) : null;

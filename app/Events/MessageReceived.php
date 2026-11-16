@@ -98,7 +98,7 @@ class MessageReceived implements ShouldBroadcast
             'body' => $this->message->body,
             'processing_status' => $this->message->processing_status->value,
             'server_received_at' => $this->message->server_received_at?->toIso8601String() ?? now()->toIso8601String(),
-            'server_received_at_formatted' => $this->message->server_received_at?->diffForHumans() ?? 'هم‌اکنون',
+            'server_received_at_formatted' => $this->message->server_received_at?->diffForHumans() ?? __('services.messages.now'),
             'client_message_id' => $this->message->client_message_id,
             'user_id' => $this->userId,
             'unread_count' => $this->unreadCount,

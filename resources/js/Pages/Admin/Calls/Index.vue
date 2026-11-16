@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+
+const { __ } = useTrans();
 
 interface UserItem {
     id: number;
@@ -77,7 +80,7 @@ const clearFilter = () => {
 </script>
 
 <template>
-    <Head title="گزارش و مانیتورینگ مکالمات صوتی" />
+    <Head :title="__('admin.calls.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6 max-w-7xl mx-auto">
@@ -86,10 +89,10 @@ const clearFilter = () => {
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        گزارش و لاگ جامع تماس‌های صوتی
+                        {{ __('admin.calls.page_title') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        نظارت زنده، بررسی مدت مکالمه، پینگ سرور ارتباطی و صورت‌حساب کسرشده از کاربران
+                        {{ __('admin.calls.page_desc') }}
                     </p>
                 </div>
             </div>
@@ -97,19 +100,19 @@ const clearFilter = () => {
             <!-- KPI Stats -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                    <div class="text-xs text-slate-400 font-semibold">مجموع تماس‌ها</div>
+                    <div class="text-xs text-slate-400 font-semibold">{{ __('admin.calls.stat_total_calls') }}</div>
                     <div class="text-2xl font-black font-mono text-slate-900 dark:text-white mt-1">{{ stats.total_calls }}</div>
                 </div>
                 <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                    <div class="text-xs text-slate-400 font-semibold">تماس‌های برقرارشده</div>
+                    <div class="text-xs text-slate-400 font-semibold">{{ __('admin.calls.stat_completed_calls') }}</div>
                     <div class="text-2xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1">{{ stats.completed_calls }}</div>
                 </div>
                 <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                    <div class="text-xs text-slate-400 font-semibold">مجموع دقایق مکالمه</div>
-                    <div class="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-1">{{ stats.total_duration_minutes }} دقیقه</div>
+                    <div class="text-xs text-slate-400 font-semibold">{{ __('admin.calls.stat_total_duration') }}</div>
+                    <div class="text-2xl font-black font-mono text-indigo-600 dark:text-indigo-400 mt-1">{{ __('admin.calls.duration_minutes', { minutes: stats.total_duration_minutes }) }}</div>
                 </div>
                 <div class="p-5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-sm">
-                    <div class="text-xs text-slate-400 font-semibold">کل هزینه کسرشده</div>
+                    <div class="text-xs text-slate-400 font-semibold">{{ __('admin.calls.stat_total_cost') }}</div>
                     <div class="text-2xl font-black font-mono text-amber-600 dark:text-amber-400 mt-1" dir="ltr">{{ Number(stats.total_cost).toFixed(2) }} TRX</div>
                 </div>
             </div>
@@ -121,7 +124,7 @@ const clearFilter = () => {
                         type="text"
                         v-model="search"
                         @keyup.enter="handleFilter"
-                        placeholder="جستجو در خط مبدا، مقصد یا نام کاربر..."
+                        :placeholder="__('admin.calls.search_placeholder')"
                         class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5 pr-8"
                     />
                     <span class="absolute right-2.5 top-2.5 text-slate-400">🔍</span>
@@ -132,11 +135,11 @@ const clearFilter = () => {
                     @change="handleFilter"
                     class="text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
                 >
-                    <option value="">همه وضعیت‌ها</option>
-                    <option value="completed">موفق (Completed)</option>
-                    <option value="in_progress">در حال مکالمه</option>
-                    <option value="missed">بی‌پاسخ (Missed)</option>
-                    <option value="failed">ناموفق (Failed)</option>
+                    <option value="">{{ __('admin.calls.all_statuses') }}</option>
+                    <option value="completed">{{ __('admin.calls.status_completed') }}</option>
+                    <option value="in_progress">{{ __('admin.calls.status_in_progress') }}</option>
+                    <option value="missed">{{ __('admin.calls.status_missed') }}</option>
+                    <option value="failed">{{ __('admin.calls.status_failed') }}</option>
                 </select>
 
                 <select
@@ -144,9 +147,9 @@ const clearFilter = () => {
                     @change="handleFilter"
                     class="text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
                 >
-                    <option value="">همه جهت‌ها</option>
-                    <option value="outbound">خروجی</option>
-                    <option value="inbound">ورودی</option>
+                    <option value="">{{ __('admin.calls.all_directions') }}</option>
+                    <option value="outbound">{{ __('admin.calls.dir_outbound') }}</option>
+                    <option value="inbound">{{ __('admin.calls.dir_inbound') }}</option>
                 </select>
 
                 <button
@@ -154,7 +157,7 @@ const clearFilter = () => {
                     @click="handleFilter"
                     class="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-colors"
                 >
-                    اعمال فیلتر
+                    {{ __('admin.calls.apply_filter') }}
                 </button>
 
                 <button
@@ -163,7 +166,7 @@ const clearFilter = () => {
                     @click="clearFilter"
                     class="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs"
                 >
-                    پاک‌کردن
+                    {{ __('admin.calls.clear_filter') }}
                 </button>
             </div>
 
@@ -173,16 +176,16 @@ const clearFilter = () => {
                     <table class="w-full text-right text-xs">
                         <thead>
                             <tr class="bg-slate-50/80 dark:bg-slate-800/50 text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                                <th class="py-3 px-4 font-bold">شناسه</th>
-                                <th class="py-3 px-4 font-bold">کاربر</th>
-                                <th class="py-3 px-4 font-bold">مبدا</th>
-                                <th class="py-3 px-4 font-bold">مقصد</th>
-                                <th class="py-3 px-4 font-bold">جهت</th>
-                                <th class="py-3 px-4 font-bold">وضعیت</th>
-                                <th class="py-3 px-4 font-bold">مدت مکالمه</th>
-                                <th class="py-3 px-4 font-bold">هزینه</th>
-                                <th class="py-3 px-4 font-bold">پینگ (Ping)</th>
-                                <th class="py-3 px-4 font-bold">زمان شروع</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_id') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_user') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_source') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_destination') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_direction') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_status') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_duration') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_cost') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_ping') }}</th>
+                                <th class="py-3 px-4 font-bold">{{ __('admin.calls.th_started_at') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -196,7 +199,7 @@ const clearFilter = () => {
                                     >
                                         {{ call.user.name }}
                                     </Link>
-                                    <span v-else class="text-slate-400">ناشناس</span>
+                                    <span v-else class="text-slate-400">{{ __('admin.calls.unknown_user') }}</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono font-bold" dir="ltr">{{ call.source_identifier }}</td>
                                 <td class="py-3.5 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">{{ call.destination }}</td>
@@ -205,7 +208,7 @@ const clearFilter = () => {
                                         class="px-2 py-0.5 rounded-full text-[10px] font-bold"
                                         :class="call.direction === 'outbound' ? 'bg-emerald-500/15 text-emerald-600 border border-emerald-500/30' : 'bg-blue-500/15 text-blue-600 border border-blue-500/30'"
                                     >
-                                        {{ call.direction === 'outbound' ? 'خروجی ↗' : 'ورودی ↙' }}
+                                        {{ call.direction === 'outbound' ? __('admin.calls.badge_outbound') : __('admin.calls.badge_inbound') }}
                                     </span>
                                 </td>
                                 <td class="py-3.5 px-4">
@@ -227,7 +230,7 @@ const clearFilter = () => {
                             </tr>
                             <tr v-if="calls.data.length === 0">
                                 <td colspan="10" class="py-10 text-center text-slate-400">
-                                    هیچ تماسی با مشخصات واردشده یافت نشد.
+                                    {{ __('admin.calls.no_calls_found') }}
                                 </td>
                             </tr>
                         </tbody>

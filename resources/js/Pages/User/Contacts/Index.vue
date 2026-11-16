@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import UserLayout from '@/Layouts/UserLayout.vue';
+import { __ } from '@/Composables/useTrans';
 
 interface ContactItem {
     id: number;
@@ -132,7 +133,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
 </script>
 
 <template>
-    <Head title="دفترچه مخاطبین" />
+    <Head :title="__('user.contacts.page_title')" />
 
     <UserLayout>
         <div class="space-y-4">
@@ -141,29 +142,29 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                 <div class="wallet-top-row">
                     <div class="flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                        <h2 class="wallet-title">دفترچه تلفن و مخاطبین اختصاصی</h2>
+                        <h2 class="wallet-title">{{ __('user.contacts.header_title') }}</h2>
                     </div>
                     <span class="wallet-chip bg-blue-500/15 border-blue-500/30 text-blue-600 dark:text-blue-400">
-                        {{ stats.total }} مخاطب ذخیره‌شده
+                        {{ __('user.contacts.saved_count_badge', { count: stats.total }) }}
                     </span>
                 </div>
 
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    مدیریت شماره‌ها و شناسه‌های ارتباطی، تماس سریع صوتی و ارسال آسان پیامک بدون نیاز به تایپ مجدد.
+                    {{ __('user.contacts.header_desc') }}
                 </p>
 
                 <!-- KPI Quick Summary -->
                 <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10 text-center">
                     <div class="p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[10px] text-slate-400 font-bold">کل مخاطبین</div>
+                        <div class="text-[10px] text-slate-400 font-bold">{{ __('user.contacts.stat_total') }}</div>
                         <div class="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{{ stats.total }}</div>
                     </div>
                     <div class="p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[10px] text-slate-400 font-bold">خطوط تلفن</div>
+                        <div class="text-[10px] text-slate-400 font-bold">{{ __('user.contacts.stat_phone_lines') }}</div>
                         <div class="text-base font-black font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">{{ stats.phone_lines }}</div>
                     </div>
                     <div class="p-2.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/70 border border-slate-200/80 dark:border-white/10">
-                        <div class="text-[10px] text-slate-400 font-bold">آیدی‌های اختصاصی (@)</div>
+                        <div class="text-[10px] text-slate-400 font-bold">{{ __('user.contacts.stat_custom_ids') }}</div>
                         <div class="text-base font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">{{ stats.custom_ids }}</div>
                     </div>
                 </div>
@@ -175,7 +176,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                             type="text"
                             v-model="search"
                             @keyup.enter="handleSearch"
-                            placeholder="جستجو بر اساس نام، شماره یا آیدی..."
+                            :placeholder="__('user.contacts.search_placeholder')"
                             class="glass-input !py-2 !pr-8 !pl-3 !text-xs !rounded-xl w-full"
                         />
                         <svg class="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-2.5 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -198,7 +199,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                             @click="openCreateModal"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl flex items-center gap-1.5 shrink-0"
                         >
-                            <span>+ افزودن مخاطب</span>
+                            <span>{{ __('user.contacts.add_btn') }}</span>
                         </button>
                     </div>
                 </div>
@@ -234,7 +235,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                                         class="text-[9px] font-bold px-2 py-0.5 rounded-full"
                                         :class="contact.is_custom_id ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'"
                                     >
-                                        {{ contact.is_custom_id ? 'شناسه @' : 'خط تلفن' }}
+                                        {{ contact.is_custom_id ? __('user.contacts.badge_custom_id') : __('user.contacts.badge_phone_line') }}
                                     </span>
                                 </div>
                                 <div dir="ltr" class="text-left font-mono font-black text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 select-all">
@@ -249,7 +250,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                             <Link
                                 :href="route('messages.index', { to: contact.phone_number })"
                                 class="p-2 rounded-xl glass-pill hover:text-indigo-600 hover:border-indigo-500/40 transition-colors"
-                                title="ارسال پیامک"
+                                :title="__('user.contacts.send_sms_title')"
                             >
                                 <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -260,7 +261,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                             <Link
                                 :href="route('calls.index', { destination: contact.phone_number })"
                                 class="p-2 rounded-xl glass-pill hover:text-emerald-600 hover:border-emerald-500/40 transition-colors"
-                                title="تماس صوتی"
+                                :title="__('user.contacts.voice_call_title')"
                             >
                                 <svg class="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -272,7 +273,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                                 type="button"
                                 @click="openEditModal(contact)"
                                 class="p-2 rounded-xl glass-pill text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors"
-                                title="ویرایش مخاطب"
+                                :title="__('user.contacts.edit_title')"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -284,7 +285,7 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                                 type="button"
                                 @click="openDeleteModal(contact)"
                                 class="p-2 rounded-xl glass-pill text-slate-400 hover:text-rose-500 transition-colors"
-                                title="حذف مخاطب"
+                                :title="__('user.contacts.delete_title')"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -319,16 +320,16 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                 <div class="w-14 h-14 rounded-3xl bg-blue-500/10 text-blue-500 flex items-center justify-center text-2xl">
                     👥
                 </div>
-                <h3 class="text-sm font-bold text-slate-900 dark:text-white">هنوز مخاطبی ثبت نکرده‌اید</h3>
+                <h3 class="text-sm font-bold text-slate-900 dark:text-white">{{ __('user.contacts.empty_title') }}</h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400 max-w-xs mx-auto">
-                    می‌توانید شماره‌های همراه، سرشماره‌ها و آیدی‌های اختصاصی (@handle) دوستان و همکاران خود را ذخیره کنید تا در تماس و پیامک به سرعت در دسترس باشند.
+                    {{ __('user.contacts.empty_desc') }}
                 </p>
                 <button
                     type="button"
                     @click="openCreateModal"
                     class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
                 >
-                    + افزودن اولین مخاطب
+                    {{ __('user.contacts.add_first_btn') }}
                 </button>
             </div>
         </div>
@@ -343,18 +344,18 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                 <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                     <h3 class="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
                         <span>👥</span>
-                        <span>{{ editingContact ? 'ویرایش اطلاعات مخاطب' : 'افزودن مخاطب جدید' }}</span>
+                        <span>{{ editingContact ? __('user.contacts.modal_edit_title') : __('user.contacts.modal_create_title') }}</span>
                     </h3>
                     <button type="button" @click="closeModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white">✕</button>
                 </div>
 
                 <form @submit.prevent="submitForm" class="space-y-4">
                     <div>
-                        <label class="form-label font-bold text-xs">نام و نام‌خانوادگی یا عنوان مخاطب</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.contacts.name_label') }}</label>
                         <input
                             type="text"
                             v-model="form.name"
-                            placeholder="مثلاً: علی رضایی یا پشتیبانی راینو"
+                            :placeholder="__('user.contacts.name_placeholder')"
                             required
                             maxlength="120"
                             class="form-input !py-2.5 !text-xs mt-1"
@@ -362,21 +363,21 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                     </div>
 
                     <div>
-                        <label class="form-label font-bold text-xs">شماره تلفن یا شناسه کاربری (@handle)</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.contacts.phone_label') }}</label>
                         <input
                             type="text"
                             v-model="form.phone_number"
-                            placeholder="مثلاً: +851234567 یا @mybrand"
+                            :placeholder="__('user.contacts.phone_placeholder')"
                             required
                             maxlength="64"
                             dir="ltr"
                             class="form-input !py-2.5 !text-xs mt-1 font-mono text-left"
                         />
-                        <p class="text-[11px] text-slate-400 mt-1">می‌توانید هم شماره تلفن و هم آیدی کاربری با علامت @ وارد نمایید.</p>
+                        <p class="text-[11px] text-slate-400 mt-1">{{ __('user.contacts.phone_hint') }}</p>
                     </div>
 
                     <div>
-                        <label class="form-label font-bold text-xs">رنگ نماد آواتار</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.contacts.avatar_color_label') }}</label>
                         <div class="flex items-center gap-2 mt-2">
                             <button
                                 v-for="(cls, col) in colorClasses"
@@ -392,10 +393,10 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                     </div>
 
                     <div>
-                        <label class="form-label font-bold text-xs">یادداشت اختصاصی (اختیاری)</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.contacts.notes_label') }}</label>
                         <textarea
                             v-model="form.notes"
-                            placeholder="توضیحاتی در مورد این مخاطب..."
+                            :placeholder="__('user.contacts.notes_placeholder')"
                             maxlength="255"
                             rows="2"
                             class="form-input !py-2 !text-xs mt-1"
@@ -404,14 +405,14 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
                         <button type="button" @click="closeModal" class="glass-pill !py-2 !px-4 !text-xs">
-                            انصراف
+                            {{ __('user.contacts.cancel') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="form.processing"
                             class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl"
                         >
-                            {{ form.processing ? 'در حال ذخیره...' : (editingContact ? 'به‌روزرسانی مخاطب' : 'افزودن به دفترچه تلفن') }}
+                            {{ form.processing ? __('user.contacts.saving') : (editingContact ? __('user.contacts.update_btn') : __('user.contacts.store_btn')) }}
                         </button>
                     </div>
                 </form>
@@ -430,25 +431,25 @@ const colorClasses: Record<string, { bg: string; text: string; border: string }>
                         🗑️
                     </div>
                     <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">حذف مخاطب</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">آیا از حذف «{{ contactToDelete?.name }}» اطمینان دارید؟</p>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.contacts.delete_modal_title') }}</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('user.contacts.delete_confirm', { name: contactToDelete?.name || '' }) }}</p>
                     </div>
                 </div>
 
                 <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
-                    این مخاطب از دفترچه تلفن شما حذف خواهد شد. سوابق پیام‌ها و تماس‌های قبلی با این شماره پاک نمی‌شوند.
+                    {{ __('user.contacts.delete_modal_desc') }}
                 </p>
 
                 <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-200 dark:border-white/10">
                     <button type="button" @click="closeDeleteModal" class="glass-pill !py-2 !px-4 !text-xs font-bold">
-                        انصراف
+                        {{ __('user.contacts.cancel') }}
                     </button>
                     <button
                         type="button"
                         @click="confirmDelete"
                         class="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all shadow-md"
                     >
-                        حذف مخاطب
+                        {{ __('user.contacts.confirm_delete_btn') }}
                     </button>
                 </div>
             </div>

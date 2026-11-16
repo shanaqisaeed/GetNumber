@@ -187,6 +187,13 @@ return [
         'web3_premium' => 'دامنه پریمیوم سازمانی Web3',
     ],
 
+    'patterns' => [
+        'vip_short' => 'کوتاه VIP (:length کاراکتر)',
+        'symmetric_triple' => 'متقارن / تکرار سه‌گانه',
+        'rhythmic_pair' => 'جفت ریتمیک',
+        'standard' => 'استاندارد',
+    ],
+
     'orders' => [
         'order_placed_instant' => 'سفارش سرویس «:service» با شناسه :identifier با موفقیت ثبت و به حساب شما تخصیص یافت.',
         'order_placed_approval' => 'درخواست سازمانی سرویس «:service» با شناسه :identifier ثبت شد و مبلغ :amount TRX تا تایید نهایی مسدود گردید.',
@@ -194,6 +201,8 @@ return [
         'sub_account_deleted' => 'ساب‌اکانت مورد نظر حذف شد و ۱ واحد به ظرفیت آزاد دامنه بازگشت.',
         'resource_released' => 'سرویس مورد نظر با موفقیت آزادسازی و غیرفعال شد.',
         'quota_upgraded' => 'ظرفیت پکیج دامنه «:domain» به میزان :added واحد افزایش یافت.',
+        'desc_quota_upgrade' => ':identifier (+:units واحد سهمیه)',
+        'default_mailbox_display_name' => 'صندوق پستی :name',
     ],
 
     'ui' => [

@@ -81,7 +81,7 @@ class TariffManagementController extends Controller
             'new' => $validated,
         ]);
 
-        return back()->with('success', "تعرفه‌های سرشماره {$prefix->prefix} با موفقیت به‌روزرسانی شد.");
+        return back()->with('success', __('controllers.admin.tariffs.prefix_updated', ['prefix' => $prefix->prefix]));
     }
 
     /**
@@ -104,7 +104,7 @@ class TariffManagementController extends Controller
 
         AuditLog::record('global_tariffs_updated', null, $request->user(), $validated);
 
-        return back()->with('success', 'تعرفه‌های سراسری ارتباطات و آیدی به آیدی با موفقیت ثبت شد.');
+        return back()->with('success', __('controllers.admin.tariffs.global_updated'));
     }
 }
 

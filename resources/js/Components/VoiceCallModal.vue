@@ -2,6 +2,7 @@
 import { ref, computed, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
+import { __ } from '@/Composables/useTrans';
 
 interface UserLine {
     id: number;
@@ -54,7 +55,7 @@ const backspace = () => {
 
 const initiateCall = async () => {
     if (!destination.value.trim()) {
-        errorMessage.value = 'لطفاً شماره یا شناسه مقصد را وارد کنید.';
+        errorMessage.value = __('ui.components.voice_modal.destination_required');
         return;
     }
 
@@ -114,7 +115,7 @@ const resetDialer = () => {
 
 const closeModal = () => {
     if (callState.value === 'connected' || callState.value === 'ringing') {
-        if (!confirm('تماس در حال انجام است. آیا می‌خواهید تماس قطع و بسته شود؟')) {
+        if (!confirm(__('ui.components.voice_modal.confirm_end_and_close'))) {
             return;
         }
         endCall();
@@ -144,8 +145,8 @@ onUnmounted(() => {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="text-sm font-bold">ارتباط صوتی</h3>
-                        <p class="text-[11px] text-indigo-200">زیرساخت ارتباط اختصاصی</p>
+                        <h3 class="text-sm font-bold">{{ __('ui.components.voice_modal.title') }}</h3>
+                        <p class="text-[11px] text-indigo-200">{{ __('ui.components.voice_modal.subtitle') }}</p>
                     </div>
                 </div>
                 <button
@@ -164,7 +165,7 @@ onUnmounted(() => {
                     <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <span>نرخ مصوب تماس: ۵.۰۰۰۰ کوین در دقیقه (کسر آنی از کیف‌پول).</span>
+                    <span>{{ __('ui.components.voice_modal.tariff_notice') }}</span>
                 </div>
 
                 <!-- Error Alert -->
@@ -175,15 +176,15 @@ onUnmounted(() => {
                 <!-- Active Line Selector (when idle) -->
                 <div v-if="callState === 'idle'">
                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                        تماس از طریق خط:
+                        {{ __('ui.components.voice_modal.call_from_line') }}
                     </label>
                     <select
                         v-model="selectedLineId"
                         class="w-full text-xs rounded-xl border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                     >
-                        <option :value="null">-- خط پیش‌فرض سامانه --</option>
+                        <option :value="null">{{ __('ui.components.voice_modal.default_line') }}</option>
                         <option v-for="l in availableLines" :key="l.id" :value="l.id">
-                            {{ l.formatted_number }} ({{ l.display_title || 'خط فعال' }})
+                            {{ l.formatted_number }} ({{ l.display_title || __('ui.components.voice_modal.active_line') }})
                         </option>
                     </select>
                 </div>
@@ -206,9 +207,9 @@ onUnmounted(() => {
                             {{ destination }}
                         </div>
                         <div class="text-xs font-semibold mt-1" :class="callState === 'connected' ? 'text-emerald-500' : 'text-indigo-500'">
-                            <span v-if="callState === 'initiating'">در حال اتصال به سرور...</span>
-                            <span v-else-if="callState === 'ringing'">در حال زنگ خوردن...</span>
-                            <span v-else-if="callState === 'connected'">مکالمه برقرار است — {{ formattedDuration }}</span>
+                            <span v-if="callState === 'initiating'">{{ __('ui.components.voice_modal.status_initiating') }}</span>
+                            <span v-else-if="callState === 'ringing'">{{ __('ui.components.voice_modal.status_ringing') }}</span>
+                            <span v-else-if="callState === 'connected'">{{ __('ui.components.voice_modal.status_connected', { duration: formattedDuration }) }}</span>
                         </div>
                     </div>
 
@@ -219,7 +220,7 @@ onUnmounted(() => {
                             @click="isMuted = !isMuted"
                             class="w-11 h-11 rounded-full flex items-center justify-center transition-colors border"
                             :class="isMuted ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-gray-100 dark:bg-gray-800 text-gray-600 border-gray-200'"
-                            title="قطع/وصل میکروفون"
+                            :title="__('ui.components.voice_modal.toggle_mute')"
                         >
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -230,7 +231,7 @@ onUnmounted(() => {
                             type="button"
                             @click="endCall"
                             class="w-14 h-14 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-lg shadow-rose-600/30 transition-transform active:scale-95"
-                            title="قطع تماس"
+                            :title="__('ui.components.voice_modal.hang_up')"
                         >
                             <svg class="w-7 h-7 transform rotate-135" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M16 8l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M5 3a2 2 0 00-2 2v1c0 8.284 6.716 15 15 15h1a2 2 0 002-2v-3.28a1 1 0 00-.684-.948l-4.493-1.498a1 1 0 00-1.21.502l-1.13 2.257a11.042 11.042 0 01-5.516-5.517l2.257-1.128a1 1 0 00.502-1.21L9.228 3.683A1 1 0 008.279 3H5z" />
@@ -247,10 +248,10 @@ onUnmounted(() => {
                         </svg>
                     </div>
                     <div>
-                        <h4 class="text-base font-bold text-gray-900 dark:text-white">تماس پایان یافت</h4>
+                        <h4 class="text-base font-bold text-gray-900 dark:text-white">{{ __('ui.components.voice_modal.call_ended') }}</h4>
                         <div v-if="endSummary" class="mt-2 text-xs text-gray-500 space-y-1">
-                            <div>مدت مکالمه: <span class="font-mono font-bold text-gray-900 dark:text-white">{{ endSummary.duration }} ثانیه</span></div>
-                            <div>هزینه کسر شده: <span class="font-mono font-bold text-emerald-600">{{ endSummary.charged }} کوین</span></div>
+                            <div>{{ __('ui.components.voice_modal.duration_label') }} <span class="font-mono font-bold text-gray-900 dark:text-white">{{ __('ui.components.voice_modal.seconds_unit', { seconds: endSummary.duration }) }}</span></div>
+                            <div>{{ __('ui.components.voice_modal.charged_label') }} <span class="font-mono font-bold text-emerald-600">{{ __('ui.components.voice_modal.coins_unit', { amount: endSummary.charged }) }}</span></div>
                         </div>
                     </div>
                     <button
@@ -258,7 +259,7 @@ onUnmounted(() => {
                         @click="resetDialer"
                         class="px-5 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700"
                     >
-                        برقراری تماس جدید
+                        {{ __('ui.components.voice_modal.new_call') }}
                     </button>
                 </div>
 
@@ -269,7 +270,7 @@ onUnmounted(() => {
                         <input
                             v-model="destination"
                             type="text"
-                            placeholder="شماره یا آیدی مقصد..."
+                            :placeholder="__('ui.components.voice_modal.destination_placeholder')"
                             class="w-full text-center text-lg font-mono font-bold tracking-wider rounded-2xl border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white py-3 pl-10 pr-4"
                         />
                         <button
@@ -308,7 +309,7 @@ onUnmounted(() => {
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span>آغاز تماس صوتی</span>
+                            <span>{{ __('ui.components.voice_modal.start_call') }}</span>
                         </button>
                     </div>
                 </div>

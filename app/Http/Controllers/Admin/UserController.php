@@ -286,7 +286,7 @@ class UserController extends Controller
                 'action' => $log->action,
                 'description' => is_array($log->payload) ? json_encode($log->payload, JSON_UNESCAPED_UNICODE) : ($log->action ?? ''),
                 'created_at' => $log->created_at?->format('Y/m/d H:i:s') ?? '',
-                'actor' => $log->user ? $log->user->name : 'سیستم',
+                'actor' => $log->user ? $log->user->name : __('controllers.admin.users.system_actor'),
             ]);
 
         return Inertia::render('Admin/Users/Edit', [

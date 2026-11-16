@@ -17,7 +17,7 @@ use App\Models\User;
  */
 class IceServerProvider
 {
-    public const DEFAULT_STUN_URLS = "stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478";
+    public const DEFAULT_STUN_URLS = '';
 
     /** Lifetime of generated TURN REST credentials (seconds). */
     private const TURN_CREDENTIAL_TTL = 6 * 3600;

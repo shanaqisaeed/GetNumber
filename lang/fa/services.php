@@ -116,6 +116,9 @@ return [
         'desc_reversal' => 'تراکنش معکوس اصلاحی برای شناسه #:id: :reason',
         'audit_reversal' => 'اصلاح تراکنش #:id: :reason',
         'amount_must_be_positive' => 'مبلغ تراکنش باید یک مقدار عددی مثبت و بزرگتر از صفر باشد.',
+        'desc_free_communication' => 'هزینه ارتباطات رایگان',
+        'desc_voice_call_charge' => 'کسر هزینه مکالمه صوتی',
+        'desc_sms_send_charge' => 'کسر هزینه ارسال پیامک',
     ],
     'web_push' => [
         'unknown_sender' => 'شماره ناشناس',
@@ -127,6 +130,10 @@ return [
         'test_sender' => 'سامانه GetNumber',
         'test_sent_summary' => 'ارسال اعلان تست انجام شد (موفق: :success، ناموفق: :fail).',
         'test_failed' => 'خطا در ارسال اعلان تست: :error',
+        'incoming_call_title' => '📞 تماس صوتی ورودی',
+        'incoming_call_on_line' => 'روی خط :destination',
+        'incoming_call_body' => 'تماس ورودی از :caller :line',
+        'package_not_installed' => 'پکیج ارسال نوتیفیکیشن وب (minishlink/web-push) روی سرور نصب نیست.',
     ],
     'auth' => [
         'identity' => [
@@ -236,6 +243,7 @@ return [
             'network_error' => 'خطا در ارتباط با وب‌سرویس نوبیتکس: :error',
             'not_in_confirmed_deposits' => 'شناسه تراکنش هنوز در فهرست واریزی‌های تأییدشده نوبیتکس ثبت نشده است. فرآیند همگام‌سازی شبکه ممکن است چند دقیقه زمان ببرد.',
             'pending_verification_step' => 'تراکنش با موفقیت دریافت شده و در مرحله تأیید صرافی است (وضعیت: :status).',
+            'raw_unauthorized_token' => 'توکن غیر مجاز',
 
         ],
         'manager' => [
@@ -342,12 +350,51 @@ return [
                 'standard_regular' => 'شماره استاندارد عادی',
             ],
         ],
+        'id_rarity' => [
+            'tiers' => [
+                'regular' => 'عادی',
+                'golden_vip' => 'رند طلایی (Golden VIP)',
+                'semi_rond' => 'نیمه‌رند (Semi-Rond)',
+            ],
+            'patterns' => [
+                'invalid_input' => 'ورودی نامعتبر',
+                'short_3_ultra_rare' => 'آیدی کوتاه ۳ کاراکتری فوق نایاب',
+                'short_4_golden' => 'آیدی ۴ کاراکتری رند طلایی',
+                'vip_keyword' => 'آیدی کلیدواژه طلایی (VIP Keyword)',
+                'all_same_chars' => 'تکرار یکنواخت یک کاراکتر',
+                'palindrome' => 'الگوی آینه‌ای متقارن (Palindrome)',
+                'sequential' => 'توالی ترتیبی کاراکترها (Sequential)',
+                'short_5_chars' => 'آیدی کوتاه ۵ کاراکتری',
+                'repeated_blocks' => 'تکرار بلوک‌های دوگانه یا سه‌گانه',
+                'memorable_numeric_suffix' => 'پسوند عددی رند و خاطره‌انگیز',
+                'standard_id' => 'آیدی استاندارد',
+            ],
+        ],
     ],
     'security' => [
         'filter' => [
             'blocked_phishing' => 'ارسال پیام به علت شناسایی الگوهای مشکوک فیشینگ و کلاهبرداری مسدود گردید.',
             'reason_keywords' => 'شناسایی کلیدواژه‌های پرتکرار فیشینگ بانکی یا قضایی',
             'reason_url' => 'شناسایی آدرس وب مشکوک یا پیوند فیشینگ',
+            'phishing_keywords' => [
+                'سامانه ثنا',
+                'ابلاغیه الکترونیکی',
+                'ابلاغیه قضایی',
+                'واریز یارانه',
+                'سهام عدالت',
+                'مسدودی حساب',
+                'رمز دوم یکبار مصرف',
+                'شکایت علیه شما',
+                'حکم جلب',
+                'قطع یارانه',
+                'لغو امتیاز سیمکارت',
+                'برنده قرعه کشی',
+                'برنده شدید',
+                'جایزه نقدی',
+                'اطلاعات کارت بانکی',
+                'رمز پویا',
+                'توقیف حساب',
+            ],
         ],
         'behavior' => [
             'repetitive_body' => 'ارسال مکرر متن یکسان به بیش از :threshold شماره مقصد در بازه ۱۰ دقیقه',
@@ -366,6 +413,39 @@ return [
             'per_minute_exceeded' => 'سقف مجاز ارسال در دقیقه (:count پیامک) تکمیل گردیده است. لطفاً کمی صبر فرمایید.',
             'per_hour_exceeded' => 'سقف مجاز ارسال در ساعت (:count پیامک) برای حساب شما تکمیل شده است.',
             'daily_destinations_exceeded' => 'سقف مجاز ارسال روزانه (:count مقصد) برای سطح کاربری شما به اتمام رسیده است.',
+        ],
+        'totp' => [
+            'invalid_base32_char' => 'کاراکتر Base32 نامعتبر است: :char',
+        ],
+    ],
+    'communication' => [
+        'email' => [
+            'sent_mock_success' => 'ایمیل با موفقیت ارسال گردید (Mock/Stub).',
+        ],
+        'sms' => [
+            'insufficient_balance' => 'اعتبار کیف‌پول شما جهت ارسال این پیامک (مبلغ :amount کوین) کافی نمی‌باشد.',
+            'desc_usage_charge' => 'ارسال پیامک از خط :number (:recipients مقصد - :parts پارت)',
+            'dest_custom_id_not_found' => 'آیدی اختصاصی مقصد یافت نشد یا در وضعیت فعال نمی‌باشد.',
+        ],
+        'voice' => [
+            'not_owner' => 'شما مالک این خط ارتباطی نمی‌باشید.',
+            'line_not_active' => 'خط انتخابی در وضعیت فعال قرار ندارد.',
+            'dest_empty' => 'شماره یا آیدی مقصد نباید خالی باشد.',
+            'insufficient_balance_first_minute' => 'موجودی کیف‌پول شما جهت برقراری تماس صوتی (حداقل :rate کوین برای دقیقه اول) کافی نمی‌باشد.',
+            'desc_call_charge' => 'هزینه مکالمه صوتی به مقصد :destination (:seconds ثانیه - :minutes دقیقه)',
+        ],
+    ],
+    'mail' => [
+        'connection_failed' => 'امکان اتصال به :host::port وجود ندارد (:error - کد :code)',
+    ],
+    'monitoring' => [
+        'health' => [
+            'db_connection_failed' => 'اتصال به پایگاه داده با خطا مواجه شد',
+            'cache_unavailable' => 'فضای ذخیره‌سازی کش در دسترس نیست',
+        ],
+        'error_tracker' => [
+            'no_message' => 'بدون پیام خطا',
+            'js_runtime_error' => 'خطای زمان اجرای جاوااسکریپت',
         ],
     ],
 ];

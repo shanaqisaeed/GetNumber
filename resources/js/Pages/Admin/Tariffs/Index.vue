@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
+import { useTrans } from '@/Composables/useTrans';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
+
+const { __ } = useTrans();
 
 interface PrefixTariffItem {
     id: number;
@@ -84,7 +87,7 @@ const submitPrefixTariff = () => {
 </script>
 
 <template>
-    <Head title="مدیریت تعرفه‌های ارتباطی، پیامک و مکالمه" />
+    <Head :title="__('admin.tariffs.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6 max-w-6xl mx-auto">
@@ -93,10 +96,10 @@ const submitPrefixTariff = () => {
                 <div>
                     <h1 class="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        سامانه تعرفه‌گذاری اختصاصی ارتباطات
+                        {{ __('admin.tariffs.page_title') }}
                     </h1>
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        پیکربندی نرخ پیامک‌های درون‌شبکه‌ای و بین‌المللی، تعرفه تماس صوتی در دقیقه و ارتباطات شناسه به شناسه (ID-to-ID)
+                        {{ __('admin.tariffs.page_subtitle') }}
                     </p>
                 </div>
             </div>
@@ -107,30 +110,30 @@ const submitPrefixTariff = () => {
                     <span class="w-10 h-10 rounded-2xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-mono font-black text-base shrink-0">@</span>
                     <div>
                         <h3 class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>تعرفه ارتباطات آیدی اختصاصی (ID-to-ID)</span>
-                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">فعال و در حال اجرا</span>
+                            <span>{{ __('admin.tariffs.id_banner_title') }}</span>
+                            <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">{{ __('admin.tariffs.id_banner_badge') }}</span>
                         </h3>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            هزینه ارتباط مستقیم بین کاربران از طریق شناسه‌های @handle (بدون نیاز به خط تلفن).
+                            {{ __('admin.tariffs.id_banner_desc') }}
                         </p>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-4 text-xs font-mono">
                     <div class="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
-                        <span class="text-slate-500 text-[11px] ml-1">پیامک آیدی:</span>
+                        <span class="text-slate-500 text-[11px] ml-1">{{ __('admin.tariffs.id_sms_label') }}</span>
                         <strong class="text-indigo-600 dark:text-indigo-400 font-black">{{ global_settings.id_sms_rate }} TRX</strong>
                     </div>
                     <div class="bg-white dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-indigo-100 dark:border-indigo-900/40">
-                        <span class="text-slate-500 text-[11px] ml-1">تماس آیدی:</span>
-                        <strong class="text-emerald-600 dark:text-emerald-400 font-black">{{ global_settings.id_voice_rate_per_minute }} TRX / دقیقه</strong>
+                        <span class="text-slate-500 text-[11px] ml-1">{{ __('admin.tariffs.id_voice_label') }}</span>
+                        <strong class="text-emerald-600 dark:text-emerald-400 font-black">{{ __('admin.tariffs.trx_per_min', { rate: global_settings.id_voice_rate_per_minute }) }}</strong>
                     </div>
                     <button
                         type="button"
                         @click="activeTab = 'global'"
                         class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shrink-0"
                     >
-                        ویرایش تعرفه آیدی ⚙️
+                        {{ __('admin.tariffs.edit_id_tariff_btn') }}
                     </button>
                 </div>
             </div>
@@ -145,7 +148,7 @@ const submitPrefixTariff = () => {
                         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
                 >
-                    📞 تعرفه تفکیکی سرشماره‌ها ({{ prefixes.length }})
+                    {{ __('admin.tariffs.tab_prefixes', { count: prefixes.length }) }}
                 </button>
                 <button
                     type="button"
@@ -155,7 +158,7 @@ const submitPrefixTariff = () => {
                         ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
                 >
-                    🌐 تعرفه‌های سراسری و آیدی به آیدی (ID-to-ID)
+                    {{ __('admin.tariffs.tab_global') }}
                 </button>
             </div>
 
@@ -164,10 +167,10 @@ const submitPrefixTariff = () => {
                 <div class="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
                     <div>
                         <h2 class="text-sm font-bold text-slate-900 dark:text-white">
-                            جدول تعرفه پیامک و مکالمه بر حسب سرشماره
+                            {{ __('admin.tariffs.prefixes_table_title') }}
                         </h2>
                         <p class="text-xs text-slate-400 mt-0.5">
-                            تمامی ارقام به ازای هر پارت پیامک و هر دقیقه تماس محاسبه می‌گردند.
+                            {{ __('admin.tariffs.prefixes_table_desc') }}
                         </p>
                     </div>
                 </div>
@@ -176,13 +179,13 @@ const submitPrefixTariff = () => {
                     <table class="w-full text-right text-xs">
                         <thead>
                             <tr class="bg-slate-50/70 dark:bg-slate-800/40 text-slate-400 border-b border-slate-100 dark:border-slate-800">
-                                <th class="py-3.5 px-4 font-bold">پیش‌شماره</th>
-                                <th class="py-3.5 px-4 font-bold">کشور / عنوان</th>
-                                <th class="py-3.5 px-4 font-bold">پیامک هم‌پیش‌شماره</th>
-                                <th class="py-3.5 px-4 font-bold">پیامک بین‌پیش‌شماره</th>
-                                <th class="py-3.5 px-4 font-bold">تماس صوتی هم‌پیش‌شماره</th>
-                                <th class="py-3.5 px-4 font-bold">تماس صوتی بین‌پیش‌شماره</th>
-                                <th class="py-3.5 px-4 font-bold text-left">عملیات</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_prefix') }}</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_country') }}</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_sms_intra') }}</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_sms_inter') }}</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_voice_intra') }}</th>
+                                <th class="py-3.5 px-4 font-bold">{{ __('admin.tariffs.th_voice_inter') }}</th>
+                                <th class="py-3.5 px-4 font-bold text-left">{{ __('admin.tariffs.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
@@ -192,7 +195,7 @@ const submitPrefixTariff = () => {
                                 </td>
                                 <td class="py-3.5 px-4 font-bold">
                                     {{ prefix.country_name || prefix.name }}
-                                    <span v-if="prefix.is_default" class="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 mr-1.5">پیش‌فرض</span>
+                                    <span v-if="prefix.is_default" class="text-[10px] px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 mr-1.5">{{ __('admin.tariffs.default_badge') }}</span>
                                 </td>
                                 <td class="py-3.5 px-4 font-mono font-bold" dir="ltr">
                                     {{ Number(prefix.sms_intra_prefix_rate).toFixed(4) }} TRX
@@ -201,10 +204,10 @@ const submitPrefixTariff = () => {
                                     {{ Number(prefix.sms_inter_prefix_rate).toFixed(4) }} TRX
                                 </td>
                                 <td class="py-3.5 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
-                                    {{ Number(prefix.voice_intra_prefix_rate).toFixed(4) }} TRX / دقیقه
+                                    {{ __('admin.tariffs.trx_per_min', { rate: Number(prefix.voice_intra_prefix_rate).toFixed(4) }) }}
                                 </td>
                                 <td class="py-3.5 px-4 font-mono font-bold text-amber-600 dark:text-amber-400" dir="ltr">
-                                    {{ Number(prefix.voice_inter_prefix_rate).toFixed(4) }} TRX / دقیقه
+                                    {{ __('admin.tariffs.trx_per_min', { rate: Number(prefix.voice_inter_prefix_rate).toFixed(4) }) }}
                                 </td>
                                 <td class="py-3.5 px-4 text-left">
                                     <button
@@ -212,7 +215,7 @@ const submitPrefixTariff = () => {
                                         @click="openEditPrefix(prefix)"
                                         class="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-bold transition-colors"
                                     >
-                                        ویرایش تعرفه
+                                        {{ __('admin.tariffs.edit_tariff_btn') }}
                                     </button>
                                 </td>
                             </tr>
@@ -224,8 +227,8 @@ const submitPrefixTariff = () => {
             <!-- TAB 2: Global & ID Tariffs Form -->
             <div v-else-if="activeTab === 'global'" class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-6">
                 <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
-                    <h2 class="text-base font-bold text-slate-900 dark:text-white">تعرفه‌های سراسری و ارتباطات آیدی به آیدی (ID-to-ID)</h2>
-                    <p class="text-xs text-slate-400 mt-0.5">تنظیم هزینه پیام و تماس بین شناسه‌های @handle و مقادیر پیش‌فرض سامانه</p>
+                    <h2 class="text-base font-bold text-slate-900 dark:text-white">{{ __('admin.tariffs.global_title') }}</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">{{ __('admin.tariffs.global_desc') }}</p>
                 </div>
 
                 <form @submit.prevent="submitGlobal" class="space-y-6 max-w-2xl">
@@ -233,13 +236,13 @@ const submitPrefixTariff = () => {
                     <div class="p-5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 space-y-4">
                         <h3 class="text-xs font-black text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
                             <span>🆔</span>
-                            <span>تعرفه ارتباط مستقیم آیدی به آیدی (@handle to @handle)</span>
+                            <span>{{ __('admin.tariffs.id_rates_heading') }}</span>
                         </h3>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    هزینه پیام آیدی به آیدی (هر پیام)
+                                    {{ __('admin.tariffs.id_sms_rate_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -257,7 +260,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    هزینه تماس صوتی آیدی به آیدی (هر دقیقه)
+                                    {{ __('admin.tariffs.id_voice_rate_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -278,13 +281,13 @@ const submitPrefixTariff = () => {
                     <!-- Global Fallback Rates -->
                     <div class="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 space-y-4">
                         <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                            نرخ‌های پیش‌فرض سراسری خطوط تلفن (در صورت عدم تعیین روی سرشماره)
+                            {{ __('admin.tariffs.fallback_rates_heading') }}
                         </h3>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    پیامک هم‌پیش‌شماره (Intra-Prefix)
+                                    {{ __('admin.tariffs.sms_intra_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -302,7 +305,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    پیامک بین‌پیش‌شماره / خارجی (Inter-Prefix)
+                                    {{ __('admin.tariffs.sms_inter_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -320,7 +323,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    تماس صوتی هم‌پیش‌شماره (هر دقیقه)
+                                    {{ __('admin.tariffs.voice_intra_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -338,7 +341,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                    تماس صوتی بین‌پیش‌شماره / خارجی (هر دقیقه)
+                                    {{ __('admin.tariffs.voice_inter_label') }}
                                 </label>
                                 <div class="relative">
                                     <input
@@ -362,7 +365,7 @@ const submitPrefixTariff = () => {
                             :disabled="globalForm.processing"
                             class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-colors"
                         >
-                            {{ globalForm.processing ? 'در حال ثبت...' : 'ذخیره تعرفه‌های سراسری' }}
+                            {{ globalForm.processing ? __('admin.tariffs.saving') : __('admin.tariffs.save_global_btn') }}
                         </button>
                     </div>
                 </form>
@@ -377,7 +380,7 @@ const submitPrefixTariff = () => {
                 <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl space-y-5">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                         <h3 class="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                            <span>ویرایش تعرفه‌های سرشماره:</span>
+                            <span>{{ __('admin.tariffs.modal_edit_prefix_title') }}</span>
                             <span class="font-mono text-indigo-600 dark:text-indigo-400" dir="ltr">{{ editingPrefix.prefix }}</span>
                         </h3>
                         <button type="button" @click="closeEditPrefix" class="text-slate-400 hover:text-slate-700 dark:hover:text-white">✕</button>
@@ -387,7 +390,7 @@ const submitPrefixTariff = () => {
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                    پیامک هم‌پیش‌شماره (Intra)
+                                    {{ __('admin.tariffs.modal_sms_intra') }}
                                 </label>
                                 <input
                                     v-model="prefixForm.sms_intra_prefix_rate"
@@ -402,7 +405,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                    پیامک بین‌پیش‌شماره (Inter)
+                                    {{ __('admin.tariffs.modal_sms_inter') }}
                                 </label>
                                 <input
                                     v-model="prefixForm.sms_inter_prefix_rate"
@@ -417,7 +420,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                    تماس صوتی هم‌پیش‌شماره (دقیقه)
+                                    {{ __('admin.tariffs.modal_voice_intra') }}
                                 </label>
                                 <input
                                     v-model="prefixForm.voice_intra_prefix_rate"
@@ -432,7 +435,7 @@ const submitPrefixTariff = () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                    تماس صوتی بین‌پیش‌شماره (دقیقه)
+                                    {{ __('admin.tariffs.modal_voice_inter') }}
                                 </label>
                                 <input
                                     v-model="prefixForm.voice_inter_prefix_rate"
@@ -448,14 +451,14 @@ const submitPrefixTariff = () => {
 
                         <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
                             <button type="button" @click="closeEditPrefix" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-                                انصراف
+                                {{ __('admin.tariffs.cancel_btn') }}
                             </button>
                             <button
                                 type="submit"
                                 :disabled="prefixForm.processing"
                                 class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md shadow-indigo-600/20 disabled:opacity-50"
                             >
-                                {{ prefixForm.processing ? 'در حال ذخیره...' : 'ذخیره تعرفه‌های سرشماره' }}
+                                {{ prefixForm.processing ? __('admin.tariffs.saving_modal') : __('admin.tariffs.save_prefix_btn') }}
                             </button>
                         </div>
                     </form>

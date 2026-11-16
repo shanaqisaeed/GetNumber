@@ -116,10 +116,10 @@ const props = withDefaults(defineProps<Props>(), {
 const { __ } = useTrans();
 
 // 4 Standard Main Tabs:
-// 1. 'general' (تنظیمات عمومی و ایمیل)
-// 2. 'security' (سقف‌های دسترسی و احراز هویت / LDAP / Keycloak)
-// 3. 'tariffs' (نرخ‌های پایه و درگاه‌های پرداخت)
-// 4. 'bridge' (سرور بریج صوتی Go Voice Bridge)
+// 1. 'general' (General Settings & Email)
+// 2. 'security' (Access Limits, Auth Providers, LDAP, Keycloak)
+// 3. 'tariffs' (Base Tariffs & Payment Gateways)
+// 4. 'bridge' (Go Voice Bridge Server)
 type MainTab = 'general' | 'security' | 'tariffs' | 'bridge';
 
 const determineMainTab = (tab?: string): MainTab => {
@@ -222,7 +222,7 @@ const testLdapConnection = async () => {
         });
         ldapTestResult.value = await res.json();
     } catch {
-        ldapTestResult.value = { success: false, message: 'خطا در ارتباط با سرور' };
+        ldapTestResult.value = { success: false, message: __('admin.settings.general.ldap_conn_error') };
     } finally {
         testingLdap.value = false;
     }
@@ -260,7 +260,7 @@ const testKeycloakConnection = async () => {
         });
         keycloakTestResult.value = await res.json();
     } catch {
-        keycloakTestResult.value = { success: false, message: 'خطا در ارتباط با سرور Keycloak' };
+        keycloakTestResult.value = { success: false, message: __('admin.settings.general.keycloak_conn_error') };
     } finally {
         testingKeycloak.value = false;
     }
@@ -305,7 +305,7 @@ const testSmtpConnection = async () => {
         });
         smtpTestResult.value = await res.json();
     } catch {
-        smtpTestResult.value = { success: false, error: 'خطای شبکه در تست SMTP' };
+        smtpTestResult.value = { success: false, error: __('admin.settings.general.smtp_network_error') };
     } finally {
         testingSmtp.value = false;
     }
@@ -326,7 +326,7 @@ const bridgeForm = useForm({
     turns_port: props.voiceBridgeSettings?.turns_port || 5349,
     turns_enabled: props.voiceBridgeSettings?.turns_enabled ?? false,
     offline_mode: props.voiceBridgeSettings?.offline_mode ?? false,
-    stun_urls: props.voiceBridgeSettings?.stun_urls ?? 'stun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478',
+    stun_urls: props.voiceBridgeSettings?.stun_urls ?? '',
     turn_urls: props.voiceBridgeSettings?.turn_urls || '',
     turn_username: props.voiceBridgeSettings?.turn_username || '',
     turn_credential: props.voiceBridgeSettings?.turn_credential || '',
@@ -356,7 +356,7 @@ const applyCloudDomainPreset = () => {
     bridgeForm.turn_port = port;
     bridgeForm.turns_port = sPort;
     bridgeForm.turns_enabled = true;
-    bridgeForm.stun_urls = `stun:${target}:${port}\nstun:stun.l.google.com:19302\nstun:stun.cloudflare.com:3478`;
+    bridgeForm.stun_urls = `stun:${target}:${port}`;
     bridgeForm.turn_urls = `turn:${target}:${port}?transport=udp\nturn:${target}:${port}?transport=tcp\nturns:${target}:${sPort}?transport=tcp`;
     if (!bridgeForm.turn_secret && bridgeForm.secret) {
         bridgeForm.turn_secret = bridgeForm.secret;
@@ -400,7 +400,7 @@ const testBridgeConnection = async () => {
         });
         bridgeTestResult.value = await res.json();
     } catch {
-        bridgeTestResult.value = { success: false, message: 'خطای شبکه در اتصال به سرور بریج صوتی' };
+        bridgeTestResult.value = { success: false, message: __('admin.settings.general.bridge_network_error') };
     } finally {
         testingBridge.value = false;
     }
@@ -408,7 +408,7 @@ const testBridgeConnection = async () => {
 </script>
 
 <template>
-    <Head title="تنظیمات جامع سامانه" />
+    <Head :title="__('admin.settings.general.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6 max-w-5xl mx-auto">
@@ -418,10 +418,10 @@ const testBridgeConnection = async () => {
                     <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    تنظیمات یکپارچه و پیکربندی مرکزی سامانه
+                    {{ __('admin.settings.general.page_title') }}
                 </h1>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    مدیریت پارامترهای عمومی، روش‌های احراز هویت سازمانی و نرخ‌گذاری پایه سرشماره‌ها
+                    {{ __('admin.settings.general.page_subtitle') }}
                 </p>
             </div>
 
@@ -436,7 +436,7 @@ const testBridgeConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                     </svg>
-                    <span>۱. تنظیمات عمومی</span>
+                    <span>{{ __('admin.settings.general.tab_general') }}</span>
                 </button>
 
                 <button
@@ -448,7 +448,7 @@ const testBridgeConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
-                    <span>۲. دسترسی و امنیت</span>
+                    <span>{{ __('admin.settings.general.tab_security') }}</span>
                 </button>
 
                 <button
@@ -460,7 +460,7 @@ const testBridgeConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>۳. تعرفه‌ها و درگاه‌ها</span>
+                    <span>{{ __('admin.settings.general.tab_tariffs') }}</span>
                 </button>
 
                 <button
@@ -472,21 +472,21 @@ const testBridgeConnection = async () => {
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <span>۴. بریج صوتی (Voice Bridge)</span>
+                    <span>{{ __('admin.settings.general.tab_bridge') }}</span>
                 </button>
             </div>
 
-            <!-- TAB 1: تنظیمات عمومی (General Settings & SMTP) -->
+            <!-- TAB 1: General Settings & SMTP -->
             <div v-show="activeTab === 'general'" class="space-y-6">
                 <!-- General Specs Form -->
                 <form @submit.prevent="submitGeneral" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-5">
                     <h2 class="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-gray-700">
-                        مشخصات عمومی پلتفرم
+                        {{ __('admin.settings.general.general_specs_title') }}
                     </h2>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام سامانه</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.app_name_label') }}</label>
                             <input
                                 v-model="generalForm.app_name"
                                 type="text"
@@ -496,18 +496,18 @@ const testBridgeConnection = async () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">زبان پیش‌فرض</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.default_locale_label') }}</label>
                             <select
                                 v-model="generalForm.default_locale"
                                 class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             >
-                                <option value="fa">فارسی (FA)</option>
-                                <option value="en">English (EN)</option>
+                                <option value="fa">{{ __('admin.settings.general.locale_fa') }}</option>
+                                <option value="en">{{ __('admin.settings.general.locale_en') }}</option>
                             </select>
                         </div>
 
                         <div class="sm:col-span-2">
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">توضیحات سامانه</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.app_desc_label') }}</label>
                             <input
                                 v-model="generalForm.app_description"
                                 type="text"
@@ -518,7 +518,7 @@ const testBridgeConnection = async () => {
 
                     <!-- Event Notifications -->
                     <div class="pt-4 border-t border-gray-100 dark:border-gray-700 space-y-3">
-                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300 block">اعلان‌های سیستمی</span>
+                        <span class="text-xs font-bold text-gray-700 dark:text-gray-300 block">{{ __('admin.settings.general.system_notifications_title') }}</span>
                         <div class="flex items-center gap-3">
                             <input
                                 id="ev_login_failed"
@@ -527,7 +527,7 @@ const testBridgeConnection = async () => {
                                 class="w-4 h-4 text-indigo-600 rounded"
                             />
                             <label for="ev_login_failed" class="text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
-                                ثبت لاگ و اعلان ورودهای ناموفق
+                                {{ __('admin.settings.general.notify_login_failed') }}
                             </label>
                         </div>
                         <div class="flex items-center gap-3">
@@ -538,7 +538,7 @@ const testBridgeConnection = async () => {
                                 class="w-4 h-4 text-indigo-600 rounded"
                             />
                             <label for="ev_security_alert" class="text-xs text-gray-700 dark:text-gray-300 cursor-pointer">
-                                ارسال هشدار امنیتی هنگام شناسایی فعالیت مشکوک
+                                {{ __('admin.settings.general.notify_security_alert') }}
                             </label>
                         </div>
                     </div>
@@ -549,7 +549,7 @@ const testBridgeConnection = async () => {
                             :disabled="generalForm.processing"
                             class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50"
                         >
-                            {{ generalForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات عمومی' }}
+                            {{ generalForm.processing ? __('admin.settings.general.saving') : __('admin.settings.general.save_general_btn') }}
                         </button>
                     </div>
                 </form>
@@ -557,12 +557,12 @@ const testBridgeConnection = async () => {
                 <!-- SMTP Mailer Card -->
                 <form @submit.prevent="submitSmtp" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-5">
                     <h2 class="text-base font-bold text-gray-900 dark:text-white pb-3 border-b border-gray-100 dark:border-gray-700">
-                        تنظیمات سرور ایمیل (SMTP)
+                        {{ __('admin.settings.general.smtp_title') }}
                     </h2>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div class="sm:col-span-2">
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">هاست SMTP</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_host_label') }}</label>
                             <input
                                 v-model="smtpForm.mail_host"
                                 type="text"
@@ -571,7 +571,7 @@ const testBridgeConnection = async () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">پورت</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_port_label') }}</label>
                             <input
                                 v-model="smtpForm.mail_port"
                                 type="number"
@@ -580,7 +580,7 @@ const testBridgeConnection = async () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام کاربری ایمیل</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_username_label') }}</label>
                             <input
                                 v-model="smtpForm.mail_username"
                                 type="text"
@@ -589,24 +589,24 @@ const testBridgeConnection = async () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">رمز عبور (جدید)</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_password_label') }}</label>
                             <input
                                 v-model="smtpForm.mail_password"
                                 type="password"
-                                placeholder="در صورت عدم تغییر خالی بگذارید"
+                                :placeholder="__('admin.settings.general.leave_blank_unchanged')"
                                 class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             />
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نوع رمزنگاری</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_encryption_label') }}</label>
                             <select
                                 v-model="smtpForm.mail_encryption"
                                 class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                             >
                                 <option value="tls">TLS</option>
                                 <option value="ssl">SSL</option>
-                                <option value="none">بدون رمزنگاری</option>
+                                <option value="none">{{ __('admin.settings.general.enc_none') }}</option>
                             </select>
                         </div>
                     </div>
@@ -618,14 +618,14 @@ const testBridgeConnection = async () => {
                             :disabled="testingSmtp"
                             class="px-4 py-2 text-xs font-semibold rounded-xl text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100"
                         >
-                            {{ testingSmtp ? 'در حال آزمون ارتباط...' : 'آزمون ارتباط SMTP' }}
+                            {{ testingSmtp ? __('admin.settings.general.testing_conn') : __('admin.settings.general.test_smtp_btn') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="smtpForm.processing"
                             class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50"
                         >
-                            {{ smtpForm.processing ? 'در حال ذخیره...' : 'ذخیره پیکربندی SMTP' }}
+                            {{ smtpForm.processing ? __('admin.settings.general.saving') : __('admin.settings.general.save_smtp_btn') }}
                         </button>
                     </div>
 
@@ -635,7 +635,7 @@ const testBridgeConnection = async () => {
                 </form>
             </div>
 
-            <!-- TAB 2: سقف‌های دسترسی و امنیت (Access Limits, Auth Providers, LDAP, Keycloak) -->
+            <!-- TAB 2: Access Limits, Auth Providers, LDAP, Keycloak -->
             <div v-show="activeTab === 'security'" class="space-y-6">
                 <!-- Sub Tab Navigation -->
                 <div class="flex items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
@@ -645,7 +645,7 @@ const testBridgeConnection = async () => {
                         class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors"
                         :class="securitySubTab === 'auth' ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
                     >
-                        سقف دسترسی و فعال‌سازی روش‌های ورود
+                        {{ __('admin.settings.general.subtab_auth') }}
                     </button>
                     <button
                         type="button"
@@ -653,7 +653,7 @@ const testBridgeConnection = async () => {
                         class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors"
                         :class="securitySubTab === 'ldap' ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
                     >
-                        پیکربندی سرور LDAP
+                        {{ __('admin.settings.general.subtab_ldap') }}
                     </button>
                     <button
                         type="button"
@@ -661,17 +661,17 @@ const testBridgeConnection = async () => {
                         class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors"
                         :class="securitySubTab === 'keycloak' ? 'bg-indigo-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'"
                     >
-                        پیکربندی Keycloak SSO
+                        {{ __('admin.settings.general.subtab_keycloak') }}
                     </button>
                 </div>
 
                 <!-- Sub-tab 1: Access Limits & Auth Providers -->
                 <div v-if="securitySubTab === 'auth'" class="space-y-6">
                     <form @submit.prevent="submitGeneral" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">سقف سهمیه خطوط کاربران</h3>
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ __('admin.settings.general.quota_title') }}</h3>
                         <div>
                             <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                حداکثر تعداد خطوط فعال مجاز برای هر کاربر
+                                {{ __('admin.settings.general.max_lines_label') }}
                             </label>
                             <input
                                 v-model="generalForm.max_lines_per_user"
@@ -680,7 +680,7 @@ const testBridgeConnection = async () => {
                                 max="1000"
                                 class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white max-w-xs"
                             />
-                            <p class="text-xs text-gray-400 mt-1">کاربران پس از رسیدن به این سقف، امکان رزرو یا خرید خط جدید را ندارند.</p>
+                            <p class="text-xs text-gray-400 mt-1">{{ __('admin.settings.general.max_lines_help') }}</p>
                         </div>
                         <div class="flex justify-end">
                             <button
@@ -688,41 +688,41 @@ const testBridgeConnection = async () => {
                                 :disabled="generalForm.processing"
                                 class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700"
                             >
-                                به‌روزرسانی سقف دسترسی
+                                {{ __('admin.settings.general.update_quota_btn') }}
                             </button>
                         </div>
                     </form>
 
                     <form @submit.prevent="submitAuth" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">روش‌های فعال احراز هویت</h3>
-                        <p class="text-xs text-gray-500">حداقل یکی از روش‌های نام‌کاربری یا ایمیل باید برای ورود فعال باشد.</p>
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ __('admin.settings.general.auth_methods_title') }}</h3>
+                        <p class="text-xs text-gray-500">{{ __('admin.settings.general.auth_methods_desc') }}</p>
 
                         <div class="space-y-3">
                             <div class="flex items-center gap-3">
                                 <input id="auth_username" v-model="authForm.auth_username_enabled" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                                <label for="auth_username" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">ورود با نام کاربری (Username)</label>
+                                <label for="auth_username" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">{{ __('admin.settings.general.auth_username_label') }}</label>
                             </div>
                             <div class="flex items-center gap-3">
                                 <input id="auth_email" v-model="authForm.auth_email_enabled" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                                <label for="auth_email" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">ورود با آدرس ایمیل (Email OTP / Password)</label>
+                                <label for="auth_email" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">{{ __('admin.settings.general.auth_email_label') }}</label>
                             </div>
                             <div class="flex items-center gap-3">
                                 <input id="auth_ldap" v-model="authForm.auth_ldap_enabled" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                                <label for="auth_ldap" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">احراز هویت دایرکتوری LDAP / Active Directory</label>
+                                <label for="auth_ldap" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">{{ __('admin.settings.general.auth_ldap_label') }}</label>
                             </div>
                             <div class="flex items-center gap-3">
                                 <input id="auth_keycloak" v-model="authForm.auth_keycloak_enabled" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                                <label for="auth_keycloak" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">ورود یکپارچه Keycloak OpenID Connect</label>
+                                <label for="auth_keycloak" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">{{ __('admin.settings.general.auth_keycloak_label') }}</label>
                             </div>
                             <div class="flex items-center gap-3 pt-2 border-t border-gray-100 dark:border-gray-700">
                                 <input id="allow_reg" v-model="authForm.allow_user_registration" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                                <label for="allow_reg" class="text-xs font-bold text-gray-900 dark:text-white cursor-pointer">امکان ثبت‌نام مستقیم کاربران جدید فعال باشد</label>
+                                <label for="allow_reg" class="text-xs font-bold text-gray-900 dark:text-white cursor-pointer">{{ __('admin.settings.general.allow_registration_label') }}</label>
                             </div>
                         </div>
 
                         <div class="pt-2 flex justify-end">
                             <button type="submit" :disabled="authForm.processing" class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700">
-                                ذخیره روش‌های ورود
+                                {{ __('admin.settings.general.save_auth_btn') }}
                             </button>
                         </div>
                     </form>
@@ -732,29 +732,29 @@ const testBridgeConnection = async () => {
                 <div v-if="securitySubTab === 'ldap'" class="space-y-6">
                     <form @submit.prevent="submitLdap" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
                         <div class="flex items-center justify-between">
-                            <h3 class="text-base font-bold text-gray-900 dark:text-white">پیکربندی سرور LDAP / AD</h3>
+                            <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ __('admin.settings.general.ldap_title') }}</h3>
                             <span class="text-xs px-2.5 py-1 rounded-full" :class="ldapSettings.extensionLoaded ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
-                                {{ ldapSettings.extensionLoaded ? 'اکستنشن PHP LDAP فعال است' : 'اکستنشن PHP LDAP غیرفعال است' }}
+                                {{ ldapSettings.extensionLoaded ? __('admin.settings.general.ldap_ext_enabled') : __('admin.settings.general.ldap_ext_disabled') }}
                             </span>
                         </div>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">هاست سرور LDAP</label>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_host_label') }}</label>
                                 <input v-model="ldapForm.host" type="text" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">پورت LDAP</label>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_port_label') }}</label>
                                 <input v-model="ldapForm.port" type="number" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Base DN</label>
-                                <input v-model="ldapForm.base_dn" type="text" placeholder="dc=example,dc=com" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_base_dn_label') }}</label>
+                                <input v-model="ldapForm.base_dn" type="text" :placeholder="__('admin.settings.general.ldap_base_dn_ph')" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نوع رمزنگاری</label>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_encryption_label') }}</label>
                                 <select v-model="ldapForm.encryption" class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white">
-                                    <option value="none">بدون رمزنگاری</option>
+                                    <option value="none">{{ __('admin.settings.general.enc_none') }}</option>
                                     <option value="tls">StartTLS</option>
                                     <option value="ssl">SSL / LDAPS</option>
                                 </select>
@@ -763,10 +763,10 @@ const testBridgeConnection = async () => {
 
                         <div class="pt-2 flex items-center justify-between">
                             <button type="button" @click="testLdapConnection" :disabled="testingLdap" class="px-4 py-2 text-xs font-semibold rounded-xl text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30">
-                                {{ testingLdap ? 'در حال آزمون ارتباط...' : 'تست اتصال به LDAP' }}
+                                {{ testingLdap ? __('admin.settings.general.testing_conn') : __('admin.settings.general.test_ldap_btn') }}
                             </button>
                             <button type="submit" :disabled="ldapForm.processing" class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700">
-                                ذخیره تنظیمات LDAP
+                                {{ __('admin.settings.general.save_ldap_btn') }}
                             </button>
                         </div>
 
@@ -779,33 +779,33 @@ const testBridgeConnection = async () => {
                 <!-- Sub-tab 3: Keycloak Settings -->
                 <div v-if="securitySubTab === 'keycloak'" class="space-y-6">
                     <form @submit.prevent="submitKeycloak" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
-                        <h3 class="text-base font-bold text-gray-900 dark:text-white">پیکربندی یکپارچه Keycloak SSO</h3>
+                        <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ __('admin.settings.general.keycloak_title') }}</h3>
 
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">آدرس پایه سرور Keycloak</label>
-                                <input v-model="keycloakForm.base_url" type="text" placeholder="https://auth.example.com" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_base_url_label') }}</label>
+                                <input v-model="keycloakForm.base_url" type="text" :placeholder="__('admin.settings.general.keycloak_base_url_ph')" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام قلمرو (Realm)</label>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_realm_label') }}</label>
                                 <input v-model="keycloakForm.realm" type="text" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Client ID</label>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_client_id_label') }}</label>
                                 <input v-model="keycloakForm.client_id" type="text" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                             <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Client Secret</label>
-                                <input v-model="keycloakForm.client_secret" type="password" placeholder="در صورت عدم تغییر خالی بگذارید" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_client_secret_label') }}</label>
+                                <input v-model="keycloakForm.client_secret" type="password" :placeholder="__('admin.settings.general.leave_blank_unchanged')" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
                         </div>
 
                         <div class="pt-2 flex items-center justify-between">
                             <button type="button" @click="testKeycloakConnection" :disabled="testingKeycloak" class="px-4 py-2 text-xs font-semibold rounded-xl text-indigo-700 bg-indigo-50 dark:bg-indigo-900/30">
-                                {{ testingKeycloak ? 'در حال بررسی Realm...' : 'بررسی اتصال Keycloak' }}
+                                {{ testingKeycloak ? __('admin.settings.general.testing_keycloak') : __('admin.settings.general.test_keycloak_btn') }}
                             </button>
                             <button type="submit" :disabled="keycloakForm.processing" class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700">
-                                ذخیره تنظیمات Keycloak
+                                {{ __('admin.settings.general.save_keycloak_btn') }}
                             </button>
                         </div>
 
@@ -816,21 +816,21 @@ const testBridgeConnection = async () => {
                 </div>
             </div>
 
-            <!-- TAB 3: نرخ‌های پایه و درگاه‌ها (Base Tariffs Matrix & Gateways Link) -->
+            <!-- TAB 3: Base Tariffs Matrix & Gateways Link -->
             <div v-show="activeTab === 'tariffs'" class="space-y-6">
                 <!-- Direct Gateway Management Banner -->
                 <div class="p-6 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div>
-                        <h3 class="text-base font-bold text-indigo-950 dark:text-indigo-200">مدیریت کلیدهای API و درگاه‌های پرداخت</h3>
+                        <h3 class="text-base font-bold text-indigo-950 dark:text-indigo-200">{{ __('admin.settings.general.gateways_banner_title') }}</h3>
                         <p class="text-xs text-indigo-700 dark:text-indigo-300 mt-1">
-                            پیکربندی درگاه‌های زرین‌پال، نوبیتکس، درگاه پشتیبان و مدیریت کیف‌پول ریالی/ارزی
+                            {{ __('admin.settings.general.gateways_banner_desc') }}
                         </p>
                     </div>
                     <Link
                         :href="route('admin.payments.gateways.index')"
                         class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm shrink-0"
                     >
-                        پیکربندی کلیدهای API درگاه‌ها &larr;
+                        {{ __('admin.settings.general.gateways_banner_btn') }}
                     </Link>
                 </div>
 
@@ -838,8 +838,8 @@ const testBridgeConnection = async () => {
                 <form @submit.prevent="submitPricing" class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-5">
                     <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-gray-700">
                         <div>
-                            <h3 class="text-base font-bold text-gray-900 dark:text-white">ماتریس تعرفه پایه سرشماره‌های کوتاه (۴ الی ۸ رقمی)</h3>
-                            <p class="text-xs text-gray-500 mt-0.5">قیمت‌ها برحسب کوین محاسبه می‌شوند و برای همه کاربران یکسان اعمال می‌گردد.</p>
+                            <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ __('admin.settings.general.org_pricing_title') }}</h3>
+                            <p class="text-xs text-gray-500 mt-0.5">{{ __('admin.settings.general.org_pricing_desc') }}</p>
                         </div>
                     </div>
 
@@ -850,10 +850,10 @@ const testBridgeConnection = async () => {
                             class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30"
                         >
                             <div class="text-sm font-bold text-gray-900 dark:text-white">
-                                سرشماره‌های {{ len }} رقمی
+                                {{ __('admin.settings.general.prefix_len_label', { len }) }}
                             </div>
                             <div>
-                                <label class="block text-[11px] text-gray-500 mb-0.5">قیمت عادی</label>
+                                <label class="block text-[11px] text-gray-500 mb-0.5">{{ __('admin.settings.general.regular_price_label') }}</label>
                                 <input
                                     v-model="pricingForm[`org_price_${len}_regular` as keyof typeof pricingForm]"
                                     type="number"
@@ -862,7 +862,7 @@ const testBridgeConnection = async () => {
                                 />
                             </div>
                             <div>
-                                <label class="block text-[11px] text-amber-600 mb-0.5">قیمت رند (Rond / VIP)</label>
+                                <label class="block text-[11px] text-amber-600 mb-0.5">{{ __('admin.settings.general.rond_price_label') }}</label>
                                 <input
                                     v-model="pricingForm[`org_price_${len}_rond` as keyof typeof pricingForm]"
                                     type="number"
@@ -879,13 +879,13 @@ const testBridgeConnection = async () => {
                             :disabled="pricingForm.processing"
                             class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50"
                         >
-                            {{ pricingForm.processing ? 'در حال ذخیره...' : 'ذخیره ماتریس تعرفه‌ها' }}
+                            {{ pricingForm.processing ? __('admin.settings.general.saving') : __('admin.settings.general.save_pricing_btn') }}
                         </button>
                     </div>
                 </form>
             </div>
 
-            <!-- TAB 4: سرور بریج صوتی (Go Voice Bridge Daemon) -->
+            <!-- TAB 4: Go Voice Bridge Daemon -->
             <div v-show="activeTab === 'bridge'" class="space-y-6">
                 <!-- Info & Health Banner -->
                 <div class="p-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700/60 shadow-sm space-y-4">
@@ -893,15 +893,15 @@ const testBridgeConnection = async () => {
                         <div>
                             <h2 class="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>پیکربندی سرور بریج صوتی (Voice Bridge Daemon)</span>
+                                <span>{{ __('admin.settings.general.bridge_title') }}</span>
                             </h2>
                             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                مدیریت ارتباطات پورت‌های بالا برای برقراری تماس صوتی، سیگنالینگ WebRTC و گزارش بلادرنگ پینگ
+                                {{ __('admin.settings.general.bridge_desc') }}
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
                             <span class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                                High Ports: 49000 (REST) & 49001 (WS)
+                                {{ __('admin.settings.general.bridge_ports_badge') }}
                             </span>
                         </div>
                     </div>
@@ -910,9 +910,9 @@ const testBridgeConnection = async () => {
                     <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 space-y-3">
                         <div class="flex flex-wrap items-center justify-between gap-3">
                             <div class="space-y-0.5">
-                                <div class="text-xs font-bold text-gray-800 dark:text-gray-200">وضعیت زنده دیمن صوتی (Go Binary)</div>
+                                <div class="text-xs font-bold text-gray-800 dark:text-gray-200">{{ __('admin.settings.general.bridge_health_title') }}</div>
                                 <div class="text-[11px] text-gray-500 dark:text-gray-400">
-                                    بررسی آنلاین بودن سرور بریج صوتی بر روی هاست و پورت تعیین‌شده
+                                    {{ __('admin.settings.general.bridge_health_desc') }}
                                 </div>
                             </div>
                             <button
@@ -922,7 +922,7 @@ const testBridgeConnection = async () => {
                                 class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
                             >
                                 <span v-if="testingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                <span>{{ testingBridge ? 'در حال استعلام...' : 'تست اتصال به سرور بریج' }}</span>
+                                <span>{{ testingBridge ? __('admin.settings.general.bridge_testing') : __('admin.settings.general.bridge_test_btn') }}</span>
                             </button>
                         </div>
 
@@ -949,13 +949,13 @@ const testBridgeConnection = async () => {
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    آدرس هاست سرور بریج (Bridge Host)
+                                    {{ __('admin.settings.general.bridge_host_label') }}
                                 </label>
                                 <input
                                     v-model="bridgeForm.host"
                                     type="text"
                                     required
-                                    placeholder="مثلاً: 127.0.0.1 یا domain.com"
+                                    :placeholder="__('admin.settings.general.bridge_host_placeholder')"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     dir="ltr"
                                 />
@@ -964,7 +964,7 @@ const testBridgeConnection = async () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    پورت REST API (پورت آزاد بین ۱ تا ۶۵۵۳۵)
+                                    {{ __('admin.settings.general.bridge_api_port_label') }}
                                 </label>
                                 <input
                                     v-model="bridgeForm.api_port"
@@ -972,7 +972,7 @@ const testBridgeConnection = async () => {
                                     required
                                     min="1"
                                     max="65535"
-                                    placeholder="49000 یا 25 یا هر پورت دیگر"
+                                    :placeholder="__('admin.settings.general.bridge_api_port_placeholder')"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     dir="ltr"
                                 />
@@ -981,7 +981,7 @@ const testBridgeConnection = async () => {
 
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    پورت WebSocket سیگنالینگ (پورت آزاد بین ۱ تا ۶۵۵۳۵)
+                                    {{ __('admin.settings.general.bridge_ws_port_label') }}
                                 </label>
                                 <input
                                     v-model="bridgeForm.ws_port"
@@ -989,7 +989,7 @@ const testBridgeConnection = async () => {
                                     required
                                     min="1"
                                     max="65535"
-                                    placeholder="49001 یا هر پورت دیگر"
+                                    :placeholder="__('admin.settings.general.bridge_ws_port_placeholder')"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                     dir="ltr"
                                 />
@@ -1001,21 +1001,21 @@ const testBridgeConnection = async () => {
                         <div>
                             <div class="flex items-center justify-between mb-1">
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                    توکن امنیتی احراز هویت بریج (Bridge Secret Token)
+                                    {{ __('admin.settings.general.bridge_secret_label') }}
                                 </label>
                                 <button
                                     type="button"
                                     @click="showBridgeSecret = !showBridgeSecret"
                                     class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
                                 >
-                                    <span>{{ showBridgeSecret ? 'مخفی‌سازی توکن' : 'نمایش توکن' }}</span>
+                                    <span>{{ showBridgeSecret ? __('admin.settings.general.hide_token') : __('admin.settings.general.show_token') }}</span>
                                 </button>
                             </div>
                             <div class="relative">
                                 <input
                                     v-model="bridgeForm.secret"
                                     :type="showBridgeSecret ? 'text' : 'password'"
-                                    placeholder="توکن ۳۲ کاراکتری تولید شده توسط Voice Bridge (فایل .secret)"
+                                    :placeholder="__('admin.settings.general.bridge_secret_placeholder')"
                                     class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10 pr-3"
                                     dir="ltr"
                                 />
@@ -1025,27 +1025,23 @@ const testBridgeConnection = async () => {
                                     </svg>
                                 </div>
                             </div>
-                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                                هنگام راه‌اندازی Voice Bridge روی سرور لینوکس، یک کلید ۳۲ کاراکتری تولید و در کنسول نمایش داده می‌شود (فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.secret</code>). برای اتصال امن API، آن را اینجا کپی کنید.
-                            </p>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_secret_help_html')"></p>
                             <InputError :message="bridgeForm.errors.secret" class="mt-1" />
                         </div>
 
                         <!-- Public WSS URL for HTTPS Browsers -->
                         <div>
                             <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                آدرس عمومی WebSocket امن برای مرورگرها (Public WSS URL - اختیاری)
+                                {{ __('admin.settings.general.bridge_wss_label') }}
                             </label>
                             <input
                                 v-model="bridgeForm.ws_public_url"
                                 type="text"
-                                placeholder="مثلاً: wss://yourdomain.com/ws/signaling"
+                                :placeholder="__('admin.settings.general.bridge_wss_placeholder')"
                                 class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                 dir="ltr"
                             />
-                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                                در صورتی که سایت روی <code class="font-mono">HTTPS</code> قرار دارد و پورت وب‌سوکت را از طریق Reverse Proxy (مانند Nginx) روی مسیر امن پروکسی کرده‌اید، آدرس <code class="font-mono text-indigo-500">wss://...</code> را وارد کنید تا مرورگرها بدون مسدودشدن Mixed-Content مستقیماً به سوکت بریج متصل شوند.
-                            </p>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_wss_help_html')"></p>
                             <InputError :message="bridgeForm.errors.ws_public_url" class="mt-1" />
                         </div>
 
@@ -1055,11 +1051,9 @@ const testBridgeConnection = async () => {
                                 <div>
                                     <h4 class="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
                                         <span>🛡️</span>
-                                        <span>سرور اختصاصی STUN / TURN و رله صوتی WebRTC (مستقل از اینترنت)</span>
+                                        <span>{{ __('admin.settings.general.webrtc_relay_title') }}</span>
                                     </h4>
-                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-1 leading-relaxed">
-                                        دیمن Go Voice Bridge نسخه ۲.۱ دارای سرور <strong>STUN</strong> و رله مدیا <strong>TURN</strong> داخلی است. با تنظیم دامنه یا آی‌پی، ارتباط صوتی حتی در زمان قطعی کامل اینترنت بین‌الملل (روی شبکه ملی / اینترانت محلی) بدون وقفه و با کیفیت بالا برقرار خواهد بود.
-                                    </p>
+                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-1 leading-relaxed" v-html="__('admin.settings.general.webrtc_relay_desc_html')"></p>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2 shrink-0">
                                     <span
@@ -1068,7 +1062,7 @@ const testBridgeConnection = async () => {
                                             ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
                                             : 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border-indigo-500/30'"
                                     >
-                                        {{ bridgeForm.offline_mode ? '⚡ حالت اینترانت (آفلاین)' : '🌐 حالت آنلاین اینترنت' }}
+                                        {{ bridgeForm.offline_mode ? __('admin.settings.general.badge_offline_mode') : __('admin.settings.general.badge_online_mode') }}
                                     </span>
                                     <span
                                         class="text-[10px] font-bold px-2.5 py-1 rounded-full border"
@@ -1076,7 +1070,7 @@ const testBridgeConnection = async () => {
                                             ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                                             : 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'"
                                     >
-                                        {{ (bridgeForm.turn_domain_or_ip || (bridgeForm.turn_urls && bridgeForm.turn_urls.trim())) ? '✓ رله TURN فعال' : '⚠️ بدون TURN' }}
+                                        {{ (bridgeForm.turn_domain_or_ip || (bridgeForm.turn_urls && bridgeForm.turn_urls.trim())) ? __('admin.settings.general.badge_turn_active') : __('admin.settings.general.badge_turn_missing') }}
                                     </span>
                                 </div>
                             </div>
@@ -1085,21 +1079,21 @@ const testBridgeConnection = async () => {
                             <div class="flex flex-wrap items-center gap-2 p-2.5 rounded-xl bg-white/70 dark:bg-gray-800/60 border border-indigo-100 dark:border-indigo-900/40 text-xs">
                                 <span class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
                                     <span>⚡</span>
-                                    <span>پیکربندی سریع:</span>
+                                    <span>{{ __('admin.settings.general.quick_presets_label') }}</span>
                                 </span>
                                 <button
                                     type="button"
                                     @click="applyIntranetPreset"
                                     class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition"
                                 >
-                                    🏢 حالت شبکه داخلی / آفلاین (بدون وابستگی به اینترنت)
+                                    {{ __('admin.settings.general.preset_intranet_btn') }}
                                 </button>
                                 <button
                                     type="button"
                                     @click="applyCloudDomainPreset"
                                     class="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60 transition"
                                 >
-                                    🌐 حالت دامنه اختصاصی اینترنت (با TLS/TURNS)
+                                    {{ __('admin.settings.general.preset_domain_btn') }}
                                 </button>
                             </div>
 
@@ -1107,24 +1101,24 @@ const testBridgeConnection = async () => {
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div class="sm:col-span-1">
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        دامنه یا آی‌پی سرور STUN/TURN
+                                        {{ __('admin.settings.general.turn_host_label') }}
                                     </label>
                                     <input
                                         v-model="bridgeForm.turn_domain_or_ip"
                                         type="text"
-                                        placeholder="مثلاً: voice.domain.ir یا 192.168.1.100"
+                                        :placeholder="__('admin.settings.general.turn_host_placeholder')"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     />
                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                        آدرس سرور برای تولید خودکار آدرس‌های STUN و TURN.
+                                        {{ __('admin.settings.general.turn_host_help') }}
                                     </p>
                                     <InputError :message="bridgeForm.errors.turn_domain_or_ip" class="mt-1" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        پورت STUN / TURN (RFC 5389/5766)
+                                        {{ __('admin.settings.general.turn_port_label') }}
                                     </label>
                                     <input
                                         v-model="bridgeForm.turn_port"
@@ -1136,14 +1130,14 @@ const testBridgeConnection = async () => {
                                         dir="ltr"
                                     />
                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                        پورت استاندارد UDP/TCP (پیش‌فرض: ۳۴۷۸).
+                                        {{ __('admin.settings.general.turn_port_help') }}
                                     </p>
                                     <InputError :message="bridgeForm.errors.turn_port" class="mt-1" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        پورت امن TURNS (TLS)
+                                        {{ __('admin.settings.general.turns_port_label') }}
                                     </label>
                                     <input
                                         v-model="bridgeForm.turns_port"
@@ -1162,7 +1156,7 @@ const testBridgeConnection = async () => {
                                             class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
                                         />
                                         <label for="voice_turns_toggle" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
-                                            فعال‌سازی پروتکل امن TURNS
+                                            {{ __('admin.settings.general.turns_enable_label') }}
                                         </label>
                                     </div>
                                     <InputError :message="bridgeForm.errors.turns_port" class="mt-1" />
@@ -1179,10 +1173,10 @@ const testBridgeConnection = async () => {
                                 />
                                 <div class="flex-1">
                                     <label for="voice_offline_mode_toggle" class="text-xs font-bold text-amber-900 dark:text-amber-200 cursor-pointer select-none">
-                                        حالت شبکه داخلی / آفلاین مستقل از اینترنت بین‌الملل (Intranet / Offline Mode)
+                                        {{ __('admin.settings.general.offline_mode_label') }}
                                     </label>
                                     <p class="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-relaxed">
-                                        با فعال بودن این گزینه، کلیه سرورهای خارجی (مانند گوگل و کلودفلر) حذف شده و مرورگرها فقط از سرور STUN/TURN اختصاصی شما استفاده می‌کنند؛ به این ترتیب در زمان قطعی اینترنت بین‌الملل، مرورگر معطل پاسخ سرورهای خارجی نمانده و صدا بلافاصله وصل می‌شود.
+                                        {{ __('admin.settings.general.offline_mode_help') }}
                                     </p>
                                 </div>
                             </div>
@@ -1191,24 +1185,24 @@ const testBridgeConnection = async () => {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        لیست سرورهای STUN سفارشی (اختیاری)
+                                        {{ __('admin.settings.general.stun_urls_label') }}
                                     </label>
                                     <textarea
                                         v-model="bridgeForm.stun_urls"
                                         rows="3"
-                                        placeholder="stun:stun.l.google.com:19302&#10;stun:stun.cloudflare.com:3478"
+                                        :placeholder="__('admin.settings.general.stun_urls_placeholder')"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     ></textarea>
                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                        در صورت خالی بودن، به صورت خودکار از دامنه بالا و سرورهای استاندارد استفاده می‌شود.
+                                        {{ __('admin.settings.general.stun_urls_help') }}
                                     </p>
                                     <InputError :message="bridgeForm.errors.stun_urls" class="mt-1" />
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        لیست سرورهای TURN سفارشی (اختیاری)
+                                        {{ __('admin.settings.general.turn_urls_label') }}
                                     </label>
                                     <textarea
                                         v-model="bridgeForm.turn_urls"
@@ -1218,7 +1212,7 @@ const testBridgeConnection = async () => {
                                         dir="ltr"
                                     ></textarea>
                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                        در صورت خالی بودن، بر اساس دامنه یا آی‌پی ثبت‌شده در بالا خودکار ساخته می‌شود.
+                                        {{ __('admin.settings.general.turn_urls_help') }}
                                     </p>
                                     <InputError :message="bridgeForm.errors.turn_urls" class="mt-1" />
                                 </div>
@@ -1229,36 +1223,36 @@ const testBridgeConnection = async () => {
                                 <div>
                                     <div class="flex items-center justify-between mb-1">
                                         <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                            کلید HMAC REST سرور TURN
+                                            {{ __('admin.settings.general.turn_secret_label') }}
                                         </label>
                                         <button
                                             type="button"
                                             @click="copyBridgeSecretToTurn"
                                             class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
-                                            همگام با سکرت بریج
+                                            {{ __('admin.settings.general.sync_bridge_secret_btn') }}
                                         </button>
                                     </div>
                                     <input
                                         v-model="bridgeForm.turn_secret"
                                         :type="showTurnCredential ? 'text' : 'password'"
-                                        placeholder="خالی = استفاده خودکار از سکرت بریج"
+                                        :placeholder="__('admin.settings.general.turn_secret_placeholder')"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     />
                                     <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                        برای احراز هویت توکن‌های موقت و ایمن صوتی هر تماس.
+                                        {{ __('admin.settings.general.turn_secret_help') }}
                                     </p>
                                 </div>
 
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        نام کاربری ثابت TURN (اختیاری)
+                                        {{ __('admin.settings.general.turn_username_label') }}
                                     </label>
                                     <input
                                         v-model="bridgeForm.turn_username"
                                         type="text"
-                                        placeholder="مثلاً: getnumber"
+                                        :placeholder="__('admin.settings.general.turn_username_placeholder')"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     />
@@ -1267,20 +1261,20 @@ const testBridgeConnection = async () => {
                                 <div>
                                     <div class="flex items-center justify-between mb-1">
                                         <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                            گذرواژه ثابت TURN (اختیاری)
+                                            {{ __('admin.settings.general.turn_credential_label') }}
                                         </label>
                                         <button
                                             type="button"
                                             @click="showTurnCredential = !showTurnCredential"
                                             class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
-                                            {{ showTurnCredential ? 'مخفی' : 'نمایش' }}
+                                            {{ showTurnCredential ? __('admin.settings.general.hide_short') : __('admin.settings.general.show_short') }}
                                         </button>
                                     </div>
                                     <input
                                         v-model="bridgeForm.turn_credential"
                                         :type="showTurnCredential ? 'text' : 'password'"
-                                        placeholder="گذرواژه کاربر ثابت TURN"
+                                        :placeholder="__('admin.settings.general.turn_credential_placeholder')"
                                         class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                         dir="ltr"
                                     />
@@ -1290,19 +1284,17 @@ const testBridgeConnection = async () => {
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                                 <div class="flex items-center gap-2">
                                     <label class="text-xs font-bold text-gray-700 dark:text-gray-300">
-                                        سیاست مسیریابی صوتی (ICE Transport Policy):
+                                        {{ __('admin.settings.general.ice_policy_label') }}
                                     </label>
                                     <select
                                         v-model="bridgeForm.ice_transport_policy"
                                         class="text-xs rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 px-3"
                                     >
-                                        <option value="all">خودکار (اتصال مستقیم P2P + رله TURN در صورت مسدودی)</option>
-                                        <option value="relay">اجبار عبور تمام صدا از رله سرور (TURN Relay Only)</option>
+                                        <option value="all">{{ __('admin.settings.general.ice_policy_all') }}</option>
+                                        <option value="relay">{{ __('admin.settings.general.ice_policy_relay') }}</option>
                                     </select>
                                 </div>
-                                <span class="text-[11px] text-gray-500 dark:text-gray-400">
-                                    پورت‌های خودکار سرور: پورت <code class="font-mono">3478</code> (TCP/UDP)، پورت <code class="font-mono">5349</code> (TLS) و بازه مدیا <code class="font-mono">49152-49250/UDP</code>
-                                </span>
+                                <span class="text-[11px] text-gray-500 dark:text-gray-400" v-html="__('admin.settings.general.auto_ports_info_html')"></span>
                             </div>
                         </div>
 
@@ -1310,18 +1302,14 @@ const testBridgeConnection = async () => {
                         <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 text-xs space-y-2">
                             <div class="font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                                 <span class="text-base">🐧</span>
-                                <span>دستور نصب آسان و سریع Voice Bridge روی سرور لینوکس (Linux Server Setup):</span>
+                                <span>{{ __('admin.settings.general.linux_setup_title') }}</span>
                             </div>
-                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                                پوشه <code class="font-mono text-indigo-600 dark:text-indigo-400">services/voice-bridge</code> شامل فایل اجرایی لینوکس و اسکریپت خودکار است. کافیست دستور زیر را با دسترسی root اجرا کنید تا سرویس systemd ساخته شده و شروع به کار کند:
-                            </p>
+                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed" v-html="__('admin.settings.general.linux_setup_desc_html')"></p>
                             <div class="p-2.5 rounded-lg bg-gray-900 text-emerald-400 font-mono text-[11px] select-all flex items-center justify-between" dir="ltr">
                                 <code>sudo bash install.sh</code>
-                                <span class="text-[10px] text-gray-400">سرویس خودکار در /opt/getnumber-bridge</span>
+                                <span class="text-[10px] text-gray-400">{{ __('admin.settings.general.linux_setup_path_badge') }}</span>
                             </div>
-                            <p class="text-[10px] text-slate-500 dark:text-slate-400 pt-1">
-                                💡 برای تغییر پورت در آینده، فایل <code class="font-mono text-emerald-600 dark:text-emerald-400">/opt/getnumber-bridge/.env</code> را ویرایش و دستور <code class="font-mono text-indigo-500">sudo systemctl restart getnumber-voice-bridge</code> را بزنید، یا مجدداً اسکریپت را با پورت‌های جدید اجرا کنید.
-                            </p>
+                            <p class="text-[10px] text-slate-500 dark:text-slate-400 pt-1" v-html="__('admin.settings.general.linux_setup_tip_html')"></p>
                         </div>
 
                         <!-- Enable toggle -->
@@ -1333,10 +1321,10 @@ const testBridgeConnection = async () => {
                                 class="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4"
                             />
                             <label for="voice_bridge_enabled_toggle" class="text-xs font-bold text-gray-800 dark:text-gray-200 cursor-pointer select-none">
-                                فعال‌سازی دیمن صوتی گو (Voice Bridge Enabled)
+                                {{ __('admin.settings.general.bridge_enabled_label') }}
                             </label>
                             <span class="text-[11px] text-gray-400">
-                                (در صورت غیرفعال بودن یا قطعی موقت، تماس‌ها به صورت خودکار از شبیه‌ساز امن داخلی استفاده می‌کنند)
+                                {{ __('admin.settings.general.bridge_enabled_hint') }}
                             </span>
                         </div>
 
@@ -1346,7 +1334,7 @@ const testBridgeConnection = async () => {
                                 :disabled="bridgeForm.processing"
                                 class="px-5 py-2.5 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-md shadow-emerald-600/20 disabled:opacity-50"
                             >
-                                {{ bridgeForm.processing ? 'در حال ذخیره...' : 'ذخیره تنظیمات سرور بریج صوتی' }}
+                                {{ bridgeForm.processing ? __('admin.settings.general.saving') : __('admin.settings.general.save_bridge_btn') }}
                             </button>
                         </div>
                     </form>

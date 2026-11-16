@@ -307,7 +307,9 @@ class NobitexGateway implements PaymentGatewayInterface
                 ];
             }
 
-            if ($status === 401 && (str_contains($rawBody, 'توکن غیر مجاز') || str_contains($rawBody, 'Invalid token'))) {
+            $unauthorizedFa = __('services.gateways.nobitex.raw_unauthorized_token', [], 'fa');
+            $unauthorizedEn = __('services.gateways.nobitex.raw_unauthorized_token', [], 'en');
+            if ($status === 401 && (str_contains($rawBody, $unauthorizedFa) || str_contains($rawBody, $unauthorizedEn))) {
                 return [
                     'valid' => false,
                     'message' => __('services.gateways.nobitex.token_unauthorized'),

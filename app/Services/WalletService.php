@@ -166,7 +166,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => (string) $wallet->balance,
                 'balance_after' => (string) $wallet->balance,
                 'reference_id' => $referenceId,
-                'description' => $description ?? 'هزینه ارتباطات رایگان',
+                'description' => $description ?? __('services.wallet.desc_free_communication'),
                 'metadata' => $metadata,
             ]);
         }
@@ -206,7 +206,7 @@ class WalletService implements WalletServiceInterface
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reference_id' => $referenceId,
-                'description' => $description ?? ($type === WalletTransactionType::VoiceCall ? 'کسر هزینه مکالمه صوتی' : 'کسر هزینه ارسال پیامک'),
+                'description' => $description ?? ($type === WalletTransactionType::VoiceCall ? __('services.wallet.desc_voice_call_charge') : __('services.wallet.desc_sms_send_charge')),
                 'metadata' => $metadata,
             ]);
 

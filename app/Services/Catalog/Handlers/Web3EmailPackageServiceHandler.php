@@ -182,7 +182,12 @@ class Web3EmailPackageServiceHandler extends AbstractServiceHandler
         ]);
 
         foreach ($initialSubs as $subIdentifier) {
-            $this->createSubAccount($user, $allocation, $subIdentifier, strtoupper($subIdentifier) . ' Mailbox');
+            $this->createSubAccount(
+                $user,
+                $allocation,
+                $subIdentifier,
+                __('catalog.orders.default_mailbox_display_name', ['name' => strtoupper($subIdentifier)])
+            );
         }
 
         return $allocation->fresh(['subResources']);

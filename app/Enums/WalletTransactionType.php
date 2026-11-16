@@ -17,11 +17,7 @@ enum WalletTransactionType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::ServiceUsage => __('enums.wallet_transaction_type.SERVICE_USAGE', [], 'fa') ?: 'کسر هزینه پیامک / سرویس',
-            self::VoiceCall => __('enums.wallet_transaction_type.VOICE_CALL', [], 'fa') ?: 'کسر هزینه مکالمه صوتی',
-            default => __('enums.wallet_transaction_type.' . $this->value),
-        };
+        return __('enums.wallet_transaction_type.' . $this->value);
     }
 
     public function isCredit(): bool

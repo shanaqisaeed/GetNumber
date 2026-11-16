@@ -37,9 +37,9 @@ class IdRarityEngine
         if ($len === 0) {
             return [
                 'tier' => self::TIER_REGULAR,
-                'tier_label' => 'عادی',
+                'tier_label' => __('services.numbers.id_rarity.tiers.regular'),
                 'tier_badge' => 'regular',
-                'pattern_name' => 'ورودی نامعتبر',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.invalid_input'),
                 'multiplier' => 1.0,
                 'calculated_price' => $basePrice,
                 'is_rond' => false,
@@ -49,12 +49,12 @@ class IdRarityEngine
         // 1. Ultra-short IDs (3 or 4 characters) or high-profile VIP keywords
         if ($len <= 4 || in_array($clean, self::VIP_KEYWORDS, true)) {
             $pattern = $len <= 3
-                ? 'آیدی کوتاه ۳ کاراکتری فوق نایاب'
-                : ($len === 4 ? 'آیدی ۴ کاراکتری رند طلایی' : 'آیدی کلیدواژه طلایی (VIP Keyword)');
+                ? __('services.numbers.id_rarity.patterns.short_3_ultra_rare')
+                : ($len === 4 ? __('services.numbers.id_rarity.patterns.short_4_golden') : __('services.numbers.id_rarity.patterns.vip_keyword'));
 
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی (Golden VIP)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.golden_vip'),
                 'tier_badge' => 'golden',
                 'pattern_name' => $pattern,
                 'multiplier' => 4.0,
@@ -67,9 +67,9 @@ class IdRarityEngine
         if (preg_match('/^(.)\1+$/', $clean)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی (Golden VIP)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.golden_vip'),
                 'tier_badge' => 'golden',
-                'pattern_name' => 'تکرار یکنواخت یک کاراکتر',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.all_same_chars'),
                 'multiplier' => 3.5,
                 'calculated_price' => (float) bcmul((string) $basePrice, '3.50', 4),
                 'is_rond' => true,
@@ -80,9 +80,9 @@ class IdRarityEngine
         if ($clean === strrev($clean) && $len >= 4) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی (Golden VIP)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.golden_vip'),
                 'tier_badge' => 'golden',
-                'pattern_name' => 'الگوی آینه‌ای متقارن (Palindrome)',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.palindrome'),
                 'multiplier' => 3.0,
                 'calculated_price' => (float) bcmul((string) $basePrice, '3.00', 4),
                 'is_rond' => true,
@@ -93,9 +93,9 @@ class IdRarityEngine
         if ($this->isSequential($clean)) {
             return [
                 'tier' => self::TIER_GOLDEN,
-                'tier_label' => 'رند طلایی (Golden VIP)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.golden_vip'),
                 'tier_badge' => 'golden',
-                'pattern_name' => 'توالی ترتیبی کاراکترها (Sequential)',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.sequential'),
                 'multiplier' => 3.0,
                 'calculated_price' => (float) bcmul((string) $basePrice, '3.00', 4),
                 'is_rond' => true,
@@ -106,9 +106,9 @@ class IdRarityEngine
         if ($len === 5) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند (Semi-Rond)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.semi_rond'),
                 'tier_badge' => 'semi_rond',
-                'pattern_name' => 'آیدی کوتاه ۵ کاراکتری',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.short_5_chars'),
                 'multiplier' => 2.0,
                 'calculated_price' => (float) bcmul((string) $basePrice, '2.00', 4),
                 'is_rond' => true,
@@ -119,9 +119,9 @@ class IdRarityEngine
         if (preg_match('/^([a-z0-9]{2})\1+$/', $clean) || preg_match('/([a-z0-9])\1{2,}/', $clean)) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند (Semi-Rond)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.semi_rond'),
                 'tier_badge' => 'semi_rond',
-                'pattern_name' => 'تکرار بلوک‌های دوگانه یا سه‌گانه',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.repeated_blocks'),
                 'multiplier' => 1.8,
                 'calculated_price' => (float) bcmul((string) $basePrice, '1.80', 4),
                 'is_rond' => true,
@@ -132,9 +132,9 @@ class IdRarityEngine
         if (preg_match('/(000|777|999|007)$/', $clean)) {
             return [
                 'tier' => self::TIER_SEMI,
-                'tier_label' => 'نیمه‌رند (Semi-Rond)',
+                'tier_label' => __('services.numbers.id_rarity.tiers.semi_rond'),
                 'tier_badge' => 'semi_rond',
-                'pattern_name' => 'پسوند عددی رند و خاطره‌انگیز',
+                'pattern_name' => __('services.numbers.id_rarity.patterns.memorable_numeric_suffix'),
                 'multiplier' => 1.5,
                 'calculated_price' => (float) bcmul((string) $basePrice, '1.50', 4),
                 'is_rond' => true,
@@ -144,9 +144,9 @@ class IdRarityEngine
         // 8. Standard Regular ID
         return [
             'tier' => self::TIER_REGULAR,
-            'tier_label' => 'عادی',
+            'tier_label' => __('services.numbers.id_rarity.tiers.regular'),
             'tier_badge' => 'regular',
-            'pattern_name' => 'آیدی استاندارد',
+            'pattern_name' => __('services.numbers.id_rarity.patterns.standard_id'),
             'multiplier' => 1.0,
             'calculated_price' => $basePrice,
             'is_rond' => false,

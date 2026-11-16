@@ -35,7 +35,7 @@ class ValidationEngineController extends Controller
             return response()->json([
                 'available' => false,
                 'is_available' => false,
-                'message' => 'طول سرشماره باید بین ۴ تا ۹ رقم باشد.',
+                'message' => __('controllers.api.validation_engine.short_line_length_range'),
             ], 422);
         }
 
@@ -47,7 +47,7 @@ class ValidationEngineController extends Controller
                 return response()->json([
                     'available' => false,
                     'is_available' => false,
-                    'message' => 'شماره درخواستی فقط باید شامل ارقام انگلیسی باشد.',
+                    'message' => __('controllers.api.validation_engine.short_line_digits_only'),
                 ], 422);
             }
 
@@ -55,7 +55,10 @@ class ValidationEngineController extends Controller
                 return response()->json([
                     'available' => false,
                     'is_available' => false,
-                    'message' => "طول شماره درخواستی باید دقیقاً {$length} رقم باشد (اکنون " . strlen($preferredNumber) . " رقم است).",
+                    'message' => __('controllers.api.validation_engine.short_line_exact_length', [
+                        'length' => $length,
+                        'current' => strlen($preferredNumber),
+                    ]),
                 ], 422);
             }
 
@@ -71,13 +74,13 @@ class ValidationEngineController extends Controller
                     'is_available' => false,
                     'requested_length' => $length,
                     'preferred_number' => $preferredNumber,
-                    'message' => $checkResult['message'] ?? 'این سرشماره قبلاً به مشترک دیگری واگذار شده و در دسترس نیست.',
+                    'message' => $checkResult['message'] ?? __('controllers.api.validation_engine.short_line_taken'),
                     'suggestions' => $checkResult['suggestions'] ?? [],
                     'base_price' => $checkResult['price'] ?? 100.0,
                     'final_price' => $checkResult['price'] ?? 100.0,
                     'is_rond' => $checkResult['is_rond'] ?? false,
                     'rond_tier' => $checkResult['rond_tier'] ?? 'regular',
-                    'rond_tier_label' => $checkResult['rond_tier_label'] ?? 'عادی',
+                    'rond_tier_label' => $checkResult['rond_tier_label'] ?? __('controllers.api.validation_engine.rond_regular'),
                 ]);
             }
 
@@ -88,12 +91,12 @@ class ValidationEngineController extends Controller
                 'preferred_number' => $preferredNumber,
                 'formatted_number' => $checkResult['formatted_number'] ?? $preferredNumber,
                 'rond_tier' => $checkResult['rond_tier'] ?? 'regular',
-                'rond_tier_label' => $checkResult['rond_tier_label'] ?? 'عادی',
-                'pattern_name' => $checkResult['rond_pattern'] ?? 'الگوی استاندارد',
+                'rond_tier_label' => $checkResult['rond_tier_label'] ?? __('controllers.api.validation_engine.rond_regular'),
+                'pattern_name' => $checkResult['rond_pattern'] ?? __('controllers.api.validation_engine.pattern_standard'),
                 'base_price' => $checkResult['price'] ?? 100.0,
                 'final_price' => $checkResult['price'] ?? 100.0,
                 'currency' => 'COIN',
-                'message' => 'سرشماره انتخابی در دسترس بوده و امکان ثبت سفارش وجود دارد.',
+                'message' => __('controllers.api.validation_engine.short_line_available'),
             ]);
         }
 
@@ -114,12 +117,12 @@ class ValidationEngineController extends Controller
             'requested_length' => $length,
             'preferred_number' => '',
             'rond_tier' => 'regular',
-            'rond_tier_label' => 'عادی',
-            'pattern_name' => 'تخصیص هوشمند رندوم',
+            'rond_tier_label' => __('controllers.api.validation_engine.rond_regular'),
+            'pattern_name' => __('controllers.api.validation_engine.pattern_smart_random'),
             'base_price' => $basePrice,
             'final_price' => $basePrice,
             'currency' => 'COIN',
-            'message' => 'طول سرشماره معتبر است. در صورت تمایل شماره دلخواه را وارد کنید.',
+            'message' => __('controllers.api.validation_engine.short_line_length_valid'),
         ]);
     }
 
@@ -134,7 +137,7 @@ class ValidationEngineController extends Controller
         if ($cleanHandle === '') {
             return response()->json([
                 'available' => false,
-                'message' => 'لطفاً آیدی مورد نظر خود را وارد نمایید.',
+                'message' => __('controllers.api.validation_engine.id_required'),
             ], 422);
         }
 
@@ -143,8 +146,8 @@ class ValidationEngineController extends Controller
 
         if (strlen($cleanHandle) < $minLen || strlen($cleanHandle) > 32) {
             $msg = $minLen === 6
-                ? 'حداقل طول آیدی اختصاصی برای کاربران عادی ۶ کاراکتر است (آیدی‌های ۴ و ۵ کاراکتری در بخش سازمانی ارائه می‌شوند).'
-                : 'طول آیدی سازمانی باید بین ۴ تا ۳۲ کاراکتر باشد.';
+                ? __('controllers.api.validation_engine.id_length_individual')
+                : __('controllers.api.validation_engine.id_length_enterprise');
 
             return response()->json([
                 'available' => false,
@@ -156,14 +159,14 @@ class ValidationEngineController extends Controller
         if (! preg_match('/^[a-z][a-z0-9_]*[a-z0-9]$/i', $cleanHandle) && strlen($cleanHandle) > 1) {
             return response()->json([
                 'available' => false,
-                'message' => 'آیدی باید با حروف انگلیسی آغاز شده و فقط شامل حروف، ارقام و خط زیر باشد.',
+                'message' => __('controllers.api.validation_engine.id_invalid_format'),
             ], 422);
         }
 
         if (str_contains($cleanHandle, '__')) {
             return response()->json([
                 'available' => false,
-                'message' => 'استفاده از علامت‌های خط زیر متوالی مجاز نمی‌باشد.',
+                'message' => __('controllers.api.validation_engine.id_consecutive_underscores'),
             ], 422);
         }
 
@@ -172,7 +175,7 @@ class ValidationEngineController extends Controller
         if (in_array($cleanHandle, $reserved, true)) {
             return response()->json([
                 'available' => false,
-                'message' => 'این آیدی در زمره شناسه‌های سیستمی و مسدودشده سامانه می‌باشد.',
+                'message' => __('controllers.api.validation_engine.id_reserved'),
             ]);
         }
 
@@ -189,7 +192,7 @@ class ValidationEngineController extends Controller
         if ($isTaken) {
             return response()->json([
                 'available' => false,
-                'message' => "آیدی {$formattedHandle} قبلاً ثبت شده است و در دسترس نمی‌باشد.",
+                'message' => __('controllers.api.validation_engine.id_taken', ['handle' => $formattedHandle]),
             ]);
         }
 
@@ -204,7 +207,7 @@ class ValidationEngineController extends Controller
         if ($isPending) {
             return response()->json([
                 'available' => false,
-                'message' => "آیدی {$formattedHandle} در حال حاضر توسط کاربر دیگری در دست بررسی است.",
+                'message' => __('controllers.api.validation_engine.id_pending', ['handle' => $formattedHandle]),
             ]);
         }
 
@@ -245,7 +248,7 @@ class ValidationEngineController extends Controller
             'final_price' => (string) $rarity['calculated_price'],
             'price' => (string) $rarity['calculated_price'],
             'currency' => 'COIN',
-            'message' => "آیدی {$formattedHandle} آزاد و آماده ثبت سفارش می‌باشد.",
+            'message' => __('controllers.api.validation_engine.id_available', ['handle' => $formattedHandle]),
         ]);
     }
 
@@ -261,28 +264,28 @@ class ValidationEngineController extends Controller
         if ($domainName === '') {
             return response()->json([
                 'available' => false,
-                'message' => 'نام دامنه نمی‌تواند خالی باشد.',
+                'message' => __('controllers.api.validation_engine.domain_required'),
             ], 422);
         }
 
         if (strlen($domainName) < 3 || strlen($domainName) > 40) {
             return response()->json([
                 'available' => false,
-                'message' => 'طول نام دامنه باید بین ۳ تا ۴۰ کاراکتر باشد.',
+                'message' => __('controllers.api.validation_engine.domain_length'),
             ], 422);
         }
 
         if (! preg_match('/^[a-z0-9][a-z0-9-]*[a-z0-9]$/i', $domainName)) {
             return response()->json([
                 'available' => false,
-                'message' => 'نام دامنه فقط می‌تواند شامل حروف انگلیسی، اعداد و خط تیره (-) باشد.',
+                'message' => __('controllers.api.validation_engine.domain_invalid_format'),
             ], 422);
         }
 
         if (str_contains($domainName, '--')) {
             return response()->json([
                 'available' => false,
-                'message' => 'استفاده از خط تیره‌های متوالی مجاز نیست.',
+                'message' => __('controllers.api.validation_engine.domain_consecutive_hyphens'),
             ], 422);
         }
 
@@ -291,7 +294,7 @@ class ValidationEngineController extends Controller
         if (! $tldRecord) {
             return response()->json([
                 'available' => false,
-                'message' => "پسوند انتخابی (.{$cleanTld}) در سامانه فعال نمی‌باشد.",
+                'message' => __('controllers.api.validation_engine.tld_inactive', ['tld' => $cleanTld]),
             ], 422);
         }
 
@@ -302,7 +305,7 @@ class ValidationEngineController extends Controller
         if (in_array($domainName, $reserved, true)) {
             return response()->json([
                 'available' => false,
-                'message' => "دامنه {$fullDomain} از دامنه‌های رزروشده بنیاد سامانه می‌باشد.",
+                'message' => __('controllers.api.validation_engine.domain_reserved', ['domain' => $fullDomain]),
             ]);
         }
 
@@ -315,7 +318,7 @@ class ValidationEngineController extends Controller
         if ($isTaken) {
             return response()->json([
                 'available' => false,
-                'message' => "دامنه {$fullDomain} قبلاً ثبت شده و در دسترس نیست.",
+                'message' => __('controllers.api.validation_engine.domain_taken', ['domain' => $fullDomain]),
             ]);
         }
 
@@ -327,7 +330,7 @@ class ValidationEngineController extends Controller
         if ($isPending) {
             return response()->json([
                 'available' => false,
-                'message' => "دامنه {$fullDomain} در دست بررسی سفارش دیگری قرار دارد.",
+                'message' => __('controllers.api.validation_engine.domain_pending', ['domain' => $fullDomain]),
             ]);
         }
 
@@ -358,7 +361,7 @@ class ValidationEngineController extends Controller
             'final_price' => $finalPrice,
             'max_sub_emails' => 100,
             'currency' => 'COIN',
-            'message' => "دامنه {$fullDomain} آزاد و قابل ثبت است.",
+            'message' => __('controllers.api.validation_engine.domain_available', ['domain' => $fullDomain]),
         ]);
     }
 

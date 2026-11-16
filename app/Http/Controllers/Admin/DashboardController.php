@@ -55,7 +55,7 @@ class DashboardController extends Controller
             ->map(fn ($o) => [
                 'id' => $o->id,
                 'order_number' => $o->order_number,
-                'service_title' => $o->serviceDefinition?->title ?: 'سرویس',
+                'service_title' => $o->serviceDefinition?->title ?: __('controllers.admin.dashboard.default_service_title'),
                 'identifier' => $o->requested_identifier,
                 'amount' => (string) $o->final_amount,
                 'user_name' => $o->user?->name,
@@ -84,7 +84,7 @@ class DashboardController extends Controller
             'total_numbers' => PhoneNumber::count(),
             'php_version' => PHP_VERSION,
             'uptime' => '99.98%',
-            'storage_status' => 'عالی (نرمال)',
+            'storage_status' => __('controllers.admin.dashboard.storage_status_normal'),
         ];
 
         // 6. Recent Financial Transactions

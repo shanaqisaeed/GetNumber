@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { Link } from '@inertiajs/vue3';
 import axios from 'axios';
+import { __ } from '@/Composables/useTrans';
 
 export interface ContactItem {
     id: number;
@@ -129,9 +130,9 @@ const getAvatarBg = (color?: string) => {
                         </svg>
                     </div>
                     <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">انتخاب از دفترچه مخاطبین</h3>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('ui.components.contact_picker.title') }}</h3>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                            {{ allowMultiple ? 'یک یا چند مخاطب را جهت افزودن انتخاب نمایید.' : 'مخاطب مورد نظر را برای انتخاب کلیک نمایید.' }}
+                            {{ allowMultiple ? __('ui.components.contact_picker.subtitle_multiple') : __('ui.components.contact_picker.subtitle_single') }}
                         </p>
                     </div>
                 </div>
@@ -150,7 +151,7 @@ const getAvatarBg = (color?: string) => {
                 <input
                     type="text"
                     v-model="searchQuery"
-                    placeholder="جستجو بر اساس نام، شماره تلفن یا آیدی..."
+                    :placeholder="__('ui.components.contact_picker.search_placeholder')"
                     class="form-input !py-2.5 !pr-9 !pl-8 !text-xs w-full"
                     autofocus
                 />
@@ -171,7 +172,7 @@ const getAvatarBg = (color?: string) => {
             <div class="max-h-64 overflow-y-auto space-y-2 pr-1">
                 <div v-if="isLoading" class="text-center py-8 text-xs text-slate-400 flex items-center justify-center gap-2">
                     <span class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                    <span>در حال دریافت لیست مخاطبین...</span>
+                    <span>{{ __('ui.components.contact_picker.loading') }}</span>
                 </div>
 
                 <template v-else-if="filteredContacts.length > 0">
@@ -191,7 +192,7 @@ const getAvatarBg = (color?: string) => {
                                 class="w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-black shrink-0 border"
                                 :class="getAvatarBg(contact.avatar_color)"
                             >
-                                {{ contact.name ? contact.name.charAt(0) : '؟' }}
+                                {{ contact.name ? contact.name.charAt(0) : __('ui.components.contact_picker.unknown_initial') }}
                             </div>
 
                             <div class="min-w-0">
@@ -225,7 +226,7 @@ const getAvatarBg = (color?: string) => {
                                 v-else
                                 class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 group-hover:underline px-2 py-1 rounded-lg group-hover:bg-indigo-500/10 transition-colors"
                             >
-                                انتخاب
+                                {{ __('ui.components.contact_picker.select') }}
                             </span>
                         </div>
                     </button>
@@ -236,9 +237,9 @@ const getAvatarBg = (color?: string) => {
                     <div class="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 mx-auto flex items-center justify-center text-base">
                         👥
                     </div>
-                    <div class="text-xs font-bold text-slate-700 dark:text-slate-300">مخاطبی یافت نشد</div>
+                    <div class="text-xs font-bold text-slate-700 dark:text-slate-300">{{ __('ui.components.contact_picker.empty_title') }}</div>
                     <p class="text-[11px] text-slate-400 max-w-xs mx-auto">
-                        {{ searchQuery ? 'هیچ مخاطبی با عبارت جستجو مطابقت ندارد.' : 'هنوز مخاطبی در دفترچه تلفن شما ثبت نشده است.' }}
+                        {{ searchQuery ? __('ui.components.contact_picker.empty_search') : __('ui.components.contact_picker.empty_list') }}
                     </p>
                 </div>
             </div>
@@ -250,7 +251,7 @@ const getAvatarBg = (color?: string) => {
                     @click="emit('close')"
                     class="text-indigo-600 dark:text-indigo-400 hover:underline font-bold text-[11px] flex items-center gap-1"
                 >
-                    <span>+ مدیریت مخاطبین</span>
+                    <span>{{ __('ui.components.contact_picker.manage_contacts') }}</span>
                 </Link>
 
                 <div class="flex items-center gap-2">
@@ -259,7 +260,7 @@ const getAvatarBg = (color?: string) => {
                         @click="emit('close')"
                         class="glass-pill !py-2 !px-4 !text-xs font-bold"
                     >
-                        انصراف
+                        {{ __('ui.components.contact_picker.cancel') }}
                     </button>
 
                     <button
@@ -269,7 +270,7 @@ const getAvatarBg = (color?: string) => {
                         :disabled="selectedIds.length === 0"
                         class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                     >
-                        افزودن ({{ selectedIds.length }})
+                        {{ __('ui.components.contact_picker.add_selected', { count: selectedIds.length }) }}
                     </button>
                 </div>
             </div>

@@ -254,7 +254,10 @@ class ServicePurchaseOrchestrator
                     user: $user,
                     amount: $priceData['final_amount'],
                     referenceId: 'UPG-' . strtoupper(Str::random(10)),
-                    description: $allocation->resource_identifier . ' (+' . $additionalUnits . ' Quota)',
+                    description: __('catalog.orders.desc_quota_upgrade', [
+                        'identifier' => $allocation->resource_identifier,
+                        'units' => $additionalUnits,
+                    ]),
                     metadata: [
                         'allocation_uuid' => $allocation->uuid,
                         'additional_units' => $additionalUnits,

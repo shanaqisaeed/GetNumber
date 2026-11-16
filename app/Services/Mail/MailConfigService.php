@@ -65,7 +65,12 @@ class MailConfigService
             if (!$socket) {
                 return [
                     'success' => false,
-                    'error' => "Cannot connect to {$host}:{$port} ({$errstr} - code {$errno})",
+                    'error' => __('services.mail.connection_failed', [
+                        'host' => $host,
+                        'port' => $port,
+                        'error' => $errstr,
+                        'code' => $errno,
+                    ]),
                 ];
             }
             fclose($socket);

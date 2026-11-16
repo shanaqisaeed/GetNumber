@@ -95,10 +95,10 @@ class OrderManagementController extends Controller
             'filters' => $request->only(['search', 'status', 'service_key']),
             'services' => $services,
             'statuses' => [
-                ['value' => 'pending', 'label' => 'در انتظار بررسی'],
-                ['value' => 'completed', 'label' => 'تایید و فعال‌شده'],
-                ['value' => 'rejected', 'label' => 'رد شده'],
-                ['value' => 'referred', 'label' => 'ارجاع جهت اصلاح'],
+                ['value' => 'pending', 'label' => __('controllers.admin.orders.status_pending')],
+                ['value' => 'completed', 'label' => __('controllers.admin.orders.status_completed_filter')],
+                ['value' => 'rejected', 'label' => __('controllers.admin.orders.status_rejected')],
+                ['value' => 'referred', 'label' => __('controllers.admin.orders.status_referred')],
             ],
         ]);
     }
@@ -111,7 +111,7 @@ class OrderManagementController extends Controller
         $admin = $request->user();
 
         if (in_array($order->status, ['completed', 'approved'], true)) {
-            return back()->with('error', 'این سفارش قبلاً تایید و نهایی شده است.');
+            return back()->with('error', __('controllers.admin.orders.already_approved'));
         }
 
         DB::transaction(function () use ($order, $admin) {
@@ -167,7 +167,7 @@ class OrderManagementController extends Controller
                 'reviewed_by' => $admin->id,
                 'reviewed_at' => now(),
                 'fulfilled_at' => now(),
-                'admin_note' => 'تایید و فعال‌سازی خودکار توسط مدیر سیستم.',
+                'admin_note' => __('controllers.admin.orders.approved_admin_note'),
             ]);
 
             AuditLog::record('order_approved', $order, $admin, [
@@ -177,7 +177,7 @@ class OrderManagementController extends Controller
             ]);
         });
 
-        return back()->with('success', "سفارش شماره {$order->order_number} با موفقیت تایید و سرویس فعال شد.");
+        return back()->with('success', __('controllers.admin.orders.approved_flash', ['order_number' => $order->order_number]));
     }
 
     /**
@@ -188,7 +188,7 @@ class OrderManagementController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'max:500'],
         ], [
-            'reason.required' => 'ثبت دلیل رد سفارش الزامی است.',
+            'reason.required' => __('controllers.admin.orders.val_reason_required'),
         ]);
 
         $admin = $request->user();
@@ -200,7 +200,7 @@ class OrderManagementController extends Controller
                     user: $order->user,
                     amount: (string) $order->held_amount,
                     referenceId: 'REF-' . $order->order_number,
-                    description: "بازگشت وجه سفارش رد شده {$order->order_number}"
+                    description: __('controllers.admin.orders.refund_description', ['order_number' => $order->order_number])
                 );
             }
 
@@ -217,7 +217,7 @@ class OrderManagementController extends Controller
             ]);
         });
 
-        return back()->with('success', "سفارش شماره {$order->order_number} رد گردید و وجه به کیف‌پول کاربر بازگردانده شد.");
+        return back()->with('success', __('controllers.admin.orders.rejected_flash', ['order_number' => $order->order_number]));
     }
 
     /**
@@ -228,7 +228,7 @@ class OrderManagementController extends Controller
         $validated = $request->validate([
             'note' => ['required', 'string', 'max:500'],
         ], [
-            'note.required' => 'ثبت توضیحات ارجاع به کاربر الزامی است.',
+            'note.required' => __('controllers.admin.orders.val_note_required'),
         ]);
 
         $admin = $request->user();
@@ -245,16 +245,16 @@ class OrderManagementController extends Controller
             'note' => $validated['note'],
         ]);
 
-        return back()->with('success', "سفارش شماره {$order->order_number} با موفقیت جهت اصلاح به کاربر ارجاع گردید.");
+        return back()->with('success', __('controllers.admin.orders.referred_flash', ['order_number' => $order->order_number]));
     }
 
     protected function getStatusLabel(string $status): string
     {
         return match ($status) {
-            'pending', 'held', 'reviewing' => 'در انتظار بررسی',
-            'completed', 'approved' => 'فعال و واگذارشده',
-            'rejected' => 'رد شده',
-            'referred' => 'ارجاع جهت اصلاح',
+            'pending', 'held', 'reviewing' => __('controllers.admin.orders.status_pending'),
+            'completed', 'approved' => __('controllers.admin.orders.status_completed'),
+            'rejected' => __('controllers.admin.orders.status_rejected'),
+            'referred' => __('controllers.admin.orders.status_referred'),
             default => $status,
         };
     }

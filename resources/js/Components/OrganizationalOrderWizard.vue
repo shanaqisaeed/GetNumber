@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
-import { router, Link } from '@inertiajs/vue3';
+import { router, Link, usePage } from '@inertiajs/vue3';
+import { __ } from '@/Composables/useTrans';
 
 interface PrefixItem {
     id: number;
@@ -175,7 +176,7 @@ const finalIdentifier = computed(() => {
         const prefixStr = prefixObj ? prefixObj.prefix : '';
         return requestedLineNumber.value
             ? (prefixStr ? `${prefixStr} ${requestedLineNumber.value}` : requestedLineNumber.value)
-            : `${shortLineLength.value} رقمی هوشمند`;
+            : __('ui.components.org_wizard.smart_digits_label', { length: shortLineLength.value });
     }
     if (selectedService.value === 'custom_id') {
         return requestedIdHandle.value.startsWith('@') ? requestedIdHandle.value : `@${requestedIdHandle.value}`;
@@ -222,7 +223,7 @@ const validateShortLineLive = () => {
                 loading: false,
                 valid: false,
                 available: false,
-                message: data?.message || 'خطا در اعتبارسنجی سرشماره',
+                message: data?.message || __('ui.components.org_wizard.short_line_validation_error'),
                 suggestions: data?.suggestions || [],
             };
         }
@@ -260,7 +261,7 @@ const validateCustomIdLive = () => {
             loading: false,
             valid: false,
             available: false,
-            message: 'حداقل طول آیدی در بخش سازمانی ۴ کاراکتر است.',
+            message: __('ui.components.org_wizard.custom_id_min_length'),
         };
         return;
     }
@@ -286,7 +287,7 @@ const validateCustomIdLive = () => {
                 loading: false,
                 valid: false,
                 available: false,
-                message: err.response?.data?.message || 'خطا در اعتبارسنجی آیدی',
+                message: err.response?.data?.message || __('ui.components.org_wizard.custom_id_validation_error'),
             };
         }
     }, 250);
@@ -323,7 +324,7 @@ const validateWeb3DomainLive = () => {
                 loading: false,
                 valid: false,
                 available: false,
-                message: err.response?.data?.message || 'خطا در اعتبارسنجی دامنه',
+                message: err.response?.data?.message || __('ui.components.org_wizard.domain_validation_error'),
             };
         }
     }, 250);
@@ -396,7 +397,7 @@ const submitFinalOrder = () => {
         },
         onError: (errors) => {
             isSubmitting.value = false;
-            orderError.value = Object.values(errors)[0] || 'خطا در ثبت سفارش';
+            orderError.value = Object.values(errors)[0] || __('ui.components.org_wizard.order_submit_error');
         },
     });
 };
@@ -412,9 +413,11 @@ const closeWizard = () => {
     emit('close');
 };
 
+const page = usePage();
 const formatPrice = (p: string | number) => {
     const num = Number(p) || 0;
-    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(num);
+    const locale = (page.props as any)?.locale === 'en' ? 'en-US' : 'fa-IR';
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(num);
 };
 </script>
 
@@ -431,7 +434,7 @@ const formatPrice = (p: string | number) => {
                 <div>
                     <h3 class="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
                         <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
-                        خدمات سازمانی
+                        {{ __('ui.components.org_wizard.title') }}
                     </h3>
                 </div>
                 <button
@@ -451,8 +454,8 @@ const formatPrice = (p: string | number) => {
                         ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
                         : (currentStep > 1 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400')"
                 >
-                    <span class="block text-[10px] opacity-75">گام اول</span>
-                    ۱. انتخاب سرویس
+                    <span class="block text-[10px] opacity-75">{{ __('ui.components.org_wizard.step_1_label') }}</span>
+                    {{ __('ui.components.org_wizard.step_1_title') }}
                 </div>
                 <div
                     class="p-2.5 rounded-2xl text-center border transition-all text-xs font-bold"
@@ -460,8 +463,8 @@ const formatPrice = (p: string | number) => {
                         ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
                         : (currentStep > 2 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600' : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400')"
                 >
-                    <span class="block text-[10px] opacity-75">گام دوم</span>
-                    ۲. استعلام و پیکربندی
+                    <span class="block text-[10px] opacity-75">{{ __('ui.components.org_wizard.step_2_label') }}</span>
+                    {{ __('ui.components.org_wizard.step_2_title') }}
                 </div>
                 <div
                     class="p-2.5 rounded-2xl text-center border transition-all text-xs font-bold"
@@ -469,15 +472,15 @@ const formatPrice = (p: string | number) => {
                         ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
                         : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-white/5 text-slate-400'"
                 >
-                    <span class="block text-[10px] opacity-75">گام سوم</span>
-                    ۳. تعهدات و پرداخت
+                    <span class="block text-[10px] opacity-75">{{ __('ui.components.org_wizard.step_3_label') }}</span>
+                    {{ __('ui.components.org_wizard.step_3_title') }}
                 </div>
             </div>
 
             <!-- STEP 1: Select Service -->
             <div v-if="currentStep === 1" class="space-y-4">
                 <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                    نوع سرویس سازمانی مورد نظر خود را انتخاب نمایید:
+                    {{ __('ui.components.org_wizard.select_service_prompt') }}
                 </h4>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -494,16 +497,16 @@ const formatPrice = (p: string | number) => {
                                 📞
                             </div>
                             <span v-if="!isShortLineAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                غیرفعال موقت
+                                {{ __('ui.components.org_wizard.temporarily_disabled') }}
                             </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-indigo-500 transition-colors">
-                                سرشماره‌های کوتاه
+                                {{ __('ui.components.org_wizard.service_short_lines') }}
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-indigo-600 dark:text-indigo-400 font-bold">
-                            <span>{{ isShortLineAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
+                            <span>{{ isShortLineAvailable ? __('ui.components.org_wizard.select_and_configure') : __('ui.components.org_wizard.service_unavailable') }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -521,16 +524,16 @@ const formatPrice = (p: string | number) => {
                                 🆔
                             </div>
                             <span v-if="!isCustomIdAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                غیرفعال موقت
+                                {{ __('ui.components.org_wizard.temporarily_disabled') }}
                             </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-emerald-500 transition-colors">
-                                آیدی‌های سازمانی
+                                {{ __('ui.components.org_wizard.service_custom_ids') }}
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                            <span>{{ isCustomIdAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
+                            <span>{{ isCustomIdAvailable ? __('ui.components.org_wizard.select_and_configure') : __('ui.components.org_wizard.service_unavailable') }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -548,16 +551,16 @@ const formatPrice = (p: string | number) => {
                                 🌐
                             </div>
                             <span v-if="!isWeb3DomainAvailable" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                غیرفعال موقت
+                                {{ __('ui.components.org_wizard.temporarily_disabled') }}
                             </span>
                         </div>
                         <div>
                             <h5 class="font-black text-sm text-slate-900 dark:text-white group-hover:text-amber-500 transition-colors">
-                                دامنه‌های Web3
+                                {{ __('ui.components.org_wizard.service_web3_domains') }}
                             </h5>
                         </div>
                         <div class="pt-2 border-t border-slate-100 dark:border-white/5 flex items-center justify-between text-xs text-amber-600 dark:text-amber-400 font-bold">
-                            <span>{{ isWeb3DomainAvailable ? 'انتخاب و پیکربندی' : 'سرویس غیرفعال' }}</span>
+                            <span>{{ isWeb3DomainAvailable ? __('ui.components.org_wizard.select_and_configure') : __('ui.components.org_wizard.service_unavailable') }}</span>
                             <span>←</span>
                         </div>
                     </button>
@@ -570,17 +573,17 @@ const formatPrice = (p: string | number) => {
                 <div v-if="selectedService === 'short_line'" class="space-y-4">
                     <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
                         <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <span>📞</span> تنظیمات و استعلام سرشماره کوتاه
+                            <span>📞</span> {{ __('ui.components.org_wizard.short_line_config_title') }}
                         </h4>
                         <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
-                            تغییر سرویس
+                            {{ __('ui.components.org_wizard.change_service') }}
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                پیش‌شماره خط
+                                {{ __('ui.components.org_wizard.line_prefix') }}
                             </label>
                             <select
                                 v-model="selectedPrefixId"
@@ -594,7 +597,7 @@ const formatPrice = (p: string | number) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                طول سرشماره
+                                {{ __('ui.components.org_wizard.shortcode_length') }}
                             </label>
                             <div class="flex gap-1.5">
                                 <button
@@ -607,7 +610,7 @@ const formatPrice = (p: string | number) => {
                                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                                         : 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-indigo-400'"
                                 >
-                                    {{ len }} رقم
+                                    {{ __('ui.components.org_wizard.digits_unit', { count: len }) }}
                                 </button>
                             </div>
                         </div>
@@ -618,11 +621,11 @@ const formatPrice = (p: string | number) => {
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                                 <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                <span>سرشماره‌های آزاد و آماده انتخاب ({{ shortLineLength }} رقمی):</span>
+                                <span>{{ __('ui.components.org_wizard.available_pool_shortcodes', { length: shortLineLength }) }}</span>
                             </label>
                             <span v-if="loadingPoolNumbers" class="text-[11px] text-slate-400 flex items-center gap-1">
                                 <span class="w-3 h-3 border border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
-                                در حال بارگذاری شماره‌های مخزن...
+                                {{ __('ui.components.org_wizard.loading_pool') }}
                             </span>
                         </div>
 
@@ -640,22 +643,22 @@ const formatPrice = (p: string | number) => {
                             >
                                 <span>{{ pool.number }}</span>
                                 <span v-if="pool.rond_tier && pool.rond_tier !== 'regular'" class="text-[9px] px-1.5 py-0.2 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-300 font-sans">
-                                    رند
+                                    {{ __('ui.components.org_wizard.rond_badge') }}
                                 </span>
                             </button>
                         </div>
                         <div v-else-if="!loadingPoolNumbers" class="text-[11px] text-slate-400">
-                            شماره‌ای در مخزن اولیه این پیش‌شماره ثبت نشده است؛ شماره دلخواه خود را در کادر زیر وارد فرمایید تا وضعیت آزادی آن استعلام گردد.
+                            {{ __('ui.components.org_wizard.empty_pool_hint') }}
                         </div>
                     </div>
 
                     <div>
                         <div class="flex items-center justify-between mb-1.5">
                             <label class="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                یا ورود شماره دلخواه ({{ shortLineLength }} رقمی)
+                                {{ __('ui.components.org_wizard.or_enter_custom_number', { length: shortLineLength }) }}
                             </label>
                             <span class="text-[11px] text-slate-400">
-                                بررسی آنی در دسترس بودن شماره در دیتابیس
+                                {{ __('ui.components.org_wizard.instant_db_check') }}
                             </span>
                         </div>
                         <input
@@ -664,7 +667,7 @@ const formatPrice = (p: string | number) => {
                             v-model="requestedLineNumber"
                             @input="validateShortLineLive"
                             :maxlength="shortLineLength"
-                            placeholder="مثلاً: 1000 یا 5555"
+                            :placeholder="__('ui.components.org_wizard.short_line_placeholder')"
                             class="w-full text-sm font-mono tracking-widest text-center rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-3"
                         />
                     </div>
@@ -675,7 +678,7 @@ const formatPrice = (p: string | number) => {
                         class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
                     >
                         <span class="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></span>
-                        در حال استعلام وضعیت در دسترس بودن سرشماره از دیتابیس...
+                        {{ __('ui.components.org_wizard.checking_short_line') }}
                     </div>
 
                     <!-- Unavailable Alert with Suggestions -->
@@ -685,11 +688,11 @@ const formatPrice = (p: string | number) => {
                     >
                         <div class="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-2">
                             <span>⚠️</span>
-                            <span>{{ shortLineValidation.message || 'این سرشماره قبلاً واگذار شده و در دسترس نیست.' }}</span>
+                            <span>{{ shortLineValidation.message || __('ui.components.org_wizard.short_line_taken') }}</span>
                         </div>
                         <div v-if="shortLineValidation.suggestions && shortLineValidation.suggestions.length > 0" class="pt-2 border-t border-rose-200/50 space-y-1.5">
                             <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 block">
-                                پیشنهادهای هوشمند مشابه و آزاد:
+                                {{ __('ui.components.org_wizard.smart_suggestions') }}
                             </span>
                             <div class="flex flex-wrap gap-1.5">
                                 <button
@@ -716,13 +719,13 @@ const formatPrice = (p: string | number) => {
                                 <span>✓</span> {{ shortLineValidation.message }}
                             </span>
                             <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-600 font-bold text-[11px]">
-                                رده: {{ shortLineValidation.rond_tier_label || 'عادی' }}
+                                {{ __('ui.components.org_wizard.tier_label', { tier: shortLineValidation.rond_tier_label || __('ui.components.org_wizard.tier_regular') }) }}
                             </span>
                         </div>
                         <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 dark:border-white/5 font-mono">
-                            <span>تعرفه رسمی مصوب:</span>
+                            <span>{{ __('ui.components.org_wizard.official_tariff') }}</span>
                             <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                {{ formatPrice(shortLineValidation.price || 0) }} کوین
+                                {{ formatPrice(shortLineValidation.price || 0) }} {{ __('ui.components.org_wizard.coin_unit') }}
                             </span>
                         </div>
                     </div>
@@ -732,16 +735,16 @@ const formatPrice = (p: string | number) => {
                 <div v-else-if="selectedService === 'custom_id'" class="space-y-4">
                     <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
                         <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <span>🆔</span> اعتبارسنجی و ثبت آیدی سازمانی
+                            <span>🆔</span> {{ __('ui.components.org_wizard.custom_id_config_title') }}
                         </h4>
                         <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
-                            تغییر سرویس
+                            {{ __('ui.components.org_wizard.change_service') }}
                         </button>
                     </div>
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            آیدی درخواستی (Handle)
+                            {{ __('ui.components.org_wizard.requested_handle_label') }}
                         </label>
                         <div class="relative">
                             <input
@@ -755,7 +758,7 @@ const formatPrice = (p: string | number) => {
                             <span class="absolute right-3 top-3.5 text-slate-400 font-mono text-sm">@</span>
                         </div>
                         <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                            شناسه اختصاصی سازمانی می‌تواند از حداقل ۴ کاراکتر (حروف انگلیسی a-z، اعداد 0-9 یا زیرخط _) تشکیل شود.
+                            {{ __('ui.components.org_wizard.handle_rules_hint') }}
                         </p>
                     </div>
 
@@ -765,7 +768,7 @@ const formatPrice = (p: string | number) => {
                         class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
                     >
                         <span class="w-4 h-4 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin"></span>
-                        در حال تحلیل الگو و رند بودن آیدی در بک‌اند...
+                        {{ __('ui.components.org_wizard.checking_handle') }}
                     </div>
 
                     <!-- Unavailable -->
@@ -773,7 +776,7 @@ const formatPrice = (p: string | number) => {
                         v-else-if="idValidation.available === false"
                         class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 font-bold"
                     >
-                        ⚠️ {{ idValidation.message || 'این آیدی قبلاً ثبت شده یا رزرو سیستم است.' }}
+                        ⚠️ {{ idValidation.message || __('ui.components.org_wizard.handle_taken') }}
                     </div>
 
                     <!-- Available -->
@@ -790,9 +793,9 @@ const formatPrice = (p: string | number) => {
                             </span>
                         </div>
                         <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 font-mono">
-                            <span>تعرفه محاسبه‌شده بر حسب رند بودن:</span>
+                            <span>{{ __('ui.components.org_wizard.handle_tariff_label') }}</span>
                             <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                {{ formatPrice(idValidation.price || 0) }} کوین
+                                {{ formatPrice(idValidation.price || 0) }} {{ __('ui.components.org_wizard.coin_unit') }}
                             </span>
                         </div>
                     </div>
@@ -802,17 +805,17 @@ const formatPrice = (p: string | number) => {
                 <div v-else-if="selectedService === 'web3_domain'" class="space-y-4">
                     <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
                         <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            <span>🌐</span> استعلام دامنه Web3 و پسوند
+                            <span>🌐</span> {{ __('ui.components.org_wizard.web3_config_title') }}
                         </h4>
                         <button type="button" @click="currentStep = 1" class="text-xs text-indigo-600 hover:underline">
-                            تغییر سرویس
+                            {{ __('ui.components.org_wizard.change_service') }}
                         </button>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div class="sm:col-span-2">
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                نام دامنه
+                                {{ __('ui.components.org_wizard.domain_name_label') }}
                             </label>
                             <input
                                 type="text"
@@ -825,7 +828,7 @@ const formatPrice = (p: string | number) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                                پسوند دامنه
+                                {{ __('ui.components.org_wizard.domain_tld_label') }}
                             </label>
                             <select
                                 dir="ltr"
@@ -846,7 +849,7 @@ const formatPrice = (p: string | number) => {
                         class="p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-white/5 flex items-center justify-center gap-2 text-xs text-slate-500"
                     >
                         <span class="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></span>
-                        در حال بررسی در دسترس بودن دامنه Web3...
+                        {{ __('ui.components.org_wizard.checking_domain') }}
                     </div>
 
                     <!-- Unavailable -->
@@ -854,7 +857,7 @@ const formatPrice = (p: string | number) => {
                         v-else-if="domainValidation.available === false"
                         class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 font-bold"
                     >
-                        ⚠️ {{ domainValidation.message || 'این دامنه قبلاً ثبت شده و در دسترس نیست.' }}
+                        ⚠️ {{ domainValidation.message || __('ui.components.org_wizard.domain_taken') }}
                     </div>
 
                     <!-- Available -->
@@ -871,9 +874,9 @@ const formatPrice = (p: string | number) => {
                             </span>
                         </div>
                         <div class="flex items-center justify-between text-slate-600 dark:text-slate-300 pt-2 border-t border-emerald-200/60 font-mono">
-                            <span>تعرفه ثبت دامنه:</span>
+                            <span>{{ __('ui.components.org_wizard.domain_tariff_label') }}</span>
                             <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                                {{ formatPrice(domainValidation.price || 0) }} کوین
+                                {{ formatPrice(domainValidation.price || 0) }} {{ __('ui.components.org_wizard.coin_unit') }}
                             </span>
                         </div>
                     </div>
@@ -886,7 +889,7 @@ const formatPrice = (p: string | number) => {
                         @click="currentStep = 1"
                         class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                        بازگشت به انتخاب سرویس
+                        {{ __('ui.components.org_wizard.back_to_service') }}
                     </button>
                     <button
                         type="button"
@@ -894,7 +897,7 @@ const formatPrice = (p: string | number) => {
                         :disabled="!canProceedToStep3"
                         class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
                     >
-                        <span>ادامه به مرحله تعهدات و پرداخت</span>
+                        <span>{{ __('ui.components.org_wizard.proceed_to_payment') }}</span>
                         <span>←</span>
                     </button>
                 </div>
@@ -904,40 +907,40 @@ const formatPrice = (p: string | number) => {
             <div v-else-if="currentStep === 3" class="space-y-5">
                 <div class="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-white/5">
                     <h4 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                        <span>📋</span> تعهدات و تایید نهایی سفارش
+                        <span>📋</span> {{ __('ui.components.org_wizard.step_3_heading') }}
                     </h4>
                     <button type="button" @click="currentStep = 2" class="text-xs text-indigo-600 hover:underline">
-                        ویرایش مشخصات
+                        {{ __('ui.components.org_wizard.edit_details') }}
                     </button>
                 </div>
 
                 <!-- Order Invoice Summary Card -->
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-white/10 space-y-3">
                     <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5">
-                        <span class="text-slate-500 dark:text-slate-400">نوع سرویس:</span>
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('ui.components.org_wizard.summary_service_type') }}</span>
                         <span class="font-bold text-slate-800 dark:text-slate-200">
-                            {{ selectedService === 'short_line' ? 'سرشماره کوتاه اختصاصی' : (selectedService === 'custom_id' ? 'آیدی سازمانی' : 'دامنه Web3') }}
+                            {{ selectedService === 'short_line' ? __('ui.components.org_wizard.summary_short_line') : (selectedService === 'custom_id' ? __('ui.components.org_wizard.summary_custom_id') : __('ui.components.org_wizard.summary_web3_domain')) }}
                         </span>
                     </div>
                     <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5 font-mono">
-                        <span class="text-slate-500 dark:text-slate-400">شناسه / شماره درخواستی:</span>
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('ui.components.org_wizard.summary_identifier') }}</span>
                         <span class="font-black text-indigo-600 dark:text-indigo-400 text-sm" dir="ltr">
                             {{ finalIdentifier }}
                         </span>
                     </div>
                     <div class="flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 dark:border-white/5 font-mono">
-                        <span class="text-slate-500 dark:text-slate-400">مبلغ نهایی قابل کسر:</span>
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('ui.components.org_wizard.summary_final_amount') }}</span>
                         <span class="font-black text-emerald-600 dark:text-emerald-400 text-sm">
-                            {{ formatPrice(calculatedPrice) }} کوین
+                            {{ formatPrice(calculatedPrice) }} {{ __('ui.components.org_wizard.coin_unit') }}
                         </span>
                     </div>
                     <div class="flex items-center justify-between text-xs font-mono">
-                        <span class="text-slate-500 dark:text-slate-400">موجودی فعلی کیف‌پول:</span>
+                        <span class="text-slate-500 dark:text-slate-400">{{ __('ui.components.org_wizard.summary_wallet_balance') }}</span>
                         <span
                             class="font-bold"
                             :class="isBalanceSufficient ? 'text-slate-700 dark:text-slate-300' : 'text-rose-600 dark:text-rose-400'"
                         >
-                            {{ formatPrice(walletBalance) }} کوین
+                            {{ formatPrice(walletBalance) }} {{ __('ui.components.org_wizard.coin_unit') }}
                         </span>
                     </div>
                 </div>
@@ -947,12 +950,12 @@ const formatPrice = (p: string | number) => {
                     v-if="!isBalanceSufficient"
                     class="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-600 dark:text-rose-400 flex items-center justify-between"
                 >
-                    <span class="font-bold">⚠️ موجودی کیف‌پول شما جهت پرداخت این سفارش کافی نیست.</span>
+                    <span class="font-bold">{{ __('ui.components.org_wizard.insufficient_balance') }}</span>
                     <Link
                         :href="route('wallet.deposit.create')"
                         class="px-3 py-1 rounded-lg bg-rose-600 text-white font-bold text-[11px] hover:bg-rose-700 transition-colors"
                     >
-                        شارژ کیف‌پول
+                        {{ __('ui.components.org_wizard.recharge_wallet') }}
                     </Link>
                 </div>
 
@@ -972,7 +975,7 @@ const formatPrice = (p: string | number) => {
                         class="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                     />
                     <span>
-                        کلیه قوانین و مقررات ارتباطات و تعهدات سرویس‌های سازمانی سامانه را مطالعه نموده و متعهد می‌گردم از این سرویس صرفاً در چارچوب ضوابط قانونی و تبادل پیام‌های مجاز استفاده نمایم.
+                        {{ __('ui.components.org_wizard.terms_text') }}
                     </span>
                 </label>
 
@@ -983,7 +986,7 @@ const formatPrice = (p: string | number) => {
                         @click="currentStep = 2"
                         class="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                        مرحله قبل
+                        {{ __('ui.components.org_wizard.prev_step') }}
                     </button>
                     <button
                         type="button"
@@ -992,7 +995,7 @@ const formatPrice = (p: string | number) => {
                         class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold transition-all shadow-sm flex items-center gap-2"
                     >
                         <span v-if="isSubmitting" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>{{ isSubmitting ? 'در حال ثبت و کسر از کیف‌پول...' : 'تایید نهایی و پرداخت از کیف‌پول' }}</span>
+                        <span>{{ isSubmitting ? __('ui.components.org_wizard.submitting') : __('ui.components.org_wizard.confirm_and_pay') }}</span>
                     </button>
                 </div>
             </div>

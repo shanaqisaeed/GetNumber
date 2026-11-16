@@ -377,56 +377,56 @@ class SettingController extends Controller
             'turn_secret' => ['nullable', 'string', 'max:255'],
             'ice_transport_policy' => ['nullable', 'string', 'in:all,relay'],
         ], [
-            'host.required' => 'آدرس هاست سرور بریج صوتی الزامی است.',
-            'api_port.required' => 'پورت REST API الزامی است.',
-            'ws_port.required' => 'پورت WebSocket سیگنالینگ الزامی است.',
+            'host.required' => __('controllers.admin.settings.val_voice_host_required'),
+            'api_port.required' => __('controllers.admin.settings.val_voice_api_port_required'),
+            'ws_port.required' => __('controllers.admin.settings.val_voice_ws_port_required'),
         ]);
 
-        SystemSetting::set('voice_bridge_host', $validated['host'], 'آدرس هاست سرور بریج صوتی گو');
-        SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], 'پورت API سرور بریج صوتی');
-        SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], 'پورت WebSocket سیگنالینگ صوتی');
-        SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), 'آدرس عمومی WebSocket (WSS) برای مرورگرها');
-        SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), 'توکن امنیتی احراز هویت بریج صوتی');
-        SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', 'فعال‌سازی بریج صوتی گو');
+        SystemSetting::set('voice_bridge_host', $validated['host'], __('controllers.admin.settings.desc_voice_bridge_host'));
+        SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], __('controllers.admin.settings.desc_voice_bridge_api_port'));
+        SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], __('controllers.admin.settings.desc_voice_bridge_ws_port'));
+        SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+        SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), __('controllers.admin.settings.desc_voice_bridge_secret'));
+        SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_bridge_enabled'));
 
         if ($request->has('turn_domain_or_ip')) {
-            SystemSetting::set('voice_turn_domain_or_ip', trim((string) ($validated['turn_domain_or_ip'] ?? '')), 'دامنه یا آی‌پی سرور اختصاصی STUN/TURN');
+            SystemSetting::set('voice_turn_domain_or_ip', trim((string) ($validated['turn_domain_or_ip'] ?? '')), __('controllers.admin.settings.desc_voice_turn_domain'));
         }
         if ($request->has('turn_port')) {
-            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3478), 'پورت STUN و TURN سرور بریج');
+            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3478), __('controllers.admin.settings.desc_voice_turn_port'));
         }
         if ($request->has('turns_port')) {
-            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5349), 'پورت TLS امن TURNS');
+            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5349), __('controllers.admin.settings.desc_voice_turns_port'));
         }
         if ($request->has('turns_enabled')) {
-            SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', 'فعال‌سازی پروتکل امن TURNS');
+            SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
         }
         if ($request->has('offline_mode')) {
-            SystemSetting::set('voice_offline_mode', $request->boolean('offline_mode') ? '1' : '0', 'حالت اینترانت / آفلاین مستقل از اینترنت جهانی');
+            SystemSetting::set('voice_offline_mode', $request->boolean('offline_mode') ? '1' : '0', __('controllers.admin.settings.desc_voice_offline_mode'));
         }
 
         if ($request->has('stun_urls')) {
-            SystemSetting::set('voice_stun_urls', trim((string) ($validated['stun_urls'] ?? '')), 'لیست سرورهای STUN تماس صوتی');
+            SystemSetting::set('voice_stun_urls', trim((string) ($validated['stun_urls'] ?? '')), __('controllers.admin.settings.desc_voice_stun_urls'));
         }
         if ($request->has('turn_urls')) {
-            SystemSetting::set('voice_turn_urls', trim((string) ($validated['turn_urls'] ?? '')), 'لیست سرورهای رله صوتی TURN/TURNS');
+            SystemSetting::set('voice_turn_urls', trim((string) ($validated['turn_urls'] ?? '')), __('controllers.admin.settings.desc_voice_turn_urls'));
         }
         if ($request->has('turn_username')) {
-            SystemSetting::set('voice_turn_username', trim((string) ($validated['turn_username'] ?? '')), 'نام کاربری سرور TURN');
+            SystemSetting::set('voice_turn_username', trim((string) ($validated['turn_username'] ?? '')), __('controllers.admin.settings.desc_voice_turn_username'));
         }
         if ($request->has('turn_credential')) {
-            SystemSetting::set('voice_turn_credential', (string) ($validated['turn_credential'] ?? ''), 'گذرواژه سرور TURN');
+            SystemSetting::set('voice_turn_credential', (string) ($validated['turn_credential'] ?? ''), __('controllers.admin.settings.desc_voice_turn_credential'));
         }
         if ($request->has('turn_secret')) {
-            SystemSetting::set('voice_turn_secret', trim((string) ($validated['turn_secret'] ?? '')), 'کلید مشترک HMAC سرور coturn');
+            SystemSetting::set('voice_turn_secret', trim((string) ($validated['turn_secret'] ?? '')), __('controllers.admin.settings.desc_voice_turn_secret'));
         }
         if ($request->has('ice_transport_policy')) {
-            SystemSetting::set('voice_ice_transport_policy', (string) ($validated['ice_transport_policy'] ?? 'all'), 'سیاست مسیریابی ICE تماس صوتی');
+            SystemSetting::set('voice_ice_transport_policy', (string) ($validated['ice_transport_policy'] ?? 'all'), __('controllers.admin.settings.desc_voice_ice_policy'));
         }
 
-        $this->logSettingChange($request, 'بروزرسانی تنظیمات سرور بریج صوتی Go Voice Bridge و رله صوتی TURN');
+        $this->logSettingChange($request, __('controllers.admin.settings.audit_voice_bridge_updated'));
 
-        return redirect()->route('admin.settings.general', ['tab' => 'bridge'])->with('success', 'تنظیمات ارتباطی سرور بریج صوتی و رله صوتی WebRTC با موفقیت بروزرسانی شد.');
+        return redirect()->route('admin.settings.general', ['tab' => 'bridge'])->with('success', __('controllers.admin.settings.voice_bridge_updated'));
     }
 
     /**
@@ -451,12 +451,12 @@ class SettingController extends Controller
                 $authValid = $data['auth_valid'] ?? true;
                 $authRequired = $data['auth_required'] ?? false;
 
-                $msg = "ارتباط با سرور بریج صوتی با موفقیت برقرار شد (پینگ: {$latencyMs}ms).";
+                $msg = __('controllers.admin.settings.voice_bridge_test_ok', ['latency' => $latencyMs]);
                 if ($authRequired) {
                     if ($authValid && ! empty($secret)) {
-                        $msg .= ' توکن امنیتی (Secret) نیز با موفقیت تایید و احراز هویت شد.';
+                        $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_ok');
                     } elseif (! $authValid) {
-                        $msg .= ' ⚠️ اخطار: سرور بریج فعال است اما توکن امنیتی ارسالی نامعتبر است!';
+                        $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_invalid');
                     }
                 }
 
@@ -472,12 +472,12 @@ class SettingController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => "پاسخ ناموفق از سرور بریج: وضعیت {$response->status()}",
+                'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
             ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'عدم دسترسی به سرور بریج: ' . $e->getMessage() . ' (لطفاً مطمئن شوید دیمن voice-bridge روی پورت مشخص‌شده در حال اجراست).',
+                'message' => __('controllers.admin.settings.voice_bridge_unreachable', ['error' => $e->getMessage()]),
             ], 422);
         }
     }

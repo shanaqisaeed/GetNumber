@@ -43,7 +43,7 @@ class VoiceCallController extends Controller
                 'status' => $p->status->value,
                 'is_active' => true,
                 'type' => 'number',
-                'type_label' => 'خط تلفن',
+                'type_label' => __('controllers.user.calls.type_phone_line'),
             ]);
 
         $customIdLines = $user->activeServiceAllocations()
@@ -54,11 +54,11 @@ class VoiceCallController extends Controller
                 'key' => 'custom_' . $cid->id,
                 'number' => $cid->resource_identifier,
                 'formatted_number' => $cid->resource_identifier,
-                'display_title' => $cid->display_title ?: ('آیدی اختصاصی (' . $cid->resource_identifier . ')'),
+                'display_title' => $cid->display_title ?: __('controllers.user.calls.custom_id_with_handle', ['handle' => $cid->resource_identifier]),
                 'status' => 'allocated',
                 'is_active' => true,
                 'type' => 'custom_id',
-                'type_label' => 'آیدی اختصاصی',
+                'type_label' => __('controllers.user.calls.type_custom_id'),
             ]);
 
         $allLines = $lines->concat($customIdLines)->values();
@@ -164,8 +164,8 @@ class VoiceCallController extends Controller
             'avatar_color' => ['nullable', 'string', 'max:32'],
             'notes' => ['nullable', 'string', 'max:255'],
         ], [
-            'name.required' => 'نام مخاطب الزامی است.',
-            'phone_number.required' => 'شماره تماس مخاطب الزامی است.',
+            'name.required' => __('controllers.user.calls.val_contact_name_required'),
+            'phone_number.required' => __('controllers.user.calls.val_contact_phone_required'),
         ]);
 
         $contact = Contact::create([
@@ -180,11 +180,11 @@ class VoiceCallController extends Controller
             return response()->json([
                 'success' => true,
                 'contact' => $contact,
-                'message' => 'مخاطب جدید با موفقیت اضافه شد.',
+                'message' => __('controllers.user.calls.contact_added'),
             ], 201);
         }
 
-        return back()->with('success', 'مخاطب جدید با موفقیت ذخیره شد.');
+        return back()->with('success', __('controllers.user.calls.contact_saved'));
     }
 
     /**
@@ -201,11 +201,11 @@ class VoiceCallController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'مخاطب حذف شد.',
+                'message' => __('controllers.user.calls.contact_deleted'),
             ]);
         }
 
-        return back()->with('success', 'مخاطب با موفقیت حذف شد.');
+        return back()->with('success', __('controllers.user.calls.contact_deleted_flash'));
     }
 
     /**
@@ -247,7 +247,7 @@ class VoiceCallController extends Controller
             'line_key' => ['nullable', 'string', 'max:64'],
             'destination' => ['required', 'string', 'max:64'],
         ], [
-            'destination.required' => 'شماره یا شناسه مقصد الزامی است.',
+            'destination.required' => __('controllers.user.calls.val_destination_required'),
         ]);
 
         $user = $request->user();
@@ -296,7 +296,7 @@ class VoiceCallController extends Controller
         if (! $fromNumber) {
             return response()->json([
                 'success' => false,
-                'message' => 'خط مبدأ انتخابی یافت نشد یا معتبر نمی‌باشد.',
+                'message' => __('controllers.user.calls.source_line_invalid'),
             ], 422);
         }
 
@@ -322,7 +322,7 @@ class VoiceCallController extends Controller
                     'ping_ms' => $call->metadata['ping_ms'] ?? 22,
                     'rtc_config' => $this->iceServerProvider->rtcConfigFor($user),
                 ],
-                'message' => 'تماس صوتی با موفقیت برقرار شد.',
+                'message' => __('controllers.user.calls.initiated'),
             ]);
         } catch (\App\Exceptions\InsufficientWalletBalanceException $e) {
             return response()->json([
@@ -337,7 +337,7 @@ class VoiceCallController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'خطا در برقراری تماس: ' . $e->getMessage(),
+                'message' => __('controllers.user.calls.initiate_failed', ['error' => $e->getMessage()]),
             ], 422);
         }
     }
@@ -395,7 +395,7 @@ class VoiceCallController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'تماس پاسخ داده شد.',
+            'message' => __('controllers.user.calls.answered'),
             'call' => [
                 'id' => $voiceCall->id,
                 'source' => $voiceCall->source_identifier,
@@ -436,7 +436,7 @@ class VoiceCallController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'تماس رد شد.',
+            'message' => __('controllers.user.calls.declined'),
         ]);
     }
 
@@ -447,7 +447,7 @@ class VoiceCallController extends Controller
     {
         $user = $request->user();
         if (! $user->isAdmin() && $voiceCall->user_id !== $user->id) {
-            abort(403, 'شما دسترسی به این تماس را ندارید.');
+            abort(403, __('controllers.user.calls.access_denied'));
         }
 
         $durationSeconds = $request->filled('duration_seconds')
@@ -468,7 +468,7 @@ class VoiceCallController extends Controller
                 'ended_at' => $endedCall->ended_at?->toIso8601String(),
             ],
             'wallet_balance' => (string) ($user->fresh()->wallet?->balance ?? '0.0000'),
-            'message' => "مکالمه به پایان رسید. هزینه کسر شده: {$endedCall->cost} کوین.",
+            'message' => __('controllers.user.calls.ended_with_cost', ['cost' => $endedCall->cost]),
         ]);
     }
 
@@ -488,7 +488,7 @@ class VoiceCallController extends Controller
                 'active' => false,
                 'can_continue' => false,
                 'status' => $voiceCall->status,
-                'message' => 'مکالمه پایان یافته است.',
+                'message' => __('controllers.user.calls.already_ended'),
             ]);
         }
 
@@ -518,7 +518,7 @@ class VoiceCallController extends Controller
                 'reason' => 'insufficient_balance',
                 'cost' => (float) $endedCall->cost,
                 'wallet_balance' => (string) ($user->fresh()->wallet?->balance ?? '0.0000'),
-                'message' => 'موجودی کیف‌پول شما به پایان رسید و مکالمه به صورت خودکار پایان یافت.',
+                'message' => __('controllers.user.calls.insufficient_balance_ended'),
             ]);
         }
 
@@ -562,7 +562,7 @@ class VoiceCallController extends Controller
 
         $peerCallId = $voiceCall->metadata['callee_call_id'] ?? $voiceCall->metadata['peer_call_id'] ?? null;
         if (! $peerCallId) {
-            return response()->json(['success' => false, 'message' => 'مخاطب متناظر یافت نشد.'], 404);
+            return response()->json(['success' => false, 'message' => __('controllers.user.calls.peer_not_found')], 404);
         }
 
         // Atomic append-only insert in database mailbox (prevents Cache read-modify-write race conditions)
@@ -635,7 +635,7 @@ class VoiceCallController extends Controller
         if (! empty($secret)) {
             $provided = $request->header('X-Bridge-Secret') ?: $request->input('secret');
             if ($provided !== $secret) {
-                return response()->json(['error' => 'Unauthorized bridge token'], 401);
+                return response()->json(['error' => __('controllers.user.calls.unauthorized_bridge_token')], 401);
             }
         }
 
@@ -655,7 +655,7 @@ class VoiceCallController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Bridge event processed successfully.',
+            'message' => __('controllers.user.calls.bridge_event_processed'),
         ]);
     }
 }

@@ -85,7 +85,7 @@ class Web3DomainController extends Controller
                 'quota_mb' => $mailbox->quota_mb,
                 'aliases' => [],
             ],
-            'message' => 'صندوق ایمیل سازمانی با موفقیت ایجاد گردید.',
+            'message' => __('controllers.user.web3_domains.mailbox_created'),
         ]);
     }
 
@@ -112,7 +112,7 @@ class Web3DomainController extends Controller
                 'alias_address' => $alias->alias_address,
                 'is_active' => (bool) $alias->is_active,
             ],
-            'message' => 'نام مستعار / ساب‌ایمیل جدید ایجاد شد.',
+            'message' => __('controllers.user.web3_domains.alias_created'),
         ]);
     }
 
@@ -131,7 +131,7 @@ class Web3DomainController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'ساب‌ایمیل با موفقیت حذف گردید.',
+            'message' => __('controllers.user.web3_domains.alias_deleted'),
         ]);
     }
 }

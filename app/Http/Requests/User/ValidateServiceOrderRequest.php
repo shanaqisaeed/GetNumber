@@ -34,6 +34,20 @@ class ValidateServiceOrderRequest extends FormRequest
     }
 
     /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'service_key.required' => __('requests.user.validate_service_order.service_key_required'),
+            'order_context.in' => __('requests.user.validate_service_order.order_context_in'),
+            'requested_length.min' => __('requests.user.validate_service_order.requested_length_between'),
+            'requested_length.max' => __('requests.user.validate_service_order.requested_length_between'),
+            'display_title.max' => __('requests.user.validate_service_order.display_title_max'),
+        ];
+    }
+
+    /**
      * Normalize payload whether fields were sent inside `payload` or at top level.
      *
      * @return array<string, mixed>

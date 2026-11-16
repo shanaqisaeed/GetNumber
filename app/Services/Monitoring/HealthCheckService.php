@@ -61,7 +61,7 @@ class HealthCheckService
         } catch (Throwable $e) {
             return [
                 'status' => 'DOWN',
-                'error' => 'Database connection failed',
+                'error' => __('services.monitoring.health.db_connection_failed'),
             ];
         }
     }
@@ -84,7 +84,7 @@ class HealthCheckService
         } catch (Throwable) {
             return [
                 'status' => 'DOWN',
-                'error' => 'Cache store unavailable',
+                'error' => __('services.monitoring.health.cache_unavailable'),
             ];
         }
     }

@@ -71,25 +71,9 @@ class AuditLog extends Model
      */
     public function getActionLabelAttribute(): string
     {
-        return match ($this->action) {
-            'user_created' => __('models.audit_log.actions.user_created'),
-            'user_updated' => __('models.audit_log.actions.user_updated'),
-            'user_status_changed' => __('models.audit_log.actions.user_status_changed'),
-            'user_role_changed' => __('models.audit_log.actions.user_role_changed'),
-            'number_created' => __('models.audit_log.actions.number_created'),
-            'number_assigned' => __('models.audit_log.actions.number_assigned'),
-            'number_released' => __('models.audit_log.actions.number_released'),
-            'number_status_changed' => __('models.audit_log.actions.number_status_changed'),
-            'request_submitted' => __('models.audit_log.actions.request_submitted'),
-            'request_approved' => __('models.audit_log.actions.request_approved'),
-            'request_rejected' => __('models.audit_log.actions.request_rejected'),
-            'token_created' => __('models.audit_log.actions.token_created'),
-            'token_rotated' => __('models.audit_log.actions.token_rotated'),
-            'token_revoked' => __('models.audit_log.actions.token_revoked'),
-            'message_deleted' => __('models.audit_log.actions.message_deleted'),
-            'message_sent' => __('models.audit_log.actions.message_sent'),
-            default => $this->action,
-        };
+        $key = 'models.audit_log.actions.' . $this->action;
+
+        return \Illuminate\Support\Facades\Lang::has($key) ? __($key) : $this->action;
     }
 
     /**

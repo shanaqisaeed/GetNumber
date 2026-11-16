@@ -70,7 +70,7 @@ class SmsService implements SmsServiceInterface
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: $totalRequiredAmount,
                     currentBalance: (string) $wallet->balance,
-                    message: "اعتبار کیف‌پول شما جهت ارسال این پیامک (مبلغ {$totalRequiredAmount} کوین) کافی نمی‌باشد."
+                    message: __('services.communication.sms.insufficient_balance', ['amount' => $totalRequiredAmount])
                 );
             }
 
@@ -79,7 +79,11 @@ class SmsService implements SmsServiceInterface
                 amount: $totalRequiredAmount,
                 referenceId: $txReference,
                 type: WalletTransactionType::ServiceUsage,
-                description: "ارسال پیامک از خط {$fromNumber->number} ({$destinationsList->count()} مقصد - {$costInfo['parts_count']} پارت)",
+                description: __('services.communication.sms.desc_usage_charge', [
+                    'number' => $fromNumber->number,
+                    'recipients' => $destinationsList->count(),
+                    'parts' => $costInfo['parts_count'],
+                ]),
                 metadata: [
                     'phone_number_id' => $fromNumber->id,
                     'parts_count' => $costInfo['parts_count'],
@@ -116,7 +120,7 @@ class SmsService implements SmsServiceInterface
                     $results[] = [
                         'destination' => $rawDest,
                         'status' => 'failed',
-                        'reason' => 'آیدی اختصاصی مقصد یافت نشد یا در وضعیت فعال نمی‌باشد.',
+                        'reason' => __('services.communication.sms.dest_custom_id_not_found'),
                     ];
                     $failedCount++;
                     continue;

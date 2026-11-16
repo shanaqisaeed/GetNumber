@@ -53,5 +53,17 @@ return [
             'preferred_number_regex' => 'فرمت شماره درخواستی نامعتبر است.',
             'display_title_max' => 'عنوان نمایشی نمی‌تواند بیش از ۱۰۰ کاراکتر باشد.',
         ],
+        'store_sub_resource' => [
+            'sub_identifier_required' => 'وارد کردن شناسه ساب‌اکانت الزامی است.',
+            'sub_identifier_min' => 'شناسه ساب‌اکانت باید حداقل ۲ کاراکتر باشد.',
+            'sub_identifier_max' => 'شناسه ساب‌اکانت نمی‌تواند بیش از ۴۸ کاراکتر باشد.',
+            'display_name_max' => 'عنوان نمایشی نمی‌تواند بیش از ۱۲۰ کاراکتر باشد.',
+        ],
+        'validate_service_order' => [
+            'service_key_required' => 'انتخاب نوع سرویس الزامی است.',
+            'order_context_in' => 'بستر ثبت سفارش انتخاب‌شده نامعتبر است.',
+            'requested_length_between' => 'طول شماره درخواستی باید بین ۴ تا ۹ رقم باشد.',
+            'display_title_max' => 'عنوان نمایشی نمی‌تواند بیش از ۱۲۰ کاراکتر باشد.',
+        ],
     ],
 ];

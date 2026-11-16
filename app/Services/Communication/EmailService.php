@@ -71,7 +71,7 @@ class EmailService implements EmailServiceInterface
         return [
             'success' => true,
             'tracking_id' => $trackingId,
-            'message' => 'ایمیل با موفقیت ارسال گردید (Mock/Stub).',
+            'message' => __('services.communication.email.sent_mock_success'),
         ];
     }
 

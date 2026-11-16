@@ -3,6 +3,7 @@ import UserLayout from '@/Layouts/UserLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import OrganizationalOrderWizard from '@/Components/OrganizationalOrderWizard.vue';
+import { __ } from '@/Composables/useTrans';
 
 interface AllocatedNumber {
     id: number;
@@ -233,7 +234,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                 <!-- Call to action button to open 3-Step Wizard -->
                 <div class="mt-4 flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <div class="text-xs text-slate-500 dark:text-slate-400">
-                        موجودی کیف‌پول:
+                        {{ __('user.requests.wallet_balance_short') }}
                         <strong class="font-mono text-emerald-600 dark:text-emerald-400 font-bold" dir="ltr">
                             {{ Number(wallet?.balance || 0).toFixed(2) }} TRX
                         </strong>
@@ -243,7 +244,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         @click="openOrgWizard"
                         class="glass-btn-primary !w-auto !py-2.5 !px-6 !text-xs !rounded-xl flex items-center gap-2 shadow-lg shadow-indigo-500/20"
                     >
-                        <span>+ ثبت سفارش</span>
+                        <span>+ {{ __('user.requests.place_order_btn') }}</span>
                     </button>
                 </div>
 
@@ -259,12 +260,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     </svg>
                                 </div>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
-                                    ۴ الی ۸ رقم
+                                    {{ __('user.requests.short_lines_badge') }}
                                 </span>
                             </div>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">خطوط کوتاه و رند سازمانی</h3>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">{{ __('user.requests.card_short_lines_title') }}</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                سرشماره‌های کوتاه اختصاصی با قابلیت تبادل پیامک دوطرفه و پیش‌نمایش تماس صوتی.
+                                {{ __('user.requests.card_short_lines_desc') }}
                             </p>
                         </div>
                         <button
@@ -272,7 +273,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @click="openOrgWizard"
                             class="glass-pill !py-2 !px-3 !text-xs font-bold text-purple-600 dark:text-purple-400 border border-purple-500/30 text-center hover:bg-purple-500/10 transition-colors"
                         >
-                            سفارش خط سازمانی ←
+                            {{ __('user.requests.order_org_line_btn') }}
                         </button>
                     </div>
 
@@ -284,12 +285,12 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     @
                                 </div>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                                    شروع از ۴ کاراکتر
+                                    {{ __('user.requests.from_4_chars_badge') }}
                                 </span>
                             </div>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">آیدی‌های سازمانی و برندینگ</h3>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">{{ __('user.requests.card_custom_ids_title') }}</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                آیدی‌های رسمی و کوتاه تجاری (@brand) با تحلیل هوشمند رند بودن و رتبه‌بندی نایابی.
+                                {{ __('user.requests.card_custom_ids_desc') }}
                             </p>
                         </div>
                         <button
@@ -297,7 +298,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @click="openOrgWizard"
                             class="glass-pill !py-2 !px-3 !text-xs font-bold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 text-center hover:bg-indigo-500/10 transition-colors"
                         >
-                            سفارش آیدی سازمانی ←
+                            {{ __('user.requests.order_org_id_btn') }}
                         </button>
                     </div>
 
@@ -314,9 +315,9 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                     .web3 / .dao
                                 </span>
                             </div>
-                            <h3 class="text-xs font-black text-slate-900 dark:text-white">دامنه‌ها و پکیج وب۳</h3>
+                            <h3 class="text-xs font-black text-slate-900 dark:text-white">{{ __('user.requests.card_web3_title') }}</h3>
                             <p class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                ثبت دامنه غیرمتمرکز، ایجاد صندوق‌های ایمیل زیرمجموعه و مدیریت کووتای پیام‌ها.
+                                {{ __('user.requests.card_web3_desc') }}
                             </p>
                         </div>
                         <button
@@ -324,7 +325,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             @click="openOrgWizard"
                             class="glass-pill !py-2 !px-3 !text-xs font-bold text-amber-600 dark:text-amber-400 border border-amber-500/30 text-center hover:bg-amber-500/10 transition-colors"
                         >
-                            سفارش دامنه Web3 ←
+                            {{ __('user.requests.order_web3_btn') }}
                         </button>
                     </div>
                 </div>

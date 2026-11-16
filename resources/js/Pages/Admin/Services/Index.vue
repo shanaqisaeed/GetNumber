@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { useTrans } from '@/Composables/useTrans';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+
+const { __ } = useTrans();
+const page = usePage();
 
 interface SampleLine {
     id: number;
@@ -157,7 +161,7 @@ const submitEditTld = () => {
 };
 
 const deleteTld = (tld: TldItem) => {
-    if (confirm(`آیا از حذف پسوند .${tld.tld} اطمینان دارید؟`)) {
+    if (confirm(__('admin.services.confirm_delete_tld', { tld: tld.tld }))) {
         router.delete(route('admin.services.tld.destroy', tld.id), {
             preserveScroll: true,
         });
@@ -165,12 +169,13 @@ const deleteTld = (tld: TldItem) => {
 };
 
 const formatCurrency = (val: string | number) => {
-    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(Number(val) || 0);
+    const locale = (page.props as any)?.locale === 'en' ? 'en-US' : 'fa-IR';
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(val) || 0);
 };
 </script>
 
 <template>
-    <Head title="مدیریت معماری سرویس‌ها" />
+    <Head :title="__('admin.services.arch_head_title')" />
 
     <AdminLayout>
         <div class="space-y-6">
@@ -181,10 +186,10 @@ const formatCurrency = (val: string | number) => {
                         <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                         </svg>
-                        مدیریت تخصصی سرویس‌های پلتفرم
+                        {{ __('admin.services.arch_page_title') }}
                     </h1>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        تنظیمات جامع خطوط، آیدی‌ها و دامنه‌های Web3، سوییچ‌های فروش و ماتریس قیمت‌گذاری
+                        {{ __('admin.services.arch_page_subtitle') }}
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
@@ -192,7 +197,7 @@ const formatCurrency = (val: string | number) => {
                         :href="route('admin.orders.index')"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 transition-colors"
                     >
-                        کنسول بررسی سفارشات &larr;
+                        {{ __('admin.services.orders_console_link') }}
                     </Link>
                 </div>
             </div>
@@ -209,7 +214,7 @@ const formatCurrency = (val: string | number) => {
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
                         </svg>
-                        <span>۱. خطوط (Phone Lines)</span>
+                        <span>{{ __('admin.services.tab_phone_lines') }}</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                             {{ phone_lines.total_lines }}
                         </span>
@@ -224,7 +229,7 @@ const formatCurrency = (val: string | number) => {
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                        <span>۲. آیدی‌ها (Handles / IDs)</span>
+                        <span>{{ __('admin.services.tab_custom_ids') }}</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                             {{ custom_ids.total_allocations }}
                         </span>
@@ -239,7 +244,7 @@ const formatCurrency = (val: string | number) => {
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
                         </svg>
-                        <span>۳. دامنه‌های Web3 و پسوندها (TLDs)</span>
+                        <span>{{ __('admin.services.tab_web3_domains') }}</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
                             {{ web3_domains.tlds.length }} TLD
                         </span>
@@ -247,16 +252,16 @@ const formatCurrency = (val: string | number) => {
                 </nav>
             </div>
 
-            <!-- Tab 1: خطوط (Phone Lines) -->
+            <!-- Tab 1: Phone Lines -->
             <div v-if="activeTab === 'phone_lines'" class="space-y-6">
                 <!-- Global Controls Card -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 class="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            کنترل وضعیت و خرید خطوط ارتباطی
+                            {{ __('admin.services.lines_control_title') }}
                         </h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            امکان غیرفعال‌سازی کلی سرویس خطوط و کنترل قابلیت خرید آنی توسط کاربران در سامانه.
+                            {{ __('admin.services.lines_control_desc') }}
                         </p>
                     </div>
 
@@ -268,7 +273,7 @@ const formatCurrency = (val: string | number) => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                             </svg>
-                            تعرفه سرشماره‌ها
+                            {{ __('admin.services.prefix_tariffs_btn') }}
                         </Link>
 
                         <button
@@ -277,7 +282,7 @@ const formatCurrency = (val: string | number) => {
                             class="px-4 py-2.5 text-xs font-bold rounded-xl transition-colors shadow-sm"
                             :class="phone_lines.is_active ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'"
                         >
-                            {{ phone_lines.is_active ? 'سرویس فعال است' : 'سرویس غیرفعال است' }}
+                            {{ phone_lines.is_active ? __('admin.services.service_active') : __('admin.services.service_inactive') }}
                         </button>
 
                         <button
@@ -286,7 +291,7 @@ const formatCurrency = (val: string | number) => {
                             class="px-4 py-2.5 text-xs font-bold rounded-xl transition-colors shadow-sm"
                             :class="phone_lines.is_purchasable ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                         >
-                            {{ phone_lines.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
+                            {{ phone_lines.is_purchasable ? __('admin.services.purchasable_active') : __('admin.services.purchasable_inactive') }}
                         </button>
                     </div>
                 </div>
@@ -296,17 +301,17 @@ const formatCurrency = (val: string | number) => {
                     <div class="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                         <div>
                             <h3 class="text-base font-bold text-gray-900 dark:text-white">
-                                لیست شماره‌های ثبت‌شده در سیستم
+                                {{ __('admin.services.registered_numbers_title') }}
                             </h3>
                             <p class="text-xs text-gray-500 mt-0.5">
-                                فهرست خطوط ارتباطی و وضعیت مالکیت آن‌ها در سامانه
+                                {{ __('admin.services.registered_numbers_desc') }}
                             </p>
                         </div>
                         <Link
                             :href="route('admin.numbers.index')"
                             class="text-xs font-bold text-indigo-600 hover:underline"
                         >
-                            مشاهده تمام خطوط در سامانه ({{ phone_lines.total_lines }}) &larr;
+                            {{ __('admin.services.view_all_lines_link', { count: phone_lines.total_lines }) }}
                         </Link>
                     </div>
 
@@ -314,12 +319,12 @@ const formatCurrency = (val: string | number) => {
                         <table class="w-full text-right text-sm">
                             <thead class="bg-gray-50/75 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100 dark:border-gray-700">
                                 <tr>
-                                    <th class="p-4">شماره خط</th>
-                                    <th class="p-4">نوع</th>
-                                    <th class="p-4">عنوان نمایشی</th>
-                                    <th class="p-4">مالک فعلی</th>
-                                    <th class="p-4">وضعیت</th>
-                                    <th class="p-4 text-center">ویرایش</th>
+                                    <th class="p-4">{{ __('admin.services.th_line_number') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_line_type') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_line_display_title') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_line_owner') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_status') }}</th>
+                                    <th class="p-4 text-center">{{ __('admin.services.th_line_edit') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -338,7 +343,7 @@ const formatCurrency = (val: string | number) => {
                                         {{ line.display_title }}
                                     </td>
                                     <td class="p-4 text-xs font-medium text-gray-900 dark:text-white">
-                                        {{ line.user_name || 'بدون مالک' }}
+                                        {{ line.user_name || __('admin.services.no_owner') }}
                                     </td>
                                     <td class="p-4">
                                         <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold" :class="line.status_badge">
@@ -353,7 +358,7 @@ const formatCurrency = (val: string | number) => {
                                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                             </svg>
-                                            ویرایش
+                                            {{ __('admin.services.edit_btn') }}
                                         </Link>
                                     </td>
                                 </tr>
@@ -363,17 +368,17 @@ const formatCurrency = (val: string | number) => {
                 </div>
             </div>
 
-            <!-- Tab 2: آیدی‌ها (Handles / Custom IDs) -->
+            <!-- Tab 2: Handles / Custom IDs -->
             <div v-if="activeTab === 'custom_ids'" class="space-y-6">
                 <!-- Controls Card -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 space-y-6">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-gray-100 dark:border-gray-700">
                         <div>
                             <h2 class="text-base font-bold text-gray-900 dark:text-white">
-                                وضعیت فروش و مکانیزم تایید آیدی‌ها
+                                {{ __('admin.services.id_control_title') }}
                             </h2>
                             <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                فعال‌سازی کلی خرید و نحوه تایید سفارشات (تایید خودکار آنی یا بازبینی دستی توسط مدیر)
+                                {{ __('admin.services.id_control_desc') }}
                             </p>
                         </div>
                         <div class="flex items-center gap-3">
@@ -384,7 +389,7 @@ const formatCurrency = (val: string | number) => {
                                 class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                                 :class="custom_ids.is_active ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'"
                             >
-                                {{ custom_ids.is_active ? 'سرویس آیدی: فعال' : 'سرویس آیدی: غیرفعال' }}
+                                {{ custom_ids.is_active ? __('admin.services.id_service_active') : __('admin.services.id_service_inactive') }}
                             </button>
 
                             <!-- Toggle Purchasable -->
@@ -394,7 +399,7 @@ const formatCurrency = (val: string | number) => {
                                 class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                                 :class="custom_ids.is_purchasable ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                             >
-                                {{ custom_ids.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
+                                {{ custom_ids.is_purchasable ? __('admin.services.purchasable_active') : __('admin.services.purchasable_inactive') }}
                             </button>
 
                             <!-- Toggle Approval Mode -->
@@ -404,7 +409,7 @@ const formatCurrency = (val: string | number) => {
                                 class="px-4 py-2 text-xs font-bold rounded-xl transition-colors border"
                                 :class="custom_ids.requires_approval ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300' : 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'"
                             >
-                                مکانیزم: {{ custom_ids.requires_approval ? 'نیازمند تایید مدیر' : 'تایید خودکار آنی (Auto)' }}
+                                {{ __('admin.services.approval_mode_label', { mode: custom_ids.requires_approval ? __('admin.services.mode_manual') : __('admin.services.mode_auto') }) }}
                             </button>
                         </div>
                     </div>
@@ -412,10 +417,10 @@ const formatCurrency = (val: string | number) => {
                     <!-- ID Length & Rarity Pricing Table -->
                     <div>
                         <h3 class="text-base font-bold text-gray-900 dark:text-white mb-1">
-                            جدول قیمت‌گذاری هوشمند آیدی‌ها بر اساس طول کاراکترها و ضرایب رند بودن
+                            {{ __('admin.services.id_pricing_title') }}
                         </h3>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                            تعیین نرخ‌های پایه بر اساس تعداد حروف و تنظیم ضرایب تصاعدی الگوریتم اعتبارسنجی زنده
+                            {{ __('admin.services.id_pricing_desc') }}
                         </p>
 
                         <form @submit.prevent="submitIdPricing" class="space-y-4">
@@ -423,7 +428,7 @@ const formatCurrency = (val: string | number) => {
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div class="p-4 rounded-xl border border-purple-200 dark:border-purple-800/50 bg-purple-50/40 dark:bg-purple-900/10">
                                     <label class="block text-xs font-bold text-purple-900 dark:text-purple-300 mb-1">
-                                        نرخ پایه آیدی‌های ۴ کاراکتری
+                                        {{ __('admin.services.price_4char_label') }}
                                     </label>
                                     <div class="relative">
                                         <input
@@ -434,14 +439,14 @@ const formatCurrency = (val: string | number) => {
                                             required
                                             class="w-full text-sm font-mono rounded-xl border-purple-300 dark:border-purple-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
                                         />
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">{{ __('admin.services.coin_unit') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-gray-400 mt-1">ویژه سازمان‌ها و برندهای کوتاه</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ __('admin.services.price_4char_hint') }}</p>
                                 </div>
 
                                 <div class="p-4 rounded-xl border border-blue-200 dark:border-blue-800/50 bg-blue-50/40 dark:bg-blue-900/10">
                                     <label class="block text-xs font-bold text-blue-900 dark:text-blue-300 mb-1">
-                                        نرخ پایه آیدی‌های ۵ کاراکتری
+                                        {{ __('admin.services.price_5char_label') }}
                                     </label>
                                     <div class="relative">
                                         <input
@@ -452,14 +457,14 @@ const formatCurrency = (val: string | number) => {
                                             required
                                             class="w-full text-sm font-mono rounded-xl border-blue-300 dark:border-blue-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
                                         />
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">{{ __('admin.services.coin_unit') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-gray-400 mt-1">شناسه‌های تجاری و کوتاه</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ __('admin.services.price_5char_hint') }}</p>
                                 </div>
 
                                 <div class="p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
                                     <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        نرخ پایه آیدی‌های ۶ کاراکتر به بالا
+                                        {{ __('admin.services.price_6plus_label') }}
                                     </label>
                                     <div class="relative">
                                         <input
@@ -470,9 +475,9 @@ const formatCurrency = (val: string | number) => {
                                             required
                                             class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pr-3 pl-12"
                                         />
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">کوین</span>
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">{{ __('admin.services.coin_unit') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-gray-400 mt-1">شناسه‌های استاندارد و عمومی کاربران</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ __('admin.services.price_6plus_hint') }}</p>
                                 </div>
                             </div>
 
@@ -480,7 +485,7 @@ const formatCurrency = (val: string | number) => {
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                                 <div class="p-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50/40 dark:bg-amber-900/10">
                                     <label class="block text-xs font-bold text-amber-800 dark:text-amber-300 mb-1">
-                                        ضریب آیدی‌های نیمه‌رند (Semi-Rond Multiplier)
+                                        {{ __('admin.services.mult_semi_label') }}
                                     </label>
                                     <div class="relative">
                                         <input
@@ -491,14 +496,14 @@ const formatCurrency = (val: string | number) => {
                                             required
                                             class="w-full text-sm font-mono rounded-xl border-amber-300 dark:border-amber-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
                                         />
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">&times; برابر</span>
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">{{ __('admin.services.multiplier_unit') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-gray-400 mt-1">الگوهای تکرار دوتایی، حروف متقارن و...</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ __('admin.services.mult_semi_hint') }}</p>
                                 </div>
 
                                 <div class="p-4 rounded-xl border border-rose-200 dark:border-rose-800/50 bg-rose-50/40 dark:bg-rose-900/10">
                                     <label class="block text-xs font-bold text-rose-800 dark:text-rose-300 mb-1">
-                                        ضریب آیدی‌های طلایی و VIP (Golden Rond Multiplier)
+                                        {{ __('admin.services.mult_golden_label') }}
                                     </label>
                                     <div class="relative">
                                         <input
@@ -509,9 +514,9 @@ const formatCurrency = (val: string | number) => {
                                             required
                                             class="w-full text-sm font-mono rounded-xl border-rose-300 dark:border-rose-700 dark:bg-gray-700 dark:text-white pr-3 pl-12"
                                         />
-                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">&times; برابر</span>
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-gray-400">{{ __('admin.services.multiplier_unit') }}</span>
                                     </div>
-                                    <p class="text-[11px] text-gray-400 mt-1">کلمات کلیدی تجاری، تکرار کامل یک کاراکتر و...</p>
+                                    <p class="text-[11px] text-gray-400 mt-1">{{ __('admin.services.mult_golden_hint') }}</p>
                                 </div>
                             </div>
 
@@ -521,7 +526,7 @@ const formatCurrency = (val: string | number) => {
                                     :disabled="idPricingForm.processing"
                                     class="px-6 py-2.5 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20 disabled:opacity-50"
                                 >
-                                    {{ idPricingForm.processing ? 'در حال ثبت...' : 'ذخیره جدول تعرفه و ضرایب آیدی‌ها' }}
+                                    {{ idPricingForm.processing ? __('admin.services.saving') : __('admin.services.save_id_pricing') }}
                                 </button>
                             </div>
                         </form>
@@ -529,16 +534,16 @@ const formatCurrency = (val: string | number) => {
                 </div>
             </div>
 
-            <!-- Tab 3: دامنه‌های Web3 و پسوندها (TLDs) -->
+            <!-- Tab 3: Web3 Domains & TLDs -->
             <div v-if="activeTab === 'web3_domains'" class="space-y-6">
                 <!-- Header Card -->
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 class="text-base font-bold text-gray-900 dark:text-white">
-                            مدیریت پسوندهای مجاز و نرخ‌گذاری دامنه‌ها
+                            {{ __('admin.services.web3_title') }}
                         </h2>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            تعریف پسوندهای جدید، نرخ پایه هر پسوند و ضریب تصاعدی دامنه‌های رند
+                            {{ __('admin.services.web3_desc') }}
                         </p>
                     </div>
 
@@ -549,7 +554,7 @@ const formatCurrency = (val: string | number) => {
                             class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                             :class="web3_domains.is_active ? 'bg-indigo-600 text-white' : 'bg-rose-600 text-white'"
                         >
-                            {{ web3_domains.is_active ? 'سرویس دامنه: فعال' : 'سرویس دامنه: غیرفعال' }}
+                            {{ web3_domains.is_active ? __('admin.services.web3_service_active') : __('admin.services.web3_service_inactive') }}
                         </button>
 
                         <button
@@ -558,7 +563,7 @@ const formatCurrency = (val: string | number) => {
                             class="px-4 py-2 text-xs font-bold rounded-xl transition-colors"
                             :class="web3_domains.is_purchasable ? 'bg-emerald-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'"
                         >
-                            {{ web3_domains.is_purchasable ? 'امکان خرید: فعال' : 'امکان خرید: غیرفعال' }}
+                            {{ web3_domains.is_purchasable ? __('admin.services.purchasable_active') : __('admin.services.purchasable_inactive') }}
                         </button>
                         <button
                             type="button"
@@ -568,7 +573,7 @@ const formatCurrency = (val: string | number) => {
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
-                            افزودن پسوند جدید
+                            {{ __('admin.services.add_tld_btn') }}
                         </button>
                     </div>
                 </div>
@@ -579,18 +584,18 @@ const formatCurrency = (val: string | number) => {
                         <table class="w-full text-right text-sm">
                             <thead class="bg-gray-50/75 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100 dark:border-gray-700">
                                 <tr>
-                                    <th class="p-4">پسوند دامنه (TLD)</th>
-                                    <th class="p-4">قیمت پایه (کوین)</th>
-                                    <th class="p-4">ضریب رند طلایی</th>
-                                    <th class="p-4">ضریب نیمه‌رند</th>
-                                    <th class="p-4">وضعیت</th>
-                                    <th class="p-4 text-center">عملیات</th>
+                                    <th class="p-4">{{ __('admin.services.th_tld') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_base_price') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_mult_golden') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_mult_semi') }}</th>
+                                    <th class="p-4">{{ __('admin.services.th_status') }}</th>
+                                    <th class="p-4 text-center">{{ __('admin.services.th_actions') }}</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                 <tr v-if="web3_domains.tlds.length === 0">
                                     <td colspan="6" class="p-8 text-center text-gray-400">
-                                        هیچ پسوند دامنه‌ای تعریف نشده است.
+                                        {{ __('admin.services.no_tlds_found') }}
                                     </td>
                                 </tr>
                                 <tr
@@ -617,7 +622,7 @@ const formatCurrency = (val: string | number) => {
                                             class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold"
                                             :class="tld.is_active ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300' : 'bg-gray-100 text-gray-600'"
                                         >
-                                            {{ tld.is_active ? 'فعال' : 'غیرفعال' }}
+                                            {{ tld.is_active ? __('admin.services.status_active') : __('admin.services.status_inactive') }}
                                         </span>
                                     </td>
                                     <td class="p-4 text-center">
@@ -627,14 +632,14 @@ const formatCurrency = (val: string | number) => {
                                                 @click="openEditTldModal(tld)"
                                                 class="px-3 py-1 rounded-lg text-xs font-semibold bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 transition-colors"
                                             >
-                                                ویرایش تعرفه
+                                                {{ __('admin.services.edit_tariff_btn') }}
                                             </button>
                                             <button
                                                 type="button"
                                                 @click="deleteTld(tld)"
                                                 class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 transition-colors"
                                             >
-                                                حذف
+                                                {{ __('admin.services.delete_btn') }}
                                             </button>
                                         </div>
                                     </td>
@@ -649,22 +654,22 @@ const formatCurrency = (val: string | number) => {
         <!-- Add TLD Modal -->
         <div v-if="isAddTldModalOpen" class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">تعریف پسوند TLD جدید</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('admin.services.modal_add_tld_title') }}</h3>
                 <form @submit.prevent="submitAddTld" class="mt-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">نام پسوند (بدون نقطه)</label>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.tld_name_label') }}</label>
                         <input
                             v-model="tldForm.tld"
                             type="text"
                             required
-                            placeholder="مثال: eth یا id یا org"
+                            :placeholder="__('admin.services.tld_name_placeholder')"
                             class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                         />
                         <div v-if="tldForm.errors.tld" class="text-xs text-rose-500 mt-1">{{ tldForm.errors.tld }}</div>
                     </div>
 
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">قیمت پایه (کوین)</label>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.base_price_label') }}</label>
                         <input
                             v-model="tldForm.base_price"
                             type="number"
@@ -677,7 +682,7 @@ const formatCurrency = (val: string | number) => {
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ضریب نیمه‌رند</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.mult_semi_short_label') }}</label>
                             <input
                                 v-model="tldForm.multiplier_semi_rond"
                                 type="number"
@@ -688,7 +693,7 @@ const formatCurrency = (val: string | number) => {
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ضریب رند طلایی</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.mult_golden_short_label') }}</label>
                             <input
                                 v-model="tldForm.multiplier_rond"
                                 type="number"
@@ -706,14 +711,14 @@ const formatCurrency = (val: string | number) => {
                             @click="isAddTldModalOpen = false"
                             class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-600 bg-gray-100 dark:bg-gray-700"
                         >
-                            انصراف
+                            {{ __('admin.services.cancel_btn') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="tldForm.processing"
                             class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700"
                         >
-                            افزودن پسوند
+                            {{ __('admin.services.submit_add_tld_btn') }}
                         </button>
                     </div>
                 </form>
@@ -723,10 +728,10 @@ const formatCurrency = (val: string | number) => {
         <!-- Edit TLD Modal -->
         <div v-if="editingTld" class="fixed inset-0 z-50 overflow-y-auto bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
             <div class="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700">
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">ویرایش تعرفه پسوند .{{ editingTld.tld }}</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('admin.services.modal_edit_tld_title', { tld: editingTld.tld }) }}</h3>
                 <form @submit.prevent="submitEditTld" class="mt-4 space-y-4">
                     <div>
-                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">قیمت پایه (کوین)</label>
+                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.base_price_label') }}</label>
                         <input
                             v-model="editTldForm.base_price"
                             type="number"
@@ -739,7 +744,7 @@ const formatCurrency = (val: string | number) => {
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ضریب نیمه‌رند</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.mult_semi_short_label') }}</label>
                             <input
                                 v-model="editTldForm.multiplier_semi_rond"
                                 type="number"
@@ -750,7 +755,7 @@ const formatCurrency = (val: string | number) => {
                             />
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">ضریب رند طلایی</label>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.services.mult_golden_short_label') }}</label>
                             <input
                                 v-model="editTldForm.multiplier_rond"
                                 type="number"
@@ -770,7 +775,7 @@ const formatCurrency = (val: string | number) => {
                             class="w-4 h-4 text-indigo-600 rounded"
                         />
                         <label for="edit_tld_active" class="text-xs font-semibold text-gray-700 dark:text-gray-300 cursor-pointer">
-                            پسوند در فرم‌های خرید فعال و قابل سفارش باشد
+                            {{ __('admin.services.tld_active_checkbox') }}
                         </label>
                     </div>
 
@@ -780,14 +785,14 @@ const formatCurrency = (val: string | number) => {
                             @click="editingTld = null"
                             class="px-4 py-2 text-xs font-semibold rounded-xl text-gray-600 bg-gray-100 dark:bg-gray-700"
                         >
-                            انصراف
+                            {{ __('admin.services.cancel_btn') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="editTldForm.processing"
                             class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700"
                         >
-                            ذخیره تغییرات پسوند
+                            {{ __('admin.services.submit_edit_tld_btn') }}
                         </button>
                     </div>
                 </form>

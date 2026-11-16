@@ -125,8 +125,13 @@ class ServiceManagementController extends Controller
             'is_purchasable' => $definition->is_purchasable,
         ]);
 
-        $status = $definition->is_purchasable ? 'فعال' : 'غیرفعال';
-        return back()->with('success', "امکان خرید سرویس {$definition->title} توسط کاربران {$status} گردید.");
+        $status = $definition->is_purchasable
+            ? __('controllers.admin.services.status_enabled')
+            : __('controllers.admin.services.status_disabled');
+        return back()->with('success', __('controllers.admin.services.purchasable_toggled', [
+            'title' => $definition->title,
+            'status' => $status,
+        ]));
     }
 
     /**
@@ -143,8 +148,13 @@ class ServiceManagementController extends Controller
             'is_active' => $definition->is_active,
         ]);
 
-        $status = $definition->is_active ? 'فعال' : 'غیرفعال';
-        return back()->with('success', "وضعیت کلی سرویس {$definition->title} به «{$status}» تغییر یافت.");
+        $status = $definition->is_active
+            ? __('controllers.admin.services.status_enabled')
+            : __('controllers.admin.services.status_disabled');
+        return back()->with('success', __('controllers.admin.services.active_toggled', [
+            'title' => $definition->title,
+            'status' => $status,
+        ]));
     }
 
     /**
@@ -165,8 +175,10 @@ class ServiceManagementController extends Controller
             'requires_approval' => $validated['requires_approval'],
         ]);
 
-        $mode = $validated['requires_approval'] ? 'نیازمند تایید مدیر' : 'تایید خودکار آنی';
-        return back()->with('success', "مکانیزم تایید سفارشات به «{$mode}» تغییر یافت.");
+        $mode = $validated['requires_approval']
+            ? __('controllers.admin.services.mode_manual_approval')
+            : __('controllers.admin.services.mode_instant_approval');
+        return back()->with('success', __('controllers.admin.services.approval_mode_updated', ['mode' => $mode]));
     }
 
     /**
@@ -201,7 +213,7 @@ class ServiceManagementController extends Controller
 
         AuditLog::record('id_pricing_updated', $idDef, $request->user(), $pricingConfig);
 
-        return back()->with('success', 'جدول تعرفه و نرخ‌گذاری آیدی‌ها بر اساس طول و رند بودن با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', __('controllers.admin.services.id_pricing_updated'));
     }
 
     /**
@@ -215,8 +227,8 @@ class ServiceManagementController extends Controller
             'multiplier_rond' => ['required', 'numeric', 'min:1'],
             'multiplier_semi_rond' => ['required', 'numeric', 'min:1'],
         ], [
-            'tld.required' => 'وارد کردن پسوند الزامی است.',
-            'tld.unique' => 'این پسوند قبلاً تعریف شده است.',
+            'tld.required' => __('controllers.admin.services.val_tld_required'),
+            'tld.unique' => __('controllers.admin.services.val_tld_unique'),
         ]);
 
         $cleanTld = strtolower(ltrim(trim($validated['tld']), '.'));
@@ -229,7 +241,7 @@ class ServiceManagementController extends Controller
             'is_active' => true,
         ]);
 
-        return back()->with('success', "پسوند جدید .{$cleanTld} با موفقیت افزوده شد.");
+        return back()->with('success', __('controllers.admin.services.tld_created', ['tld' => $cleanTld]));
     }
 
     /**
@@ -246,7 +258,7 @@ class ServiceManagementController extends Controller
 
         $tld->update($validated);
 
-        return back()->with('success', "تعرفه پسوند .{$tld->tld} با موفقیت به‌روزرسانی گردید.");
+        return back()->with('success', __('controllers.admin.services.tld_updated', ['tld' => $tld->tld]));
     }
 
     /**
@@ -257,7 +269,7 @@ class ServiceManagementController extends Controller
         $tldName = $tld->tld;
         $tld->delete();
 
-        return back()->with('success', "پسوند .{$tldName} حذف شد.");
+        return back()->with('success', __('controllers.admin.services.tld_deleted', ['tld' => $tldName]));
     }
 
     /**

@@ -5,6 +5,7 @@ import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import AllocateNumberModal, { type PrefixItem } from '@/Components/AllocateNumberModal.vue';
 import VoiceCallModal from '@/Components/VoiceCallModal.vue';
+import { __ } from '@/Composables/useTrans';
 
 interface PhoneNumberItem {
     id: number;
@@ -242,7 +243,7 @@ const validateCustomIdInput = () => {
             loading: false,
             valid: false,
             available: false,
-            message: 'حداقل طول آیدی اختصاصی برای کاربران عادی ۶ کاراکتر است.',
+            message: __('user.numbers.custom_id_min_length'),
         };
         return;
     }
@@ -268,7 +269,7 @@ const validateCustomIdInput = () => {
                 loading: false,
                 valid: false,
                 available: false,
-                message: e.response?.data?.message || 'خطا در اعتبارسنجی آیدی',
+                message: e.response?.data?.message || __('user.numbers.custom_id_validation_error'),
             };
         }
     }, 250);
@@ -305,11 +306,11 @@ const submitCustomIdOrder = () => {
         onSuccess: () => {
             customIdSubmitting.value = false;
             closeCustomIdModal();
-            showToast('آیدی اختصاصی با موفقیت ثبت شد.');
+            showToast(__('user.numbers.custom_id_registered_success'));
         },
         onError: (errs) => {
             customIdSubmitting.value = false;
-            customIdError.value = Object.values(errs)[0] || 'خطا در ثبت آیدی';
+            customIdError.value = Object.values(errs)[0] || __('user.numbers.custom_id_submit_error');
         },
     });
 };
@@ -498,7 +499,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             :disabled="quota.active >= quota.max || !isPhoneLinePurchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-3.5 !text-xs !rounded-xl flex items-center gap-1.5 disabled:opacity-40 shrink-0 whitespace-nowrap"
                         >
-                            <span>+ تخصیص خط جدید</span>
+                            <span>+ {{ __('user.numbers.allocate_new') }}</span>
                         </button>
 
                         <button
@@ -507,7 +508,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             :disabled="!isCustomIdPurchasable"
                             class="glass-pill !py-2 !px-3.5 !text-xs !rounded-xl font-bold text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/15 disabled:opacity-40 shrink-0 whitespace-nowrap"
                         >
-                            <span>+ ثبت آیدی اختصاصی</span>
+                            <span>+ {{ __('user.numbers.register_custom_id') }}</span>
                         </button>
 
                         <Link
@@ -517,7 +518,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
-                            <span>شماره‌گیر صوتی</span>
+                            <span>{{ __('user.numbers.voice_dialer') }}</span>
                         </Link>
 
                     </div>
@@ -537,17 +538,17 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
                         <div class="flex-1 min-w-0 space-y-1.5">
                             <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                خطوط ارتباطی و سرشماره‌ها
+                                {{ __('user.numbers.card_phone_title') }}
                             </h3>
                             <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                این خطوط برای ارتباط با وب‌سایت‌ها، سرویس‌ها و پلتفرم‌هایی است که هنوز بر بستر سنتی شماره تلفن همراه فعالیت می‌کنند (دریافت کد تایید، پیامک و تماس).
+                                {{ __('user.numbers.card_phone_desc') }}
                             </p>
                         </div>
                     </div>
 
                     <div class="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
                         <span class="text-[11px] font-mono text-slate-500 dark:text-slate-400">
-                            پیش‌شماره معتبر: <strong class="text-indigo-600 dark:text-indigo-400 font-bold" dir="ltr">{{ default_prefix || '+85' }}</strong>
+                            {{ __('user.numbers.valid_prefix') }} <strong class="text-indigo-600 dark:text-indigo-400 font-bold" dir="ltr">{{ default_prefix || '+85' }}</strong>
                         </span>
                         <button
                             type="button"
@@ -555,7 +556,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             :disabled="quota.active >= quota.max || !isPhoneLinePurchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            {{ isPhoneLinePurchasable ? '+ تخصیص خط جدید' : 'غیرفعال موقت' }}
+                            {{ isPhoneLinePurchasable ? ('+ ' + __('user.numbers.allocate_new')) : __('user.numbers.temporarily_disabled') }}
                         </button>
                     </div>
                 </div>
@@ -569,21 +570,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div class="flex-1 min-w-0 space-y-1.5">
                             <div class="flex items-center justify-between gap-2">
                                 <h3 class="text-sm font-black text-slate-900 dark:text-white">
-                                    آیدی اختصاصی
+                                    {{ __('user.numbers.card_custom_id_title') }}
                                 </h3>
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shrink-0">
-                                    حداقل ۶ کاراکتر
+                                    {{ __('user.numbers.min_6_chars_badge') }}
                                 </span>
                             </div>
                             <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                                شناسه یکتای کاربری (@handle) برای ارسال و دریافت مستقیم پیام‌ها و ارتباط نوین بدون نیاز به خطوط تلفن و شماره‌های سنتی.
+                                {{ __('user.numbers.card_custom_id_desc') }}
                             </p>
                         </div>
                     </div>
 
                     <div class="pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-between gap-2">
                         <span class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                            بدون نیاز به سیم‌کارت
+                            {{ __('user.numbers.no_sim_required') }}
                         </span>
                         <button
                             type="button"
@@ -591,7 +592,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             :disabled="!isCustomIdPurchasable"
                             class="glass-btn-primary !w-auto !py-2 !px-4 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            {{ isCustomIdPurchasable ? '+ ثبت آیدی اختصاصی' : 'غیرفعال موقت' }}
+                            {{ isCustomIdPurchasable ? ('+ ' + __('user.numbers.register_custom_id')) : __('user.numbers.temporarily_disabled') }}
                         </button>
                     </div>
                 </div>
@@ -711,10 +712,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div class="mt-3 p-3 rounded-xl bg-blue-50/60 dark:bg-slate-800/50 border border-blue-100 dark:border-white/5">
                             <div class="flex items-center justify-between mb-2.5">
                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    ارتباطات آیدی اختصاصی
+                                    {{ __('user.numbers.custom_id_comms_title') }}
                                 </span>
                                 <span class="text-[10px] text-emerald-500 font-bold">
-                                    فعال و برخط
+                                    {{ __('user.numbers.active_online') }}
                                 </span>
                             </div>
 
@@ -729,7 +730,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                         </svg>
-                                        پیامک
+                                        {{ __('user.numbers.sms_btn') }}
                                     </span>
 
                                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -748,7 +749,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                                         </svg>
-                                        تماس صوتی
+                                        {{ __('user.numbers.voice_call_btn') }}
                                     </span>
 
                                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -761,7 +762,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                         <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
                             <span class="text-[11px] text-slate-400">
-                                تخصیص یافته در: {{ alloc.allocated_at || 'نامشخص' }}
+                                {{ __('user.numbers.allocated_at', { date: alloc.allocated_at || __('user.numbers.unknown') }) }}
                             </span>
                             <button
                                 type="button"
@@ -835,7 +836,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         <div class="mt-3 p-3 rounded-xl bg-indigo-50/60 dark:bg-slate-800/50 border border-indigo-100 dark:border-white/5">
                             <div class="flex items-center justify-between mb-2.5">
                                 <span class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    ارتباطات خط
+                                    {{ __('user.numbers.line_comms_title') }}
                                 </span>
                                 <span class="text-[10px] text-slate-400">
                                     {{ item.status_label }}
@@ -853,7 +854,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
                                         </svg>
-                                        پیامک
+                                        {{ __('user.numbers.sms_btn') }}
                                     </span>
 
                                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -872,7 +873,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                                 d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>
                                         </svg>
-                                        تماس صوتی
+                                        {{ __('user.numbers.voice_call_btn') }}
                                     </span>
 
                                     <svg class="w-3.5 h-3.5 text-slate-400 group-hover:text-emerald-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -885,7 +886,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                         <div class="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-white/5 text-xs">
                             <span class="text-[11px] text-slate-400">
-                                تخصیص یافته در: {{ item.allocated_at || 'نامشخص' }}
+                                {{ __('user.numbers.allocated_at', { date: item.allocated_at || __('user.numbers.unknown') }) }}
                             </span>
                             <button
                                 type="button"
@@ -937,8 +938,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div class="flex items-center gap-2.5">
                         <span class="w-8 h-8 rounded-xl bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center font-mono font-black text-sm">@</span>
                         <div>
-                            <h3 class="font-black text-sm text-slate-900 dark:text-white">ثبت آیدی اختصاصی</h3>
-                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">شناسه کاربری منحصر‌به‌فرد برای ارتباطات و دریافت پیام</p>
+                            <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.numbers.register_custom_id') }}</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{{ __('user.numbers.custom_id_modal_subtitle') }}</p>
                         </div>
                     </div>
                     <button type="button" @click="closeCustomIdModal" class="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-white transition-colors">✕</button>
@@ -946,27 +947,27 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                 <form @submit.prevent="submitCustomIdOrder" class="space-y-4">
                     <div>
-                        <label class="form-label font-bold text-xs">شناسه کاربری درخواستی</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.numbers.custom_id_handle_label') }}</label>
                         <div class="flex items-center gap-2 mt-1" dir="ltr">
                             <span class="px-3.5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 font-mono font-black text-indigo-500 text-sm">@</span>
                             <input
                                 type="text"
                                 v-model="customIdHandle"
                                 @input="validateCustomIdInput"
-                                placeholder="مثلاً: mybrand یا alireza"
+                                :placeholder="__('user.numbers.custom_id_handle_placeholder')"
                                 class="form-input !py-2.5 !text-xs font-mono flex-1"
                                 autofocus
                             />
                         </div>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">شناسه اختصاصی برای کاربران عادی باید حداقل شامل ۶ کاراکتر (حروف انگلیسی a-z، اعداد 0-9 یا زیرخط _) باشد.</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">{{ __('user.numbers.custom_id_handle_hint') }}</p>
                     </div>
 
                     <div>
-                        <label class="form-label font-bold text-xs">عنوان نمایشی (اختیاری)</label>
+                        <label class="form-label font-bold text-xs">{{ __('user.numbers.custom_id_display_title_label') }}</label>
                         <input
                             type="text"
                             v-model="customIdDisplayTitle"
-                            placeholder="مثلاً: مدیریت فروش"
+                            :placeholder="__('user.numbers.custom_id_display_title_placeholder')"
                             class="form-input !py-2.5 !text-xs mt-1"
                         />
                     </div>
@@ -974,7 +975,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Live Validation Feedback Card -->
                     <div v-if="customIdValidation.loading" class="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                         <span class="animate-spin inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full"></span>
-                        <span>در حال استعلام وضعیت آزادی و محاسبه تعرفه آیدی...</span>
+                        <span>{{ __('user.numbers.custom_id_checking') }}</span>
                     </div>
 
                     <div
@@ -997,10 +998,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                         <div v-if="customIdValidation.valid" class="space-y-1.5 pt-1 border-t border-emerald-500/20">
                             <div class="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold">
-                                ✓ این آیدی آزاد و قابل تخصیص است.
+                                ✓ {{ __('user.numbers.custom_id_available') }}
                             </div>
                             <div class="flex items-center justify-between font-bold text-xs pt-1">
-                                <span>هزینه ثبت شناسه:</span>
+                                <span>{{ __('user.numbers.custom_id_cost_label') }}</span>
                                 <span class="font-mono text-emerald-600 dark:text-emerald-400 font-black" dir="ltr">
                                     {{ customIdValidation.price || '0' }} TRX
                                 </span>
@@ -1008,7 +1009,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </div>
 
                         <div v-else class="text-[11px] font-bold text-rose-600 dark:text-rose-300">
-                            ✗ {{ customIdValidation.message || 'این آیدی در دسترس نیست یا فرمت آن نامعتبر است.' }}
+                            ✗ {{ customIdValidation.message || __('user.numbers.custom_id_unavailable') }}
                         </div>
                     </div>
 
@@ -1018,15 +1019,15 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
 
                     <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-white/10">
                         <button type="button" @click="closeCustomIdModal" class="glass-pill !py-2 !px-4 !text-xs">
-                            انصراف
+                            {{ __('user.numbers.cancel') }}
                         </button>
                         <button
                             type="submit"
                             :disabled="!customIdValidation.valid || customIdSubmitting"
                             class="glass-btn-primary !w-auto !py-2 !px-5 !text-xs !rounded-xl disabled:opacity-40"
                         >
-                            <span v-if="customIdSubmitting">در حال ثبت...</span>
-                            <span v-else>تایید و پرداخت از کیف‌پول</span>
+                            <span v-if="customIdSubmitting">{{ __('user.numbers.submitting') }}</span>
+                            <span v-else>{{ __('user.numbers.confirm_pay_wallet') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1090,21 +1091,21 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </svg>
                     </div>
                     <div>
-                        <h3 class="font-black text-sm text-slate-900 dark:text-white">آزادسازی و لغو خط {{ numberToRelease?.formatted_number }}</h3>
-                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">تایید نهایی آزادسازی خط از پنل کاربری</p>
+                        <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.numbers.release_modal_heading', { number: numberToRelease?.formatted_number || '' }) }}</h3>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ __('user.numbers.release_modal_subheading') }}</p>
                     </div>
                 </div>
 
                 <div class="p-4 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 space-y-2 text-xs leading-relaxed text-rose-900 dark:text-rose-200">
                     <div class="font-bold flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
                         <span>⚠️</span>
-                        <span>هشدار بسیار مهم امنیتی و حریم خصوصی:</span>
+                        <span>{{ __('user.numbers.release_warning_title') }}</span>
                     </div>
                     <p>
-                        در صورتی که این شماره آزاد شود، دیگر به هیچ عنوان امکان تخصیص مجدد آن به حساب شما وجود نخواهد داشت.
+                        {{ __('user.numbers.release_warning_p1') }}
                     </p>
                     <p class="font-semibold text-rose-700 dark:text-rose-300">
-                        اگر محتوا، پیامک یا اطلاعاتی روی این خط دارید، لطفاً حتماً پیش از آزادسازی آن را پاک نمایید؛ چرا که ممکن است در آینده این خط به کاربر دیگری اختصاص داده شود و از اطلاعات و پیام‌های قبلی شما سوءاستفاده گردد.
+                        {{ __('user.numbers.release_warning_p2') }}
                     </p>
                 </div>
 
@@ -1117,7 +1118,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md transition-all flex items-center gap-1.5"
                     >
                         <span v-if="releaseProcessing" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                        <span>{{ releaseProcessing ? 'در حال آزادسازی...' : 'متوجه شدم، شماره را آزاد کن' }}</span>
+                        <span>{{ releaseProcessing ? __('user.numbers.releasing') : __('user.numbers.confirm_release_understood') }}</span>
                     </button>
                 </div>
             </div>

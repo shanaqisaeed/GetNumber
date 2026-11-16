@@ -247,11 +247,11 @@ class WebPushNotificationService
         }
 
         $caller = $call->source_identifier ?: __('services.web_push.unknown_sender');
-        $destLine = $call->destination ? "روی خط {$call->destination}" : '';
-        $body = "تماس ورودی از {$caller} {$destLine}";
+        $destLine = $call->destination ? __('services.web_push.incoming_call_on_line', ['destination' => $call->destination]) : '';
+        $body = trim(__('services.web_push.incoming_call_body', ['caller' => $caller, 'line' => $destLine]));
 
         $payload = json_encode([
-            'title' => '📞 تماس صوتی ورودی',
+            'title' => __('services.web_push.incoming_call_title'),
             'body' => $body,
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
@@ -326,7 +326,7 @@ class WebPushNotificationService
         if (!$this->isSupported()) {
             return [
                 'success' => false,
-                'message' => 'پکیج ارسال نوتیفیکیشن وب (minishlink/web-push) روی سرور نصب نیست.',
+                'message' => __('services.web_push.package_not_installed'),
             ];
         }
 

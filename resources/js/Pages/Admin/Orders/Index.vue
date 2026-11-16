@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import AdminLayout from '@/Layouts/AdminLayout.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { useTrans } from '@/Composables/useTrans';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+
+const { __ } = useTrans();
+const page = usePage();
 
 interface UserInfo {
     id: number;
@@ -145,12 +149,13 @@ const submitRefer = () => {
 };
 
 const formatCurrency = (val: string | number) => {
-    return new Intl.NumberFormat('fa-IR', { maximumFractionDigits: 2 }).format(Number(val) || 0);
+    const locale = (page.props as any)?.locale === 'en' ? 'en-US' : 'fa-IR';
+    return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(Number(val) || 0);
 };
 </script>
 
 <template>
-    <Head title="کنسول یکپارچه بررسی سفارشات" />
+    <Head :title="__('admin.orders.head_title')" />
 
     <AdminLayout>
         <div class="space-y-6">
@@ -161,16 +166,16 @@ const formatCurrency = (val: string | number) => {
                         <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        کنسول یکپارچه بررسی و نظارت سفارشات
+                        {{ __('admin.orders.page_title') }}
                     </h1>
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        بررسی، تایید خودکار/دستی، استرداد وجه و ارجاع سفارش‌های سرشماره، آیدی و دامنه‌های Web3
+                        {{ __('admin.orders.page_desc') }}
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-semibold bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
                         <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
-                        {{ pending_count }} سفارش در انتظار بررسی
+                        {{ __('admin.orders.pending_badge', { count: pending_count }) }}
                     </span>
                 </div>
             </div>
@@ -182,7 +187,7 @@ const formatCurrency = (val: string | number) => {
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="جستجو با شماره سفارش، شناسه، نام کاربر یا Account ID..."
+                            :placeholder="__('admin.orders.search_placeholder')"
                             class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-indigo-500 focus:border-indigo-500 pr-10"
                         />
                         <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
@@ -198,7 +203,7 @@ const formatCurrency = (val: string | number) => {
                             @change="applyFilters"
                             class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-indigo-500"
                         >
-                            <option value="">همه وضعیت‌ها</option>
+                            <option value="">{{ __('admin.orders.all_statuses') }}</option>
                             <option v-for="st in statuses" :key="st.value" :value="st.value">{{ st.label }}</option>
                         </select>
                     </div>
@@ -209,7 +214,7 @@ const formatCurrency = (val: string | number) => {
                             @change="applyFilters"
                             class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-indigo-500"
                         >
-                            <option value="">همه دسته‌بندی‌های سرویس</option>
+                            <option value="">{{ __('admin.orders.all_services') }}</option>
                             <option v-for="srv in services" :key="srv.id" :value="srv.key">{{ srv.title }}</option>
                         </select>
                     </div>
@@ -219,14 +224,14 @@ const formatCurrency = (val: string | number) => {
                             type="submit"
                             class="flex-1 px-4 py-2 text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
                         >
-                            اعمال فیلتر
+                            {{ __('admin.orders.apply_filters') }}
                         </button>
                         <button
                             type="button"
                             @click="clearFilters"
                             class="px-3 py-2 text-sm font-medium rounded-xl text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 transition-colors"
                         >
-                            بازنشانی
+                            {{ __('admin.orders.reset_filters') }}
                         </button>
                     </div>
                 </form>
@@ -238,18 +243,18 @@ const formatCurrency = (val: string | number) => {
                     <table class="w-full text-right text-sm">
                         <thead class="bg-gray-50/75 dark:bg-gray-700/50 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase border-b border-gray-100 dark:border-gray-700">
                             <tr>
-                                <th class="p-4">شماره سفارش / زمان</th>
-                                <th class="p-4">کاربر متقاضی (Account ID)</th>
-                                <th class="p-4">سرویس و شناسه درخواستی</th>
-                                <th class="p-4">مبلغ نهایی (کوین)</th>
-                                <th class="p-4">وضعیت</th>
-                                <th class="p-4 text-center">اقدامات مدیریتی</th>
+                                <th class="p-4">{{ __('admin.orders.th_order_time') }}</th>
+                                <th class="p-4">{{ __('admin.orders.th_user') }}</th>
+                                <th class="p-4">{{ __('admin.orders.th_service_identifier') }}</th>
+                                <th class="p-4">{{ __('admin.orders.th_amount') }}</th>
+                                <th class="p-4">{{ __('admin.orders.th_status') }}</th>
+                                <th class="p-4 text-center">{{ __('admin.orders.th_actions') }}</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                             <tr v-if="orders.data.length === 0">
                                 <td colspan="6" class="p-8 text-center text-gray-400">
-                                    هیچ سفارشی مطابق معیارهای جستجو یافت نشد.
+                                    {{ __('admin.orders.no_orders_found') }}
                                 </td>
                             </tr>
                             <tr
@@ -291,7 +296,7 @@ const formatCurrency = (val: string | number) => {
                                         {{ formatCurrency(order.final_amount) }}
                                     </div>
                                     <div v-if="Number(order.held_amount) > 0" class="text-xs text-amber-600">
-                                        بلاک: {{ formatCurrency(order.held_amount) }}
+                                        {{ __('admin.orders.held_amount', { amount: formatCurrency(order.held_amount) }) }}
                                     </div>
                                 </td>
 
@@ -300,10 +305,10 @@ const formatCurrency = (val: string | number) => {
                                         {{ order.status_label }}
                                     </span>
                                     <div v-if="order.rejection_reason" class="text-xs text-rose-500 mt-1 max-w-xs truncate" :title="order.rejection_reason">
-                                        علت رد: {{ order.rejection_reason }}
+                                        {{ __('admin.orders.rejection_reason', { reason: order.rejection_reason }) }}
                                     </div>
                                     <div v-if="order.admin_note" class="text-xs text-gray-400 mt-0.5 max-w-xs truncate" :title="order.admin_note">
-                                        یادداشت: {{ order.admin_note }}
+                                        {{ __('admin.orders.admin_note', { note: order.admin_note }) }}
                                     </div>
                                 </td>
 
@@ -313,29 +318,29 @@ const formatCurrency = (val: string | number) => {
                                             type="button"
                                             @click="openApproveModal(order)"
                                             class="px-2.5 py-1 text-xs font-medium rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50 transition-colors"
-                                            title="تایید و تخصیص مستقیم سرویس"
+                                            :title="__('admin.orders.approve_tooltip')"
                                         >
-                                            تایید و فعال‌سازی
+                                            {{ __('admin.orders.approve_btn') }}
                                         </button>
                                         <button
                                             type="button"
                                             @click="openRejectModal(order)"
                                             class="px-2.5 py-1 text-xs font-medium rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-300 dark:hover:bg-rose-900/50 transition-colors"
-                                            title="رد سفارش و استرداد وجه"
+                                            :title="__('admin.orders.reject_tooltip')"
                                         >
-                                            رد سفارش
+                                            {{ __('admin.orders.reject_btn') }}
                                         </button>
                                         <button
                                             type="button"
                                             @click="openReferModal(order)"
                                             class="px-2.5 py-1 text-xs font-medium rounded-lg text-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50 transition-colors"
-                                            title="ارجاع جهت اصلاح متقاضی"
+                                            :title="__('admin.orders.refer_tooltip')"
                                         >
-                                            ارجاع
+                                            {{ __('admin.orders.refer_btn') }}
                                         </button>
                                     </div>
                                     <div v-else class="text-xs text-gray-400">
-                                        بررسی شده در {{ order.reviewed_at || order.created_at }}
+                                        {{ __('admin.orders.reviewed_at', { date: order.reviewed_at || order.created_at }) }}
                                     </div>
                                 </td>
                             </tr>
@@ -346,7 +351,7 @@ const formatCurrency = (val: string | number) => {
                 <!-- Pagination -->
                 <div v-if="orders.links && orders.links.length > 3" class="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                     <div class="text-xs text-gray-500">
-                        نمایش {{ orders.data.length }} از {{ orders.total }} سفارش ثبت‌شده
+                        {{ __('admin.orders.pagination_summary', { count: orders.data.length, total: orders.total }) }}
                     </div>
                     <div class="flex items-center gap-1">
                         <template v-for="(link, i) in orders.links" :key="i">
@@ -376,9 +381,9 @@ const formatCurrency = (val: string | number) => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">تایید و فعال‌سازی سفارش</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('admin.orders.modal_approve_title') }}</h3>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                    آیا از تایید سفارش <span class="font-mono font-bold text-indigo-600">{{ activeOrder.order_number }}</span> اطمینان دارید؟ با تایید این سفارش، منبع درخواستی (<span class="font-bold text-gray-900 dark:text-white">{{ activeOrder.requested_identifier }}</span>) به صورت آنی به کاربر <span class="font-bold text-gray-900 dark:text-white">{{ activeOrder.user.name }}</span> تخصیص می‌یابد.
+                    {{ __('admin.orders.modal_approve_desc', { order: activeOrder.order_number, identifier: activeOrder.requested_identifier, user: activeOrder.user.name }) }}
                 </p>
                 <div class="mt-6 flex items-center justify-end gap-3">
                     <button
@@ -386,7 +391,7 @@ const formatCurrency = (val: string | number) => {
                         @click="isApproveModalOpen = false"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200"
                     >
-                        انصراف
+                        {{ __('admin.orders.cancel') }}
                     </button>
                     <button
                         type="button"
@@ -394,7 +399,7 @@ const formatCurrency = (val: string | number) => {
                         @click="submitApprove"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
                     >
-                        {{ approveForm.processing ? 'در حال فعال‌سازی...' : 'تایید قطعی و فعال‌سازی' }}
+                        {{ approveForm.processing ? __('admin.orders.approving') : __('admin.orders.approve_submit') }}
                     </button>
                 </div>
             </div>
@@ -408,17 +413,17 @@ const formatCurrency = (val: string | number) => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">رد سفارش و بازگشت وجه</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('admin.orders.modal_reject_title') }}</h3>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    با رد این سفارش، مبلغ بلاک‌شده (<span class="font-bold text-gray-900 dark:text-white">{{ formatCurrency(activeOrder.held_amount) }} کوین</span>) بلافاصله به کیف‌پول کاربر بازگردانده می‌شود.
+                    {{ __('admin.orders.modal_reject_desc', { amount: formatCurrency(activeOrder.held_amount) }) }}
                 </p>
                 <div class="mt-4">
-                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">علت رد سفارش (الزامی)</label>
+                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.orders.reject_reason_label') }}</label>
                     <textarea
                         v-model="rejectForm.reason"
                         rows="3"
                         required
-                        placeholder="لطفاً دلیل عدم تایید را برای اطلاع کاربر بنویسید..."
+                        :placeholder="__('admin.orders.reject_reason_placeholder')"
                         class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-rose-500 focus:border-rose-500"
                     ></textarea>
                     <div v-if="rejectForm.errors.reason" class="text-xs text-rose-500 mt-1">
@@ -431,7 +436,7 @@ const formatCurrency = (val: string | number) => {
                         @click="isRejectModalOpen = false"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200"
                     >
-                        انصراف
+                        {{ __('admin.orders.cancel') }}
                     </button>
                     <button
                         type="button"
@@ -439,7 +444,7 @@ const formatCurrency = (val: string | number) => {
                         @click="submitReject"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50"
                     >
-                        {{ rejectForm.processing ? 'در حال رد...' : 'رد سفارش و استرداد وجه' }}
+                        {{ rejectForm.processing ? __('admin.orders.rejecting') : __('admin.orders.reject_submit') }}
                     </button>
                 </div>
             </div>
@@ -453,17 +458,17 @@ const formatCurrency = (val: string | number) => {
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 dark:text-white">ارجاع سفارش جهت اصلاح کاربر</h3>
+                <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ __('admin.orders.modal_refer_title') }}</h3>
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    سفارش به حالت تعلیق نگه داشته شده و کاربر می‌تواند اطلاعات خواسته شده را ویرایش نماید.
+                    {{ __('admin.orders.modal_refer_desc') }}
                 </p>
                 <div class="mt-4">
-                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">یادداشت ارجاع برای کاربر (الزامی)</label>
+                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.orders.refer_note_label') }}</label>
                     <textarea
                         v-model="referForm.note"
                         rows="3"
                         required
-                        placeholder="موارد مورد نیاز جهت ویرایش یا تکمیل مدارک را قید کنید..."
+                        :placeholder="__('admin.orders.refer_note_placeholder')"
                         class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-amber-500 focus:border-amber-500"
                     ></textarea>
                     <div v-if="referForm.errors.note" class="text-xs text-rose-500 mt-1">
@@ -476,7 +481,7 @@ const formatCurrency = (val: string | number) => {
                         @click="isReferModalOpen = false"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200"
                     >
-                        انصراف
+                        {{ __('admin.orders.cancel') }}
                     </button>
                     <button
                         type="button"
@@ -484,7 +489,7 @@ const formatCurrency = (val: string | number) => {
                         @click="submitRefer"
                         class="px-4 py-2 text-sm font-medium rounded-xl text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
                     >
-                        {{ referForm.processing ? 'در حال ارجاع...' : 'ثبت ارجاع' }}
+                        {{ referForm.processing ? __('admin.orders.referring') : __('admin.orders.refer_submit') }}
                     </button>
                 </div>
             </div>

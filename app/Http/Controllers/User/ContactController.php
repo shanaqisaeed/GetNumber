@@ -82,7 +82,7 @@ class ContactController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ]);
 
-        return back()->with('success', 'مخاطب جدید با موفقیت به دفترچه تلفن افزوده شد.');
+        return back()->with('success', __('controllers.user.contacts.created'));
     }
 
     /**
@@ -108,7 +108,7 @@ class ContactController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ]);
 
-        return back()->with('success', 'اطلاعات مخاطب با موفقیت به‌روزرسانی شد.');
+        return back()->with('success', __('controllers.user.contacts.updated'));
     }
 
     /**
@@ -122,7 +122,7 @@ class ContactController extends Controller
 
         $contact->delete();
 
-        return back()->with('success', 'مخاطب با موفقیت حذف گردید.');
+        return back()->with('success', __('controllers.user.contacts.deleted'));
     }
 
     /**

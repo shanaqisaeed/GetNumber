@@ -170,7 +170,7 @@ class BusinessRuleEngine implements BusinessRuleEngineInterface
             return [
                 'tier_badge' => 'vip_short',
                 'is_rond' => true,
-                'pattern_name' => 'VIP Short (' . $len . ' chars)',
+                'pattern_name' => __('catalog.patterns.vip_short', ['length' => $len]),
             ];
         }
 
@@ -179,7 +179,7 @@ class BusinessRuleEngine implements BusinessRuleEngineInterface
             return [
                 'tier_badge' => 'golden_rond',
                 'is_rond' => true,
-                'pattern_name' => 'Symmetric / Triple Repeat',
+                'pattern_name' => __('catalog.patterns.symmetric_triple'),
             ];
         }
 
@@ -188,14 +188,14 @@ class BusinessRuleEngine implements BusinessRuleEngineInterface
             return [
                 'tier_badge' => 'semi_rond',
                 'is_rond' => true,
-                'pattern_name' => 'Rhythmic Pair',
+                'pattern_name' => __('catalog.patterns.rhythmic_pair'),
             ];
         }
 
         return [
             'tier_badge' => 'standard',
             'is_rond' => false,
-            'pattern_name' => 'Standard',
+            'pattern_name' => __('catalog.patterns.standard'),
         ];
     }
 

@@ -19,6 +19,8 @@ interface Props {
     isEnabled: boolean;
 }
 
+const { __ } = useTrans();
+
 const props = defineProps<Props>();
 
 const form = useForm({
@@ -165,7 +167,7 @@ const copyCallback = () => {
                                 type="url"
                                 dir="ltr"
                                 v-model="form.base_url"
-                                placeholder="https://keycloak.company.com"
+                                :placeholder="__('admin.settings.keycloak_url_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -181,7 +183,7 @@ const copyCallback = () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.realm"
-                                placeholder="master"
+                                :placeholder="__('admin.settings.keycloak_realm_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white"
                                 required
                             />
@@ -207,7 +209,7 @@ const copyCallback = () => {
                                 type="text"
                                 dir="ltr"
                                 v-model="form.client_id"
-                                placeholder="getnumber-client"
+                                :placeholder="__('admin.settings.keycloak_client_id_ph')"
                                 class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 text-sm font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white"
                                 required
                             />
