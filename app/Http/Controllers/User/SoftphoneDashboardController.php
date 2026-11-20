@@ -202,8 +202,12 @@ class SoftphoneDashboardController extends Controller
     /**
      * Resolve all lines the user is authorized to operate.
      */
-    protected function resolveOperableLines($user)
+    public static function resolveOperableLines($user)
     {
+        if (! $user) {
+            return collect();
+        }
+
         // Personal phone numbers
         $personalNumbers = PhoneNumber::where('user_id', $user->id)
             ->whereNull('organization_id')
@@ -284,6 +288,31 @@ class SoftphoneDashboardController extends Controller
             ->concat($personalCustomIds)
             ->concat($orgCustomIds)
             ->values();
+    }
+
+    /**
+     * Resolve active line from session or default to first operable line.
+     */
+    public static function resolveActiveLine($user, $lines = null): ?array
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $lines = $lines ?? self::resolveOperableLines($user);
+        if ($lines->isEmpty()) {
+            session()->forget('active_line_key');
+            return null;
+        }
+
+        $selectedKey = session('active_line_key');
+        $selected = $lines->firstWhere('key', $selectedKey) ?: $lines->first();
+
+        if ($selected) {
+            session(['active_line_key' => $selected['key']]);
+        }
+
+        return $selected;
     }
 
     /**

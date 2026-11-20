@@ -28,6 +28,17 @@ const liveUnreadCount = ref<number>(page.props.auth?.unread_messages_count || 0)
 const isLineSwitcherOpen = ref(false);
 const isAudioTestOpen = ref(false);
 
+const currentPresence = ref<'online' | 'busy' | 'dnd' | 'offline'>(((page.props as any).presence as any) || 'online');
+watch(() => (page.props as any).presence, (val) => {
+    if (val) currentPresence.value = val as any;
+});
+async function setPresence(val: 'online' | 'busy' | 'dnd' | 'offline') {
+    currentPresence.value = val;
+    try {
+        await axios.post(route('softphone.presence'), { presence: val });
+    } catch {}
+}
+
 const activeLine = computed<LineOption | null>(() => {
     return (page.props as any).active_line || null;
 });
@@ -342,27 +353,50 @@ const navItems = computed(() => [
         <!-- ============================================================= -->
         <!-- 1. DESKTOP PROFESSIONAL SOFTPHONE SIDEBAR (md:flex)           -->
         <!-- ============================================================= -->
-        <aside class="hidden md:flex flex-col w-64 lg:w-72 shrink-0 border-l border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl z-30 h-screen sticky top-0 overflow-y-auto p-4 space-y-4 shadow-xl shadow-slate-900/5">
-            <!-- Brand & Softphone Header -->
-            <div class="flex items-center gap-3 p-2 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30 shrink-0">
-                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
+        <aside class="hidden md:flex flex-col w-64 lg:w-72 shrink-0 border-l border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-950/80 backdrop-blur-2xl z-30 h-screen sticky top-0 overflow-y-auto p-3.5 space-y-3.5 shadow-xl shadow-slate-900/5">
+            <!-- Brand & Softphone Header with Language Switcher & Theme Toggle integrated -->
+            <div class="p-3 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                    <div class="w-9 h-9 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30 shrink-0">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm font-black text-slate-900 dark:text-white tracking-wide truncate">{{ __('ui.layouts.user.nav.brand_name') }}</span>
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-500 dark:text-indigo-400 border border-indigo-500/30">PRO</span>
+                        </div>
+                        <div class="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="truncate">{{ __('softphone.dialer.title') }}</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-1.5">
-                        <span class="text-sm font-black text-slate-900 dark:text-white tracking-wide">GetNumber</span>
-                        <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-indigo-500/20 text-indigo-500 dark:text-indigo-400 border border-indigo-500/30">PRO</span>
-                    </div>
-                    <div class="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span>{{ __('softphone.dialer.title') }}</span>
-                    </div>
+
+                <!-- Controls Capsule: Language Switcher & Theme Toggle integrated seamlessly -->
+                <div class="flex items-center gap-1 p-0.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-slate-200 dark:border-white/10 shadow-xs shrink-0">
+                    <LanguageSwitcher buttonClass="!h-7 !rounded-lg !px-1.5 !text-[11px]" />
+                    <div class="w-px h-3 bg-slate-200 dark:bg-white/10" aria-hidden="true"></div>
+                    <button
+                        type="button"
+                        @click="toggleTheme"
+                        class="app-theme-toggle-btn !w-7 !h-7 !rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
+                        :title="isDark ? __('ui.layouts.user.theme_light') : __('ui.layouts.user.theme_dark')"
+                    >
+                        <svg v-if="isDark" class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="5"></circle>
+                            <line x1="12" y1="1" x2="12" y2="3"></line>
+                            <line x1="12" y1="21" x2="12" y2="23"></line>
+                        </svg>
+                        <svg v-else class="w-3.5 h-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                        </svg>
+                    </button>
                 </div>
             </div>
 
-            <!-- Active Line Control Card in Sidebar -->
+            <!-- Active Line Control & Presence Card in Sidebar -->
             <div class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-white/5 border border-indigo-200/80 dark:border-white/10 space-y-2">
                 <div class="flex items-center justify-between">
                     <span class="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{{ __('softphone.line.active_line') }}</span>
@@ -398,6 +432,21 @@ const navItems = computed(() => [
                 </div>
                 <div v-else class="text-[11px] text-slate-500 dark:text-slate-400">
                     {{ __('softphone.line.no_active_line') }}
+                </div>
+
+                <!-- Softphone Presence Selector (در دسترس / مشغول / مزاحم نشوید / آفلاین) -->
+                <div class="pt-2 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-2">
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{{ __('softphone.presence.status') }}:</span>
+                    <select
+                        :value="currentPresence"
+                        @change="setPresence(($event.target as HTMLSelectElement).value as any)"
+                        class="form-select !py-1 !px-2 !text-[10px] font-bold rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-white/10 text-slate-800 dark:text-slate-200"
+                    >
+                        <option value="online">🟢 {{ __('softphone.presence.online') }}</option>
+                        <option value="busy">🟡 {{ __('softphone.presence.busy') }}</option>
+                        <option value="dnd">🔴 {{ __('softphone.presence.dnd') }}</option>
+                        <option value="offline">⚪ {{ __('softphone.presence.offline') }}</option>
+                    </select>
                 </div>
             </div>
 
@@ -487,8 +536,24 @@ const navItems = computed(() => [
                 </button>
             </div>
 
+            <!-- Admin Dashboard Link (For Admins & Superadmins) -->
+            <div v-if="$page.props.auth?.user?.is_admin" class="pt-1">
+                <Link
+                    :href="route('admin.dashboard')"
+                    class="w-full py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-between gap-2 transition-all"
+                >
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        <span>{{ __('ui.layouts.user.nav.switch_to_admin') }}</span>
+                    </div>
+                    <span class="text-[10px]">⚙️</span>
+                </Link>
+            </div>
+
             <!-- Corporate Switcher Button -->
-            <div class="pt-2">
+            <div class="pt-1">
                 <Link
                     :href="route('org.dashboard')"
                     class="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-600/20 flex items-center justify-between gap-2 transition-all active:scale-95"
@@ -538,26 +603,6 @@ const navItems = computed(() => [
                             </svg>
                         </Link>
                     </div>
-                </div>
-
-                <!-- Footer Controls: Language & Theme -->
-                <div class="flex items-center justify-between pt-1">
-                    <LanguageSwitcher buttonClass="!h-8 !rounded-xl !px-2 !text-xs" />
-                    <button
-                        type="button"
-                        @click="toggleTheme"
-                        class="app-theme-toggle-btn !w-8 !h-8 !rounded-xl"
-                        :title="isDark ? __('ui.layouts.user.theme_light') : __('ui.layouts.user.theme_dark')"
-                    >
-                        <svg v-if="isDark" class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="5"></circle>
-                            <line x1="12" y1="1" x2="12" y2="3"></line>
-                            <line x1="12" y1="21" x2="12" y2="23"></line>
-                        </svg>
-                        <svg v-else class="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                        </svg>
-                    </button>
                 </div>
             </div>
         </aside>
@@ -704,6 +749,24 @@ const navItems = computed(() => [
                     </div>
 
                     <div class="grid grid-cols-2 gap-2.5">
+                        <!-- Direct Link to Admin Panel for Admin Users -->
+                        <Link
+                            v-if="$page.props.auth?.user?.is_admin"
+                            :href="route('admin.dashboard')"
+                            @click="isMoreMenuOpen = false"
+                            class="p-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 flex items-center gap-2.5 text-xs font-bold text-amber-600 dark:text-amber-400 transition-all col-span-2"
+                        >
+                            <div class="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-500 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 flex items-center justify-between">
+                                <span>{{ __('ui.layouts.user.nav.switch_to_admin') }}</span>
+                                <span class="text-[10px] font-bold">⚙️</span>
+                            </div>
+                        </Link>
+
                         <!-- Direct Link to Org Panel -->
                         <Link
                             :href="route('org.dashboard')"

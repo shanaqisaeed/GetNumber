@@ -128,5 +128,11 @@ return [
         'delivery_failed' => 'Failed',
         'cost_per_sms' => 'Cost per SMS',
         'line_filter' => 'Conversations for line :line',
+        'sender_line' => 'Sender Line:',
+        'pick_from_contacts' => 'Pick from Contacts',
+        'no_active_line_error' => 'No line selected for sending',
+        'select_sender_line' => 'Select Sender Line',
+        'active_sim_badge' => 'Active SIM',
+        'change_sim' => 'Switch Line',
     ],
 ];

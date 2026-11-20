@@ -128,5 +128,11 @@ return [
         'delivery_failed' => 'ناموفق',
         'cost_per_sms' => 'هزینه ارسال',
         'line_filter' => 'گفتگوهای خط :line',
+        'sender_line' => 'خط ارسال‌کننده:',
+        'pick_from_contacts' => 'انتخاب از مخاطبین',
+        'no_active_line_error' => 'هیچ خطی برای ارسال انتخاب نشده است',
+        'select_sender_line' => 'انتخاب خط ارسال',
+        'active_sim_badge' => 'سیم‌کارت فعال',
+        'change_sim' => 'تغییر خط',
     ],
 ];

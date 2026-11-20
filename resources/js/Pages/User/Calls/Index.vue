@@ -103,6 +103,7 @@ const keypadMode = ref<'numeric' | 'alphanumeric'>(
     props.initial_destination?.startsWith('@') ? 'alphanumeric' : 'numeric'
 );
 const isContactPickerOpen = ref(false);
+const isAutoInitiateModalOpen = ref(false);
 const isCalling = ref(false);
 const activeCallId = ref<number | null>(null);
 const callDuration = ref(0);
@@ -971,6 +972,9 @@ onMounted(() => {
                 keypadMode.value = 'alphanumeric';
             }
             activeTab.value = 'dialer';
+            if (params.get('auto_open') === '1') {
+                isAutoInitiateModalOpen.value = true;
+            }
         }
         const lineKeyParam = params.get('line_key');
         if (lineKeyParam) {
@@ -1046,6 +1050,90 @@ onUnmounted(() => {
     <Head :title="__('user.calls.page_title')" />
 
     <UserLayout>
+        <!-- Auto-Initiate Call Modal (When redirected from Dashboard or External Link) -->
+        <teleport to="body">
+            <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
+                <div v-if="isAutoInitiateModalOpen" class="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-4" @click.self="isAutoInitiateModalOpen = false">
+                    <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-5 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                            <div class="flex items-center gap-2.5">
+                                <div class="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-black">{{ __('user.calls.initiate_modal_title') }}</h3>
+                                    <p class="text-[11px] text-slate-400">{{ __('user.calls.initiate_modal_desc') }}</p>
+                                </div>
+                            </div>
+                            <button type="button" @click="isAutoInitiateModalOpen = false" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs">✕</button>
+                        </div>
+
+                        <!-- Destination Target Display -->
+                        <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
+                            <span class="text-xs text-slate-500 dark:text-slate-400 font-bold">{{ __('user.calls.destination_target') }}</span>
+                            <span class="font-mono font-black text-base text-slate-900 dark:text-white" dir="ltr">{{ destinationInput }}</span>
+                        </div>
+
+                        <!-- Outbound Caller Line Display -->
+                        <div v-if="selectedLine" class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-500/20 flex items-center justify-between">
+                            <span class="text-xs text-indigo-700 dark:text-indigo-300 font-bold">{{ __('user.calls.active_caller_line') }}</span>
+                            <div class="text-left font-mono font-black text-sm text-indigo-600 dark:text-indigo-400" dir="ltr">
+                                {{ selectedLine.formatted_number }}
+                            </div>
+                        </div>
+
+                        <!-- Prominent Noise Cancellation Option Review -->
+                        <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/25 border border-purple-200/70 dark:border-purple-500/20 flex items-center justify-between gap-3">
+                            <div class="flex items-center gap-2.5">
+                                <span class="text-xl">🎧</span>
+                                <div>
+                                    <div class="text-xs font-black text-purple-900 dark:text-purple-300">{{ __('user.calls.nc_option_title') }}</div>
+                                    <div class="text-[10px] text-slate-500 dark:text-slate-400">{{ __('user.calls.nc_option_desc') }}</div>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                @click="toggleNoiseCancellation"
+                                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
+                                :class="isNoiseCancellationEnabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'"
+                                role="switch"
+                                :aria-checked="isNoiseCancellationEnabled"
+                            >
+                                <span
+                                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out"
+                                    :class="isNoiseCancellationEnabled ? 'translate-x-0' : '-translate-x-5'"
+                                />
+                            </button>
+                        </div>
+
+                        <!-- Modal Actions -->
+                        <div class="flex items-center justify-end gap-2.5 pt-2">
+                            <button
+                                type="button"
+                                @click="isAutoInitiateModalOpen = false"
+                                class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all"
+                            >
+                                {{ __('user.calls.cancel_call') }}
+                            </button>
+                            <button
+                                type="button"
+                                @click="isAutoInitiateModalOpen = false; startCall()"
+                                :disabled="!destinationInput.trim() || !selectedLine"
+                                class="px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                                <span>{{ __('user.calls.confirm_and_call') }}</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </transition>
+        </teleport>
+
         <div class="space-y-4">
             <!-- Header Command Card -->
             <div class="dash-wallet-card">

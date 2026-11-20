@@ -38,7 +38,7 @@ class MessageController extends Controller
             ->where('service_key', 'custom_id')
             ->get();
 
-        $lineKeyParam = $request->input('line_key');
+        $lineKeyParam = $request->input('line_key') ?: session('active_line_key');
         $selectedCidParam = $request->input('custom_id');
         $selectedCustomId = null;
         /** @var PhoneNumber|null $currentNumber */
@@ -268,11 +268,21 @@ class MessageController extends Controller
         }
 
         $activeLineKey = $selectedCustomId ? 'custom_' . $selectedCustomId->id : ($currentNumber ? 'phone_' . $currentNumber->id : null);
+        if ($activeLineKey) {
+            session(['active_line_key' => $activeLineKey]);
+        }
+
+        $contacts = \App\Models\Contact::where('user_id', $user->id)
+            ->latest('id')
+            ->get(['id', 'name', 'phone_number', 'avatar_color', 'notes']);
 
         return Inertia::render('User/Messages/Index', [
             'allocatedNumbers' => $allAllocatedLines,
             'currentNumber' => $currentNumberPayload,
+            'active_line' => $currentNumberPayload,
+            'lines' => $allAllocatedLines,
             'selected_line_key' => $activeLineKey,
+            'contacts' => $contacts,
             'conversations' => $conversations,
             'activePeer' => $activePeer,
             'activePeerDetails' => $activePeerDetails,
@@ -310,7 +320,15 @@ class MessageController extends Controller
     {
         $user = $request->user();
 
-        $validated = $request->validate([
+        $fromId = $request->input('from_number_id') ?: $request->input('phone_number_id');
+        $destinations = $request->input('destinations') ?: $request->input('destination');
+        $body = $request->input('body');
+
+        $validated = validator([
+            'from_number_id' => $fromId,
+            'destinations' => $destinations,
+            'body' => $body,
+        ], [
             'from_number_id' => ['required', 'integer', 'exists:phone_numbers,id'],
             'destinations' => ['required'],
             'body' => ['required', 'string', 'max:2000'],
@@ -319,12 +337,12 @@ class MessageController extends Controller
             'destinations.required' => __('controllers.user.messages.val_destinations_required'),
             'body.required' => __('controllers.user.messages.val_body_required'),
             'body.max' => __('controllers.user.messages.val_body_max'),
-        ]);
+        ])->validate();
 
         /** @var PhoneNumber $fromNumber */
         $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
 
-        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
+        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id && $fromNumber->assigned_user_id !== $user->id) {
             throw new AccessDeniedHttpException(__('controllers.user.messages.access_denied_not_owner'));
         }
 
@@ -453,7 +471,7 @@ class MessageController extends Controller
 
         /** @var PhoneNumber|null $phoneNumber */
         $phoneNumber = PhoneNumber::where('id', $phoneNumberId)->first();
-        if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id)) {
+        if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id && $phoneNumber->assigned_user_id !== $user->id)) {
             return response()->json(['success' => false, 'message' => __('controllers.user.messages.unauthorized')], 403);
         }
 
@@ -484,7 +502,7 @@ class MessageController extends Controller
         /** @var PhoneNumber $phoneNumber */
         $phoneNumber = PhoneNumber::findOrFail($phoneNumberId);
 
-        if (! $user->isAdmin() && $phoneNumber->user_id !== $user->id) {
+        if (! $user->isAdmin() && $phoneNumber->user_id !== $user->id && $phoneNumber->assigned_user_id !== $user->id) {
             throw new AccessDeniedHttpException(__('controllers.user.messages.line_access_denied'));
         }
 
@@ -534,7 +552,7 @@ class MessageController extends Controller
 
         /** @var PhoneNumber|null $phoneNumber */
         $phoneNumber = PhoneNumber::where('id', $phoneNumberId)->first();
-        if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id)) {
+        if (! $phoneNumber || (! $user->isAdmin() && $phoneNumber->user_id !== $user->id && $phoneNumber->assigned_user_id !== $user->id)) {
             return response()->json(['success' => false, 'message' => __('controllers.user.messages.unauthorized')]);
         }
 
@@ -604,7 +622,10 @@ class MessageController extends Controller
         $user = $request->user();
         $summary = $this->unreadCountService->getUnreadSummaryForUser($user);
 
-        $allocatedLineIds = $user->phoneNumbers()
+        $allocatedLineIds = PhoneNumber::where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhere('assigned_user_id', $user->id);
+            })
             ->where('status', PhoneNumberStatus::Allocated)
             ->pluck('id');
 
@@ -640,7 +661,7 @@ class MessageController extends Controller
      */
     public function show(Request $request, Message $message): JsonResponse
     {
-        if (! $request->user()->isAdmin() && $message->phoneNumber->user_id !== $request->user()->id) {
+        if (! $request->user()->isAdmin() && $message->phoneNumber->user_id !== $request->user()->id && $message->phoneNumber->assigned_user_id !== $request->user()->id) {
             abort(403, __('controllers.user.messages.message_access_denied'));
         }
 

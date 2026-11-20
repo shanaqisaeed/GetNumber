@@ -18,6 +18,7 @@ const props = defineProps<{
     currentNumber: LineItem | null;
     selected_line_key?: string | null;
     conversations: ConversationItem[];
+    contacts?: any[];
     activePeer: string | null;
     activePeerDetails: any | null;
     activeMessages: ChatMessage[];
@@ -496,7 +497,11 @@ onUnmounted(() => {
             <div v-else-if="isComposingNew">
                 <NewConversationModal
                     :selected-line-id="selectedLineId"
+                    :current-line="currentLine"
+                    :lines="allocatedNumbersList"
+                    :contacts="props.contacts || []"
                     :initial-recipient="prefilledRecipient"
+                    @switch-line="switchLine"
                     @close="closeChatOrComposer"
                     @sent="handleSingleSent"
                     @toast="showToast"

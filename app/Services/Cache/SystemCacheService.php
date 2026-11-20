@@ -206,7 +206,10 @@ class SystemCacheService implements SystemCacheServiceInterface
         if ($lineIds instanceof \__PHP_Incomplete_Class || ! is_array($lineIds)) {
             Cache::forget($cacheKey);
             Cache::forget("user:{$user->id}:allocated_numbers"); // Clear legacy key if poisoned
-            $lineIds = $user->phoneNumbers()
+            $lineIds = PhoneNumber::where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('assigned_user_id', $user->id);
+                })
                 ->where('status', PhoneNumberStatus::Allocated)
                 ->orderBy('number')
                 ->pluck('id')
@@ -231,7 +234,10 @@ class SystemCacheService implements SystemCacheServiceInterface
         $val = Cache::get($cacheKey);
         if ($val instanceof \__PHP_Incomplete_Class || ! is_numeric($val)) {
             Cache::forget($cacheKey);
-            $val = PhoneNumber::where('user_id', $userId)
+            $val = PhoneNumber::where(function ($q) use ($userId) {
+                    $q->where('user_id', $userId)
+                      ->orWhere('assigned_user_id', $userId);
+                })
                 ->where('status', PhoneNumberStatus::Allocated)
                 ->count();
             Cache::put($cacheKey, $val, self::TTL_USER_LINES);

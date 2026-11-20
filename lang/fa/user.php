@@ -484,6 +484,12 @@ return [
         'mic_modal_desc_after' => 'را انتخاب نمایید.',
         'mic_modal_confirm_btn' => 'تایید مجوز و برقراری تماس',
         'cancel' => 'انصراف',
+        'initiate_modal_title' => 'آماده‌سازی و شروع تماس',
+        'initiate_modal_desc' => 'بازبینی شماره مقصد، خط خروجی و تنظیمات نویزگیر صوتی پیش از برقراری تماس',
+        'destination_target' => 'شماره یا شناسه مقصد:',
+        'active_caller_line' => 'خط برقراری تماس:',
+        'confirm_and_call' => 'برقراری تماس مستقیم',
+        'cancel_call' => 'انصراف',
     ],
     'contacts' => [
         'page_title' => 'دفترچه مخاطبین',

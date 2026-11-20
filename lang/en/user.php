@@ -484,6 +484,12 @@ return [
         'mic_modal_desc_after' => 'in the browser prompt.',
         'mic_modal_confirm_btn' => 'Grant Permission & Start Call',
         'cancel' => 'Cancel',
+        'initiate_modal_title' => 'Prepare & Start Call',
+        'initiate_modal_desc' => 'Review destination number, outbound line, and acoustic noise cancellation prior to connecting',
+        'destination_target' => 'Destination:',
+        'active_caller_line' => 'Outbound Line:',
+        'confirm_and_call' => 'Start Call',
+        'cancel_call' => 'Cancel',
     ],
     'contacts' => [
         'page_title' => 'Contacts Book',

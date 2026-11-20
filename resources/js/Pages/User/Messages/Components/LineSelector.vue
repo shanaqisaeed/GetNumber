@@ -121,14 +121,52 @@ const selectLine = (sim: LineItem) => {
                 </span>
             </div>
 
-            <div dir="ltr" class="text-left font-mono font-black text-sm sm:text-base text-indigo-700 dark:text-indigo-300 tracking-wider select-all">
-                {{ currentLine.formatted_number }}
+            <div class="flex items-center gap-2.5">
+                <div dir="ltr" class="text-left font-mono font-black text-sm sm:text-base text-indigo-700 dark:text-indigo-300 tracking-wider select-all">
+                    {{ currentLine.formatted_number }}
+                </div>
+                <button
+                    v-if="lines.length > 1"
+                    type="button"
+                    @click="isSimSwitcherModalOpen = true"
+                    class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline px-2 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20"
+                >
+                    {{ __('softphone.line.switch_line') }}
+                </button>
             </div>
         </div>
 
         <div v-else-if="lines.length === 0" class="mt-3 text-xs text-rose-500 font-bold">
             {{ __('user.messages.no_lines_found') }}
         </div>
+
+        <!-- SIM Switcher Modal -->
+        <teleport to="body">
+            <div v-if="isSimSwitcherModalOpen" class="fixed inset-0 z-[120] bg-black/60 backdrop-blur-md flex items-center justify-center p-4" @click.self="isSimSwitcherModalOpen = false">
+                <div class="glass-card w-full max-w-sm p-5 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-4 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
+                        <span class="text-xs font-black">{{ __('softphone.line.select_line_prompt') }}</span>
+                        <button type="button" @click="isSimSwitcherModalOpen = false" class="text-xs text-slate-400 p-1">✕</button>
+                    </div>
+                    <div class="space-y-2 max-h-60 overflow-y-auto">
+                        <button
+                            v-for="line in lines"
+                            :key="line.id"
+                            type="button"
+                            @click="selectLine(line)"
+                            class="w-full p-2.5 rounded-2xl border text-right transition-all flex items-center justify-between gap-2"
+                            :class="isSimActive(line) ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-indigo-500/40'"
+                        >
+                            <div class="min-w-0">
+                                <div class="text-xs font-black truncate">{{ line.effective_title }}</div>
+                                <div class="text-[10px] font-mono opacity-80" dir="ltr">{{ line.formatted_number }}</div>
+                            </div>
+                            <span v-if="isSimActive(line)" class="text-xs">✓</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </teleport>
     </div>
 </template>
 

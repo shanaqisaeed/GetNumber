@@ -77,6 +77,7 @@ return [
         ],
         'user' => [
             'nav' => [
+                'brand_name' => 'راوی‌نو',
                 'home' => 'خانه',
                 'contacts' => 'مخاطبین',
                 'sms' => 'پیامک',

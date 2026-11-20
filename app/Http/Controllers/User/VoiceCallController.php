@@ -31,56 +31,30 @@ class VoiceCallController extends Controller
     {
         $user = $request->user();
 
-        $lines = PhoneNumber::where('user_id', $user->id)
-            ->where('status', PhoneNumberStatus::Allocated)
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'key' => 'phone_' . $p->id,
-                'number' => $p->number,
-                'formatted_number' => $p->formatted_number,
-                'display_title' => $p->display_title ?: $p->effective_title,
-                'status' => $p->status->value,
-                'is_active' => true,
-                'type' => 'number',
-                'type_label' => __('controllers.user.calls.type_phone_line'),
-            ]);
-
-        $customIdLines = $user->activeServiceAllocations()
-            ->where('service_key', 'custom_id')
-            ->get()
-            ->map(fn ($cid) => [
-                'id' => $cid->id,
-                'key' => 'custom_' . $cid->id,
-                'number' => $cid->resource_identifier,
-                'formatted_number' => $cid->resource_identifier,
-                'display_title' => $cid->display_title ?: __('controllers.user.calls.custom_id_with_handle', ['handle' => $cid->resource_identifier]),
-                'status' => 'allocated',
-                'is_active' => true,
-                'type' => 'custom_id',
-                'type_label' => __('controllers.user.calls.type_custom_id'),
-            ]);
-
-        $allLines = $lines->concat($customIdLines)->values();
+        $allLines = \App\Http\Controllers\User\SoftphoneDashboardController::resolveOperableLines($user);
 
         $selectedKey = $request->input('line_key');
         if (! $selectedKey) {
             if ($request->filled('phone_number_id')) {
                 $selectedKey = 'phone_' . (int) $request->input('phone_number_id');
             } elseif ($request->filled('custom_id')) {
-                $matchedCid = $customIdLines->firstWhere('number', $request->input('custom_id'));
+                $matchedCid = $allLines->firstWhere('number', $request->input('custom_id'));
                 if ($matchedCid) {
                     $selectedKey = $matchedCid['key'];
                 }
+            } else {
+                $selectedKey = session('active_line_key');
             }
         }
 
         $selectedLine = $allLines->firstWhere('key', $selectedKey) ?: $allLines->first();
+        if ($selectedLine) {
+            session(['active_line_key' => $selectedLine['key']]);
+        }
         $selectedLineKey = $selectedLine ? $selectedLine['key'] : null;
         $selectedLineId = $selectedLine ? $selectedLine['id'] : null;
 
-        $initialDestination = $request->input('destination')
-            ?: ($request->filled('custom_id') && ! $customIdLines->contains('number', $request->input('custom_id')) ? $request->input('custom_id') : '');
+        $initialDestination = $request->input('destination', '');
 
         $callsQuery = VoiceCall::where('user_id', $user->id)
             ->with('phoneNumber');
@@ -141,6 +115,7 @@ class VoiceCallController extends Controller
 
         return Inertia::render('User/Calls/Index', [
             'lines' => $allLines,
+            'active_line' => $selectedLine,
             'selected_line_key' => $selectedLineKey,
             'selected_line_id' => $selectedLineId,
             'initial_destination' => $initialDestination,
@@ -214,17 +189,7 @@ class VoiceCallController extends Controller
     public function lines(Request $request): JsonResponse
     {
         $user = $request->user();
-        $lines = PhoneNumber::where('user_id', $user->id)
-            ->where('status', PhoneNumberStatus::Allocated)
-            ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'number' => $p->number,
-                'formatted_number' => $p->formatted_number,
-                'display_title' => $p->display_title ?: $p->effective_title,
-                'status' => $p->status->value,
-                'is_active' => true,
-            ]);
+        $lines = \App\Http\Controllers\User\SoftphoneDashboardController::resolveOperableLines($user);
 
         $ratePerMinute = (float) SystemSetting::get('voice_call_rate_per_minute', 0.1000);
         $walletBalance = (string) ($user->wallet?->balance ?? '0.0000');
@@ -258,7 +223,10 @@ class VoiceCallController extends Controller
         if ($lineKey) {
             if (str_starts_with($lineKey, 'phone_')) {
                 $pid = (int) substr($lineKey, 6);
-                $fromNumber = PhoneNumber::where('user_id', $user->id)
+                $fromNumber = PhoneNumber::where(function ($q) use ($user) {
+                        $q->where('user_id', $user->id)
+                          ->orWhere('assigned_user_id', $user->id);
+                    })
                     ->where('status', PhoneNumberStatus::Allocated)
                     ->find($pid);
             } elseif (str_starts_with($lineKey, 'custom_')) {
@@ -269,14 +237,20 @@ class VoiceCallController extends Controller
                 if ($cidAlloc) {
                     $customCallerHandle = $cidAlloc->resource_identifier;
                     $fromNumber = $cidAlloc->phoneNumber
-                        ?? PhoneNumber::where('user_id', $user->id)->where('status', PhoneNumberStatus::Allocated)->first();
+                        ?? PhoneNumber::where(function ($q) use ($user) {
+                            $q->where('user_id', $user->id)
+                              ->orWhere('assigned_user_id', $user->id);
+                        })->where('status', PhoneNumberStatus::Allocated)->first();
                 }
             }
         }
 
         if (! $fromNumber && $request->filled('phone_number_id')) {
             $lineId = (int) $request->input('phone_number_id');
-            $fromNumber = PhoneNumber::where('user_id', $user->id)
+            $fromNumber = PhoneNumber::where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                      ->orWhere('assigned_user_id', $user->id);
+                })
                 ->where('status', PhoneNumberStatus::Allocated)
                 ->find($lineId);
 
@@ -288,7 +262,10 @@ class VoiceCallController extends Controller
                 if ($cidAlloc) {
                     $customCallerHandle = $cidAlloc->resource_identifier;
                     $fromNumber = $cidAlloc->phoneNumber
-                        ?? PhoneNumber::where('user_id', $user->id)->where('status', PhoneNumberStatus::Allocated)->first();
+                        ?? PhoneNumber::where(function ($q) use ($user) {
+                            $q->where('user_id', $user->id)
+                              ->orWhere('assigned_user_id', $user->id);
+                        })->where('status', PhoneNumberStatus::Allocated)->first();
                 }
             }
         }

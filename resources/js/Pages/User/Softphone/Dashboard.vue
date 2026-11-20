@@ -70,27 +70,9 @@ const props = defineProps<{
 // Line Switcher Modal
 const isLineSwitcherOpen = ref(false);
 
-// Presence State
-const currentPresence = ref<'online' | 'busy' | 'dnd' | 'offline'>(props.presence || 'online');
-async function setPresence(val: 'online' | 'busy' | 'dnd' | 'offline') {
-    currentPresence.value = val;
-    try {
-        await axios.post(route('softphone.presence'), { presence: val });
-    } catch {}
-}
-
 // Dialer State
 const destinationInput = ref('');
 const isContactPickerOpen = ref(false);
-const callState = ref<'idle' | 'calling' | 'connected' | 'ended'>('idle');
-const activeCallId = ref<number | null>(null);
-const callDurationSeconds = ref(0);
-let callTimer: ReturnType<typeof setInterval> | null = null;
-let pulseTimer: ReturnType<typeof setInterval> | null = null;
-
-// Low Balance 1-minute warning state
-const lowBalanceWarning = ref(false);
-const lowBalanceSeconds = ref(60);
 
 // Keypad buttons
 const keypadRows = [
@@ -101,9 +83,7 @@ const keypadRows = [
 ];
 
 function appendDigit(digit: string) {
-    if (callState.value === 'idle') {
-        destinationInput.value += digit;
-    }
+    destinationInput.value += digit;
 }
 
 function removeLastDigit() {
@@ -117,96 +97,19 @@ function clearDestination() {
 function handleContactSelected(contact: PickerContactItem) {
     destinationInput.value = contact.phone_number;
     isContactPickerOpen.value = false;
+    startCall(contact.phone_number);
 }
 
-// Start Call
-async function startCall(dest?: string) {
+// Start Call: Redirects to /calls with prefilled destination and auto_open modal for noise cancellation review
+function startCall(dest?: string) {
     const target = dest || destinationInput.value;
-    if (!target || !props.active_line) return;
+    if (!target) return;
 
-    destinationInput.value = target;
-    callState.value = 'calling';
-    lowBalanceWarning.value = false;
-    callDurationSeconds.value = 0;
-
-    try {
-        const payload: any = {
-            destination_number: target,
-        };
-        if (props.active_line.type === 'number') {
-            payload.phone_number_id = props.active_line.id;
-        } else {
-            payload.custom_id = props.active_line.number;
-        }
-
-        const res = await axios.post(route('voice.initiate'), payload);
-        if (res.data?.success && res.data.call) {
-            activeCallId.value = res.data.call.id;
-            callState.value = 'connected';
-            startTimers();
-        } else {
-            endCall();
-        }
-    } catch (err: any) {
-        alert(err.response?.data?.message || __('softphone.balance.insufficient_funds_to_start'));
-        endCall();
-    }
+    router.visit(route('calls.index', {
+        destination: target.trim(),
+        auto_open: 1,
+    }));
 }
-
-function startTimers() {
-    callTimer = setInterval(() => {
-        callDurationSeconds.value += 1;
-    }, 1000);
-
-    pulseTimer = setInterval(async () => {
-        if (!activeCallId.value) return;
-        try {
-            const res = await axios.post(route('voice.pulse', { voiceCall: activeCallId.value }), {
-                elapsed_seconds: callDurationSeconds.value,
-            });
-
-            if (res.data?.low_balance_warning) {
-                lowBalanceWarning.value = true;
-                lowBalanceSeconds.value = res.data.seconds_remaining || 60;
-            }
-
-            if (res.data?.auto_terminated || !res.data?.can_continue) {
-                endCall();
-            }
-        } catch {
-            endCall();
-        }
-    }, 5000);
-}
-
-async function endCall() {
-    if (activeCallId.value) {
-        try {
-            await axios.post(route('voice.end', { voiceCall: activeCallId.value }), {
-                duration_seconds: callDurationSeconds.value,
-            });
-        } catch {}
-    }
-
-    if (callTimer) clearInterval(callTimer);
-    if (pulseTimer) clearInterval(pulseTimer);
-    callState.value = 'idle';
-    activeCallId.value = null;
-    callDurationSeconds.value = 0;
-    lowBalanceWarning.value = false;
-    router.reload();
-}
-
-const formattedDuration = computed(() => {
-    const mins = Math.floor(callDurationSeconds.value / 60);
-    const secs = callDurationSeconds.value % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-});
-
-onUnmounted(() => {
-    if (callTimer) clearInterval(callTimer);
-    if (pulseTimer) clearInterval(pulseTimer);
-});
 </script>
 
 <template>
@@ -263,98 +166,9 @@ onUnmounted(() => {
 
         <!-- SCENARIO 2: ACTIVE SOFTPHONE DESKTOP 3-COLUMN WORKSTATION -->
         <div v-else class="space-y-6">
-            <!-- Top Control Bar (Active Line Chip, Presence Selector, Wallet Balance) -->
-            <div class="glass-card p-4 rounded-3xl border border-slate-200 dark:border-white/10 flex flex-wrap items-center justify-between gap-4">
-                <!-- Line Info & Switcher Button -->
-                <div class="flex items-center gap-3">
-                    <div class="w-11 h-11 rounded-2xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center shrink-0">
-                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-xs text-slate-400 font-bold">{{ __('softphone.line.active_line') }}:</span>
-                            <span class="font-mono font-black text-sm text-slate-800 dark:text-white" dir="ltr">
-                                {{ active_line.formatted_number || active_line.number }}
-                            </span>
-                            <span
-                                v-if="active_line.is_organization"
-                                class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30"
-                            >
-                                {{ active_line.organization_name || __('organization.dashboard.title') }}
-                            </span>
-                        </div>
-                        <button
-                            type="button"
-                            @click="isLineSwitcherOpen = true"
-                            class="text-[11px] text-indigo-500 dark:text-indigo-400 font-bold hover:underline inline-flex items-center gap-1 mt-0.5"
-                        >
-                            <span>{{ __('softphone.line.switch_line') }}</span>
-                            <span>⇄</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Presence & Wallet Controls -->
-                <div class="flex items-center gap-4">
-                    <!-- Presence Dropdown -->
-                    <div class="flex items-center gap-1.5 bg-slate-100 dark:bg-white/5 p-1 rounded-2xl border border-slate-200 dark:border-white/10 text-xs font-bold">
-                        <button
-                            type="button"
-                            @click="setPresence('online')"
-                            class="px-2.5 py-1 rounded-xl transition-all"
-                            :class="currentPresence === 'online' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                        >
-                            ● {{ __('softphone.presence.online') }}
-                        </button>
-                        <button
-                            type="button"
-                            @click="setPresence('dnd')"
-                            class="px-2.5 py-1 rounded-xl transition-all"
-                            :class="currentPresence === 'dnd' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-white'"
-                        >
-                            ⛔ {{ __('softphone.presence.dnd') }}
-                        </button>
-                    </div>
-
-                    <!-- Wallet Balance Chip -->
-                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/25">
-                        <span class="text-[11px] text-amber-500 font-bold">
-                            {{ wallet.is_organization ? __('organization.wallet.title') : __('softphone.nav.quick_wallet') }}:
-                        </span>
-                        <span class="font-mono font-black text-xs text-amber-500">
-                            {{ wallet.balance }} {{ wallet.currency }}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mid-Call 1-Minute Grace Alert Banner -->
-            <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0 -translate-y-2">
-                <div
-                    v-if="lowBalanceWarning"
-                    class="p-4 rounded-3xl bg-rose-500/20 border-2 border-rose-500/50 text-white flex items-center justify-between gap-4 animate-pulse shadow-xl"
-                >
-                    <div class="flex items-center gap-3">
-                        <span class="text-2xl">⚠️</span>
-                        <div>
-                            <p class="text-xs font-black">{{ __('softphone.balance.low_balance_warning_title') }}</p>
-                            <p class="text-[11px] text-rose-200">{{ __('softphone.balance.low_balance_warning_desc') }}</p>
-                        </div>
-                    </div>
-                    <Link
-                        :href="route('wallet.index')"
-                        class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shrink-0 shadow"
-                    >
-                        {{ __('softphone.balance.recharge_wallet') }}
-                    </Link>
-                </div>
-            </transition>
-
             <!-- 3-Column Softphone Layout Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                <!-- COLUMN 1 (4 Cols): SMART DIALER & ACTIVE CALL -->
+                <!-- COLUMN 1 (4 Cols): SMART DIALER -->
                 <div class="lg:col-span-4 glass-card p-5 rounded-3xl border border-slate-200 dark:border-white/10 space-y-5">
                     <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
                         <h3 class="text-sm font-black text-slate-800 dark:text-white flex items-center gap-2">
@@ -377,11 +191,11 @@ onUnmounted(() => {
                             type="text"
                             dir="ltr"
                             :placeholder="__('softphone.dialer.enter_number_or_id')"
-                            :disabled="callState !== 'idle'"
                             class="w-full py-3.5 px-4 pr-12 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 font-mono text-base font-black text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all text-center"
+                            @keyup.enter="startCall()"
                         />
                         <button
-                            v-if="destinationInput && callState === 'idle'"
+                            v-if="destinationInput"
                             type="button"
                             @click="removeLastDigit"
                             class="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
@@ -390,28 +204,8 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <!-- In-Call Active State Card -->
-                    <div v-if="callState !== 'idle'" class="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-2">
-                        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-black animate-pulse">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                            <span>{{ callState === 'calling' ? __('softphone.dialer.calling') : __('softphone.dialer.in_call') }}</span>
-                        </div>
-                        <div class="text-2xl font-mono font-black text-emerald-500">
-                            {{ formattedDuration }}
-                        </div>
-                        <div class="pt-2">
-                            <button
-                                type="button"
-                                @click="endCall"
-                                class="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-black text-xs shadow-lg shadow-rose-600/30 transition-all active:scale-95"
-                            >
-                                {{ __('softphone.dialer.ending') }}
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Numeric Keypad Grid -->
-                    <div v-else class="space-y-4">
+                    <div class="space-y-4">
                         <div class="grid grid-cols-3 gap-2.5">
                             <template v-for="row in keypadRows" :key="row[0].digit">
                                 <button
@@ -427,12 +221,12 @@ onUnmounted(() => {
                             </template>
                         </div>
 
-                        <!-- Initiate Call Button -->
+                        <!-- Initiate Call Button: Redirects to /calls with prefilled number for noise cancelling review -->
                         <button
                             type="button"
                             @click="startCall()"
                             :disabled="!destinationInput"
-                            class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all active:scale-95"
+                            class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white font-black text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center gap-2.5 transition-all active:scale-95 cursor-pointer"
                         >
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />

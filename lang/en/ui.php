@@ -77,6 +77,7 @@ return [
         ],
         'user' => [
             'nav' => [
+                'brand_name' => 'Ravi No',
                 'home' => 'Home',
                 'contacts' => 'Contacts',
                 'sms' => 'Messages',
