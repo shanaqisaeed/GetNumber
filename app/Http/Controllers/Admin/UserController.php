@@ -289,6 +289,31 @@ class UserController extends Controller
                 'actor' => $log->user ? $log->user->name : __('controllers.admin.users.system_actor'),
             ]);
 
+        $org = $user->ownedOrganizations()->with(['wallet', 'members.user'])->first()
+            ?? $user->organizations()->with(['wallet', 'members.user'])->first();
+
+        $orgData = null;
+        if ($org) {
+            $orgWallet = $org->getOrCreateWallet();
+            $orgData = [
+                'id' => $org->id,
+                'name' => $org->name,
+                'identifier' => $org->identifier,
+                'status' => $org->status,
+                'wallet_balance' => (string) ($orgWallet->balance ?? '0.0000'),
+                'members' => $org->members->map(fn ($m) => [
+                    'id' => $m->id,
+                    'user_id' => $m->user_id,
+                    'name' => $m->user?->name ?? __('admin.users.edit_page.unknown_user'),
+                    'username' => $m->user?->username ?? '-',
+                    'role' => $m->role,
+                    'status' => $m->status,
+                    'assigned_line' => $m->assigned_line,
+                    'created_at' => $m->created_at?->format('Y/m/d H:i') ?? '-',
+                ]),
+            ];
+        }
+
         return Inertia::render('Admin/Users/Edit', [
             'user' => [
                 'id' => $user->id,
@@ -330,8 +355,11 @@ class UserController extends Controller
                 'phone_number' => $c->phone_number,
                 'avatar_color' => $c->avatar_color ?: 'indigo',
                 'notes' => $c->notes,
+                'is_organization' => !is_null($c->organization_id),
+                'type_label' => !is_null($c->organization_id) ? __('admin.users.edit_page.contact_type_org') : __('admin.users.edit_page.contact_type_normal'),
                 'created_at' => $c->created_at?->format('Y/m/d H:i'),
             ]),
+            'organization' => $orgData,
             'audit_logs' => $auditLogs,
             'roles' => [
                 ['value' => UserRole::User->value, 'label' => UserRole::User->label()],
@@ -594,6 +622,102 @@ class UserController extends Controller
             'entity_id' => $user->id,
             'payload' => [
                 'target_user_id' => $user->id,
+                'action' => $action,
+                'amount' => $amount,
+                'reason' => $reason,
+            ],
+            'ip_address' => request()->ip() ?? '127.0.0.1',
+        ]);
+
+        return back()->with('success', $msg);
+    }
+
+    /**
+     * Adjust corporate wallet balance for the user's organization.
+     */
+    public function adjustOrgWallet(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'action' => ['required', 'string', 'in:credit,debit,set'],
+            'amount' => ['required', 'numeric', 'min:0'],
+            'reason' => ['required', 'string', 'max:255'],
+        ]);
+
+        $admin = $request->user();
+        $action = $validated['action'];
+        $amount = number_format((float) $validated['amount'], 4, '.', '');
+        $reason = trim($validated['reason']);
+
+        $org = $user->ownedOrganizations()->first() ?? $user->organizations()->first();
+        if (!$org) {
+            return back()->with('error', __('controllers.admin.users.org_not_found'));
+        }
+
+        $orgWallet = $org->getOrCreateWallet();
+
+        if ($action === 'credit') {
+            if (bccomp($amount, '0.0001', 4) < 0) {
+                return back()->with('error', __('controllers.admin.users.org_wallet_credit_min'));
+            }
+            $orgWallet->credit(
+                $amount,
+                'admin_adjustment',
+                $reason,
+                $admin->id,
+                ['adjusted_by' => $admin->id, 'action' => 'credit']
+            );
+            $msg = __('controllers.admin.users.org_wallet_credited', ['amount' => $amount, 'org' => $org->name]);
+        } elseif ($action === 'debit') {
+            if (bccomp($amount, '0.0001', 4) < 0) {
+                return back()->with('error', __('controllers.admin.users.org_wallet_debit_min'));
+            }
+            $tx = $orgWallet->debit(
+                $amount,
+                'admin_adjustment',
+                $reason,
+                $admin->id,
+                ['adjusted_by' => $admin->id, 'action' => 'debit']
+            );
+            if (!$tx) {
+                return back()->with('error', __('controllers.admin.users.org_wallet_insufficient'));
+            }
+            $msg = __('controllers.admin.users.org_wallet_debited', ['amount' => $amount, 'org' => $org->name]);
+        } else { // 'set'
+            $current = (string) $orgWallet->balance;
+            $diff = bcsub($amount, $current, 4);
+
+            if (bccomp($diff, '0', 4) > 0) {
+                $orgWallet->credit(
+                    $diff,
+                    'admin_adjustment',
+                    __('controllers.admin.users.org_wallet_set_reason', ['amount' => $amount, 'reason' => $reason]),
+                    $admin->id,
+                    ['adjusted_by' => $admin->id, 'action' => 'set', 'target_balance' => $amount]
+                );
+            } elseif (bccomp($diff, '0', 4) < 0) {
+                $debitAmount = bcmul($diff, '-1', 4);
+                $tx = $orgWallet->debit(
+                    $debitAmount,
+                    'admin_adjustment',
+                    __('controllers.admin.users.org_wallet_set_reason', ['amount' => $amount, 'reason' => $reason]),
+                    $admin->id,
+                    ['adjusted_by' => $admin->id, 'action' => 'set', 'target_balance' => $amount]
+                );
+                if (!$tx) {
+                    return back()->with('error', __('controllers.admin.users.org_wallet_set_negative'));
+                }
+            }
+            $msg = __('controllers.admin.users.org_wallet_set', ['org' => $org->name, 'amount' => $amount]);
+        }
+
+        AuditLog::create([
+            'user_id' => $admin->id,
+            'action' => 'admin.org_wallet.balance_adjusted',
+            'entity_type' => \App\Models\Organization::class,
+            'entity_id' => $org->id,
+            'payload' => [
+                'user_id' => $user->id,
+                'organization_id' => $org->id,
                 'action' => $action,
                 'amount' => $amount,
                 'reason' => $reason,

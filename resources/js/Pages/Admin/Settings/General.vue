@@ -496,17 +496,6 @@ const testBridgeConnection = async () => {
                         </div>
 
                         <div>
-                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.default_locale_label') }}</label>
-                            <select
-                                v-model="generalForm.default_locale"
-                                class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                            >
-                                <option value="fa">{{ __('admin.settings.general.locale_fa') }}</option>
-                                <option value="en">{{ __('admin.settings.general.locale_en') }}</option>
-                            </select>
-                        </div>
-
-                        <div class="sm:col-span-2">
                             <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.app_desc_label') }}</label>
                             <input
                                 v-model="generalForm.app_description"
@@ -609,6 +598,38 @@ const testBridgeConnection = async () => {
                                 <option value="none">{{ __('admin.settings.general.enc_none') }}</option>
                             </select>
                         </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_from_address_label') }}</label>
+                            <input
+                                v-model="smtpForm.mail_from_address"
+                                type="email"
+                                required
+                                class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            />
+                        </div>
+
+                        <div class="sm:col-span-2">
+                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.smtp_from_name_label') }}</label>
+                            <input
+                                v-model="smtpForm.mail_from_name"
+                                type="text"
+                                required
+                                class="w-full text-sm rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                            />
+                        </div>
+                    </div>
+
+                    <div class="pt-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                        <input
+                            id="require_email_verification"
+                            v-model="smtpForm.require_email_verification"
+                            type="checkbox"
+                            class="w-4 h-4 text-indigo-600 rounded"
+                        />
+                        <label for="require_email_verification" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                            {{ __('admin.settings.general.require_email_verification') }}
+                        </label>
                     </div>
 
                     <div class="pt-2 flex items-center justify-between">
@@ -759,6 +780,33 @@ const testBridgeConnection = async () => {
                                     <option value="ssl">SSL / LDAPS</option>
                                 </select>
                             </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_bind_dn_label') }}</label>
+                                <input v-model="ldapForm.bind_dn" type="text" placeholder="cn=admin,dc=example,dc=com" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_bind_password_label') }}</label>
+                                <input v-model="ldapForm.bind_password" type="password" :placeholder="__('admin.settings.general.leave_blank_unchanged')" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_search_filter_label') }}</label>
+                                <input v-model="ldapForm.search_filter" type="text" placeholder="(&(objectClass=person)(|(uid={login})(mail={login})))" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_uid_attribute_label') }}</label>
+                                <input v-model="ldapForm.uid_attribute" type="text" placeholder="uid / sAMAccountName" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.ldap_email_attribute_label') }}</label>
+                                <input v-model="ldapForm.email_attribute" type="text" placeholder="mail" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                            <input id="ldap_auto_create" v-model="ldapForm.auto_create_user" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <label for="ldap_auto_create" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                                {{ __('admin.settings.general.ldap_auto_create_user') }}
+                            </label>
                         </div>
 
                         <div class="pt-2 flex items-center justify-between">
@@ -798,6 +846,21 @@ const testBridgeConnection = async () => {
                                 <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_client_secret_label') }}</label>
                                 <input v-model="keycloakForm.client_secret" type="password" :placeholder="__('admin.settings.general.leave_blank_unchanged')" class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
                             </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_redirect_uri_label') }}</label>
+                                <input :value="keycloakSettings.callbackUrl" type="text" readonly class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-500 cursor-not-allowed" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">{{ __('admin.settings.general.keycloak_scopes_label') }}</label>
+                                <input value="openid profile email" type="text" readonly class="w-full text-sm font-mono rounded-xl border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-500 cursor-not-allowed" />
+                            </div>
+                        </div>
+
+                        <div class="pt-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-3">
+                            <input id="keycloak_auto_create" v-model="keycloakForm.auto_create_user" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <label for="keycloak_auto_create" class="text-xs font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                                {{ __('admin.settings.general.keycloak_auto_create_user') }}
+                            </label>
                         </div>
 
                         <div class="pt-2 flex items-center justify-between">

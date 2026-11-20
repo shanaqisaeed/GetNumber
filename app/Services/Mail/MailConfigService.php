@@ -57,6 +57,20 @@ class MailConfigService
         $password = Config::get('mail.mailers.smtp.password');
         $encryption = Config::get('mail.mailers.smtp.encryption');
 
+        if (empty($host)) {
+            return [
+                'success' => false,
+                'error' => __('controllers.admin.settings.smtp_host_empty'),
+            ];
+        }
+
+        if (empty($username) || empty($password)) {
+            return [
+                'success' => false,
+                'error' => __('controllers.admin.settings.smtp_credentials_empty'),
+            ];
+        }
+
         try {
             // First perform low-level socket probe to verify reachability
             $errno = 0;
@@ -74,6 +88,16 @@ class MailConfigService
                 ];
             }
             fclose($socket);
+
+            // Perform real SMTP protocol handshake and authentication using Symfony EsmtpTransport
+            $tls = in_array(strtolower((string) $encryption), ['ssl', 'tls'], true);
+            $transport = new EsmtpTransport($host, (int) $port, $tls);
+            if (!empty($username)) {
+                $transport->setUsername($username);
+                $transport->setPassword($password ?? '');
+            }
+            $transport->start();
+            $transport->stop();
 
             // If recipient provided, attempt sending a test message
             if (!empty($recipient)) {

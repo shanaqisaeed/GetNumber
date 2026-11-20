@@ -67,7 +67,29 @@ interface ContactItem {
     phone_number: string;
     avatar_color: string;
     notes: string | null;
+    is_organization?: boolean;
+    type_label?: string;
     created_at: string;
+}
+
+interface OrgMemberItem {
+    id: number;
+    user_id: number;
+    name: string;
+    username: string;
+    role: string;
+    status: string;
+    assigned_line: any;
+    created_at: string;
+}
+
+interface OrgData {
+    id: number;
+    name: string;
+    identifier: string;
+    status: string;
+    wallet_balance: string;
+    members: OrgMemberItem[];
 }
 
 const props = defineProps<{
@@ -75,12 +97,37 @@ const props = defineProps<{
     phone_numbers: NumberItem[];
     service_allocations: ServiceAllocationItem[];
     contacts?: ContactItem[];
+    organization?: OrgData | null;
     audit_logs: AuditLogItem[];
     roles: RoleOption[];
     statuses: StatusOption[];
 }>();
 
-const activeTab = ref<'profile' | 'wallet' | 'resources' | 'contacts' | 'audit'>('profile');
+const activeTab = ref<'profile' | 'wallet' | 'resources' | 'contacts' | 'org' | 'audit'>('profile');
+
+// Org Wallet Adjustment Form
+const orgWalletForm = useForm({
+    action: 'credit' as 'credit' | 'debit' | 'set',
+    amount: '',
+    reason: '',
+});
+
+const submitOrgWalletAdjustment = () => {
+    orgWalletForm.post(route('admin.users.org_wallet.adjust', props.user.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            orgWalletForm.reset();
+        },
+    });
+};
+
+function formatAssignedLine(line: any): string {
+    if (!line) return '-';
+    if (typeof line === 'object') {
+        return line.formatted_number || line.number || line.display_title || '-';
+    }
+    return String(line);
+}
 
 // User Profile & Account Form
 const profileForm = useForm({
@@ -228,6 +275,16 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
                 >
                     {{ __('admin.users.edit_page.tab_contacts', { count: contacts?.length || 0 }) }}
+                </button>
+                <button
+                    type="button"
+                    @click="activeTab = 'org'"
+                    class="px-4 py-2 rounded-xl text-xs font-bold transition-all"
+                    :class="activeTab === 'org'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:bg-slate-50'"
+                >
+                    {{ __('admin.users.edit_page.tab_org') }}
                 </button>
                 <button
                     type="button"
@@ -538,6 +595,7 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                             <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 border-b border-slate-100 dark:border-slate-800">
                                 <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_contact_name') }}</th>
                                 <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_contact_number') }}</th>
+                                <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_contact_type') }}</th>
                                 <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_contact_notes') }}</th>
                                 <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_registered_at') }}</th>
                             </tr>
@@ -553,6 +611,17 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                                 <td class="py-3 px-3 font-mono font-bold text-indigo-600 dark:text-indigo-400" dir="ltr">
                                     {{ contact.phone_number }}
                                 </td>
+                                <td class="py-3 px-3">
+                                    <span
+                                        class="text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1"
+                                        :class="contact.is_organization
+                                            ? 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30'
+                                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
+                                    >
+                                        <span class="w-1.5 h-1.5 rounded-full" :class="contact.is_organization ? 'bg-purple-500' : 'bg-slate-400'"></span>
+                                        {{ contact.type_label || (contact.is_organization ? __('admin.users.edit_page.contact_type_org') : __('admin.users.edit_page.contact_type_normal')) }}
+                                    </span>
+                                </td>
                                 <td class="py-3 px-3 text-slate-500 dark:text-slate-400">{{ contact.notes || '-' }}</td>
                                 <td class="py-3 px-3 font-mono text-[11px]" dir="ltr">{{ contact.created_at || '-' }}</td>
                             </tr>
@@ -561,6 +630,166 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
                 </div>
                 <div v-else class="text-center py-8 text-xs text-slate-400">
                     {{ __('admin.users.edit_page.no_contacts') }}
+                </div>
+            </div>
+
+            <!-- TAB 5: Organization, Members & Corporate Wallet -->
+            <div v-else-if="activeTab === 'org'" class="space-y-6">
+                <div v-if="organization" class="space-y-6">
+                    <!-- Org Summary Card -->
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div class="flex items-center gap-4">
+                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/25 shrink-0">
+                                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-3">
+                                    <h3 class="text-xl font-black text-slate-900 dark:text-white">{{ organization.name }}</h3>
+                                    <span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300" dir="ltr">
+                                        {{ organization.identifier }}
+                                    </span>
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
+                                        {{ organization.status }}
+                                    </span>
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">{{ __('admin.users.edit_page.org_subtitle') }}</p>
+                            </div>
+                        </div>
+
+                        <div class="px-5 py-3 rounded-2xl bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/60 text-left shrink-0">
+                            <div class="text-[11px] font-bold text-emerald-700 dark:text-emerald-400">{{ __('admin.users.edit_page.org_wallet_balance') }}</div>
+                            <div class="text-xl font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5" dir="ltr">
+                                {{ Number(organization.wallet_balance).toFixed(2) }} TRX
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Corporate Wallet Adjustment Form -->
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4">
+                        <div class="pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                {{ __('admin.users.edit_page.org_wallet_adjust_title') }}
+                            </h4>
+                        </div>
+
+                        <form @submit.prevent="submitOrgWalletAdjustment" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.users.edit_page.org_wallet_action') }}</label>
+                                <select
+                                    v-model="orgWalletForm.action"
+                                    class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
+                                >
+                                    <option value="credit">{{ __('admin.users.edit_page.org_wallet_credit') }}</option>
+                                    <option value="debit">{{ __('admin.users.edit_page.org_wallet_debit') }}</option>
+                                    <option value="set">{{ __('admin.users.edit_page.org_wallet_set') }}</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.users.edit_page.org_wallet_amount') }}</label>
+                                <input
+                                    v-model="orgWalletForm.amount"
+                                    type="number"
+                                    step="0.0001"
+                                    min="0"
+                                    placeholder="0.00"
+                                    dir="ltr"
+                                    class="w-full text-xs font-mono rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
+                                    required
+                                />
+                                <div v-if="orgWalletForm.errors.amount" class="text-[11px] text-rose-500 mt-1">{{ orgWalletForm.errors.amount }}</div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">{{ __('admin.users.edit_page.org_wallet_reason') }}</label>
+                                <input
+                                    v-model="orgWalletForm.reason"
+                                    type="text"
+                                    placeholder="..."
+                                    class="w-full text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 p-2.5"
+                                    required
+                                />
+                                <div v-if="orgWalletForm.errors.reason" class="text-[11px] text-rose-500 mt-1">{{ orgWalletForm.errors.reason }}</div>
+                            </div>
+
+                            <div>
+                                <button
+                                    type="submit"
+                                    :disabled="orgWalletForm.processing"
+                                    class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 disabled:opacity-50 transition-colors"
+                                >
+                                    {{ orgWalletForm.processing ? __('admin.users.edit_page.wallet_submitting') : __('admin.users.edit_page.org_wallet_submit') }}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Organization Members List -->
+                    <div class="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 shadow-sm space-y-4">
+                        <div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                            <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                                <span>👥</span>
+                                {{ __('admin.users.edit_page.org_members_title') }}
+                            </h4>
+                            <span class="text-xs font-mono font-bold px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {{ organization.members.length }}
+                            </span>
+                        </div>
+
+                        <div v-if="organization.members.length > 0" class="overflow-x-auto">
+                            <table class="w-full text-right text-xs">
+                                <thead>
+                                    <tr class="bg-slate-50 dark:bg-slate-800/50 text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_name') }}</th>
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_username') }}</th>
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_role') }}</th>
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_line') }}</th>
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_status') }}</th>
+                                        <th class="py-2.5 px-3">{{ __('admin.users.edit_page.th_member_joined') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+                                    <tr v-for="member in organization.members" :key="member.id">
+                                        <td class="py-3 px-3 font-bold text-slate-900 dark:text-white">
+                                            {{ member.name }}
+                                        </td>
+                                        <td class="py-3 px-3 font-mono text-indigo-600 dark:text-indigo-400" dir="ltr">
+                                            @{{ member.username }}
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="member.role === 'admin' ? 'bg-rose-500/10 text-rose-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'">
+                                                {{ member.role }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-3 font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">
+                                            {{ formatAssignedLine(member.assigned_line) }}
+                                        </td>
+                                        <td class="py-3 px-3">
+                                            <span class="px-2 py-0.5 rounded-lg text-[10px] font-bold" :class="member.status === 'active' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'">
+                                                {{ member.status }}
+                                            </span>
+                                        </td>
+                                        <td class="py-3 px-3 font-mono text-[11px]" dir="ltr">
+                                            {{ member.created_at }}
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div v-else class="bg-white dark:bg-slate-900 rounded-3xl p-12 border border-slate-200/80 dark:border-slate-800/80 shadow-sm text-center">
+                    <div class="w-16 h-16 mx-auto rounded-3xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mb-4">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                    </div>
+                    <h4 class="text-base font-bold text-slate-700 dark:text-slate-300 mb-1">{{ __('admin.users.edit_page.no_org_found') }}</h4>
                 </div>
             </div>
 
