@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\User;
+namespace App\Http\Controllers\Organization;
 
 use App\Contracts\ApiTokenServiceInterface;
 use App\Enums\ApiTokenStatus;
@@ -18,7 +18,7 @@ class ApiTokenController extends Controller
     ) {}
 
     /**
-     * Display a listing of user's API tokens.
+     * Display a listing of organization's API tokens.
      */
     public function index(Request $request): Response
     {
@@ -57,7 +57,7 @@ class ApiTokenController extends Controller
     }
 
     /**
-     * Generate a new API token for the authenticated user.
+     * Generate a new API token for the organization.
      */
     public function store(Request $request): RedirectResponse
     {
@@ -117,7 +117,7 @@ class ApiTokenController extends Controller
     }
 
     /**
-     * Delete an API token completely.
+     * Delete an API token permanently.
      */
     public function destroy(Request $request, ApiToken $token): RedirectResponse
     {
@@ -127,6 +127,6 @@ class ApiTokenController extends Controller
 
         $this->tokenService->deleteToken($token);
 
-        return back()->with('success', __('controllers.user.api_tokens.token_deleted', ['name' => $token->name]));
+        return back()->with('success', __('controllers.user.api_tokens.token_deleted'));
     }
 }

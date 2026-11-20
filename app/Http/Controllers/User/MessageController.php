@@ -392,69 +392,6 @@ class MessageController extends Controller
     }
 
     /**
-     * Dedicated asynchronous bulk SMS dispatch endpoint.
-     * Enqueues batch and returns tracking batch_id and status URL.
-     */
-    public function sendBulk(Request $request): JsonResponse
-    {
-        $user = $request->user();
-
-        $validated = $request->validate([
-            'from_number_id' => ['required', 'exists:phone_numbers,id'],
-            'destinations' => ['required'],
-            'body' => ['required', 'string', 'max:2000'],
-        ]);
-
-        /** @var PhoneNumber $fromNumber */
-        $fromNumber = PhoneNumber::findOrFail($validated['from_number_id']);
-
-        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
-            throw new AccessDeniedHttpException(__('controllers.user.messages.access_denied_not_owner'));
-        }
-
-        $rawDest = $validated['destinations'];
-        $destArray = is_string($rawDest) ? preg_split('/[\r\n,]+/', $rawDest) : (array) $rawDest;
-
-        $batch = $this->messageService->queueBulkSms(
-            fromNumber: $fromNumber,
-            destinationNumbers: $destArray,
-            body: $validated['body'],
-            senderUser: $user
-        );
-
-        return response()->json([
-            'success' => true,
-            'batch_id' => $batch->batch_id,
-            'total_count' => $batch->total_count,
-            'status' => $batch->status,
-            'status_url' => route('messages.batch.status', $batch->batch_id),
-            'message' => __('controllers.user.messages.bulk_enqueued', ['batch_id' => $batch->batch_id]),
-        ], 202);
-    }
-
-    /**
-     * Check progress and statistics of a bulk message batch.
-     */
-    public function batchStatus(Request $request, string $batchId): JsonResponse
-    {
-        $batch = $this->messageService->getBatchStatus($batchId, $request->user());
-
-        return response()->json([
-            'success' => true,
-            'batch_id' => $batch->batch_id,
-            'status' => $batch->status,
-            'total_count' => $batch->total_count,
-            'processed_count' => $batch->processed_count,
-            'success_count' => $batch->success_count,
-            'failed_count' => $batch->failed_count,
-            'progress_percentage' => $batch->progressPercentage(),
-            'is_finished' => $batch->isFinished(),
-            'created_at' => $batch->created_at->toIso8601String(),
-            'completed_at' => $batch->completed_at?->toIso8601String(),
-        ]);
-    }
-
-    /**
      * Authoritative server-side SMS segment & cost estimation endpoint.
      */
     public function estimateCost(Request $request, \App\Services\SmsSegmentCalculatorService $calculator): JsonResponse

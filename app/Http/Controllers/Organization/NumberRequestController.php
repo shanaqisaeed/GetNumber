@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\User;
+namespace App\Http\Controllers\Organization;
 
 use App\Contracts\NumberRequestServiceInterface;
 use App\Enums\NumberRequestStatus;
@@ -23,11 +23,12 @@ class NumberRequestController extends Controller
     ) {}
 
     /**
-     * Display a listing of user's service number requests & Enterprise Hub.
+     * Display a listing of organization's service number requests (4 to 8 digits & short IDs) & Enterprise Hub.
      */
     public function index(Request $request): Response
     {
         $user = $request->user();
+        $org = $user->getOrCreatePersonalOrganization();
 
         $query = NumberRequest::with(['allocatedNumber.prefix', 'reviewer', 'prefix'])
             ->where('user_id', $user->id);
@@ -139,18 +140,21 @@ class NumberRequestController extends Controller
                 'created_at' => $order->created_at?->format('Y/m/d H:i'),
             ]);
 
+        $wallet = $org->getOrCreateWallet();
+
         return Inertia::render('User/Requests/Index', [
             'requests' => $requests,
             'service_catalog' => $serviceCatalog,
             'enterprise_orders' => $enterpriseOrders,
-            'account_tier' => $user->effectiveServiceTier(),
-            'organization_name' => $user->organization_name,
+            'account_tier' => 'enterprise',
+            'organization_name' => $org->name,
             'enterprise_contract_code' => $user->enterprise_contract_code,
             'filters' => $request->only(['search', 'status']),
             'stats' => $stats,
             'org_tariffs' => \App\Models\SystemSetting::getAllOrgPricing(),
             'wallet' => [
-                'balance' => (string) $user->getOrCreateWallet()->balance,
+                'balance' => (string) $wallet->balance,
+                'currency' => $wallet->currency,
             ],
             'available_pool_numbers' => $availablePoolNumbers,
             'active_prefixes' => \App\Models\PhonePrefix::active()->get([
@@ -198,61 +202,56 @@ class NumberRequestController extends Controller
         $prefixId = $request->input('phone_prefix_id') ?? $request->input('prefix_id');
         $seed = $request->input('seed') ?? $request->input('number');
 
-        if ($length < 4 || $length > 8) {
-            $length = 4;
-        }
-
         $suggestions = $this->searchService->getShortcodeSuggestions(
             prefixId: $prefixId ? (int) $prefixId : null,
             length: $length,
-            seedNumber: $seed ? (string) $seed : null,
-            limit: 8
+            seedNumber: $seed,
+            limit: 12
         );
 
         return response()->json([
+            'success' => true,
+            'length' => $length,
             'suggestions' => $suggestions,
         ]);
     }
 
     /**
-     * Submit a new service number request.
+     * Store a newly created service number request in storage.
      */
     public function store(StoreNumberRequestRequest $request): RedirectResponse
     {
+        $user = $request->user();
+
         try {
-            $newRequest = $this->requestService->createRequest(
-                user: $request->user(),
-                requestedLength: (int) $request->input('requested_length'),
-                serviceTitle: (string) $request->input('service_title'),
-                description: (string) $request->input('description'),
-                preferredNumber: $request->input('preferred_number'),
-                acceptsIncomingSms: $request->has('accepts_incoming_sms') ? $request->boolean('accepts_incoming_sms') : true,
-                phonePrefixId: $request->filled('phone_prefix_id') ? (int) $request->input('phone_prefix_id') : null
+            $numberRequest = $this->requestService->createRequest(
+                user: $user,
+                validatedData: $request->validated()
             );
 
-            return back()->with('success', __('controllers.user.number_requests.submitted', ['title' => $newRequest->service_title]));
+            return redirect()->route('org.requests.index')
+                ->with('success', __('controllers.user.number_requests.request_registered_success', ['id' => $numberRequest->id]));
         } catch (NumberAllocationException $e) {
-            return back()->with('error', $e->getMessage());
-        } catch (\Throwable $e) {
-            return back()->with('error', __('controllers.user.number_requests.submit_error'));
+            return back()->withInput()->with('error', $e->getMessage());
         }
     }
 
     /**
-     * Cancel a pending service number request.
+     * Remove the specified resource from storage (cancel pending request).
      */
     public function destroy(Request $request, NumberRequest $numberRequest): RedirectResponse
     {
-        $this->authorize('cancel', $numberRequest);
+        if ($numberRequest->user_id !== $request->user()->id && ! $request->user()->isAdmin()) {
+            abort(403);
+        }
 
         try {
             $this->requestService->cancelRequest($numberRequest, $request->user());
 
-            return back()->with('success', __('controllers.user.number_requests.cancelled'));
-        } catch (NumberAllocationException $e) {
+            return redirect()->route('org.requests.index')
+                ->with('success', __('controllers.user.number_requests.request_cancelled_success'));
+        } catch (\InvalidArgumentException $e) {
             return back()->with('error', $e->getMessage());
-        } catch (\Throwable $e) {
-            return back()->with('error', __('controllers.user.number_requests.cancel_error'));
         }
     }
 }

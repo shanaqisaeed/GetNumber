@@ -114,7 +114,9 @@ JS;
 
 // Standard User Routes
 Route::middleware(['auth'])->group(function () {
-    Route::get('/dashboard', [\App\Http\Controllers\User\DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/dashboard', [\App\Http\Controllers\User\SoftphoneDashboardController::class, 'index'])->name('dashboard');
+    Route::post('/softphone/switch-line', [\App\Http\Controllers\User\SoftphoneDashboardController::class, 'switchLine'])->name('softphone.switch_line');
+    Route::post('/softphone/presence', [\App\Http\Controllers\User\SoftphoneDashboardController::class, 'updatePresence'])->name('softphone.presence');
 
     Route::get('/numbers', [UserPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [UserPhoneNumberController::class, 'store'])->name('numbers.store');
@@ -123,11 +125,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/numbers/{number}', [UserPhoneNumberController::class, 'update'])->name('numbers.update');
     Route::delete('/numbers/{number}', [UserPhoneNumberController::class, 'destroy'])->name('numbers.destroy');
 
-    Route::get('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'index'])->name('requests.index');
-    Route::post('/requests', [\App\Http\Controllers\User\NumberRequestController::class, 'store'])->name('requests.store');
-    Route::post('/requests/check-availability', [\App\Http\Controllers\User\NumberRequestController::class, 'checkAvailability'])->name('requests.check_availability');
-    Route::get('/requests/suggestions', [\App\Http\Controllers\User\NumberRequestController::class, 'suggestions'])->name('requests.suggestions');
-    Route::delete('/requests/{numberRequest}', [\App\Http\Controllers\User\NumberRequestController::class, 'destroy'])->name('requests.destroy');
+    Route::redirect('/requests', '/org/requests')->name('requests.index');
 
     // Multi-Service Platform & Enterprise Portal Routes (Phase 1)
     Route::get('/services', [UserPhoneNumberController::class, 'index'])->name('services.index');
@@ -138,27 +136,20 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/services/allocations/{allocation:uuid}/sub-accounts/{subResource}', [\App\Http\Controllers\User\ServiceCatalogController::class, 'destroySubAccount'])->name('services.sub_accounts.destroy');
     Route::post('/services/allocations/{allocation:uuid}/upgrade-quota', [\App\Http\Controllers\User\ServiceCatalogController::class, 'upgradeQuota'])->name('services.allocations.upgrade_quota');
 
-    Route::get('/enterprise', [\App\Http\Controllers\User\NumberRequestController::class, 'index'])->name('enterprise.index');
-    Route::post('/enterprise/tier', [\App\Http\Controllers\User\ServiceCatalogController::class, 'updateAccountTier'])->name('enterprise.tier.update');
+    Route::redirect('/enterprise', '/org')->name('enterprise.index');
 
-    // User SMS Messaging & Chat (Mobile style)
+    // User SMS Messaging & Chat (Softphone 1-to-1 SMS)
     Route::get('/messages', [\App\Http\Controllers\User\MessageController::class, 'index'])->name('messages.index');
     Route::post('/messages/send', [\App\Http\Controllers\User\MessageController::class, 'send'])->name('messages.send');
-    Route::post('/messages/send-bulk', [\App\Http\Controllers\User\MessageController::class, 'sendBulk'])->name('messages.send_bulk');
     Route::post('/messages/estimate-cost', [\App\Http\Controllers\User\MessageController::class, 'estimateCost'])->name('messages.estimate_cost');
-    Route::get('/messages/batches/{batchId}', [\App\Http\Controllers\User\MessageController::class, 'batchStatus'])->name('messages.batch.status');
     Route::get('/messages/resync', [\App\Http\Controllers\User\MessageController::class, 'resync'])->name('messages.resync');
     Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
     Route::get('/messages/poll', [\App\Http\Controllers\User\MessageController::class, 'poll'])->name('messages.poll');
     Route::get('/messages/unread-summary', [\App\Http\Controllers\User\MessageController::class, 'unreadSummary'])->name('messages.unread_summary');
     Route::get('/messages/{message}', [\App\Http\Controllers\User\MessageController::class, 'show'])->name('messages.show');
 
-    // User API Token Management
-    Route::get('/api-tokens', [\App\Http\Controllers\User\ApiTokenController::class, 'index'])->name('api-tokens.index');
-    Route::post('/api-tokens', [\App\Http\Controllers\User\ApiTokenController::class, 'store'])->name('api-tokens.store');
-    Route::post('/api-tokens/{token}/rotate', [\App\Http\Controllers\User\ApiTokenController::class, 'rotate'])->name('api-tokens.rotate');
-    Route::post('/api-tokens/{token}/revoke', [\App\Http\Controllers\User\ApiTokenController::class, 'revoke'])->name('api-tokens.revoke');
-    Route::delete('/api-tokens/{token}', [\App\Http\Controllers\User\ApiTokenController::class, 'destroy'])->name('api-tokens.destroy');
+    // Redirect legacy api-tokens to organization api tokens
+    Route::redirect('/api-tokens', '/org/api-tokens')->name('api-tokens.index');
 
     // User Support Tickets
     Route::get('/tickets', [\App\Http\Controllers\User\TicketController::class, 'index'])->name('tickets.index');
@@ -378,5 +369,6 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('/settings/voice-bridge/test', [\App\Http\Controllers\Admin\SettingController::class, 'testVoiceBridge'])->name('settings.voice_bridge.test');
 });
 
+require __DIR__.'/organization.php';
 require __DIR__.'/auth.php';
 

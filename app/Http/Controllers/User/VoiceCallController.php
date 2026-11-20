@@ -494,31 +494,79 @@ class VoiceCallController extends Controller
 
         $rate = (float) $voiceCall->rate_per_minute;
 
+        // Resolve effective wallet: Organization wallet if line belongs to company, else personal wallet
+        $phone = $voiceCall->phoneNumber;
+        $isOrgLine = $phone && ($phone->is_organization || $phone->organization_id);
+        $walletBalance = '0.0000';
+
+        if ($isOrgLine && $phone->organization) {
+            $orgWallet = $phone->organization->getOrCreateWallet();
+            $walletBalance = (string) $orgWallet->balance;
+        } else {
+            $walletBalance = (string) ($user->wallet?->balance ?? '0.0000');
+        }
+
         if ($rate <= 0) {
             return response()->json([
                 'active' => true,
                 'can_continue' => true,
                 'is_internal' => (bool) ($voiceCall->metadata['is_internal'] ?? false),
                 'rate_per_minute' => 0.0000,
-                'wallet_balance' => (string) ($user->wallet?->balance ?? '0.0000'),
+                'wallet_balance' => $walletBalance,
             ]);
         }
 
-        $wallet = $user->wallet;
-        $balance = (float) ($wallet?->balance ?? 0);
+        $balance = (float) $walletBalance;
         $elapsedSec = (int) $request->input('elapsed_seconds', 0);
 
         if ($balance < $rate) {
-            $endedCall = $this->voiceCallService->endCall($voiceCall, max(1, $elapsedSec));
+            $meta = $voiceCall->metadata ?? [];
+            $warnedAt = $meta['low_balance_warned_at'] ?? null;
+
+            if (! $warnedAt) {
+                // Issue authoritative 1-minute grace warning
+                $meta['low_balance_warned_at'] = time();
+                $voiceCall->metadata = $meta;
+                $voiceCall->save();
+
+                return response()->json([
+                    'active' => true,
+                    'can_continue' => true,
+                    'low_balance_warning' => true,
+                    'warning_title' => __('softphone.balance.low_balance_warning_title'),
+                    'warning_message' => __('softphone.balance.low_balance_warning_desc'),
+                    'seconds_remaining' => 60,
+                    'rate_per_minute' => $rate,
+                    'wallet_balance' => $walletBalance,
+                ]);
+            }
+
+            // If 60 seconds have elapsed since warning, terminate call
+            if ((time() - (int) $warnedAt) >= 60) {
+                $endedCall = $this->voiceCallService->endCall($voiceCall, max(1, $elapsedSec));
+
+                return response()->json([
+                    'active' => false,
+                    'can_continue' => false,
+                    'auto_terminated' => true,
+                    'reason' => 'insufficient_balance',
+                    'cost' => (float) $endedCall->cost,
+                    'wallet_balance' => $walletBalance,
+                    'message' => __('controllers.user.calls.insufficient_balance_ended'),
+                ]);
+            }
+
+            $remainingGrace = max(1, 60 - (time() - (int) $warnedAt));
 
             return response()->json([
-                'active' => false,
-                'can_continue' => false,
-                'auto_terminated' => true,
-                'reason' => 'insufficient_balance',
-                'cost' => (float) $endedCall->cost,
-                'wallet_balance' => (string) ($user->fresh()->wallet?->balance ?? '0.0000'),
-                'message' => __('controllers.user.calls.insufficient_balance_ended'),
+                'active' => true,
+                'can_continue' => true,
+                'low_balance_warning' => true,
+                'warning_title' => __('softphone.balance.low_balance_warning_title'),
+                'warning_message' => __('softphone.balance.low_balance_warning_desc'),
+                'seconds_remaining' => $remainingGrace,
+                'rate_per_minute' => $rate,
+                'wallet_balance' => $walletBalance,
             ]);
         }
 
