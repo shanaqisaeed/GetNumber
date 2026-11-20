@@ -85,21 +85,28 @@ class SoftphoneDashboardController extends Controller
         // 6. Recent conversations for active line
         $recentConversations = [];
         if ($selectedLine && $selectedLine['type'] === 'number') {
-            $recentConversations = Message::where('phone_number_id', $selectedLine['id'])
-                ->selectRaw('peer_phone_number as peer, max(id) as last_id, count(case when is_read = 0 and direction = "inbound" then 1 end) as unread_count')
-                ->groupBy('peer_phone_number')
+            $convs = Message::where('phone_number_id', $selectedLine['id'])
+                ->whereNotNull('peer_number')
+                ->selectRaw('peer_number as peer, max(id) as last_id, count(case when processing_status = "received" and direction = "inbound" then 1 end) as unread_count')
+                ->groupBy('peer_number')
                 ->orderByDesc('last_id')
                 ->limit(10)
-                ->get()
-                ->map(function ($row) {
-                    $lastMsg = Message::find($row->last_id);
+                ->get();
+
+            if ($convs->isNotEmpty()) {
+                $lastIds = $convs->pluck('last_id')->filter()->all();
+                $lastMessages = Message::whereIn('id', $lastIds)->get()->keyBy('id');
+
+                $recentConversations = $convs->map(function ($row) use ($lastMessages) {
+                    $lastMsg = $lastMessages->get($row->last_id);
                     return [
-                        'peer' => $row->peer,
+                        'peer' => (string) $row->peer,
                         'unread_count' => (int) $row->unread_count,
                         'last_message' => $lastMsg?->body,
                         'last_at' => $lastMsg?->created_at?->diffForHumans(),
                     ];
-                });
+                })->all();
+            }
         }
 
         // 7. Contacts (Personal + Shared Corporate Contacts)
