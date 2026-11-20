@@ -3,16 +3,47 @@ import { __ } from '@/Composables/useTrans';
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import LineSwitcherModal, { LineOption } from '@/Components/LineSwitcherModal.vue';
+import AudioDeviceTestModal from '@/Components/AudioDeviceTestModal.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import { useTheme } from '@/Composables/useTheme';
+import { useSoftphoneSync } from '@/Composables/useSoftphoneSync';
 import { PageProps } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
+import { CalmRingtone } from '@/Utils/ringtone';
+import axios from 'axios';
 
-const page = usePage<PageProps>();
+const page = usePage<PageProps & {
+    active_line?: LineOption | null;
+    lines?: LineOption[];
+    presence?: string;
+}>();
+
 const user = computed(() => page.props.auth?.user);
 const liveUnreadCount = ref<number>(page.props.auth?.unread_messages_count || 0);
+
+// Active Line & Line Switcher State
+const isLineSwitcherOpen = ref(false);
+const isAudioTestOpen = ref(false);
+
+const activeLine = computed<LineOption | null>(() => {
+    return (page.props as any).active_line || null;
+});
+
+const availableLines = computed<LineOption[]>(() => {
+    return (page.props as any).lines || [];
+});
+
+// Softphone Cross-Tab Synchronization
+const { isCallActiveInOtherTab, initChannel, broadcastCallAnswered, broadcastCallEnded } = useSoftphoneSync();
+
+onMounted(() => {
+    initChannel((switchedKey) => {
+        router.reload();
+    });
+});
 
 watch(
     () => page.props.auth?.unread_messages_count,
@@ -29,9 +60,6 @@ const handleUnreadCountUpdated = (e: any) => {
     }
 };
 
-import { CalmRingtone } from '@/Utils/ringtone';
-import axios from 'axios';
-
 // Global Incoming Voice Call state & Calm Audio Ringtone engine
 interface IncomingCallState {
     id: number;
@@ -45,7 +73,6 @@ const ringtone = new CalmRingtone();
 let globalCallCheckTimer: ReturnType<typeof setInterval> | null = null;
 
 const checkGlobalIncomingCall = async () => {
-    // If user is already on the calls index page, Calls/Index.vue handles interactive call UI
     if (typeof window !== 'undefined' && window.location.pathname.startsWith('/calls')) {
         return;
     }
@@ -65,7 +92,6 @@ const checkGlobalIncomingCall = async () => {
                 };
                 ringtone.play();
 
-                // Trigger browser / mobile push notification
                 if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                     try {
                         const notif = new Notification(__('ui.layouts.user.incoming_call_notif_title'), {
@@ -92,103 +118,60 @@ const checkGlobalIncomingCall = async () => {
     } catch {}
 };
 
-const handleIncomingCallEvent = (e: any) => {
-    const detail = e.detail;
-    if (detail && detail.caller) {
-        incomingCall.value = {
-            id: detail.id || Date.now(),
-            caller: detail.caller,
-            callerName: detail.callerName || detail.caller,
-            line: detail.line || '',
-        };
-        ringtone.play();
-    }
-};
-
 const acceptIncomingCall = () => {
+    if (!incomingCall.value) return;
     ringtone.stop();
-    if (incomingCall.value) {
-        const c = incomingCall.value;
-        incomingCall.value = null;
-        router.visit(route('calls.index', {
-            incoming_call_id: c.id,
-            auto_answer: 1,
-            caller: c.caller,
-            line: c.line,
-        }));
-    }
+    broadcastCallAnswered(incomingCall.value.id);
+    const callId = incomingCall.value.id;
+    incomingCall.value = null;
+    router.visit(route('calls.index', { active_call_id: callId }));
 };
 
 const declineIncomingCall = async () => {
+    if (!incomingCall.value) return;
     ringtone.stop();
-    if (incomingCall.value) {
-        const callId = incomingCall.value.id;
-        incomingCall.value = null;
-        try {
-            await axios.post(route('voice.decline', callId));
-        } catch {}
-    }
+    const callId = incomingCall.value.id;
+    incomingCall.value = null;
+    try {
+        await axios.post(route('voice.decline', { voiceCall: callId }));
+        broadcastCallEnded();
+    } catch {}
 };
 
-onMounted(() => {
-    if (typeof window !== 'undefined') {
-        window.addEventListener('unread-count-updated', handleUnreadCountUpdated);
-        window.addEventListener('incoming-voice-call', handleIncomingCallEvent);
-        checkGlobalIncomingCall();
-        globalCallCheckTimer = setInterval(checkGlobalIncomingCall, 3000);
-    }
-});
+// Web Notifications & WebSocket Integration
+const { showLocalNotification } = useWebNotifications();
 
-onUnmounted(() => {
-    if (typeof window !== 'undefined') {
-        window.removeEventListener('unread-count-updated', handleUnreadCountUpdated);
-        window.removeEventListener('incoming-voice-call', handleIncomingCallEvent);
-    }
-    if (globalCallCheckTimer) {
-        clearInterval(globalCallCheckTimer);
-        globalCallCheckTimer = null;
-    }
-    ringtone.stop();
-});
-
-const { isDark, toggleTheme } = useTheme();
-
-// More Menu / Services Sheet state
-const isMoreMenuOpen = ref(false);
-
-// Realtime incoming toast banner
-const toastNotification = ref<{ title: string; body: string; peer?: string; lineId?: number } | null>(null);
+interface FloatingToastPayload {
+    title: string;
+    body: string;
+    peer?: string;
+    lineId?: number;
+}
+const toastNotification = ref<FloatingToastPayload | null>(null);
 let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 const showIncomingToast = (msg: RealtimeMessagePayload) => {
+    const sender = msg.peer_number || msg.sender || __('ui.layouts.user.unknown_sender');
     toastNotification.value = {
-        title: __('ui.layouts.user.new_sms_toast', { sender: msg.peer_number || msg.sender }),
-        body: msg.body.length > 55 ? msg.body.slice(0, 52) + '...' : msg.body,
-        peer: msg.peer_number || msg.sender,
+        title: __('ui.layouts.user.new_message_from', { sender }),
+        body: msg.body?.substring(0, 80) || '',
+        peer: sender,
         lineId: msg.phone_number_id,
     };
     if (toastTimer) clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
         toastNotification.value = null;
-    }, 5000);
+    }, 6000);
 };
 
-const { showLocalNotification } = useWebNotifications();
-
-const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
-    userId: user.value?.id,
-    isAdmin: false, // Customer portal must never subscribe to platform-wide admin broadcast
+const { connectionState } = useRealtimeMessages({
     onMessage: (msg) => {
         if (msg.direction === 'inbound' || (!msg.direction && msg.sender)) {
             liveUnreadCount.value += 1;
             const sender = msg.peer_number || msg.sender;
-
-            // In-app floating toast banner if not directly viewing the messages screen
             if (typeof window !== 'undefined' && (window as any).route && !(window as any).route().current('messages.*')) {
                 showIncomingToast(msg);
             }
-
-            // Deduplicated browser notification using message ID
             showLocalNotification(sender, msg.id);
         }
     },
@@ -197,23 +180,37 @@ const { connectionLabel, connectionStatusDotClass } = useRealtimeMessages({
     },
 });
 
+onMounted(() => {
+    window.addEventListener('user-unread-count-updated', handleUnreadCountUpdated);
+    globalCallCheckTimer = setInterval(checkGlobalIncomingCall, 3500);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('user-unread-count-updated', handleUnreadCountUpdated);
+    if (globalCallCheckTimer) clearInterval(globalCallCheckTimer);
+    ringtone.stop();
+});
+
+const isMoreMenuOpen = ref(false);
+const { isDark, toggleTheme } = useTheme();
+
 const navItems = computed(() => [
     {
-        name: computed(() => __('ui.layouts.user.nav.home')),
+        name: computed(() => __('softphone.nav.dashboard')),
         route: 'dashboard',
         href: route('dashboard'),
         active: route().current('dashboard'),
         icon: 'home',
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.contacts')),
-        route: 'contacts.*',
-        href: route('contacts.index'),
-        active: route().current('contacts.*'),
-        icon: 'contacts',
+        name: computed(() => __('softphone.nav.calls')),
+        route: 'calls.*',
+        href: route('calls.index'),
+        active: route().current('calls.*'),
+        icon: 'calls',
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.sms')),
+        name: computed(() => __('softphone.nav.messages')),
         route: 'messages.*',
         href: route('messages.index'),
         active: route().current('messages.*'),
@@ -221,19 +218,44 @@ const navItems = computed(() => [
         badge: liveUnreadCount.value,
     },
     {
-        name: computed(() => __('ui.layouts.user.nav.calls')),
-        route: 'calls.*',
-        href: route('calls.index'),
-        active: route().current('calls.*'),
-        icon: 'calls',
+        name: computed(() => __('softphone.nav.contacts')),
+        route: 'contacts.*',
+        href: route('contacts.index'),
+        active: route().current('contacts.*'),
+        icon: 'contacts',
     },
 ]);
 </script>
 
 <template>
     <div class="min-h-screen w-full flex flex-col items-center bg-[var(--bg-canvas)] relative transition-colors duration-300">
-        <!-- Automatic Notification Permission Request Modal -->
+        <!-- Notification Permission Request Modal -->
         <NotificationPermissionModal />
+
+        <!-- Line Switcher Modal -->
+        <LineSwitcherModal
+            :show="isLineSwitcherOpen"
+            :lines="availableLines"
+            :active-line-key="activeLine?.key"
+            @close="isLineSwitcherOpen = false"
+            @switched="isLineSwitcherOpen = false"
+        />
+
+        <!-- Audio Device & Mic Test Modal -->
+        <AudioDeviceTestModal
+            :show="isAudioTestOpen"
+            @close="isAudioTestOpen = false"
+        />
+
+        <!-- Multi-tab Synchronization Active Call Warning Banner -->
+        <div
+            v-if="isCallActiveInOtherTab"
+            class="w-full bg-amber-500 text-slate-900 py-2 px-4 text-xs font-black flex items-center justify-center gap-2 z-50 sticky top-0 shadow-md"
+        >
+            <span class="w-2.5 h-2.5 rounded-full bg-slate-900 animate-ping"></span>
+            <span>{{ __('softphone.multi_tab.active_elsewhere') }}</span>
+            <span class="text-[11px] font-normal">({{ __('softphone.multi_tab.tab_busy_notice') }})</span>
+        </div>
 
         <!-- Floating Live Message Toast -->
         <transition enter-active-class="transition ease-out duration-300" enter-from-class="-translate-y-8 opacity-0" enter-to-class="translate-y-0 opacity-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100" leave-to-class="-translate-y-8 opacity-0">
@@ -258,26 +280,14 @@ const navItems = computed(() => [
                     >
                         {{ __('ui.layouts.user.view_action') }}
                     </Link>
-                    <button @click="toastNotification = null" class="p-1 text-slate-400 hover:text-white text-xs">
-                        ✕
-                    </button>
+                    <button @click="toastNotification = null" class="p-1 text-slate-400 hover:text-white text-xs">✕</button>
                 </div>
             </div>
         </transition>
 
         <!-- Global Incoming Voice Call Alert Card -->
-        <transition
-            enter-active-class="transition ease-out duration-300"
-            enter-from-class="-translate-y-12 opacity-0 scale-90"
-            enter-to-class="translate-y-0 opacity-100 scale-100"
-            leave-active-class="transition ease-in duration-200"
-            leave-from-class="translate-y-0 opacity-100 scale-100"
-            leave-to-class="-translate-y-12 opacity-0 scale-90"
-        >
-            <div
-                v-if="incomingCall"
-                class="fixed top-5 left-1/2 -translate-x-1/2 z-[120] w-[92%] max-w-[440px] p-4 rounded-3xl border border-emerald-500/50 shadow-2xl backdrop-blur-2xl bg-slate-900/95 text-white"
-            >
+        <transition enter-active-class="transition ease-out duration-300" enter-from-class="-translate-y-12 opacity-0 scale-90" enter-to-class="translate-y-0 opacity-100 scale-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100 scale-100" leave-to-class="-translate-y-12 opacity-0 scale-90">
+            <div v-if="incomingCall" class="fixed top-5 left-1/2 -translate-x-1/2 z-[120] w-[92%] max-w-[440px] p-4 rounded-3xl border border-emerald-500/50 shadow-2xl backdrop-blur-2xl bg-slate-900/95 text-white">
                 <div class="flex items-center justify-between gap-3">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
@@ -288,7 +298,6 @@ const navItems = computed(() => [
                                 </svg>
                             </div>
                         </div>
-
                         <div class="min-w-0 space-y-0.5">
                             <div class="flex items-center gap-2">
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
@@ -306,25 +315,13 @@ const navItems = computed(() => [
                             </div>
                         </div>
                     </div>
-
-                    <!-- Action buttons -->
                     <div class="flex items-center gap-2 shrink-0">
-                        <button
-                            type="button"
-                            @click="declineIncomingCall"
-                            class="w-10 h-10 rounded-2xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/40 flex items-center justify-center transition-all"
-                            :title="__('ui.layouts.user.decline_call')"
-                        >
+                        <button type="button" @click="declineIncomingCall" class="w-10 h-10 rounded-2xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/40 flex items-center justify-center transition-all">
                             <svg class="w-5 h-5 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                         </button>
-
-                        <button
-                            type="button"
-                            @click="acceptIncomingCall"
-                            class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95"
-                        >
+                        <button type="button" @click="acceptIncomingCall" class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
@@ -335,24 +332,23 @@ const navItems = computed(() => [
             </div>
         </transition>
 
-        <!-- 3D Liquid Canvas Ambient Glows (Fixed in background) -->
+        <!-- Ambient Background Mesh -->
         <div class="ambient-mesh">
             <div class="liquid-orb orb-1"></div>
             <div class="liquid-orb orb-2"></div>
             <div class="liquid-orb orb-3"></div>
         </div>
 
-        <!-- Natural Flow Container (Same centered mobile width, but NOT inside an artificial restricted box) -->
-        <div class="w-full max-w-[460px] min-h-screen flex flex-col relative z-10 px-3.5 sm:px-4">
-            <!-- Sticky Top Header Bar -->
-            <header class="sticky top-0 z-30 pt-3 pb-2.5 flex items-center justify-between border-b border-slate-200/80 dark:border-white/10 backdrop-blur-xl bg-[var(--bg-canvas)]/85 transition-colors">
-                <!-- User Avatar & Status -->
-                <div class="flex items-center gap-2.5 min-w-0">
+        <!-- Desktop & Mobile Fluid Container (Expands gracefully on wide monitors) -->
+        <div class="w-full max-w-7xl min-h-screen flex flex-col relative z-10 px-3.5 sm:px-6 lg:px-8">
+            <!-- Universal Top Header -->
+            <header class="sticky top-0 z-30 pt-3 pb-2.5 flex items-center justify-between border-b border-slate-200/80 dark:border-white/10 backdrop-blur-xl bg-[var(--bg-canvas)]/85 transition-colors gap-3">
+                <!-- Left / User Info & Active Line Pill -->
+                <div class="flex items-center gap-3 min-w-0">
                     <div class="relative shrink-0">
                         <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white font-extrabold text-sm shadow-md shadow-indigo-500/25">
                             {{ user?.name ? user.name.charAt(0) : 'U' }}
                         </div>
-                        <span class="status-dot-pulse absolute -bottom-0.5 -right-0.5 border-2 border-[var(--bg-canvas)]"></span>
                     </div>
 
                     <div class="truncate">
@@ -360,172 +356,194 @@ const navItems = computed(() => [
                             <span class="text-xs sm:text-sm font-extrabold text-[var(--text-primary)] truncate">
                                 {{ user?.name || __('ui.layouts.user.default_user_name') }}
                             </span>
-                            <span
-                                class="w-2 h-2 rounded-full transition-all shrink-0 cursor-help"
-                                :class="connectionStatusDotClass"
-                                :title="connectionLabel"
-                            ></span>
                         </div>
-                        <div class="flex items-center gap-1 text-[10px] text-indigo-500 dark:text-indigo-400 font-semibold">
-                            <svg class="w-3 h-3 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                            </svg>
-                            <span>{{ user?.is_admin ? __('ui.layouts.user.role_admin') : __('ui.layouts.user.role_user') }}</span>
+
+                        <!-- Active Line Chip / Switcher Trigger -->
+                        <div class="flex items-center gap-1.5 mt-0.5">
+                            <button
+                                v-if="activeLine"
+                                type="button"
+                                @click="isLineSwitcherOpen = true"
+                                class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 text-[11px] font-bold font-mono transition-all"
+                                :title="__('softphone.line.switch_line')"
+                            >
+                                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                <span dir="ltr">{{ activeLine.formatted_number || activeLine.number }}</span>
+                                <span class="text-[9px] opacity-70">▼</span>
+                            </button>
+                            <button
+                                v-else-if="availableLines.length > 0"
+                                type="button"
+                                @click="isLineSwitcherOpen = true"
+                                class="text-[11px] text-amber-500 font-bold hover:underline"
+                            >
+                                {{ __('softphone.line.select_line_prompt') }}
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Header Actions (Direct Theme Toggle & More Services Drawer) -->
-                <div class="flex items-center gap-1.5 shrink-0">
-                    <!-- Admin Shortcut Button if Admin -->
+                <!-- Desktop Inline Navigation Bar (Hidden on Mobile) -->
+                <nav class="hidden md:flex items-center gap-1.5 bg-slate-200/50 dark:bg-white/5 p-1 rounded-2xl border border-slate-300/40 dark:border-white/10">
                     <Link
-                        v-if="user?.is_admin"
-                        :href="route('admin.dashboard')"
-                        class="w-9 h-9 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-500 flex items-center justify-center hover:bg-rose-500/25 transition-all"
-                        :title="__('ui.layouts.user.nav.switch_to_admin')"
+                        v-for="item in navItems"
+                        :key="typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name"
+                        :href="item.href"
+                        class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                        :class="[
+                            item.active
+                                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/10'
+                        ]"
+                    >
+                        <span>{{ typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name }}</span>
+                        <span v-if="item.badge && item.badge > 0" class="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[10px] font-black">
+                            {{ item.badge }}
+                        </span>
+                    </Link>
+                </nav>
+
+                <!-- Actions / Controls -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <!-- Prominent Switch to Organization Button -->
+                    <Link
+                        :href="route('org.dashboard')"
+                        class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-md shadow-indigo-600/20 flex items-center gap-1.5 transition-all active:scale-95"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                         </svg>
+                        <span class="hidden sm:inline">{{ __('softphone.nav.switch_to_org') }}</span>
                     </Link>
+
+                    <!-- Audio & Mic Device Test Button -->
+                    <button
+                        type="button"
+                        @click="isAudioTestOpen = true"
+                        class="w-9 h-9 rounded-xl glass-card !p-0 flex items-center justify-center text-[var(--text-secondary)] hover:text-indigo-400 hover:border-indigo-500/40 transition-all"
+                        :title="__('softphone.devices.title')"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                        </svg>
+                    </button>
 
                     <!-- Language Switcher -->
                     <LanguageSwitcher buttonClass="!h-9 !rounded-xl !px-2" />
 
-                    <!-- Direct Theme Switcher (Moon / Sun) -->
+                    <!-- Theme Toggle -->
                     <button
                         type="button"
                         @click="toggleTheme"
                         class="app-theme-toggle-btn !w-9 !h-9 !rounded-xl"
                         :title="isDark ? __('ui.layouts.user.theme_light') : __('ui.layouts.user.theme_dark')"
-                        :aria-label="__('ui.layouts.user.theme_toggle_aria')"
                     >
-                        <!-- Sun Icon (shown in dark mode) -->
                         <svg v-if="isDark" class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <circle cx="12" cy="12" r="5"></circle>
                             <line x1="12" y1="1" x2="12" y2="3"></line>
                             <line x1="12" y1="21" x2="12" y2="23"></line>
-                            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
-                            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
-                            <line x1="1" y1="12" x2="3" y2="12"></line>
-                            <line x1="21" y1="12" x2="23" y2="12"></line>
-                            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
-                            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                         </svg>
-                        <!-- Moon Icon (shown in light mode) -->
                         <svg v-else class="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                         </svg>
                     </button>
 
-                    <!-- More Services Menu Trigger -->
+                    <!-- Services Drawer Button (Mobile/Quick) -->
                     <button
                         type="button"
                         @click="isMoreMenuOpen = !isMoreMenuOpen"
-                        class="w-9 h-9 rounded-xl glass-card !p-0 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-indigo-500/40 transition-all"
-                        :title="__('ui.layouts.user.services_menu_title')"
-                        :aria-label="__('ui.layouts.user.services_menu_aria')"
+                        class="w-9 h-9 rounded-xl glass-card !p-0 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all md:hidden"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
                 </div>
             </header>
 
-            <!-- Natural Flowing Page Content (With generous pb-36 so content NEVER goes under the floating dock) -->
-            <main class="flex-1 pt-2 pb-36 relative z-10">
-                <!-- Global Breadcrumb Navigation -->
-                <div class="mb-2.5 px-0.5">
-                    <Breadcrumb homeRoute="dashboard" :homeLabel="__('ui.layouts.user.nav.dashboard')" />
-                </div>
-
-                <!-- Global Flash Notifications -->
-                <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-                    <div v-if="$page.props.flash?.success" class="mb-3.5 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md shadow-sm">
-                        <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" />
-                        </svg>
+            <!-- Main Content Area -->
+            <main class="flex-1 py-4 w-full">
+                <!-- Flash Messages -->
+                <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0">
+                    <div v-if="$page.props.flash?.success" class="mb-3.5 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">
+                        <span>✓</span>
                         <span class="flex-1">{{ $page.props.flash.success }}</span>
                     </div>
                 </transition>
 
-                <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0" leave-active-class="transition ease-in duration-150" leave-from-class="opacity-100" leave-to-class="opacity-0">
-                    <div v-if="$page.props.flash?.error" class="mb-3.5 p-3 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-2 backdrop-blur-md shadow-sm">
-                        <svg class="w-4 h-4 text-rose-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0">
+                    <div v-if="$page.props.flash?.error" class="mb-3.5 p-3 rounded-2xl bg-rose-500/15 border border-rose-500/35 text-rose-600 dark:text-rose-300 text-xs font-bold flex items-center gap-2">
+                        <span>✕</span>
                         <span class="flex-1">{{ $page.props.flash.error }}</span>
                     </div>
                 </transition>
 
-                <!-- Page Header Slot if present -->
-                <div v-if="$slots.header" class="mb-3.5">
-                    <slot name="header" />
-                </div>
-
-                <!-- Page Specific Content -->
                 <slot />
-
-                <!-- Bottom spacer to guarantee total clearance above floating dock -->
-                <div class="h-6" aria-hidden="true"></div>
+                <div class="h-16 md:h-6" aria-hidden="true"></div>
             </main>
         </div>
 
-        <!-- Floating Liquid Glass Bottom Dock Bar (Strictly centered directly below content items) -->
-        <nav class="phone-dock-bar">
+        <!-- Mobile Floating Bottom Dock Bar (Hidden on Desktop) -->
+        <nav class="phone-dock-bar md:hidden">
             <Link
                 v-for="item in navItems"
-                :key="typeof item.name === 'function' || typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name"
+                :key="typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name"
                 :href="item.href"
                 class="dock-item"
                 :class="{ active: item.active }"
             >
-                <!-- Unread Messages Badge -->
                 <span v-if="item.badge && item.badge > 0" class="dock-badge">
                     {{ item.badge > 99 ? '+99' : item.badge }}
                 </span>
 
-                <!-- Icon: Home / Dashboard -->
                 <svg v-if="item.icon === 'home'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
                     <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
-
-                <!-- Icon: Contacts -->
+                <svg v-else-if="item.icon === 'calls'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <svg v-else-if="item.icon === 'chat'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
                 <svg v-else-if="item.icon === 'contacts'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
 
-                <!-- Icon: Messages -->
-                <svg v-else-if="item.icon === 'chat'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-
-                <!-- Icon: Calls -->
-                <svg v-else-if="item.icon === 'calls'" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                </svg>
-
-                <span>{{ typeof item.name === 'function' || typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name }}</span>
+                <span>{{ typeof item.name === 'object' && 'value' in item.name ? item.name.value : item.name }}</span>
             </Link>
         </nav>
 
-        <!-- More Services Slide-up Sheet (Overlay) -->
+        <!-- More Services Sheet (Cleaned of dead API tokens, added Org Panel) -->
         <transition enter-active-class="transition duration-300 ease-out" enter-from-class="opacity-0" enter-to-class="opacity-100" leave-active-class="transition duration-200 ease-in" leave-from-class="opacity-100" leave-to-class="opacity-0">
             <div v-if="isMoreMenuOpen" class="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex flex-col justify-end items-center" @click.self="isMoreMenuOpen = false">
                 <div class="glass-card w-full max-w-[460px] !rounded-b-none !rounded-t-[32px] p-5 pb-6 border-b-0 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom duration-300">
-                    <div class="flex items-center justify-between pb-3 border-b border-white/10 dark:border-white/10">
+                    <div class="flex items-center justify-between pb-3 border-b border-white/10">
                         <span class="text-xs font-extrabold text-[var(--text-primary)] flex items-center gap-2">
                             <span class="w-2 h-2 rounded-full bg-indigo-500"></span>
                             {{ __('ui.layouts.user.nav.services_menu') }}
                         </span>
-                        <button @click="isMoreMenuOpen = false" class="text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1">
-                            ✕
-                        </button>
+                        <button @click="isMoreMenuOpen = false" class="text-xs text-[var(--text-muted)] p-1">✕</button>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2.5">
+                        <!-- Direct Link to Org Panel -->
+                        <Link
+                            :href="route('org.dashboard')"
+                            @click="isMoreMenuOpen = false"
+                            class="p-3 rounded-2xl bg-indigo-600/15 hover:bg-indigo-600/25 border border-indigo-500/30 flex items-center gap-2.5 text-xs font-bold text-indigo-400 transition-all col-span-2"
+                        >
+                            <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            </div>
+                            <div class="flex-1 flex items-center justify-between">
+                                <span>{{ __('softphone.nav.switch_to_org') }}</span>
+                                <span class="text-[10px] font-bold">→</span>
+                            </div>
+                        </Link>
+
                         <Link
                             :href="route('wallet.index')"
                             @click="isMoreMenuOpen = false"
@@ -538,7 +556,7 @@ const navItems = computed(() => [
                                 </svg>
                             </div>
                             <div class="flex-1 flex items-center justify-between">
-                                <span>{{ __('ui.layouts.user.nav.wallet') }}</span>
+                                <span>{{ __('softphone.nav.quick_wallet') }}</span>
                                 <span class="font-mono text-xs text-amber-500 font-black">{{ $page.props.auth?.wallet_balance || '0' }} COIN</span>
                             </div>
                         </Link>
@@ -557,26 +575,13 @@ const navItems = computed(() => [
                         </Link>
 
                         <Link
-                            :href="route('api-tokens.index')"
-                            @click="isMoreMenuOpen = false"
-                            class="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2.5 text-xs font-bold text-[var(--text-primary)] transition-all"
-                        >
-                            <div class="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                </svg>
-                            </div>
-                            <span>{{ __('ui.layouts.user.nav.api_tokens') }}</span>
-                        </Link>
-
-                        <Link
                             :href="route('profile.edit')"
                             @click="isMoreMenuOpen = false"
                             class="p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center gap-2.5 text-xs font-bold text-[var(--text-primary)] transition-all"
                         >
                             <div class="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                             </div>
                             <span>{{ __('ui.layouts.user.nav.profile_settings') }}</span>
@@ -587,7 +592,7 @@ const navItems = computed(() => [
                             method="post"
                             as="button"
                             @click="isMoreMenuOpen = false"
-                            class="p-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 flex items-center gap-2.5 text-xs font-bold text-rose-500 transition-all text-right w-full"
+                            class="p-3 rounded-2xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 flex items-center gap-2.5 text-xs font-bold text-rose-500 transition-all text-right w-full col-span-2"
                         >
                             <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

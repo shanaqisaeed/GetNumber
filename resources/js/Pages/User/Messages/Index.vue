@@ -7,7 +7,7 @@ import UserLayout from '@/Layouts/UserLayout.vue';
 import LineSelector, { LineItem } from './Components/LineSelector.vue';
 import ConversationList, { ConversationItem } from './Components/ConversationList.vue';
 import ChatWindow from './Components/ChatWindow.vue';
-import BulkSendModal from './Components/BulkSendModal.vue';
+import NewConversationModal from './Components/NewConversationModal.vue';
 
 // Composables & Utilities
 import { useRealtimeMessages, RealtimeMessagePayload, RealtimeStatusPayload } from '@/Composables/useRealtimeMessages';
@@ -364,10 +364,10 @@ const handleLoadOlder = async () => {
     });
 };
 
-// Handle bulk send completion
-const handleBulkSent = (payload: any) => {
-    if (!payload.isBatch && payload.destinations?.length === 1) {
-        const targetPeer = payload.destinations[0].replace(/^\+?85/, '').trim();
+// Handle direct 1-to-1 message sent completion
+const handleSingleSent = (payload: any) => {
+    if (payload.peer) {
+        const targetPeer = payload.peer.replace(/^\+?85/, '').trim();
         router.get(
             route('messages.index'),
             { phone_number_id: selectedLineId.value, peer: targetPeer },
@@ -491,15 +491,14 @@ onUnmounted(() => {
             </div>
 
             <!-- ========================================================== -->
-            <!-- VIEW C: NEW MESSAGE / BULK SEND SCREEN                     -->
+            <!-- VIEW C: NEW 1-TO-1 DIRECT CONVERSATION SCREEN              -->
             <!-- ========================================================== -->
             <div v-else-if="isComposingNew">
-                <BulkSendModal
+                <NewConversationModal
                     :selected-line-id="selectedLineId"
-                    :tariff-rate="smsTariff?.rate_per_segment || '0.0500'"
                     :initial-recipient="prefilledRecipient"
                     @close="closeChatOrComposer"
-                    @sent="handleBulkSent"
+                    @sent="handleSingleSent"
                     @toast="showToast"
                 />
             </div>

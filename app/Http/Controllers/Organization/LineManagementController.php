@@ -65,8 +65,19 @@ class LineManagementController extends Controller
 
         $lines = $phoneLines->concat($customIdLines)->values();
 
+        $eligibleMembers = $org->members()
+            ->with('user')
+            ->whereNull('assigned_line')
+            ->get()
+            ->map(fn ($m) => [
+                'id' => $m->id,
+                'name' => $m->user?->name,
+                'email' => $m->user?->email,
+            ]);
+
         return Inertia::render('Organization/Lines/Index', [
             'lines' => $lines,
+            'eligible_members' => $eligibleMembers,
         ]);
     }
 }

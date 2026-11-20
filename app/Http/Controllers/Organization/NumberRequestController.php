@@ -142,7 +142,7 @@ class NumberRequestController extends Controller
 
         $wallet = $org->getOrCreateWallet();
 
-        return Inertia::render('User/Requests/Index', [
+        return Inertia::render('Organization/Requests/Index', [
             'requests' => $requests,
             'service_catalog' => $serviceCatalog,
             'enterprise_orders' => $enterpriseOrders,

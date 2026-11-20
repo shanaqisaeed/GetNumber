@@ -108,7 +108,7 @@ const orderError = ref('');
 const fetchPoolNumbers = async () => {
     loadingPoolNumbers.value = true;
     try {
-        const res = await axios.get(route('requests.suggestions'), {
+        const res = await axios.get(route('org.requests.suggestions'), {
             params: {
                 requested_length: shortLineLength.value,
                 phone_prefix_id: selectedPrefixId.value || undefined,

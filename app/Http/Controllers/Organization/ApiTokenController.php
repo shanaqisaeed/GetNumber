@@ -49,7 +49,7 @@ class ApiTokenController extends Controller
             'revoked' => $tokens->where('status', ApiTokenStatus::Revoked->value)->count(),
         ];
 
-        return Inertia::render('User/ApiTokens/Index', [
+        return Inertia::render('Organization/ApiTokens/Index', [
             'tokens' => $tokens,
             'stats' => $stats,
             'plainTextToken' => session('plain_text_token'),
