@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Head, router, usePage } from '@inertiajs/vue3';
+import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 
 // Subcomponents
@@ -365,6 +366,49 @@ const handleLoadOlder = async () => {
     });
 };
 
+const handleDeleteConversation = async () => {
+    if (!currentActivePeer.value) return;
+    if (!confirm('آیا از حذف کل این گفتگو اطمینان دارید؟')) return;
+
+    try {
+        await axios.post(route('messages.destroy_conversation'), {
+            phone_number_id: selectedLineId.value || undefined,
+            peer_number: currentActivePeer.value,
+        });
+        conversationList.value = conversationList.value.filter(c => c.peer_number !== currentActivePeer.value);
+        closeChatOrComposer();
+    } catch (e) {
+        console.error('Failed to delete conversation:', e);
+    }
+};
+
+const handleDeleteConversationFromList = async (conv: any) => {
+    if (!conv?.peer_number) return;
+    if (!confirm(`آیا از حذف کل پیام‌های گفتگوی ${conv.peer_title || conv.peer_number} اطمینان دارید؟`)) return;
+
+    try {
+        await axios.post(route('messages.destroy_conversation'), {
+            phone_number_id: selectedLineId.value || undefined,
+            peer_number: conv.peer_number,
+        });
+        conversationList.value = conversationList.value.filter(c => c.peer_number !== conv.peer_number);
+    } catch (e) {
+        console.error('Failed to delete conversation:', e);
+    }
+};
+
+const handleDeleteMessage = async (msg: any) => {
+    if (!msg?.id) return;
+    if (!confirm('آیا از حذف این پیام اطمینان دارید؟')) return;
+
+    try {
+        await axios.delete(route('messages.destroy', msg.id));
+        messages.value = messages.value.filter(m => m.id !== msg.id);
+    } catch (e) {
+        console.error('Failed to delete message:', e);
+    }
+};
+
 // Handle direct 1-to-1 message sent completion: close modal and return to conversation list
 const handleSingleSent = (payload: any) => {
     closeChatOrComposer();
@@ -472,6 +516,7 @@ onUnmounted(() => {
                     @select="selectConversation"
                     @start-new="startNewMessage"
                     @search-change="searchQuery = $event"
+                    @delete="handleDeleteConversationFromList($event)"
                 />
             </div>
 
@@ -496,6 +541,8 @@ onUnmounted(() => {
                     @retry="handleRetryMessage"
                     @load-older="handleLoadOlder"
                     @copy="copyToClipboard($event)"
+                    @delete-conversation="handleDeleteConversation"
+                    @delete-message="handleDeleteMessage($event)"
                 />
             </div>
 

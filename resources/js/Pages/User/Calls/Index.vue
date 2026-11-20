@@ -1457,6 +1457,69 @@ const navigateHistoryPage = (url: string | null) => {
     });
 };
 
+// Call History Selection & Soft-Deletion
+const selectedCallIds = ref<number[]>([]);
+const isDeletingCalls = ref(false);
+
+const isAllCallsSelected = computed(() => {
+    const list = props.calls?.data || [];
+    return list.length > 0 && selectedCallIds.value.length === list.length;
+});
+
+const toggleSelectAllCalls = () => {
+    const list = props.calls?.data || [];
+    if (isAllCallsSelected.value) {
+        selectedCallIds.value = [];
+    } else {
+        selectedCallIds.value = list.map(c => c.id);
+    }
+};
+
+const toggleSelectCall = (id: number) => {
+    const idx = selectedCallIds.value.indexOf(id);
+    if (idx > -1) {
+        selectedCallIds.value.splice(idx, 1);
+    } else {
+        selectedCallIds.value.push(id);
+    }
+};
+
+const deleteSingleCall = async (id: number) => {
+    if (!confirm('آیا از حذف این تماس از تاریخچه اطمینان دارید؟')) return;
+    try {
+        await router.delete(route('calls.destroy', id), {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedCallIds.value = selectedCallIds.value.filter(i => i !== id);
+            },
+        });
+    } catch (e) {
+        console.error('Failed to delete call:', e);
+    }
+};
+
+const deleteBulkCalls = async () => {
+    if (selectedCallIds.value.length === 0) return;
+    if (!confirm(`آیا از حذف ${selectedCallIds.value.length} تماس انتخابی اطمینان دارید؟`)) return;
+    isDeletingCalls.value = true;
+    try {
+        await router.post(route('calls.destroy_bulk'), {
+            ids: selectedCallIds.value,
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                selectedCallIds.value = [];
+            },
+            onFinish: () => {
+                isDeletingCalls.value = false;
+            },
+        });
+    } catch (e) {
+        console.error('Failed to bulk delete calls:', e);
+        isDeletingCalls.value = false;
+    }
+};
+
 const handleOnline = () => {
     console.log('[WebRTC] 🌐 Network online event detected');
     isNetworkDisconnected.value = false;
@@ -2011,13 +2074,13 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Clean Responsive Dialed Number Display Area -->
-                    <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2 min-h-[60px]">
-                        <div class="flex items-center gap-1.5 shrink-0">
-                            <!-- Contact Picker Button -->
+                    <div class="p-2 sm:p-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-1.5 min-h-[64px] relative overflow-hidden">
+                        <!-- Right Side (RTL Start): Contact Picker & @ Badge -->
+                        <div class="flex items-center gap-1 shrink-0">
                             <button
                                 type="button"
                                 @click="isContactPickerOpen = true"
-                                class="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                                class="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 active:scale-95 transition-all"
                                 :title="__('user.calls.pick_contact_title')"
                             >
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2029,27 +2092,43 @@ onUnmounted(() => {
                             </span>
                         </div>
 
+                        <!-- Center: Clean Dialed Number Input (Zero Native Outline/Border) -->
                         <input
                             type="text"
                             v-model="destinationInput"
                             :placeholder="keypadMode === 'numeric' ? __('user.calls.placeholder_number') : __('user.calls.placeholder_handle')"
-                            class="flex-1 text-center font-mono font-black text-2xl text-slate-900 dark:text-white bg-transparent border-0 outline-none ring-0 focus:ring-0 tracking-wider"
+                            class="flex-1 min-w-0 text-center font-mono font-black text-2xl sm:text-3xl text-slate-900 dark:text-white bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none tracking-wider select-all"
+                            style="outline: none !important; box-shadow: none !important; border: none !important;"
                             dir="ltr"
                         />
 
-                        <div class="flex items-center gap-1 shrink-0 w-10 justify-end">
-                            <!-- Backspace Button -->
-                            <button
-                                v-if="destinationInput"
-                                type="button"
-                                @click="backspace"
-                                class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
-                                :title="__('user.calls.clear_input')"
-                            >
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-7.172a2 2 0 01-1.414-.586L3 12z" />
-                                </svg>
-                            </button>
+                        <!-- Left Side (RTL End): Clear All & Backspace Actions -->
+                        <div class="flex items-center gap-1 shrink-0 justify-end">
+                            <template v-if="destinationInput">
+                                <!-- Clear All Button -->
+                                <button
+                                    type="button"
+                                    @click="clearInput"
+                                    class="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+                                    :title="__('user.calls.clear_input')"
+                                >
+                                    {{ __('user.calls.clear_input') }}
+                                </button>
+
+                                <!-- Single Character Backspace Button -->
+                                <button
+                                    type="button"
+                                    @click="backspace"
+                                    class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all"
+                                    :title="__('user.calls.clear_number') || 'حذف رقم'"
+                                >
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-7.172a2 2 0 01-1.414-.586L3 12z" />
+                                    </svg>
+                                </button>
+                            </template>
+                            <!-- Visual Spacer when empty to keep input perfectly centered -->
+                            <div v-else class="w-10 h-10"></div>
                         </div>
                     </div>
 
@@ -2176,18 +2255,44 @@ onUnmounted(() => {
             <!-- TAB 2: CALL HISTORY                                      -->
             <!-- ======================================================== -->
             <div v-else-if="activeTab === 'history'" class="space-y-3">
-                <!-- Selected Line History Indicator -->
-                <div class="glass-card !p-3 bg-white/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/10 flex items-center justify-between text-xs">
+                <!-- Selected Line History Indicator & Bulk Actions -->
+                <div class="glass-card !p-3 bg-white/90 dark:bg-slate-900/60 border border-slate-200/90 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
                     <div class="flex items-center gap-2">
+                        <!-- Select All Checkbox -->
+                        <label v-if="calls.data && calls.data.length > 0" class="inline-flex items-center gap-1.5 cursor-pointer ml-1">
+                            <input
+                                type="checkbox"
+                                :checked="isAllCallsSelected"
+                                @change="toggleSelectAllCalls"
+                                class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span class="text-[11px] text-slate-600 dark:text-slate-300 font-bold">انتخاب همه</span>
+                        </label>
                         <span class="text-slate-500 dark:text-slate-400">{{ __('user.calls.history_for_line') }}</span>
                         <span class="font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg" dir="ltr">
                             {{ selectedLine?.formatted_number }}
                         </span>
                         <span class="text-[11px] text-slate-400">({{ selectedLine?.display_title }})</span>
                     </div>
-                    <span class="text-[11px] text-slate-500">
-                        {{ __('user.calls.calls_count', { count: calls.total }) }}
-                    </span>
+
+                    <div class="flex items-center gap-2">
+                        <!-- Bulk Delete Button -->
+                        <button
+                            v-if="selectedCallIds.length > 0"
+                            type="button"
+                            @click="deleteBulkCalls"
+                            :disabled="isDeletingCalls"
+                            class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 disabled:opacity-50"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>حذف موارد انتخابی ({{ selectedCallIds.length }})</span>
+                        </button>
+                        <span class="text-[11px] text-slate-500">
+                            {{ __('user.calls.calls_count', { count: calls.total }) }}
+                        </span>
+                    </div>
                 </div>
 
                 <div v-if="calls.data && calls.data.length > 0" class="space-y-2">
@@ -2196,7 +2301,14 @@ onUnmounted(() => {
                         :key="call.id"
                         class="glass-card !p-3.5 bg-white/95 dark:bg-slate-900/75 border border-slate-200/90 dark:border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs"
                     >
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2.5 sm:gap-3">
+                            <!-- Row Checkbox -->
+                            <input
+                                type="checkbox"
+                                :checked="selectedCallIds.includes(call.id)"
+                                @change="toggleSelectCall(call.id)"
+                                class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500 shrink-0"
+                            />
                             <div
                                 class="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border"
                                 :class="call.direction === 'outbound'
@@ -2221,7 +2333,7 @@ onUnmounted(() => {
                             </div>
                         </div>
 
-                        <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-2 sm:gap-3">
                             <div class="text-left font-mono">
                                 <div class="font-bold text-slate-800 dark:text-slate-200">{{ call.duration_formatted }}</div>
                                 <div class="text-[10px] text-emerald-600 dark:text-emerald-400">{{ call.cost }} {{ currency }}</div>
@@ -2233,6 +2345,18 @@ onUnmounted(() => {
                                 class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 font-bold text-[11px] flex items-center gap-1 transition-colors"
                             >
                                 <span>{{ __('user.calls.call_again_btn') }}</span>
+                            </button>
+
+                            <!-- Single Call Delete Button -->
+                            <button
+                                type="button"
+                                @click="deleteSingleCall(call.id)"
+                                class="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 flex items-center justify-center transition-colors"
+                                title="حذف این تماس از تاریخچه"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
                             </button>
                         </div>
                     </div>

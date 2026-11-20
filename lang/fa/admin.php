@@ -60,7 +60,7 @@ return [
         'review_orders' => 'بررسی سفارشات',
         'manage_services' => 'مدیریت سرویس‌ها',
         'daily_tx_volume' => 'حجم تراکنش روزانه',
-        'coin_unit_label' => 'کوین / تومان',
+        'coin_unit_label' => 'کوین',
         'tx_today_recorded' => 'تراکنش امروز ثبت شده',
         'pending_orders' => 'سفارشات معلق',
         'action_required' => 'نیازمند اقدام',

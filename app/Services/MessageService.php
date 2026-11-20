@@ -932,6 +932,7 @@ class MessageService implements MessageServiceInterface
         $cleanPeer = PhoneNumberNormalizer::resolveToStoredNumber($peerNumber);
 
         $query = Message::where('phone_number_id', $phoneNumber->id)
+            ->whereNull('user_deleted_at')
             ->where(function ($q) use ($cleanPeer, $peerNumber) {
                 $q->where('peer_number', $cleanPeer)
                     ->orWhere('peer_number', $peerNumber);
@@ -939,6 +940,7 @@ class MessageService implements MessageServiceInterface
 
         // When a user explicitly opens the conversation, mark inbound messages as processed (read)
         $inboundToUpdate = Message::where('phone_number_id', $phoneNumber->id)
+            ->whereNull('user_deleted_at')
             ->where(function ($q) use ($cleanPeer, $peerNumber) {
                 $q->where('peer_number', $cleanPeer)
                     ->orWhere('peer_number', $peerNumber)

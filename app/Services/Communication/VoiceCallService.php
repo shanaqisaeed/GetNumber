@@ -101,10 +101,12 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         // 2. Determine tariff rate per minute based on communication type from system tariffs:
         $isInternal = ($resolvedDestRecord !== null);
+        $isIdCall = str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination) || ($customCallerHandle ?? null);
 
-        if (str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination)) {
+        if ($isIdCall) {
             // ID-to-ID or Custom ID communication tariff (configured in global admin tariffs)
             $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', '0.0500');
+            $callType = 'id_to_id';
         } else {
             $cleanDestDigits = PhoneNumberNormalizer::clean($cleanDestination);
             // Check if call is intra-prefix (internal extension, same prefix, or short extension)
@@ -112,11 +114,18 @@ class VoiceCallService implements VoiceCallServiceInterface
             if ($isIntra) {
                 // Intra-prefix voice call rate (configured per prefix or global intra rate)
                 $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
+                $callType = 'intra_prefix';
             } else {
                 // Inter-prefix / external voice call rate
                 $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', '0.2500'));
+                $callType = 'inter_prefix';
             }
         }
+
+        if ($ratePerMinute <= 0.0) {
+            $ratePerMinute = 0.0000;
+        }
+        $isFree = ($ratePerMinute <= 0.0);
 
         // 3. Pre-check wallet has at least 1 minute of credit (only if rate > 0)
         if ($ratePerMinute > 0) {
@@ -268,14 +277,17 @@ class VoiceCallService implements VoiceCallServiceInterface
             ? max(1, $durationSeconds)
             : max(1, $now->diffInSeconds($startTime));
 
-        $rate = (float) ($voiceCall->rate_per_minute ?: SystemSetting::get('voice_call_rate_per_minute', 0.1000));
+        $rate = (float) ($voiceCall->rate_per_minute !== null ? $voiceCall->rate_per_minute : SystemSetting::get('voice_call_rate_per_minute', 0.1000));
+        if ($rate <= 0) {
+            $rate = 0.0000;
+        }
         $costData = $this->calculateCallCost($calculatedDuration, $rate);
 
         $totalCostStr = number_format($costData['cost'], 4, '.', '');
         $user = $voiceCall->user;
 
-        // Atomically debit user or organization wallet if cost > 0
-        if (bccomp($totalCostStr, '0.0000', 4) > 0) {
+        // Atomically debit user or organization wallet ONLY IF rate > 0 and cost > 0
+        if ($rate > 0 && bccomp($totalCostStr, '0.0000', 4) > 0) {
             $refId = 'CALL-' . Str::upper(Str::random(12));
             $phone = $voiceCall->phoneNumber;
             $isOrgLine = $phone && ($phone->is_organization || $phone->organization_id);
@@ -414,13 +426,17 @@ class VoiceCallService implements VoiceCallServiceInterface
     public function calculateCallCost(int $durationSeconds, ?float $customRate = null): array
     {
         $durationSeconds = max(0, $durationSeconds);
-        $rate = $customRate !== null && $customRate > 0
-            ? $customRate
+        $rate = $customRate !== null
+            ? (float) $customRate
             : (float) SystemSetting::get('voice_call_rate_per_minute', 0.1000);
+
+        if ($rate <= 0) {
+            $rate = 0.0000;
+        }
 
         // Every commenced minute is billed (ceil)
         $billedMinutes = $durationSeconds > 0 ? (int) ceil($durationSeconds / 60) : 0;
-        $cost = (float) bcmul((string) $billedMinutes, (string) $rate, 4);
+        $cost = $rate > 0 ? (float) bcmul((string) $billedMinutes, (string) $rate, 4) : 0.0000;
 
         return [
             'duration_seconds' => $durationSeconds,

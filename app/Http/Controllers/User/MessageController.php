@@ -107,6 +107,7 @@ class MessageController extends Controller
                     ->orWhere('destination_number', $cidHandle)
                     ->orWhere('peer_number', $cidHandle);
             })
+            ->whereNull('user_deleted_at')
             ->latest('server_received_at')
             ->get();
 
@@ -170,7 +171,9 @@ class MessageController extends Controller
                             $sub->where('phone_number_id', $currentNumber->id)
                                 ->where('sender', $activePeer);
                         });
-                    })->latest('server_received_at')->get()->sortBy('id')->values();
+                    })
+                    ->whereNull('user_deleted_at')
+                    ->latest('server_received_at')->get()->sortBy('id')->values();
 
                     $activePeerDetails = [
                         'number' => $activePeer,
@@ -703,5 +706,132 @@ class MessageController extends Controller
             'success' => true,
             'message' => $message->load('phoneNumber'),
         ]);
+    }
+
+    /**
+     * Soft-delete a single message for the user view.
+     */
+    public function destroy(Request $request, Message $message): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $phone = $message->phoneNumber;
+        $isOwner = $phone && ($phone->user_id === $user->id || $phone->assigned_user_id === $user->id);
+
+        if (! $user->isAdmin() && ! $isOwner && $message->sender !== $user->email && $message->destination_number !== $user->email) {
+            abort(403, __('controllers.user.messages.message_access_denied'));
+        }
+
+        $message->update(['user_deleted_at' => now()]);
+
+        if ($message->phone_number_id) {
+            app(\App\Contracts\SystemCacheServiceInterface::class)->invalidateLineConversations($message->phone_number_id);
+            if ($message->peer_number) {
+                app(\App\Contracts\SystemCacheServiceInterface::class)->invalidateLineMessages($message->phone_number_id, $message->peer_number);
+            }
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'پیام با موفقیت حذف گردید.',
+            ]);
+        }
+
+        return back()->with('success', 'پیام با موفقیت حذف گردید.');
+    }
+
+    /**
+     * Soft-delete multiple messages in bulk for the user view.
+     */
+    public function destroyBulk(Request $request): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer'],
+        ]);
+
+        $query = Message::whereIn('id', $validated['ids']);
+        if (! $user->isAdmin()) {
+            $userLineIds = $user->phoneNumbers()->pluck('id');
+            $query->whereIn('phone_number_id', $userLineIds);
+        }
+
+        $messages = $query->get(['id', 'phone_number_id', 'peer_number']);
+        $count = $query->update(['user_deleted_at' => now()]);
+
+        $cache = app(\App\Contracts\SystemCacheServiceInterface::class);
+        $lineIds = $messages->pluck('phone_number_id')->filter()->unique();
+        foreach ($lineIds as $lId) {
+            $cache->invalidateLineConversations($lId);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'deleted_count' => $count,
+                'message' => "{$count} پیام انتخابی با موفقیت حذف شدند.",
+            ]);
+        }
+
+        return back()->with('success', "{$count} پیام انتخابی با موفقیت حذف شدند.");
+    }
+
+    /**
+     * Soft-delete an entire conversation thread for the user view.
+     */
+    public function destroyConversation(Request $request): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'phone_number_id' => ['nullable', 'integer'],
+            'custom_id' => ['nullable', 'string'],
+            'peer_number' => ['required', 'string'],
+        ]);
+
+        $peer = trim($validated['peer_number']);
+        $cleanPeer = \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($peer) ?: $peer;
+
+        if (! empty($validated['phone_number_id'])) {
+            $pId = (int) $validated['phone_number_id'];
+            $phone = PhoneNumber::find($pId);
+            if (! $user->isAdmin() && (! $phone || ($phone->user_id !== $user->id && $phone->assigned_user_id !== $user->id))) {
+                abort(403, __('controllers.user.messages.unauthorized'));
+            }
+
+            $count = Message::where('phone_number_id', $pId)
+                ->where(function ($q) use ($cleanPeer, $peer) {
+                    $q->where('peer_number', $cleanPeer)
+                      ->orWhere('peer_number', $peer)
+                      ->orWhere('sender', $cleanPeer)
+                      ->orWhere('sender', $peer)
+                      ->orWhere('destination_number', $cleanPeer)
+                      ->orWhere('destination_number', $peer);
+                })
+                ->update(['user_deleted_at' => now()]);
+
+            $cache = app(\App\Contracts\SystemCacheServiceInterface::class);
+            $cache->invalidateLineConversations($pId);
+            $cache->invalidateLineMessages($pId, $cleanPeer);
+        } else {
+            $cid = $validated['custom_id'] ?? '';
+            $count = Message::where(function ($q) use ($cid) {
+                    $q->where('sender', $cid)
+                      ->orWhere('destination_number', $cid)
+                      ->orWhere('peer_number', $cid);
+                })
+                ->where('peer_number', $peer)
+                ->update(['user_deleted_at' => now()]);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'deleted_count' => $count ?? 0,
+                'message' => 'گفتگو با موفقیت حذف گردید.',
+            ]);
+        }
+
+        return back()->with('success', 'گفتگو با موفقیت حذف گردید.');
     }
 }

@@ -25,6 +25,7 @@ class VoiceCall extends Model
         'rate_per_minute',
         'cost',
         'metadata',
+        'user_deleted_at',
     ];
 
     protected function casts(): array
@@ -33,6 +34,7 @@ class VoiceCall extends Model
             'started_at' => 'datetime',
             'answered_at' => 'datetime',
             'ended_at' => 'datetime',
+            'user_deleted_at' => 'datetime',
             'duration_seconds' => 'integer',
             'billed_minutes' => 'integer',
             'rate_per_minute' => 'decimal:4',

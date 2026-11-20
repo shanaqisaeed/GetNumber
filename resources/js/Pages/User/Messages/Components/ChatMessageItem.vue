@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'retry', msg: ChatMessage): void;
     (e: 'copy', text: string): void;
+    (e: 'delete', msg: ChatMessage): void;
 }>();
 
 const formatTime = (isoString: string) => {
@@ -52,6 +53,19 @@ const isOutbound = computed(() => props.message.direction === 'outbound');
                 class="flex items-center gap-1.5 mt-1.5 text-[9px] font-mono"
                 :class="isOutbound ? 'text-indigo-200 justify-end' : 'text-slate-500 dark:text-slate-400 justify-start'"
             >
+                <!-- Delete Single Message Button -->
+                <button
+                    v-if="message.id"
+                    type="button"
+                    @click.stop="emit('delete', message)"
+                    class="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-black/20 text-current cursor-pointer"
+                    title="حذف این پیام"
+                >
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
+
                 <span>{{ displayTime }}</span>
 
                 <template v-if="isOutbound">

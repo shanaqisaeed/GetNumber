@@ -146,6 +146,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/messages/conversation', [\App\Http\Controllers\User\MessageController::class, 'conversation'])->name('messages.conversation');
     Route::get('/messages/poll', [\App\Http\Controllers\User\MessageController::class, 'poll'])->name('messages.poll');
     Route::get('/messages/unread-summary', [\App\Http\Controllers\User\MessageController::class, 'unreadSummary'])->name('messages.unread_summary');
+    Route::delete('/messages/{message}', [\App\Http\Controllers\User\MessageController::class, 'destroy'])->name('messages.destroy');
+    Route::post('/messages/destroy-bulk', [\App\Http\Controllers\User\MessageController::class, 'destroyBulk'])->name('messages.destroy_bulk');
+    Route::post('/messages/destroy-conversation', [\App\Http\Controllers\User\MessageController::class, 'destroyConversation'])->name('messages.destroy_conversation');
     Route::get('/messages/{message}', [\App\Http\Controllers\User\MessageController::class, 'show'])->name('messages.show');
 
     // Redirect legacy api-tokens to organization api tokens
@@ -201,6 +204,8 @@ Route::middleware(['auth'])->group(function () {
 
     // Voice Calling & WebRTC Mock Infrastructure
     Route::get('/calls', [\App\Http\Controllers\User\VoiceCallController::class, 'index'])->name('calls.index');
+    Route::delete('/calls/{voiceCall}', [\App\Http\Controllers\User\VoiceCallController::class, 'destroy'])->name('calls.destroy');
+    Route::post('/calls/destroy-bulk', [\App\Http\Controllers\User\VoiceCallController::class, 'destroyBulk'])->name('calls.destroy_bulk');
     Route::post('/calls/contacts', [\App\Http\Controllers\User\VoiceCallController::class, 'storeContact'])->name('calls.contacts.store');
     Route::delete('/calls/contacts/{contact}', [\App\Http\Controllers\User\VoiceCallController::class, 'destroyContact'])->name('calls.contacts.destroy');
     Route::get('/voice/lines', [\App\Http\Controllers\User\VoiceCallController::class, 'lines'])->name('voice.lines');

@@ -24,11 +24,13 @@ class Message extends Model
         'processing_status',
         'direction',
         'peer_number',
+        'user_deleted_at',
     ];
 
     protected $casts = [
         'source_time' => 'datetime',
         'server_received_at' => 'datetime',
+        'user_deleted_at' => 'datetime',
         'processing_status' => MessageProcessingStatus::class,
         'direction' => \App\Enums\MessageDirection::class,
     ];
@@ -80,9 +82,10 @@ class Message extends Model
      */
     public function scopeForUser(Builder $query, User $user): Builder
     {
-        return $query->whereHas('phoneNumber', function (Builder $pq) use ($user) {
-            $pq->where('user_id', $user->id);
-        });
+        return $query->whereNull('messages.user_deleted_at')
+            ->whereHas('phoneNumber', function (Builder $pq) use ($user) {
+                $pq->where('user_id', $user->id);
+            });
     }
 
     /**

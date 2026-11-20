@@ -175,7 +175,7 @@ return [
         'member_usage' => 'گزارش مصرف پرسنل',
         'usage_by_line' => 'هزینه‌کرد بر اساس خطوط پرسنل',
         'deposit_modal_title' => 'افزایش اعتبار کیف پول سازمان',
-        'deposit_amount' => 'مبلغ شارژ (تومان / واحد)',
+        'deposit_amount' => 'مبلغ شارژ (کوین)',
         'deposit_button' => 'پرداخت و شارژ حساب',
         'transaction_id' => 'شناسه تراکنش',
         'type' => 'نوع عملیات',

@@ -34,6 +34,7 @@ const emit = defineEmits<{
     (e: 'select', conv: ConversationItem): void;
     (e: 'start-new'): void;
     (e: 'search-change', query: string): void;
+    (e: 'delete', conv: ConversationItem): void;
 }>();
 
 const searchQuery = ref(props.initialSearch || '');
@@ -185,11 +186,23 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <!-- Right Info: Timestamp & Unread Badge -->
+                        <!-- Right Info: Timestamp, Unread Badge & Delete Action -->
                         <div class="shrink-0 flex flex-col items-end justify-between self-stretch py-0.5">
-                            <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
-                                {{ conv.latest_message?.server_received_at_formatted }}
-                            </span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-[10px] font-mono text-slate-500 dark:text-slate-400">
+                                    {{ conv.latest_message?.server_received_at_formatted }}
+                                </span>
+                                <button
+                                    type="button"
+                                    @click.stop="emit('delete', conv)"
+                                    class="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 cursor-pointer"
+                                    title="حذف این گفتگو"
+                                >
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
                             <span
                                 v-if="conv.unread_count > 0"
                                 class="mt-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-mono text-[10px] font-black shadow-md shadow-rose-500/30 animate-pulse"

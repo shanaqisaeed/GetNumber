@@ -72,6 +72,7 @@ class SystemCacheService implements SystemCacheServiceInterface
 
         if ($afterId !== null && $afterId > 0) {
             return Message::where('phone_number_id', $phoneNumber->id)
+                ->whereNull('user_deleted_at')
                 ->where(function ($q) use ($cleanPeer, $peer) {
                     $q->where('peer_number', $cleanPeer)
                       ->orWhere('peer_number', $peer)
@@ -616,6 +617,7 @@ class SystemCacheService implements SystemCacheServiceInterface
     protected function buildLineConversations(PhoneNumber $phoneNumber): Collection
     {
         $peerNumbers = Message::where('phone_number_id', $phoneNumber->id)
+            ->whereNull('user_deleted_at')
             ->whereNotNull('peer_number')
             ->select('peer_number')
             ->distinct()
@@ -636,6 +638,7 @@ class SystemCacheService implements SystemCacheServiceInterface
         foreach ($peerNumbers as $peer) {
             $latestMessage = Message::where('phone_number_id', $phoneNumber->id)
                 ->where('peer_number', $peer)
+                ->whereNull('user_deleted_at')
                 ->latest('server_received_at')
                 ->latest('id')
                 ->first();
@@ -649,12 +652,14 @@ class SystemCacheService implements SystemCacheServiceInterface
 
             $totalCount = Message::where('phone_number_id', $phoneNumber->id)
                 ->where('peer_number', $peer)
+                ->whereNull('user_deleted_at')
                 ->count();
 
             $unreadCount = Message::where('phone_number_id', $phoneNumber->id)
                 ->where('peer_number', $peer)
                 ->where('direction', MessageDirection::Inbound)
                 ->where('processing_status', MessageProcessingStatus::Received)
+                ->whereNull('user_deleted_at')
                 ->count();
 
             $isOwn = $peerRecord && $peerRecord->user_id === $phoneNumber->user_id;
@@ -705,6 +710,7 @@ class SystemCacheService implements SystemCacheServiceInterface
     protected function buildLineConversationMessages(PhoneNumber $phoneNumber, string $cleanPeer): Collection
     {
         return Message::where('phone_number_id', $phoneNumber->id)
+            ->whereNull('user_deleted_at')
             ->where(function ($q) use ($cleanPeer) {
                 $q->where('peer_number', $cleanPeer)
                   ->orWhere('sender', $cleanPeer)

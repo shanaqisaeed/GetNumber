@@ -66,6 +66,7 @@ class VoiceCallController extends Controller
         $initialDestination = (string) ($request->input('destination') ?: $request->input('peer') ?: $request->input('to') ?: $request->input('number') ?: '');
 
         $callsQuery = VoiceCall::where('user_id', $user->id)
+            ->whereNull('user_deleted_at')
             ->with('phoneNumber');
 
         if ($selectedLine) {
@@ -693,6 +694,63 @@ class VoiceCallController extends Controller
             'success' => true,
             'message' => __('controllers.user.calls.bridge_event_processed'),
         ]);
+    }
+
+    /**
+     * Soft-delete a single voice call record from the user's view.
+     */
+    public function destroy(Request $request, VoiceCall $voiceCall): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $isCaller = $voiceCall->user_id === $user->id;
+        $isCallee = ($voiceCall->metadata['callee_user_id'] ?? null) === $user->id;
+
+        if (! $user->isAdmin() && ! $isCaller && ! $isCallee) {
+            abort(403, __('controllers.user.calls.access_denied'));
+        }
+
+        $voiceCall->update(['user_deleted_at' => now()]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'تاریخچه تماس با موفقیت حذف گردید.',
+            ]);
+        }
+
+        return back()->with('success', 'تاریخچه تماس با موفقیت حذف گردید.');
+    }
+
+    /**
+     * Soft-delete multiple voice call records in bulk from the user's view.
+     */
+    public function destroyBulk(Request $request): JsonResponse|RedirectResponse
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['required', 'integer'],
+        ]);
+
+        $query = VoiceCall::whereIn('id', $validated['ids']);
+        if (! $user->isAdmin()) {
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                  ->orWhere('metadata->callee_user_id', $user->id);
+            });
+        }
+
+        $count = $query->update(['user_deleted_at' => now()]);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'deleted_count' => $count,
+                'message' => "{$count} تماس انتخابی از تاریخچه حذف شدند.",
+            ]);
+        }
+
+        return back()->with('success', "{$count} تماس انتخابی از تاریخچه حذف شدند.");
     }
 }
 

@@ -35,6 +35,8 @@ const emit = defineEmits<{
     (e: 'retry', msg: ChatMessage): void;
     (e: 'load-older'): void;
     (e: 'copy', text: string): void;
+    (e: 'delete-conversation'): void;
+    (e: 'delete-message', msg: ChatMessage): void;
 }>();
 
 const chatContainer = ref<HTMLElement | null>(null);
@@ -151,7 +153,7 @@ const copyHeader = () => {
                 </div>
             </div>
 
-            <!-- Header Action: Copy Number / Title -->
+            <!-- Header Action: Copy Number & Delete Conversation -->
             <div class="flex items-center gap-1.5 shrink-0">
                 <button
                     type="button"
@@ -161,6 +163,17 @@ const copyHeader = () => {
                 >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                </button>
+
+                <button
+                    type="button"
+                    @click="emit('delete-conversation')"
+                    class="w-8 h-8 rounded-xl glass-pill !p-0 flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                    title="حذف کل این گفتگو"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                 </button>
             </div>
@@ -209,6 +222,7 @@ const copyHeader = () => {
                         :message="msg"
                         @retry="emit('retry', msg)"
                         @copy="emit('copy', $event)"
+                        @delete="emit('delete-message', $event)"
                     />
                 </div>
 
