@@ -517,7 +517,7 @@ class VoiceCallController extends Controller
         }
 
         $balance = (float) $walletBalance;
-        $elapsedSec = (int) $request->input('elapsed_seconds', 0);
+        $elapsedSec = (int) $request->input('elapsed_seconds', $request->input('duration_seconds', 0));
 
         if ($balance < $rate) {
             $meta = $voiceCall->metadata ?? [];

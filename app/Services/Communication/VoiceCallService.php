@@ -120,8 +120,11 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         // 3. Pre-check wallet has at least 1 minute of credit (only if rate > 0)
         if ($ratePerMinute > 0) {
-            $wallet = $this->walletService->getWallet($user);
-            if (bccomp((string) $wallet->balance, (string) $ratePerMinute, 4) < 0) {
+            $wallet = ($fromNumber->is_organization && $fromNumber->organization_id)
+                ? $fromNumber->organization?->getOrCreateWallet()
+                : $this->walletService->getWallet($user);
+
+            if ($wallet && bccomp((string) $wallet->balance, (string) $ratePerMinute, 4) < 0) {
                 throw new InsufficientWalletBalanceException(
                     requiredAmount: (string) $ratePerMinute,
                     currentBalance: (string) $wallet->balance,
@@ -271,29 +274,46 @@ class VoiceCallService implements VoiceCallServiceInterface
         $totalCostStr = number_format($costData['cost'], 4, '.', '');
         $user = $voiceCall->user;
 
-        // Atomically debit user wallet if cost > 0
-        if (bccomp($totalCostStr, '0.0000', 4) > 0 && $user) {
+        // Atomically debit user or organization wallet if cost > 0
+        if (bccomp($totalCostStr, '0.0000', 4) > 0) {
             $refId = 'CALL-' . Str::upper(Str::random(12));
+            $phone = $voiceCall->phoneNumber;
+            $isOrgLine = $phone && ($phone->is_organization || $phone->organization_id);
+
             try {
-                $this->walletService->chargeForUsage(
-                    user: $user,
-                    amount: $totalCostStr,
-                    referenceId: $refId,
-                    type: WalletTransactionType::VoiceCall,
-                    description: __('services.communication.voice.desc_call_charge', [
-                        'destination' => $voiceCall->destination,
-                        'seconds' => $costData['duration_seconds'],
-                        'minutes' => $costData['billed_minutes'],
-                    ]),
-                    metadata: [
-                        'call_id' => $voiceCall->id,
-                        'source' => $voiceCall->source_identifier,
-                        'destination' => $voiceCall->destination,
-                        'duration_seconds' => $costData['duration_seconds'],
-                        'billed_minutes' => $costData['billed_minutes'],
-                        'rate_per_minute' => $rate,
-                    ]
-                );
+                if ($isOrgLine && $phone->organization) {
+                    $orgWallet = $phone->organization->getOrCreateWallet();
+                    $orgWallet->debit(
+                        amount: (float) $totalCostStr,
+                        type: 'voice_call',
+                        description: __('services.communication.voice.desc_call_charge', [
+                            'destination' => $voiceCall->destination,
+                            'seconds' => $costData['duration_seconds'],
+                            'minutes' => $costData['billed_minutes'],
+                        ]),
+                        userId: $user?->id
+                    );
+                } elseif ($user) {
+                    $this->walletService->chargeForUsage(
+                        user: $user,
+                        amount: $totalCostStr,
+                        referenceId: $refId,
+                        type: WalletTransactionType::VoiceCall,
+                        description: __('services.communication.voice.desc_call_charge', [
+                            'destination' => $voiceCall->destination,
+                            'seconds' => $costData['duration_seconds'],
+                            'minutes' => $costData['billed_minutes'],
+                        ]),
+                        metadata: [
+                            'call_id' => $voiceCall->id,
+                            'source' => $voiceCall->source_identifier,
+                            'destination' => $voiceCall->destination,
+                            'duration_seconds' => $costData['duration_seconds'],
+                            'billed_minutes' => $costData['billed_minutes'],
+                            'rate_per_minute' => $rate,
+                        ]
+                    );
+                }
             } catch (\Throwable $e) {
                 // If wallet deduction fails (e.g. balance exhausted mid-call), record in metadata
                 $meta = $voiceCall->metadata ?? [];

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
-use App\Contracts\Communication\MessageServiceInterface;
+use App\Contracts\MessageServiceInterface;
 use App\Http\Controllers\Controller;
 use App\Models\MessageBatch;
 use App\Models\PhoneNumber;
@@ -83,20 +83,27 @@ class BulkMessageController extends Controller
             ->findOrFail($validated['from_number_id']);
 
         $ratePerSegment = (float) ($fromNumber->phonePrefix?->sms_tariff_rate_per_segment ?? 0.0500);
-        $segmentInfo = $this->calculator->calculateSegments($validated['body']);
-        $segmentsPerMsg = max(1, $segmentInfo['segments_count']);
+        $calcResult = $this->calculator->calculate(
+            text: $validated['body'],
+            destinationsCount: $validated['destinations_count'],
+            ratePerSegment: (string) $ratePerSegment
+        );
+        $segmentsPerMsg = max(1, $calcResult['segment_count']);
         $totalSegments = $segmentsPerMsg * $validated['destinations_count'];
-        $estimatedCost = round($totalSegments * $ratePerSegment, 4);
+        $estimatedCost = (float) $calcResult['total_cost'];
 
         $hasEnoughBalance = bccomp((string) $wallet->balance, (string) $estimatedCost, 4) >= 0;
 
         return response()->json([
             'success' => true,
+            'recipients_count' => $validated['destinations_count'],
+            'segments' => $segmentsPerMsg,
             'segments_count' => $segmentsPerMsg,
             'total_segments' => $totalSegments,
             'rate_per_segment' => $ratePerSegment,
             'estimated_cost' => $estimatedCost,
             'org_balance' => (string) $wallet->balance,
+            'has_sufficient_balance' => $hasEnoughBalance,
             'has_enough_balance' => $hasEnoughBalance,
             'currency' => $wallet->currency,
         ]);
