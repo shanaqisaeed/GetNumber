@@ -36,6 +36,16 @@ interface SystemCacheServiceInterface
     public function handleMessageDeleted(Message $message): void;
 
     /**
+     * Invalidate line conversations cache.
+     */
+    public function invalidateLineConversations(int $lineId): void;
+
+    /**
+     * Invalidate line messages cache for a specific peer.
+     */
+    public function invalidateLineMessages(int $lineId, string $peer): void;
+
+    /**
      * Get cached latest message ID for a line (used for zero-DB polling).
      */
     public function getLineLatestMessageId(int $phoneNumberId): int;

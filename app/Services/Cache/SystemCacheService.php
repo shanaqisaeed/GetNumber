@@ -159,6 +159,20 @@ class SystemCacheService implements SystemCacheServiceInterface
         }
     }
 
+    public function invalidateLineConversations(int $lineId): void
+    {
+        Cache::forget("line:{$lineId}:conversations");
+        Cache::forget("line:{$lineId}:latest_msg_id");
+    }
+
+    public function invalidateLineMessages(int $lineId, string $peer): void
+    {
+        $cleanPeer = PhoneNumberNormalizer::resolveToStoredNumber($peer);
+        if ($cleanPeer) {
+            Cache::forget("line:{$lineId}:peer:{$cleanPeer}:messages");
+        }
+    }
+
     /**
      * Get cached latest message ID for a line (used for zero-DB polling).
      */

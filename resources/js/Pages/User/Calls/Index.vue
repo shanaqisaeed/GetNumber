@@ -2073,43 +2073,43 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <!-- Clean Responsive Dialed Number Display Area -->
-                    <div class="p-2 sm:p-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-1.5 min-h-[64px] relative overflow-hidden">
-                        <!-- Right Side (RTL Start): Contact Picker & @ Badge -->
-                        <div class="flex items-center gap-1 shrink-0">
+                    <!-- Clean Symmetrical Dialed Number Display Area -->
+                    <div class="px-3 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-1.5 min-h-[64px] relative overflow-hidden">
+                        <!-- Right Side (RTL Start): Contact Picker & @ Badge (Fixed Symmetrical Width) -->
+                        <div class="w-20 shrink-0 flex items-center justify-start gap-1">
                             <button
                                 type="button"
                                 @click="isContactPickerOpen = true"
-                                class="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 active:scale-95 transition-all"
+                                class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 active:scale-95 transition-all"
                                 :title="__('user.calls.pick_contact_title')"
                             >
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
                             </button>
-                            <span v-if="keypadMode === 'alphanumeric'" class="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-mono font-black text-xs border border-indigo-500/20">
+                            <span v-if="keypadMode === 'alphanumeric'" class="px-1.5 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-mono font-black text-xs border border-indigo-500/20">
                                 @
                             </span>
                         </div>
 
-                        <!-- Center: Clean Dialed Number Input (Zero Native Outline/Border) -->
+                        <!-- Center: Clean Dialed Number Input (Zero Native Outline/Border, 100% Centered) -->
                         <input
                             type="text"
                             v-model="destinationInput"
                             :placeholder="keypadMode === 'numeric' ? __('user.calls.placeholder_number') : __('user.calls.placeholder_handle')"
-                            class="flex-1 min-w-0 text-center font-mono font-black text-2xl sm:text-3xl text-slate-900 dark:text-white bg-transparent border-0 outline-none ring-0 focus:outline-none focus:ring-0 focus:border-0 focus-visible:outline-none tracking-wider select-all"
-                            style="outline: none !important; box-shadow: none !important; border: none !important;"
+                            class="dialer-number-input flex-1 min-w-0 text-center font-mono font-black text-2xl sm:text-3xl text-slate-900 dark:text-white bg-transparent border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:border-none focus-visible:outline-none tracking-wider select-all"
+                            style="outline: none !important; border: none !important; box-shadow: none !important; -webkit-tap-highlight-color: transparent;"
                             dir="ltr"
                         />
 
-                        <!-- Left Side (RTL End): Clear All & Backspace Actions -->
-                        <div class="flex items-center gap-1 shrink-0 justify-end">
+                        <!-- Left Side (RTL End): Actions (Fixed Symmetrical Width) -->
+                        <div class="w-20 shrink-0 flex items-center justify-end gap-1">
                             <template v-if="destinationInput">
                                 <!-- Clear All Button -->
                                 <button
                                     type="button"
                                     @click="clearInput"
-                                    class="px-2.5 py-1.5 rounded-xl text-xs font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-800 active:scale-95 transition-all"
+                                    class="px-2 py-1 rounded-lg text-[11px] font-bold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 active:scale-95 transition-all"
                                     :title="__('user.calls.clear_input')"
                                 >
                                     {{ __('user.calls.clear_input') }}
@@ -2119,7 +2119,7 @@ onUnmounted(() => {
                                 <button
                                     type="button"
                                     @click="backspace"
-                                    class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all"
+                                    class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all"
                                     :title="__('user.calls.clear_number') || 'حذف رقم'"
                                 >
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2127,8 +2127,6 @@ onUnmounted(() => {
                                     </svg>
                                 </button>
                             </template>
-                            <!-- Visual Spacer when empty to keep input perfectly centered -->
-                            <div v-else class="w-10 h-10"></div>
                         </div>
                     </div>
 
@@ -2503,3 +2501,23 @@ onUnmounted(() => {
         <audio ref="remoteAudio" autoplay playsinline class="fixed -top-96 -left-96 w-1 h-1 opacity-0 pointer-events-none"></audio>
     </UserLayout>
 </template>
+
+<style scoped>
+.dialer-number-input {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+}
+.dialer-number-input:focus,
+.dialer-number-input:focus-visible,
+.dialer-number-input:active {
+    outline: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-color: transparent !important;
+}
+</style>
