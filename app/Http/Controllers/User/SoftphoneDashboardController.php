@@ -135,9 +135,19 @@ class SoftphoneDashboardController extends Controller
             'line_key' => ['required', 'string'],
         ]);
 
-        // Check if there is an ongoing active call
+        // Cleanup stale zombie calls for this user older than 30 seconds without active pulse
+        VoiceCall::where('user_id', $user->id)
+            ->whereIn('status', ['initiated', 'ringing', 'in_progress', 'in_call'])
+            ->where('updated_at', '<', now()->subSeconds(30))
+            ->update([
+                'status' => 'completed',
+                'ended_at' => now(),
+            ]);
+
+        // Check if there is a genuinely ongoing call with recent heartbeat (last 15 seconds)
         $hasActiveCall = VoiceCall::where('user_id', $user->id)
-            ->whereIn('status', ['initiated', 'ringing', 'in_progress'])
+            ->whereIn('status', ['initiated', 'ringing', 'in_progress', 'in_call'])
+            ->where('updated_at', '>=', now()->subSeconds(15))
             ->exists();
 
         if ($hasActiveCall) {

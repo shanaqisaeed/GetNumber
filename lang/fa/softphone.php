@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'dashboard' => 'سافت‌فون',
+        'dashboard' => 'خانه',
         'dialer' => 'شماره‌گیر هوشمند',
         'calls' => 'تماس‌ها',
         'messages' => 'پیامک‌ها',
@@ -10,6 +10,9 @@ return [
         'quick_wallet' => 'کیف پول',
         'audio_settings' => 'تنظیمات صوتی',
         'switch_to_org' => 'ورود به پنل سازمانی',
+        'tickets' => 'پشتیبانی و تیکت‌ها',
+        'profile' => 'تنظیمات پروفایل',
+        'logout' => 'خروج از حساب',
     ],
 
     'line' => [

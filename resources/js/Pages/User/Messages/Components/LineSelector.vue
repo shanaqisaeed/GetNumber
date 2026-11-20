@@ -99,35 +99,16 @@ const selectLine = (sim: LineItem) => {
                 </div>
             </div>
 
-            <!-- Signal Status Indicator & Switcher Button -->
+            <!-- Signal Status Indicator -->
             <div class="flex items-center gap-2">
                 <div
-                    class="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all cursor-help"
+                    class="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all cursor-help"
                     :class="isWebSocketActive ? 'text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20' : 'text-sky-600 dark:text-sky-400 bg-sky-500/10 border-sky-500/20'"
                     :title="connectionLabel"
                 >
                     <span class="w-1.5 h-1.5 rounded-full" :class="connectionStatusDotClass"></span>
                     <span>{{ isWebSocketActive ? __('user.messages.websocket_live') : __('user.messages.auto_sync') }}</span>
                 </div>
-
-                <button
-                    v-if="lines.length > 1"
-                    type="button"
-                    @click="isSimSwitcherModalOpen = true"
-                    class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 px-2.5 py-1 rounded-xl transition-all flex items-center gap-1.5"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                    <span>{{ __('user.messages.switch_line') }}</span>
-                    <span
-                        v-if="otherLinesTotalUnreadCount > 0"
-                        class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono text-[9px] font-black shadow-sm shadow-rose-500/40 animate-pulse"
-                        :title="__('user.messages.new_message_other_lines')"
-                    >
-                        {{ otherLinesTotalUnreadCount }}
-                    </span>
-                </button>
             </div>
         </div>
 
@@ -145,109 +126,8 @@ const selectLine = (sim: LineItem) => {
             </div>
         </div>
 
-        <!-- Horizontal Quick-Switch SIM Carousel if user has 2+ lines -->
-        <div v-if="lines.length > 1" class="mt-3 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-            <button
-                v-for="(sim, idx) in lines"
-                :key="sim.key || (sim.type + '_' + sim.id)"
-                type="button"
-                @click="selectLine(sim)"
-                class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 border relative"
-                :class="[
-                    isSimActive(sim)
-                        ? 'bg-indigo-600 text-white border-indigo-500 shadow-md shadow-indigo-600/25'
-                        : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300'
-                ]"
-            >
-                <span v-if="sim.type === 'custom_id'" class="text-[10px] px-1.5 py-0.2 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 font-black font-mono">@ ID</span>
-                <span v-else class="text-[10px] opacity-75 font-mono">SIM {{ idx + 1 }}</span>
-                <span dir="ltr" class="font-mono text-[11px] font-black">{{ sim.formatted_number }}</span>
-                <span
-                    v-if="(sim.unread_count || 0) > 0"
-                    class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black shadow-sm shadow-rose-500/40 animate-pulse"
-                    :title="__('user.messages.unread_message_title')"
-                >
-                    {{ sim.unread_count }}
-                </span>
-                <span v-if="selectedLineId === sim.id" class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            </button>
-        </div>
-
         <div v-else-if="lines.length === 0" class="mt-3 text-xs text-rose-500 font-bold">
             {{ __('user.messages.no_lines_found') }}
-        </div>
-    </div>
-
-    <!-- SIM Switcher Modal -->
-    <div v-if="isSimSwitcherModalOpen" class="fixed inset-0 z-50 overflow-y-auto flex items-start sm:items-center justify-center p-3 sm:p-4 bg-slate-950/60 dark:bg-black/70 backdrop-blur-md" @click.self="isSimSwitcherModalOpen = false">
-        <div class="glass-card responsive-modal-scroll-card my-auto !p-5 w-full max-w-md shadow-2xl relative space-y-4 bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white rounded-3xl animate-in zoom-in-95 duration-200">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 2h8l4 4v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/>
-                            <rect x="8" y="11" width="8" height="7" rx="1" stroke-width="1.5"/>
-                            <line x1="12" y1="11" x2="12" y2="18"/>
-                            <line x1="8" y1="14.5" x2="16" y2="14.5"/>
-                        </svg>
-                    </div>
-                    <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.messages.switch_line_modal_title') }}</h3>
-                </div>
-                <button type="button" @click="isSimSwitcherModalOpen = false" class="text-slate-400 hover:text-slate-600 dark:hover:text-white text-sm">✕</button>
-            </div>
-
-            <div class="space-y-2.5">
-                <div
-                    v-for="(sim, idx) in lines"
-                    :key="sim.key || (sim.type + '_' + sim.id)"
-                    @click="selectLine(sim)"
-                    class="p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between"
-                    :class="[
-                        isSimActive(sim)
-                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500/60 shadow-sm'
-                            : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/10 hover:border-indigo-400/50'
-                    ]"
-                >
-                    <div class="flex items-center gap-3">
-                        <div
-                            class="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs"
-                            :class="isSimActive(sim) ? 'bg-indigo-600 text-white shadow-sm' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'"
-                        >
-                            {{ sim.type === 'custom_id' ? '@' : 'S' + (idx + 1) }}
-                        </div>
-                        <div>
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-black text-slate-900 dark:text-white block">
-                                    {{ sim.effective_title }}
-                                </span>
-                                <span
-                                    v-if="(sim.unread_count || 0) > 0"
-                                    class="px-2 py-0.5 rounded-full bg-rose-600 text-white font-mono text-[10px] font-black shadow-sm shadow-rose-500/30 animate-pulse"
-                                >
-                                    {{ __('user.messages.new_messages_count', { count: sim.unread_count }) }}
-                                </span>
-                            </div>
-                            <div dir="ltr" class="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 text-right">
-                                {{ sim.formatted_number }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <span v-if="isSimActive(sim)" class="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-bold">{{ __('user.messages.line_active') }}</span>
-                        <div
-                            class="w-5 h-5 rounded-full border-2 flex items-center justify-center"
-                            :class="isSimActive(sim) ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 dark:border-slate-600'"
-                        >
-                            <div v-if="isSimActive(sim)" class="w-2 h-2 rounded-full bg-white"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex justify-end pt-2 border-t border-slate-200 dark:border-white/10">
-                <button type="button" @click="isSimSwitcherModalOpen = false" class="glass-pill !py-2 !px-4 !text-xs text-slate-700 dark:text-slate-300">{{ __('user.messages.close') }}</button>
-            </div>
         </div>
     </div>
 </template>

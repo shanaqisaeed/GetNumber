@@ -2,7 +2,7 @@
 
 return [
     'nav' => [
-        'dashboard' => 'Softphone',
+        'dashboard' => 'Home',
         'dialer' => 'Smart Dialpad',
         'calls' => 'Calls',
         'messages' => 'SMS Messages',
@@ -10,6 +10,9 @@ return [
         'quick_wallet' => 'Wallet',
         'audio_settings' => 'Audio Settings',
         'switch_to_org' => 'Switch to Organization',
+        'tickets' => 'Support Tickets',
+        'profile' => 'Profile Settings',
+        'logout' => 'Logout',
     ],
 
     'line' => [

@@ -1080,18 +1080,13 @@ onUnmounted(() => {
                         </span>
                     </div>
 
-                    <div v-if="lines.length > 0" class="flex items-center gap-2">
-                        <span class="text-[11px] text-slate-500 font-bold">{{ __('user.calls.outbound_line_label') }}</span>
-                        <select
-                            v-model="selectedLineKey"
-                            @change="onLineChanged(selectedLineKey)"
-                            class="form-select !py-1.5 !px-3 !text-xs font-mono font-bold rounded-xl bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-white/10"
-                            dir="ltr"
-                        >
-                            <option v-for="line in lines" :key="line.key || line.id" :value="line.key || ('phone_' + line.id)">
-                                {{ line.type === 'custom_id' ? '🆔' : '📞' }} {{ line.formatted_number }} ({{ line.display_title }})
-                            </option>
-                        </select>
+                    <div v-if="selectedLine" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                        <span class="text-[11px] text-slate-500 dark:text-slate-400 font-bold">{{ __('user.calls.outbound_line_label') }}:</span>
+                        <span class="font-mono font-black text-indigo-600 dark:text-indigo-400" dir="ltr">
+                            {{ selectedLine.formatted_number }}
+                        </span>
+                        <span class="text-[10px] text-slate-400 hidden sm:inline">({{ selectedLine.display_title }})</span>
                     </div>
                 </div>
             </div>
