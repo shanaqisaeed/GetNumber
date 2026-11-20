@@ -2,15 +2,15 @@
 
 return [
     'nav' => [
-        'dashboard' => 'پیشخوان سازمانی',
+        'dashboard' => 'پیشخوان',
         'team' => 'مدیریت تیم و پرسنل',
-        'lines' => 'مخزن خطوط شرکت',
+        'lines' => 'مخزن خطوط',
         'requests' => 'درخواست شماره‌های خاص',
         'bulk_sms' => 'پیامک انبوه',
-        'contacts' => 'مخاطبین مشترک',
+        'contacts' => 'مخاطبین',
         'api_tokens' => 'کلیدهای دسترسی API',
         'docs' => 'مستندات وب‌سرویس',
-        'wallet' => 'کیف پول شرکتی',
+        'wallet' => 'کیف پول',
         'switch_to_softphone' => 'ورود به سافت‌فون کاربری',
     ],
 
@@ -29,7 +29,7 @@ return [
         'quick_team' => 'مدیریت پرسنل',
         'quick_bulk_sms' => 'ارسال پیامک انبوه',
         'quick_requests' => 'سفارش خطوط رند',
-        'quick_wallet' => 'کیف پول شرکتی',
+        'quick_wallet' => 'کیف پول',
     ],
 
     'team' => [

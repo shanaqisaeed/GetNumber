@@ -248,8 +248,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </button>
                 </div>
 
-                <!-- 3 Service Cards with Action into Wizard -->
-                <div class="grid grid-cols-1 gap-3.5 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
+                <!-- 3 Service Cards with Action into Wizard (Responsive 3-Column Grid) -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5 mt-4 pt-3 border-t border-slate-200/80 dark:border-white/10">
                     <!-- Service 1: Short Lines -->
                     <div class="p-4 rounded-2xl bg-white/95 dark:bg-slate-900/75 border border-purple-500/25 flex flex-col justify-between space-y-3.5 hover:border-purple-500/40 transition-all shadow-xs">
                         <div class="space-y-2">
@@ -343,30 +343,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <div class="p-2 rounded-xl bg-slate-100/90 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                         <span class="text-[10px] text-rose-600 dark:text-rose-400 block font-bold">{{ __('user.requests.stat_rejected') }}</span>
                         <span class="text-sm font-black font-mono text-slate-900 dark:text-white">{{ stats.rejected }}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Recent Enterprise Multi-Service Orders -->
-            <div v-if="enterprise_orders && enterprise_orders.length > 0" class="glass-card !p-4 space-y-2.5 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                    {{ __('catalog.ui.enterprise_orders_history') }}
-                </h3>
-                <div class="space-y-2">
-                    <div
-                        v-for="ord in enterprise_orders"
-                        :key="ord.id"
-                        class="p-2.5 rounded-xl bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs"
-                    >
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono font-bold text-[11px] text-slate-400" dir="ltr">{{ ord.order_number }}</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-200">{{ ord.service_title }}</span>
-                            <span class="font-mono font-black text-indigo-600 dark:text-indigo-400" dir="ltr">{{ ord.requested_identifier }}</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">{{ ord.final_amount }} TRX</span>
-                            <span class="text-[10px] text-slate-400">{{ ord.created_at }}</span>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -543,6 +519,52 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                         </svg>
                         <span>{{ __('user.requests.create_first') }}</span>
                     </button>
+                </div>
+            </div>
+
+            <!-- 4. Recent Enterprise Multi-Service Orders & Contracts History (Bottom Section) -->
+            <div v-if="enterprise_orders && enterprise_orders.length > 0" class="glass-card !p-4 space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
+                <div class="flex items-center justify-between border-b border-slate-200/70 dark:border-white/10 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                        <h3 class="text-xs font-black text-slate-900 dark:text-white">
+                            {{ __('catalog.ui.enterprise_orders_history') }}
+                        </h3>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-mono">
+                        {{ enterprise_orders.length }} {{ __('user.requests.details') }}
+                    </span>
+                </div>
+                <div class="space-y-2">
+                    <div
+                        v-for="ord in enterprise_orders"
+                        :key="ord.id"
+                        class="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs hover:border-purple-500/30 transition-all"
+                    >
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="font-mono font-bold text-[11px] text-slate-400" dir="ltr">{{ ord.order_number }}</span>
+                            <span class="font-bold text-slate-800 dark:text-slate-200">{{ ord.service_title }}</span>
+                            <span class="font-mono font-black text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs" dir="ltr">{{ ord.requested_identifier }}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span
+                                class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs"
+                                :class="ord.status === 'completed' || ord.status === 'approved' || ord.status === 'fulfilled'
+                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                                    : ord.status === 'rejected' || ord.status === 'cancelled'
+                                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400'
+                                    : 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'"
+                            >
+                                {{ ord.status === 'completed' || ord.status === 'approved' || ord.status === 'fulfilled'
+                                    ? __('user.requests.stat_approved')
+                                    : ord.status === 'rejected' || ord.status === 'cancelled'
+                                    ? __('user.requests.stat_rejected')
+                                    : __('user.requests.stat_pending') }}
+                            </span>
+                            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">{{ ord.final_amount }} TRX</span>
+                            <span class="text-[10px] text-slate-400 font-mono">{{ ord.created_at }}</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

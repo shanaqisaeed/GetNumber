@@ -191,23 +191,37 @@ class TeamMemberController extends Controller
         [$type, $id] = explode('_', $validated['line_key'], 2);
 
         if ($type === 'phone') {
-            $phone = PhoneNumber::where('organization_id', $org->id)
+            $phone = PhoneNumber::where(function ($q) use ($org, $user) {
+                    $q->where('organization_id', $org->id)
+                      ->orWhere('user_id', $user->id);
+                })
                 ->where('id', $id)
                 ->whereNull('assigned_user_id')
                 ->firstOrFail();
 
-            $phone->update(['assigned_user_id' => $member->user_id]);
+            $phone->update([
+                'organization_id' => $org->id,
+                'is_organization' => true,
+                'assigned_user_id' => $member->user_id,
+            ]);
 
             return back()->with('success', __('organization.team.line_assigned_success', ['line' => $phone->formatted_number]));
         }
 
         if ($type === 'custom') {
-            $cid = ServiceResourceAllocation::where('organization_id', $org->id)
+            $cid = ServiceResourceAllocation::where(function ($q) use ($org, $user) {
+                    $q->where('organization_id', $org->id)
+                      ->orWhere('user_id', $user->id);
+                })
                 ->where('id', $id)
                 ->whereNull('assigned_user_id')
                 ->firstOrFail();
 
-            $cid->update(['assigned_user_id' => $member->user_id]);
+            $cid->update([
+                'organization_id' => $org->id,
+                'is_organization' => true,
+                'assigned_user_id' => $member->user_id,
+            ]);
 
             return back()->with('success', __('organization.team.line_assigned_success', ['line' => $cid->resource_identifier]));
         }
@@ -218,14 +232,17 @@ class TeamMemberController extends Controller
     /**
      * Unassign a dedicated line from a member.
      */
-    public function unassignLine(Request $request, OrganizationMember $member): RedirectResponse
+    public function unassignLine(Request $request, string $memberParam): RedirectResponse
     {
         $user = $request->user();
         $org = $user->getOrCreatePersonalOrganization();
 
-        if ($member->organization_id !== $org->id) {
-            abort(403);
-        }
+        $member = OrganizationMember::where('organization_id', $org->id)
+            ->where(function ($q) use ($memberParam) {
+                $q->where('id', $memberParam)
+                  ->orWhere('user_id', $memberParam);
+            })
+            ->firstOrFail();
 
         PhoneNumber::where('organization_id', $org->id)
             ->where('assigned_user_id', $member->user_id)

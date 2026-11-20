@@ -403,4 +403,71 @@ class CommercialTransformationTest extends TestCase
             ->where('recent_conversations.0.last_message', 'Reply to peer 1')
         );
     }
+
+    /**
+     * Test 10: Organization lines inventory renders without SQL errors and detects 4-8 digit shortcodes.
+     */
+    public function test_organization_lines_inventory_renders_cleanly_and_includes_shortcode_lines(): void
+    {
+        // Add a 4-digit shortcode number
+        $shortNumber = PhoneNumber::create([
+            'user_id' => $this->user->id,
+            'phone_prefix_id' => $this->prefix->id,
+            'number' => '1010',
+            'formatted_number' => '+981010',
+            'type' => PhoneNumberType::UserService,
+            'status' => PhoneNumberStatus::Allocated,
+        ]);
+
+        $employeeUser = User::factory()->create();
+        $this->org->members()->create([
+            'user_id' => $employeeUser->id,
+            'role' => 'member',
+            'status' => 'active',
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('org.lines.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Organization/Lines/Index')
+            ->has('lines')
+            ->has('eligible_members', 1)
+            ->where('eligible_members.0.email', $employeeUser->email)
+        );
+
+        $this->assertEquals($this->org->id, $shortNumber->fresh()->organization_id);
+    }
+
+    /**
+     * Test 11: Organization requests index aggregates stats across both requests and enterprise service orders.
+     */
+    public function test_organization_requests_aggregates_service_orders_in_stats(): void
+    {
+        app(\App\Contracts\Services\ServiceRegistryInterface::class)->ensureCatalogSeeded();
+
+        $serviceDef = \App\Models\ServiceDefinition::where('key', 'custom_id')->first();
+        $servicePlan = $serviceDef->plans()->first();
+
+        \App\Models\ServiceOrder::create([
+            'order_number' => 'SRV-TEST-001',
+            'user_id' => $this->user->id,
+            'service_definition_id' => $serviceDef->id,
+            'service_plan_id' => $servicePlan->id,
+            'status' => 'completed',
+            'requested_identifier' => '@saeed',
+            'unit_price' => 160.0,
+            'final_amount' => 160.0,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('org.requests.index'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('Organization/Requests/Index')
+            ->where('stats.approved', 1)
+            ->has('enterprise_orders', 1)
+            ->where('enterprise_orders.0.requested_identifier', '@saeed')
+        );
+    }
 }

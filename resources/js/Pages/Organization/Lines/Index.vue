@@ -16,6 +16,7 @@ interface LineItem {
     status: string;
     assigned_to: {
         id: number;
+        member_id?: number;
         name: string;
         email: string;
     } | null;
@@ -74,7 +75,7 @@ function submitAssignLine() {
 function unassignLine(line: LineItem) {
     if (!line.assigned_to) return;
     if (!confirm(__('organization.lines.unassign_confirm'))) return;
-    router.post(route('org.team.unassign_line', { member: line.assigned_to.id }));
+    router.post(route('org.team.unassign_line', { member: line.assigned_to.member_id || line.assigned_to.id }));
 }
 </script>
 

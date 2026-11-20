@@ -80,7 +80,7 @@ return [
         'status' => 'Presence Status',
         'online' => 'Available',
         'busy' => 'In a Call',
-        'dnd' => 'Do Not Disturb (DND)',
+        'dnd' => 'Do Not Disturb',
         'offline' => 'Offline',
         'dnd_notice' => 'All incoming calls are rejected while in DND mode.',
     ],

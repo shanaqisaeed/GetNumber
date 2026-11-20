@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Enums\PhoneNumberStatus;
+use App\Enums\PhoneNumberType;
 use App\Http\Controllers\Controller;
+use App\Models\OrganizationMember;
 use App\Models\PhoneNumber;
 use App\Models\ServiceResourceAllocation;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,9 +22,49 @@ class LineManagementController extends Controller
         $user = $request->user();
         $org = $user->getOrCreatePersonalOrganization();
 
-        // 1. Organization phone numbers
-        $phoneLines = $org->phoneNumbers()
+        // 0. Automatically link corporate/enterprise numbers (4-8 digits, UserService, etc.) to the organization
+        PhoneNumber::where('user_id', $user->id)
+            ->whereNull('organization_id')
+            ->where(function ($sub) {
+                $sub->whereRaw('LENGTH(number) BETWEEN 4 AND 8')
+                    ->orWhereIn('type', [
+                        PhoneNumberType::UserService->value,
+                        PhoneNumberType::PlatformService->value,
+                    ]);
+            })
+            ->update([
+                'organization_id' => $org->id,
+                'is_organization' => true,
+            ]);
+
+        // Automatically link corporate custom ID allocations
+        ServiceResourceAllocation::where('user_id', $user->id)
+            ->whereNull('organization_id')
+            ->update([
+                'organization_id' => $org->id,
+                'is_organization' => true,
+            ]);
+
+        $members = $org->members()->with('user')->get();
+        $membersByUserId = $members->keyBy('user_id');
+
+        // 1. Organization phone numbers (including 4-8 digit shortcodes and corporate service lines)
+        $phoneLines = PhoneNumber::query()
             ->with(['assignedUser', 'phonePrefix'])
+            ->where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('is_organization', true)
+                  ->orWhere(function ($sub) use ($user) {
+                      $sub->where('user_id', $user->id)
+                          ->where(function ($tq) {
+                              $tq->whereRaw('LENGTH(number) BETWEEN 4 AND 8')
+                                 ->orWhereIn('type', [
+                                     PhoneNumberType::UserService->value,
+                                     PhoneNumberType::PlatformService->value,
+                                 ]);
+                          });
+                  });
+            })
             ->get()
             ->map(fn ($p) => [
                 'id' => $p->id,
@@ -33,9 +74,10 @@ class LineManagementController extends Controller
                 'display_title' => $p->display_title ?: $p->effective_title,
                 'type' => 'number',
                 'type_label' => __('softphone.line.type_phone'),
-                'status' => $p->status->value,
+                'status' => $p->status instanceof PhoneNumberStatus ? $p->status->value : (string) $p->status,
                 'assigned_to' => $p->assignedUser ? [
                     'id' => $p->assignedUser->id,
+                    'member_id' => $membersByUserId->get($p->assignedUser->id)?->id ?? $p->assignedUser->id,
                     'name' => $p->assignedUser->name,
                     'email' => $p->assignedUser->email,
                 ] : null,
@@ -43,8 +85,13 @@ class LineManagementController extends Controller
             ]);
 
         // 2. Organization custom IDs
-        $customIdLines = $org->customIdAllocations()
+        $customIdLines = ServiceResourceAllocation::query()
             ->with('assignedUser')
+            ->where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
+            ->where('service_key', 'custom_id')
             ->get()
             ->map(fn ($cid) => [
                 'id' => $cid->id,
@@ -54,9 +101,10 @@ class LineManagementController extends Controller
                 'display_title' => $cid->display_title ?: $cid->resource_identifier,
                 'type' => 'custom_id',
                 'type_label' => __('softphone.line.type_custom_id'),
-                'status' => $cid->status,
+                'status' => (string) $cid->status,
                 'assigned_to' => $cid->assignedUser ? [
                     'id' => $cid->assignedUser->id,
+                    'member_id' => $membersByUserId->get($cid->assignedUser->id)?->id ?? $cid->assignedUser->id,
                     'name' => $cid->assignedUser->name,
                     'email' => $cid->assignedUser->email,
                 ] : null,
@@ -65,10 +113,27 @@ class LineManagementController extends Controller
 
         $lines = $phoneLines->concat($customIdLines)->values();
 
-        $eligibleMembers = $org->members()
-            ->with('user')
-            ->whereNull('assigned_line')
-            ->get()
+        // Calculate assigned user IDs safely without querying nonexistent columns in SQL
+        $assignedUserIds = PhoneNumber::where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
+            ->whereNotNull('assigned_user_id')
+            ->pluck('assigned_user_id')
+            ->concat(
+                ServiceResourceAllocation::where(function ($q) use ($org, $user) {
+                    $q->where('organization_id', $org->id)
+                      ->orWhere('user_id', $user->id);
+                })
+                ->whereNotNull('assigned_user_id')
+                ->pluck('assigned_user_id')
+            )
+            ->unique()
+            ->filter();
+
+        $eligibleMembers = $members
+            ->filter(fn ($m) => $m->user_id && ! $assignedUserIds->contains($m->user_id))
+            ->values()
             ->map(fn ($m) => [
                 'id' => $m->id,
                 'name' => $m->user?->name,

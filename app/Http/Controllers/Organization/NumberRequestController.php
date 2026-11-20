@@ -81,11 +81,25 @@ class NumberRequestController extends Controller
                 'created_at' => $req->created_at->format('Y/m/d H:i'),
             ]);
 
+        $nrPending = NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Pending)->count();
+        $nrApproved = NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Approved)->count();
+        $nrRejected = NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Rejected)->count();
+
+        $soPending = \App\Models\ServiceOrder::where('user_id', $user->id)
+            ->whereIn('status', ['pending', 'pending_approval', 'held', 'reviewing'])
+            ->count();
+        $soApproved = \App\Models\ServiceOrder::where('user_id', $user->id)
+            ->whereIn('status', ['completed', 'fulfilled', 'approved', 'active'])
+            ->count();
+        $soRejected = \App\Models\ServiceOrder::where('user_id', $user->id)
+            ->whereIn('status', ['rejected', 'cancelled', 'failed'])
+            ->count();
+
         $stats = [
-            'total' => NumberRequest::where('user_id', $user->id)->count(),
-            'pending' => NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Pending)->count(),
-            'approved' => NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Approved)->count(),
-            'rejected' => NumberRequest::where('user_id', $user->id)->where('status', NumberRequestStatus::Rejected)->count(),
+            'total' => ($nrPending + $nrApproved + $nrRejected) + ($soPending + $soApproved + $soRejected),
+            'pending' => $nrPending + $soPending,
+            'approved' => $nrApproved + $soApproved,
+            'rejected' => $nrRejected + $soRejected,
         ];
 
         // Rich shortcode suggestions across all lengths (4 to 8 digits)
@@ -117,9 +131,33 @@ class NumberRequestController extends Controller
         $serviceRegistry = app(\App\Contracts\Services\ServiceRegistryInterface::class);
         $serviceCatalog = $serviceRegistry->getCatalogForUser($user, 'enterprise');
 
-        $enterpriseOrders = \App\Models\ServiceOrder::query()
+        $soQuery = \App\Models\ServiceOrder::query()
             ->with(['serviceDefinition', 'servicePlan', 'allocation'])
-            ->where('user_id', $user->id)
+            ->where('user_id', $user->id);
+
+        if ($request->filled('status')) {
+            $status = $request->input('status');
+            if ($status === 'approved') {
+                $soQuery->whereIn('status', ['completed', 'fulfilled', 'approved', 'active']);
+            } elseif ($status === 'pending') {
+                $soQuery->whereIn('status', ['pending', 'pending_approval', 'held', 'reviewing']);
+            } elseif ($status === 'rejected') {
+                $soQuery->whereIn('status', ['rejected', 'cancelled', 'failed']);
+            }
+        }
+
+        if ($request->filled('search')) {
+            $search = trim($request->input('search'));
+            $soQuery->where(function ($q) use ($search) {
+                $q->where('order_number', 'like', "%{$search}%")
+                    ->orWhere('requested_identifier', 'like', "%{$search}%")
+                    ->orWhereHas('serviceDefinition', function ($sub) use ($search) {
+                        $sub->where('title', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $enterpriseOrders = $soQuery
             ->latest('id')
             ->limit(25)
             ->get()

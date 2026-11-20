@@ -2,34 +2,34 @@
 
 return [
     'nav' => [
-        'dashboard' => 'Org Dashboard',
+        'dashboard' => 'Dashboard',
         'team' => 'Team & Staff',
-        'lines' => 'Org Numbers',
+        'lines' => 'Numbers',
         'requests' => 'Special Number Requests',
         'bulk_sms' => 'Bulk SMS',
-        'contacts' => 'Shared Contacts',
+        'contacts' => 'Contacts',
         'api_tokens' => 'API Tokens',
         'docs' => 'API Documentation',
-        'wallet' => 'Corporate Wallet',
+        'wallet' => 'Wallet',
         'switch_to_softphone' => 'Switch to Softphone',
     ],
 
     'dashboard' => [
         'title' => 'Business & Enterprise Communications',
         'subtitle' => 'Command center for lines, team members, and communication campaigns',
-        'total_lines' => 'Total Org Lines',
+        'total_lines' => 'Total Lines',
         'assigned_lines' => 'Assigned Lines',
         'free_lines' => 'Available Free Lines',
         'total_team_members' => 'Team Members',
-        'org_balance' => 'Org Wallet Balance',
-        'charge_org_wallet' => 'Top-up Org Balance',
+        'org_balance' => 'Wallet Balance',
+        'charge_org_wallet' => 'Top-up Balance',
         'recent_activity' => 'Recent Team Activity',
         'quick_actions' => 'Quick Actions',
         'view_all' => 'View All',
         'quick_team' => 'Manage Staff',
         'quick_bulk_sms' => 'Send Bulk SMS',
         'quick_requests' => 'Special Numbers',
-        'quick_wallet' => 'Org Wallet',
+        'quick_wallet' => 'Wallet',
     ],
 
     'team' => [

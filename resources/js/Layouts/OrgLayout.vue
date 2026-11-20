@@ -125,34 +125,56 @@ const navigation = [
                 isMobileSidebarOpen ? 'translate-x-0' : 'translate-x-full'
             ]"
         >
-            <div>
-                <!-- Brand & Organization Title -->
-                <div class="p-6 border-b border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30 font-black text-lg">
-                            🏢
+            <div class="flex-1 min-h-0 flex flex-col">
+                <!-- Brand & Organization Title with Language & Theme Switches -->
+                <div class="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80">
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30 font-black text-lg shrink-0">
+                                🏢
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h2 class="text-xs font-black truncate text-slate-900 dark:text-white" :title="organization?.name || __('organization.dashboard.title')">
+                                    {{ organization?.name || __('organization.dashboard.title') }}
+                                </h2>
+                                <p class="text-[10px] text-purple-600 dark:text-purple-400 font-bold truncate">
+                                    {{ __('organization.nav.dashboard') }}
+                                </p>
+                            </div>
                         </div>
-                        <div class="min-w-0">
-                            <h2 class="text-sm font-black truncate text-slate-900 dark:text-white">
-                                {{ organization?.name || __('organization.dashboard.title') }}
-                            </h2>
-                            <p class="text-[11px] text-purple-600 dark:text-purple-400 font-bold">
-                                {{ __('organization.nav.dashboard') }}
-                            </p>
-                        </div>
-                    </div>
 
-                    <button
-                        type="button"
-                        @click="isMobileSidebarOpen = false"
-                        class="md:hidden p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg"
-                    >
-                        ✕
-                    </button>
+                        <!-- Top Controls: Language Switcher & Theme Toggle Capsule -->
+                        <div class="flex items-center gap-1 p-0.5 rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 shadow-xs shrink-0">
+                            <LanguageSwitcher buttonClass="!h-7 !rounded-lg !px-1.5 !text-[11px]" />
+                            <div class="w-px h-3 bg-slate-200 dark:bg-slate-700" aria-hidden="true"></div>
+                            <button
+                                type="button"
+                                @click="toggleTheme"
+                                class="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-700 transition-colors"
+                            >
+                                <svg v-if="isDark" class="w-3.5 h-3.5 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="5"></circle>
+                                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                                </svg>
+                                <svg v-else class="w-3.5 h-3.5 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            @click="isMobileSidebarOpen = false"
+                            class="md:hidden p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg shrink-0"
+                        >
+                            ✕
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Navigation List -->
-                <nav class="p-4 space-y-1 overflow-y-auto max-h-[calc(100vh-210px)]">
+                <nav class="p-3.5 space-y-1 overflow-y-auto flex-1">
                     <Link
                         v-for="item in navigation"
                         :key="item.href"
@@ -209,7 +231,7 @@ const navigation = [
             </div>
 
             <!-- Sidebar Bottom: Switch to Softphone & User Info -->
-            <div class="p-4 border-t border-slate-200/80 dark:border-slate-800/80 space-y-3">
+            <div class="p-3.5 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2.5 shrink-0">
                 <Link
                     :href="route('dashboard')"
                     class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
@@ -220,33 +242,13 @@ const navigation = [
                     <span>{{ __('organization.nav.switch_to_softphone') }}</span>
                 </Link>
 
-                <div class="flex items-center justify-between pt-1">
-                    <div class="flex items-center gap-2 min-w-0">
-                        <div class="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
-                            {{ user?.name ? user.name.charAt(0) : 'U' }}
-                        </div>
-                        <div class="truncate">
-                            <p class="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{{ user?.name }}</p>
-                            <p class="text-[10px] text-slate-400 truncate">{{ user?.email }}</p>
-                        </div>
+                <div class="flex items-center gap-2.5 pt-0.5">
+                    <div class="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300 shrink-0">
+                        {{ user?.name ? user.name.charAt(0) : 'U' }}
                     </div>
-
-                    <div class="flex items-center gap-1">
-                        <LanguageSwitcher buttonClass="!h-8 !px-2 !rounded-lg text-xs" />
-                        <button
-                            type="button"
-                            @click="toggleTheme"
-                            class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                        >
-                            <svg v-if="isDark" class="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="5"></circle>
-                                <line x1="12" y1="1" x2="12" y2="3"></line>
-                                <line x1="12" y1="21" x2="12" y2="23"></line>
-                            </svg>
-                            <svg v-else class="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                            </svg>
-                        </button>
+                    <div class="min-w-0 flex-1 truncate">
+                        <p class="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{{ user?.name }}</p>
+                        <p class="text-[10px] text-slate-400 truncate">{{ user?.email }}</p>
                     </div>
                 </div>
             </div>
