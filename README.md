@@ -1,747 +1,577 @@
-# 📱 GetNumber — Enterprise Virtual Number Platform & Real-Time Messaging Gateway
+# 📞 GetNumber — Self-Hosted WebRTC Softphone, Resilient Voice/Video Calling & Unified Messaging Platform
+### سافت‌فون اختصاصی، سامانه ارتباط زنده صوتی و تصویری WebRTC و درگاه ارتباطی مقاوم در شرایط اینترانت
 
 <p align="center">
-  <b>A self-hosted, offline-ready virtual communication platform engineered for high-concurrency number provisioning, real-time threaded messaging, unified developer APIs, and integrated cryptocurrency payments.</b>
+  <b>A production-grade, 100% self-hosted Softphone and real-time communication platform engineered for high survivability in restricted networks, featuring WebRTC audio/video calling, an in-house Go Voice Bridge with embedded STUN/TURN media relay, threaded messaging, and internal coin billing.</b>
 </p>
 
 <p align="center">
-  <a href="#-english-version">🇬🇧 English Version</a> •
-  <a href="#-نسخه-فارسی">🇮🇷 نسخه فارسی</a>
+  <a href="#-english-documentation">🇬🇧 English Documentation</a> •
+  <a href="#-مستندات-فارسی">🇮🇷 مستندات فارسی</a>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4?style=for-the-badge&logo=php&logoColor=white" alt="PHP 8.3+">
-  <img src="https://img.shields.io/badge/Laravel-13.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 13.x">
-  <img src="https://img.shields.io/badge/Inertia.js-v2.0-9553E9?style=for-the-badge&logo=inertia&logoColor=white" alt="Inertia.js v2">
-  <img src="https://img.shields.io/badge/Vue.js-3.4%2B-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white" alt="Vue 3">
-  <img src="https://img.shields.io/badge/TypeScript-5.6%2B-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript 5.6">
+  <img src="https://img.shields.io/badge/Platform-WebRTC%20Softphone-blue?style=for-the-badge&logo=webrtc&logoColor=white" alt="WebRTC Softphone">
+  <img src="https://img.shields.io/badge/Voice%20Bridge-Go%201.22%2B-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Voice Bridge">
+  <img src="https://img.shields.io/badge/Backend-Laravel%2013-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel 13">
+  <img src="https://img.shields.io/badge/Frontend-Inertia%20v2%20%2B%20Vue%203-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white" alt="Vue 3">
+  <img src="https://img.shields.io/badge/TypeScript-5.6%2B-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/TailwindCSS-v3%2Fv4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS">
-  <img src="https://img.shields.io/badge/WebSockets-Laravel%20Reverb-FF2D20?style=for-the-badge&logo=laravel&logoColor=white" alt="Laravel Reverb">
-  <img src="https://img.shields.io/badge/Payments-TRON%20%2F%20Nobitex-00A651?style=for-the-badge&logo=tether&logoColor=white" alt="Crypto Payments">
-  <img src="https://img.shields.io/badge/Tests-180%2B%20Passing-success?style=for-the-badge&logo=phpunit&logoColor=white" alt="PHPUnit Tests">
+  <img src="https://img.shields.io/badge/Relay-STUN%20%2F%20TURN%20%2F%20TURNS-orange?style=for-the-badge" alt="STUN/TURN">
+  <img src="https://img.shields.io/badge/Tests-180%2B%20Passing-success?style=for-the-badge&logo=phpunit&logoColor=white" alt="Tests">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-GNU%20GPLv3-00599C?style=for-the-badge&logo=gnu" alt="GPL-3.0 License"></a>
-  <a href="https://github.com/shanaqisaeed/GetNumber"><img src="https://img.shields.io/badge/Author-Saeed%20Shanaqi-181717?style=for-the-badge&logo=github&logoColor=white" alt="Author"></a>
 </p>
 
 ---
 
 ## 🌐 Language Switcher / انتخاب زبان
 
-- [🇬🇧 English Documentation](#-english-version)
-- [🇮🇷 مستندات و راهنمای فارسی](#-نسخه-فارسی)
+- [🇬🇧 English Documentation](#-english-documentation)
+- [🇮🇷 مستندات و راهنمای جامع فارسی](#-مستندات-فارسی)
 
 ---
 
-# 🇬🇧 English Version
+# 🇬🇧 English Documentation
 
-## 📖 Table of Contents
-1. [Overview & Practical Purpose](#1-overview--practical-purpose)
-2. [What Makes GetNumber Different?](#2-what-makes-getnumber-different)
-3. [Core Feature Breakdown](#3-core-feature-breakdown)
-   - [Virtual Number Pool & Allocation Engine](#31-virtual-number-pool--allocation-engine)
-   - [Two-Way Threaded Messaging Hub](#32-two-way-threaded-messaging-hub)
-   - [Real-Time WebSockets with Reverb & Echo](#33-real-time-websockets-with-reverb--echo)
-   - [Internal Wallet & Crypto Payment Engine](#34-internal-wallet--crypto-payment-engine)
-   - [Unified RESTful Developer API (v1)](#35-unified-restful-developer-api-v1)
-   - [Enterprise Support Ticket Desk](#36-enterprise-support-ticket-desk)
-   - [Zero-CDN & High-Security Intranet Readiness](#37-zero-cdn--high-security-intranet-readiness)
-4. [System Architecture & Data Model](#4-system-architecture--data-model)
-5. [User & Administrator Workflows](#5-user--administrator-workflows)
-6. [Developer API Quickstart](#6-developer-api-quickstart)
-7. [Installation & Getting Started](#7-installation--getting-started)
-8. [Background Workers & Automation](#8-background-workers--automation)
-9. [Automated Testing Suite](#9-automated-testing-suite)
-10. [License & Intellectual Property](#10-license--intellectual-property)
+## 📑 Table of Contents
+1. [Project Reality & Purpose](#1-project-reality--purpose)
+2. [Why Softphone & Why GetNumber? (Intranet Survival)](#2-why-softphone--why-getnumber-intranet-survival)
+3. [Architecture & System Design](#3-architecture--system-design)
+4. [Core Features Breakdown](#4-core-features-breakdown)
+   - [WebRTC Audio & Video Calling Engine](#41-webrtc-audio--video-calling-engine)
+   - [Go Voice Bridge Daemon & Embedded Media Relay](#42-go-voice-bridge-daemon--embedded-media-relay)
+   - [Smart STUN/TURN Multi-Tier Resiliency Matrix](#43-smart-stunturn-multi-tier-resiliency-matrix)
+   - [Two-Way Threaded Messaging Hub](#44-two-way-threaded-messaging-hub)
+   - [Billing, Tariffs & Wallet Ledger](#45-billing-tariffs--wallet-ledger)
+   - [Data Privacy & Soft-Delete Engine](#46-data-privacy--soft-delete-engine)
+5. [Developer Future Roadmap](#5-developer-future-roadmap)
+6. [Installation & Deployment Guide](#6-installation--deployment-guide)
+7. [Running the Go Voice Bridge Daemon](#7-running-the-go-voice-bridge-daemon)
+8. [Automated Testing & Quality Assurance](#8-automated-testing--quality-assurance)
+9. [License & Attribution](#9-license--attribution)
 
 ---
 
-### 1. Overview & Practical Purpose
+### 1. Project Reality & Purpose
 
-**GetNumber** is an enterprise-grade, self-hosted communication platform built on **Laravel 13**, **Inertia.js v2**, and **Vue 3 (TypeScript)**. It bridges the gap between simulated virtual phone networks, private corporate intranets, and programmable SMS gateways.
+**GetNumber** is an enterprise-grade, browser-native **Softphone** and real-time communication platform. It allows users to initiate and receive high-definition peer-to-peer (P2P) and relayed voice and video calls, exchange two-way threaded messages, manage virtual line identities, and handle usage billing via an internal coin ledger.
 
-In real-world operations, organizations often face severe constraints:
-- Public telecom providers impose heavy recurring subscription costs, rigid KYC checks, and vendor lock-in.
-- Private networks, banking environments, government infrastructure, and development staging environments cannot depend on external SMS gateways or third-party cloud CDNs.
-- Modern software teams need a centralized, auditable platform to issue virtual phone numbers to users, exchange two-way messages, run automated end-to-end integration tests, and monetize communication services with cryptocurrency billing.
-
-**GetNumber solves these challenges out of the box.** It provides a production-ready web application and API where users can recharge their internal wallets with cryptocurrency, claim virtual numbers from pre-configured pools, send and receive messages in a mobile-style chat UI in real time, and integrate third-party applications through scoped API tokens.
+Unlike traditional commercial communication suites that depend on external SaaS platforms (Twilio, Zoom, Google Meet, WhatsApp) or centralized foreign cloud infrastructure, GetNumber is **100% self-hosted and on-premise ready**. It runs autonomously inside private corporate clouds, air-gapped banking networks, and national intranet infrastructures (e.g., Iran's National Information Network).
 
 ---
 
-### 2. What Makes GetNumber Different?
+### 2. Why Softphone & Why GetNumber? (Intranet Survival)
 
-| Requirement | Traditional SMS Gateways / Cloud SaaS | GetNumber Self-Hosted Platform |
-| :--- | :--- | :--- |
-| **Hosting & Isolation** | Hosted on external clouds; blocked by strict firewalls | **100% On-Premise & Intranet Ready** with zero external CDN dependencies |
-| **Asset Delivery** | Dependent on Google Fonts, cdnjs, Cloudflare | **All assets bundled locally** (Vazirmatn fonts, local QR codes, bundled scripts) |
-| **Concurrency & Racing** | Prone to duplicate assignment under high load | **Pessimistic row locking (`lockForUpdate`)** in database transactions |
-| **Billing & Payments** | Credit cards or bank webhooks with geographical limits | **Native Crypto Engine** (TRON TRX/USDT, Nobitex exchange, Wallex, TronScan) |
-| **Real-Time Communication** | High-latency polling or costly third-party Pusher plans | **Native Laravel Reverb WebSockets** with graceful auto-fallback to polling |
-| **Privacy & GDPR** | Message history often remains tied to recycled numbers | **Atomic privacy scrub**: Releasing a line permanently deletes previous messages |
-| **Authentication** | Tied to email servers and OTP email verification | **Username-centric auth**: Operates without any external mail server dependency |
+In restricted network environments, international internet outages, or heavy protocol throttling:
+- **Foreign SaaS & Cloud Services Fail:** Foreign VoIP providers, STUN/TURN resolvers (Google, Cloudflare), and push notification services become completely unreachable due to firewall blocks, DNS poisoning, or border packet filtering.
+- **Port Throttling & Deep Packet Inspection (DPI):** Standard SIP ports (`5060/udp`) and common WebRTC relay ports are frequently inspected and throttled by ISPs.
+- **Privacy & Compliance Constraints:** Financial institutions and sensitive organizations cannot route voice data or employee messages through third-party foreign servers.
 
----
-
-### 3. Core Feature Breakdown
-
-#### 3.1. Virtual Number Pool & Allocation Engine
-- **Standard Numbers Pool:** Supports fixed 9-digit lines (`000000000` to `999999999`) with zero-padded formatting preservation, assigned to dynamic system prefixes (default `+85`).
-- **Dynamic Prefix Management:** Admins can define, activate, or deactivate prefixes (e.g., `+85`, `+98`, `+44`) and choose the default routing prefix. Prefixes linked to active numbers are protected against accidental deletion.
-- **Atomic Concurrency Guarantee:** Number allocation in `PhoneNumberAllocationService` utilizes strict database transactions wrapped in `lockForUpdate`. Simultaneous purchase requests never result in double allocation.
-- **Custom Service Numbers (4 to 8 Digits):** Users can request custom short vanity numbers for OTP, billing alerts, or department gateways. Admins review requests with approval, rejection notes, or manual line assignment.
-- **Platform System Lines:** Exclusive administrative numbers (such as `1000` or `9999`) with customizable `accepts_incoming_sms` policy, allowing broadcast-only or interactive system messaging.
-- **Automated Lifecycle Sweeper:** The artisan command `php artisan numbers:sweep-expired` cleans up expired reservations and allocations automatically on an hourly cron schedule.
-
-#### 3.2. Two-Way Threaded Messaging Hub
-- **Mobile-Style Conversation Threads:** Messages are organized into responsive chat threads by `peer_number`, offering a familiar messenger experience.
-- **Multi-SIM Switching:** Users with multiple assigned virtual lines can toggle between their numbers seamlessly without reloading the interface.
-- **Multi-Recipient Chip Selector:** Send outbound SMS to single or multiple destination lines simultaneously using smart tag chips.
-- **Admin Conversation Inspector:** Provides oversight through two complementary views: an interactive chat view with directional bubbles and line ownership metadata, and a tabular audit grid for technical compliance.
-- **System Line Spoofing Prevention:** Senders cannot spoof sender titles (`display_title`). Titles are strictly verified and enforced by server-side policy.
-
-#### 3.3. Real-Time WebSockets with Reverb & Echo
-- **Instant Delivery & Read Receipts:** Powered by **Laravel Reverb** and **Laravel Echo**, inbound and outbound messages update live on the screen without manual refresh.
-- **Two-Ticks Message Delivery Status:** Real-time events broadcast delivery and read state changes directly to the active chat thread.
-- **Adaptive Resilience Engine:** If WebSockets become unavailable due to corporate proxy policies or connection loss, the frontend (`resources/js/echo.ts`) automatically falls back to 4-second polling coordinated with the `Page Visibility API` (pausing network activity in hidden tabs).
-
-#### 3.4. Internal Wallet & Crypto Payment Engine
-- **Immutable Balance Ledger:** User balances are tracked with an integer-based coin ledger (`wallets` and `wallet_transactions`) with strict idempotency guards against duplicate credits.
-- **TRON Blockchain Integration:** Supports direct TRX and TRC20 token top-ups with 1:1 coin conversion rates.
-- **Multi-Exchange Gateway Adapters:**
-  - **Nobitex Gateway:** Native integration with the Nobitex exchange API (`apiv2.nobitex.ir`) featuring **Ed25519 signature authentication** (`sodium_crypto_sign_seed_keypair`), IP whitelist restriction detection, automatic TRX deposit address sync, and manual deposit address override support.
-  - **Wallex & TronScan & TronGrid:** Pluggable gateway adapters for direct blockchain queries and alternative exchanges.
-  - **Mock Sandbox Driver:** Built-in test driver for automated local testing without touching real crypto networks.
-- **100% Offline Client-Side QR Codes:** Deposit addresses are rendered into interactive QR codes on the client using the local `qrcode` bundle—no external Google Charts or third-party image APIs required.
-- **3-Stage Asynchronous Verification:** When a user submits a Transaction Hash (TX Hash), `VerifyCryptoDepositJob` runs instant checks, schedules delayed re-checks, and escalates to manual review if unconfirmed after 3 attempts.
-- **Admin Payment Oversight:** Admin panel to inspect pending deposits, verify network states, view TX Hashes, trigger manual completion with audit logging, or safely reject invalid deposits.
-
-#### 3.5. Unified RESTful Developer API (v1)
-- **Token-Based Authentication:** API tokens are stored using `SHA-256` one-way hashing. The plain-text key is revealed only once upon creation or rotation.
-- **Granular Scopes & Abilities:** Control token privileges (`messages:send`, `messages:write`, `numbers:read`, `admin:full`).
-- **Single & Bulk Outbound SMS:** Send messages to single or multiple destination numbers via `POST /api/v1/messages`.
-- **Atomic Inbound Webhook Ingestion:** Ingest incoming messages via `POST /api/v1/messages/inbound` protected by a unique composite index `(source_system_id, client_message_id)` to prevent duplicate entries caused by network re-transmissions.
-- **Interactive In-App Documentation:** Full interactive developer guide hosted at `/docs/api` with live code examples.
-
-#### 3.6. Enterprise Support Ticket Desk
-- **Full Support Ticketing Workflow:** Integrated ticket management with atomic tracking numbers (`TK-XXXXX`).
-- **Department & Priority Routing:** Categorized by departments (`technical`, `numbers`, `api`, `general`) and urgency levels (`low`, `medium`, `high`, `urgent`).
-- **Staff Agent Role (`agent`):** Dedicated agent dashboard allowing customer support staff to respond, assign tickets to specialists, and track resolution lifecycles.
-- **Private Streamed File Attachments:** Ticket attachments are strictly isolated from the public web root (`storage/app/private/tickets/...`). Files are streamed securely only after server-side policy verification.
-
-#### 3.7. Zero-CDN & High-Security Intranet Readiness
-- **Zero External CDN Dependencies:** All CSS, fonts, and scripts are locally compiled. Uses `@fontsource/vazirmatn` for typography and local Vite bundles.
-- **Hardened Security Headers:** Enforces Content Security Policy (CSP), Strict-Transport-Security (HSTS), X-Frame-Options (DENY), and X-Content-Type-Options (nosniff) on both web and API responses.
-- **Comprehensive Audit Trail:** All administrative adjustments, token revocations, line assignments, and financial operations are permanently recorded in `audit_logs` with IP addresses and JSON request payloads.
+**GetNumber serves as an independent lifeline:**
+1. **Zero External CDN Dependencies:** All frontend assets, fonts (Vazirmatn), stylesheets, and scripts are bundled locally.
+2. **Dedicated Go Voice Bridge:** Runs on low, stealthy, firewall-friendly ports (e.g., HTTP on `587`, WebSocket on `993`, or internal custom ports) to bypass port filtering and DPI.
+3. **In-House Media Relay:** Embeds RFC 5389 (STUN) and RFC 5766/8656 (TURN) servers within the Go binary, allowing media relays to operate entirely inside the national network with ephemeral HMAC-SHA1 credentials.
+4. **Resilient ICE Gathering:** In "Strict Offline Mode", external cloud STUN servers are purged automatically, eliminating DNS timeout delays and establishing local P2P or relayed connections within milliseconds.
 
 ---
 
-### 4. System Architecture & Data Model
+### 3. Architecture & System Design
 
 ```mermaid
-erDiagram
-    USERS ||--o{ WALLETS : "owns"
-    WALLETS ||--o{ WALLET_TRANSACTIONS : "records"
-    USERS ||--o{ CRYPTO_DEPOSITS : "initiates"
-    PAYMENT_GATEWAYS ||--o{ CRYPTO_DEPOSITS : "processes"
-    
-    USERS ||--o{ PHONE_NUMBERS : "owns"
-    USERS ||--o{ NUMBER_REQUESTS : "submits"
-    USERS ||--o{ API_TOKENS : "issues"
-    USERS ||--o{ AUDIT_LOGS : "triggers"
-    USERS ||--o{ TICKETS : "opens"
-    USERS ||--o{ TICKET_MESSAGES : "authors"
-    
-    PHONE_PREFIXES ||--o{ PHONE_NUMBERS : "prefixes"
-    PHONE_NUMBERS ||--o{ MESSAGES : "sends_or_receives"
-    PHONE_NUMBERS ||--o| NUMBER_REQUESTS : "allocated_to"
-    
-    TICKETS ||--|{ TICKET_MESSAGES : "contains"
-    TICKET_MESSAGES ||--o{ TICKET_ATTACHMENTS : "encloses"
+flowchart TD
+    subgraph ClientLayer ["Client Layer (Browser Softphone)"]
+        A["Caller Browser\n(Vue 3 + WebRTC)"]
+        B["Callee Browser\n(Vue 3 + WebRTC)"]
+    end
 
-    USERS {
-        bigint id PK
-        string username UK "Unique username login"
-        string name "Full Name"
-        string role "admin | agent | user"
-        string status "active | suspended | inactive"
-    }
+    subgraph SignalingLayer ["Signaling & Control Layer"]
+        C["Laravel 13 API\n(Auth, Tariffs, Allocations)"]
+        D["Go Voice Bridge Daemon\n(WebSockets on Port 993/HTTP 587)"]
+        E["Laravel Reverb / SSE\n(Signaling Fallback & Realtime Chat)"]
+    end
 
-    WALLETS {
-        bigint id PK
-        bigint user_id FK
-        decimal balance "Current usable coin balance"
-    }
+    subgraph MediaLayer ["Media Relay & Traversal Layer"]
+        F["Embedded STUN Server (Port 3478)\nRFC 5389 NAT Discovery"]
+        G["Embedded TURN Relay (Port 3478 / TURNS 5349)\nRFC 5766/8656 Media Relaying"]
+        H["External Public STUN Fallback\n(Google, Cloudflare, Ekiga)"]
+    end
 
-    CRYPTO_DEPOSITS {
-        bigint id PK
-        bigint user_id FK
-        string tracking_code UK
-        string currency "TRX | USDT"
-        string network "TRON | TRC20"
-        decimal requested_amount
-        string deposit_address
-        string tx_hash UK
-        string status "pending_transfer | verifying | completed | failed"
-    }
+    subgraph StorageLayer ["Persistence & Ledger"]
+        I[("Database\nUsers, Calls, Messages, Wallets")]
+        J["System Cache\n(Redis / File Cache)"]
+    end
 
-    PHONE_NUMBERS {
-        bigint id PK
-        string number UK "4 to 9 digits with preserved zeros"
-        string type "user_standard | user_service | platform_service"
-        string status "available | allocated | reserved | suspended"
-        bigint user_id FK "nullable"
-        boolean accepts_incoming_sms
-    }
+    A <-->|"REST / Auth"| C
+    B <-->|"REST / Auth"| C
+    A <-->|"High-Speed Signaling (JSON WS)"| D
+    B <-->|"High-Speed Signaling (JSON WS)"| D
+    C <-->|"Secret Auth Validation"| D
+    C --- I
+    C --- J
 
-    MESSAGES {
-        bigint id PK
-        bigint phone_number_id FK
-        string destination_number
-        string sender
-        text body
-        string direction "inbound | outbound"
-        string client_message_id "Idempotency key"
-        string delivery_status "sent | delivered | read"
-    }
+    A -.->|"1. Host P2P Media (Direct LAN/WAN)"| B
+    A -.->|"2. NAT Traversal via STUN"| F
+    B -.->|"2. NAT Traversal via STUN"| F
+    A -.->|"3. Relayed Media (Symmetric NAT / Intranet)"| G
+    B -.->|"3. Relayed Media (Symmetric NAT / Intranet)"| G
+    A -.->|"4. Public Fallback"| H
 ```
 
 ---
 
-### 5. User & Administrator Workflows
+### 4. Core Features Breakdown
 
-#### 👤 End-User Experience
-1. **Sign In:** Fast authentication with a unique `username` (no email activation roadblocks).
-2. **Top-Up Wallet:** Navigate to Profile / Wallet, enter a TRX amount, and view an offline QR code with the dedicated deposit address. Transfer funds and submit the transaction hash (TX Hash).
-3. **Provision a Number:** Select an instant 9-digit number from the available pool or submit a request for a custom 4–8 digit vanity number.
-4. **Chat & Text:** Access the messaging dashboard, choose your active virtual number (Multi-SIM), select recipients, and exchange messages in real time.
-5. **Developer Integration:** Generate SHA-256 protected API keys with scoped capabilities to automate communications from external systems.
-6. **Support Tickets:** Open tickets with file attachments directly to the support desk whenever assistance is needed.
+#### 4.1. WebRTC Audio & Video Calling Engine
+- **Dual Dialpad Interface:**
+  - **Standard 3x4 Numeric Dialpad:** For dialing standard line numbers (`+85`, `+98`, etc.) and short extensions (`1001`, `851`).
+  - **Handle / ID Dialpad:** Direct peer-to-peer calling using unique usernames or custom handles (`@ceo`, `@support`).
+- **Symmetrical & Responsive UI:**
+  - Polished responsive dialer input with zero layout shift (CLS).
+  - Suppression of native browser focus outlines and borders via scoped CSS.
+  - Dedicated action buttons: single-character backspace (`⌫`) and clear-all (`پاک‌کردن`).
+  - Quick contact picker modal directly integrated with user address book.
+- **Audio & Video Quality Enhancements:**
+  - **Opus In-Band FEC & DTX:** Custom SDP munging enables RFC 4566-compliant forward error correction and discontinuous transmission for high clarity on packet-lossy links.
+  - **Live Noise Cancellation:** One-click toggle for active acoustic echo cancellation (AEC), noise suppression (NS), and automatic gain control (AGC) applied directly to active media tracks.
+  - **Dynamic Multi-Camera Switching:** Seamless live switching between front/selfie (`facingMode: user`) and rear/environment (`facingMode: environment`) cameras on smartphones and desktops without dropping the call.
+  - **Video Quality Controls:** On-the-fly resolution scaling (HD 720p, SD 480p, Low 360p) and true fullscreen immersive mode.
 
-#### 🛡️ Administrator & Staff Experience
-1. **System Health Metrics:** Real-time dashboard tracking active users, allocated numbers, gateway status, and daily messaging volume.
-2. **Number & Prefix Management:** Generate batches of numbers with leading zeroes preserved, configure dynamic dial codes, and manage allocation quotas.
-3. **Number Request Approvals:** Review user requests for custom service numbers, evaluate business justifications, and approve or reject with reasons.
-4. **Payment Gateways & Nobitex Sync:** Configure API keys and Ed25519 secrets, trigger automated TRX wallet address discovery, and review flagged crypto deposits.
-5. **Support Agent Desk:** Triage tickets by urgency, assign tickets to dedicated specialists, and respond securely.
-6. **Security & Audit Logs:** Inspect searchable audit logs with caller IP addresses and JSON change payloads for full regulatory compliance.
+#### 4.2. Go Voice Bridge Daemon & Embedded Media Relay
+- **Lightweight High-Concurrency Daemon:** Built with Go 1.22+, utilizing `pion/webrtc` and `pion/turn`.
+- **Low-Port Stealth Operation:** Configurable to run on standard low ports (`587/tcp` for HTTP REST status, `993/tcp` for WebSocket signaling) to pass through strict firewalls that block high-numbered ports.
+- **Security & Multiplexing:** Validates communication between Laravel and the daemon via a 32-character SHA-256 HMAC shared secret token (`.secret`).
+- **In-Memory Session Manager:** Tracks active calls, call participants, connection states, and uptime with zero database overhead.
 
----
+#### 4.3. Smart STUN/TURN Multi-Tier Resiliency Matrix
+- **Tier 1 (Host Candidate):** Direct peer-to-peer media transmission when users reside on the same LAN or reachable IP subnet.
+- **Tier 2 (Embedded Go STUN/TURN):** Local NAT discovery and media relaying via RFC 5389 / RFC 5766 on port `3478` (UDP/TCP) and secure TURNS on port `5349` (TLS).
+- **Tier 3 (Ephemeral REST Credentials):** Generates short-lived dynamic TURN credentials (`username: <timestamp>:<user_id>`, `credential: base64(hmac-sha1)`) preventing relay theft while ensuring zero manual configuration for clients.
+- **Tier 4 (Public STUN Matrix):** Integrated backup list of 50+ public STUN relays (Google, Cloudflare, Ekiga, Viagenie, 3CX) utilized when external internet connectivity is detected.
+- **Strict Intranet / Offline Mode:** Disables all external cloud lookups when operating during internet blackouts to prevent client ICE gathering hangs.
 
-### 6. Developer API Quickstart
+#### 4.4. Two-Way Threaded Messaging Hub
+- **Mobile-Style Chat Interface:** Messages grouped by contact/peer into responsive conversation threads.
+- **Multi-Line SIM Switching:** Users holding multiple virtual lines can switch active sending lines seamlessly.
+- **Real-Time Delivery & Read Status:** Live two-tick delivery indicators powered by WebSockets with automatic fallback to visibility-aware polling.
+- **Soft-Delete with Bulk Actions:** Users can delete individual messages, bulk selections, or entire conversations from their view (`user_deleted_at`), while audit records are preserved for administrative oversight.
 
-All API requests must include your Bearer token in the `Authorization` header:
+#### 4.5. Billing, Tariffs & Wallet Ledger
+- **Granular Per-Minute Tariffs:** Evaluates whether a call is ID-to-ID (`id_voice_rate_per_minute`) or Number-to-Number (`voice_call_rate_per_minute` / prefix tariff).
+- **Zero-Cost Transaction Prevention:** Free calls (rate 0.0000) strictly bypass wallet debits, preventing clutter and redundant zero-amount records in `wallet_transactions`.
+- **Coin-Based Accounting:** All accounting is tracked in integer/decimal `COIN` units.
+- **Cryptocurrency Top-Up Gateway:** Direct on-chain TRON (TRX/USDT) processing alongside Nobitex and Wallex exchange integrations with offline client-rendered QR codes.
 
-```http
-Authorization: Bearer gn_live_your_api_token_here
-Accept: application/json
-Content-Type: application/json
-```
-
-#### Outbound SMS (Single Recipient)
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "from": "000100200",
-    "to": "+85000100201",
-    "message": "Your verification code is: 481902",
-    "client_message_id": "TX-REQ-98120"
-  }'
-```
-
-#### Outbound SMS (Bulk Dispatch)
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "000100200",
-    "destinations": ["+85000100201", "+85000100202", "+85000100203"],
-    "body": "System update scheduled tonight at 02:00 UTC.",
-    "client_message_id": "BROADCAST-2026-11"
-  }'
-```
-
-#### Inbound Webhook Reception (Atomic Ingestion)
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages/inbound" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "destination_number": "+85000100200",
-    "sender": "+989120000000",
-    "body": "Thank you, registration confirmed.",
-    "source_system_id": "TELCO_GATEWAY_MAIN",
-    "client_message_id": "HOOK_UUID_772183"
-  }'
-```
-
-#### Incremental Message Polling
-```bash
-curl -X GET "http://localhost:8000/api/v1/messages/poll?since_id=1400" \
-  -H "Authorization: Bearer gn_live_abcdef123456"
-```
+#### 4.6. Data Privacy & Soft-Delete Engine
+- User records for both calls and messages support soft-deletion (`user_deleted_at`).
+- Complete historical retention remains accessible in the Admin Panel for compliance, anti-abuse investigations, and reporting.
 
 ---
 
-### 7. Installation & Getting Started
+### 5. Developer Future Roadmap
 
-#### System Prerequisites
-- **PHP:** `8.3` or higher (extensions: `bcmath`, `curl`, `mbstring`, `openssl`, `pdo_mysql` or `pdo_sqlite`, `sodium`, `xml`, `zip`)
-- **Node.js:** `20.x` or `22.x LTS` & `npm 10.x`
-- **Composer:** `2.8` or higher
-- **Database:** MariaDB 10.4+, MySQL 8.0+, or SQLite 3
+To expand GetNumber from an enterprise softphone into a comprehensive telecommunications suite, developers can introduce the following high-value architectural extensions:
 
-#### Step-by-Step Installation
+```mermaid
+flowchart LR
+    A["GetNumber Core Softphone"] --> B["1. SIP Trunking & PBX Gateway"]
+    A --> C["2. SFU Multi-Party Conferencing"]
+    A --> D["3. Mobile PWA & Push / CallKit"]
+    A --> E["4. End-to-End Encryption (E2EE)"]
+    A --> F["5. IVR & Voicemail System"]
+    A --> G["6. Screen Sharing & Collaboration"]
+    A --> H["7. On-Prem AI Transcription"]
+```
 
+#### 1. SIP Trunking & PBX Gateway Integration (Asterisk / FreePBX / Kamailio)
+- **Goal:** Enable the GetNumber softphone to place and receive calls to and from traditional telecommunications networks (PSTN, mobile operators, and corporate SIP extensions).
+- **Architecture:** Deploy a SIP-to-WebRTC gateway using **Kamailio** or an **Asterisk / FreePBX** instance with `chan_pjsip` and WSS (WebSocket Secure) transport.
+- **Value:** Users can call physical landlines or mobile numbers directly from the browser softphone.
+
+#### 2. SFU Multi-Party Conferencing (Group Audio & Video)
+- **Goal:** Support group rooms, team meetings, and webinars with 10 to 100+ simultaneous participants.
+- **Architecture:** Integrate a lightweight Selective Forwarding Unit (SFU) such as **LiveKit** or **mediasoup** (running alongside the Go bridge).
+- **Value:** Replaces peer-to-peer full mesh (which saturates client upload bandwidth beyond 3 participants) with a centralized routing unit that forwards individual streams efficiently.
+
+#### 3. Mobile PWA & Push Integration with Native CallKit
+- **Goal:** Provide a native mobile calling experience on iOS and Android when the browser is minimized or the screen is locked.
+- **Architecture:** Implement a Progressive Web App (PWA) with **Web Push API** and service workers, paired with a lightweight Capacitor wrapper utilizing iOS **CallKit** and Android **ConnectionService**.
+- **Value:** Incoming calls wake up the device and show native incoming call UI (accept/reject) even when the user is not actively on the website.
+
+#### 4. End-to-End Encryption (E2EE) with SFrame / MLS
+- **Goal:** Guarantee zero-trust confidentiality for sensitive organizational audio, video, and text communication.
+- **Architecture:** Implement WebRTC **Insertable Streams** with the **SFrame (RFC 9605)** standard or Messaging Layer Security (MLS) for key agreement.
+- **Value:** Media frames are encrypted on the sender's client before reaching the WebRTC stack; intermediate relays (including the Go bridge daemon) have zero access to plaintext media.
+
+#### 5. Interactive Voice Response (IVR) & Offline Voicemail
+- **Goal:** Automated attendant menus (`Press 1 for Sales, Press 2 for Support`) and audio voicemail recording.
+- **Architecture:** Server-side audio playback and DTMF tone detection (`RFC 4733 / RFC 2833`) on the voice bridge, storing audio recordings in private storage for authenticated playback.
+- **Value:** Turns virtual numbers into complete corporate call centers.
+
+#### 6. Screen Sharing & In-Call Annotation
+- **Goal:** Enable remote technical support and interactive presentations directly inside active calls.
+- **Architecture:** Leverage the browser's `navigator.mediaDevices.getDisplayMedia()` API to stream desktop displays alongside camera video, paired with a lightweight SVG canvas for live collaborative whiteboard drawing.
+
+#### 7. On-Premises AI Voice Transcription & Meeting Minutes
+- **Goal:** Automated real-time speech-to-text without sending sensitive audio data to external foreign clouds.
+- **Architecture:** Connect audio streams to an on-premise **Whisper.cpp** or **Vosk** instance running locally on the server.
+- **Value:** Automatic Persian and English call summaries, searchable transcripts, and compliance archiving 100% within the intranet.
+
+---
+
+### 6. Installation & Deployment Guide
+
+#### Server Requirements
+- **PHP:** `8.3+` (`bcmath`, `curl`, `mbstring`, `openssl`, `pdo_mysql` or `pdo_sqlite`, `sodium`, `xml`, `zip`)
+- **Node.js:** `20.x` or `22.x LTS` & `npm 10.x+`
+- **Go:** `1.22+` (only if compiling the Voice Bridge daemon from source)
+- **Composer:** `2.8+`
+- **Database:** SQLite 3, MariaDB 10.4+, or MySQL 8.0+
+
+#### Quickstart Installation
 ```bash
 # 1. Clone repository
 git clone https://github.com/shanaqisaeed/GetNumber.git
 cd GetNumber
 
-# 2. Install PHP dependencies
+# 2. Install PHP backend dependencies
 composer install --optimize-autoloader
 
-# 3. Setup environment configuration
+# 3. Environment configuration
 cp .env.example .env
 php artisan key:generate
 
-# 4. Run database migrations & seeders
+# 4. Run database migrations & seed initial records
 php artisan migrate --force
 php artisan db:seed --force
 
-# 5. Install frontend dependencies & compile production build
+# 5. Install frontend packages and compile production assets
 npm install
 npm run build
 
-# 6. Start the local server
+# 6. Start local development server
 php artisan serve
 ```
 
-#### Running Real-Time Messaging & Background Workers
-For live WebSocket messaging and async queue processing, launch Reverb and the queue listener in separate terminal tabs:
+---
+
+### 7. Running the Go Voice Bridge Daemon
+
+The Voice Bridge daemon resides in `services/voice-bridge`. It provides high-speed WebRTC signaling and media relay capabilities.
 
 ```bash
-# Start Laravel Reverb WebSocket Server
-php artisan reverb:start
+# 1. Navigate to voice-bridge directory
+cd services/voice-bridge
 
-# Start Queue Worker for Crypto Verification and Jobs
-php artisan queue:listen --tries=3
+# 2. Build the Go binary (if compiling manually)
+go build -o voice-bridge main.go
+
+# 3. Automated Linux deployment (Ubuntu / Debian)
+sudo bash install.sh
 ```
 
-#### Default Seeded Accounts
-
-| Username | Role | Password | Access Scope |
-| :---: | :---: | :---: | :--- |
-| `admin` | **System Administrator** | `Admin@123456` | Full system control: Users, Numbers, Prefixes, Gateways, Logs |
-| `user` | **Standard Enterprise User** | `User@123456` | Number allocation, Chat UI, Wallet recharge, API tokens |
+#### Firewall Port Checklist
+| Port | Protocol | Purpose |
+|:---:|:---:|:---|
+| `587` / `49000` | TCP | Voice Bridge REST Health & Config API |
+| `993` / `49001` | TCP | Real-Time WebRTC WebSocket Signaling |
+| `3478` | UDP + TCP | Embedded STUN NAT Discovery & TURN Media Relay |
+| `5349` | TCP | Secure TURNS Media Relay (TLS) |
+| `49152-49250` | UDP | Dynamic WebRTC Media Relay Port Range |
 
 ---
 
-### 8. Background Workers & Automation
+### 8. Automated Testing & Quality Assurance
 
-To automate line expiration sweeps, pending deposit checks, and gateway address syncing, add the following cron entry on your server:
-
-```bash
-* * * * * cd /path-to-project/GetNumber && php artisan schedule:run >> /dev/null 2>&1
-```
-
-Registered Scheduled Tasks:
-- `numbers:sweep-expired`: Runs hourly to release expired lines and sanitize previous message logs.
-- `payments:verify-pending`: Runs every minute to probe blockchain confirmations for pending crypto deposits.
-- `payments:nobitex:sync-wallet`: Runs daily to validate API credentials and synchronize deposit addresses.
-
----
-
-### 9. Automated Testing Suite
-
-GetNumber maintains an automated test suite with **over 180 tests** covering unit, feature, security, concurrency, and payment flows:
+GetNumber includes an extensive automated test suite covering all softphone signaling, tariff calculations, wallet debits, and permissions:
 
 ```bash
 # Run all automated tests
 php artisan test
 
-# Run tests with compact summary
-php artisan test --compact
+# Run softphone, bridge & tariff feature tests
+php artisan test tests/Feature/SoftDeleteAndTariffTest.php tests/Feature/VoiceCallAndBridgeTest.php
 ```
-
-Test coverage includes:
-- Pessimistic locking and race-condition prevention during number allocation.
-- Inbound webhook idempotency via `(source_system_id, client_message_id)` keys.
-- Ed25519 signature verification and Nobitex gateway IP whitelist detection.
-- Wallet balance ledger integrity, atomic purchases, and automatic refunds on allocation failure.
-- WebSocket authorization channels and two-way broadcast dispatches.
-- Strict security headers across web and API endpoints.
 
 ---
 
-### 10. License & Intellectual Property
+### 9. License & Attribution
 
-This project is licensed under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
+This software is released under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
 
 ```text
 Copyright (C) 2026 Saeed Shanaqi (https://github.com/shanaqisaeed/GetNumber)
 All Rights Reserved under GNU General Public License v3.0.
 ```
 
-- **Attribution & Integrity:** The original author attribution (`Saeed Shanaqi`) and repository links must remain intact in all source files, documentation, and user interfaces.
-- **Copyleft Guarantee:** Any modification or derivative work must be distributed under the same GPLv3 license with full source code availability.
+- **Attribution:** The original author's name (**Saeed Shanaqi**) and repository links must remain intact in all user-facing interfaces and source headers.
+- **Copyleft:** Any modifications or derivative works must be distributed under the same GPL-3.0 license with full source code disclosure.
 
 ---
 
-# 🇮🇷 نسخه فارسی
+# 🇮🇷 مستندات فارسی
 
 ## 📑 فهرست مطالب
-1. [معرفی و هدف کاربردی سامانه](#۱-معرفی-و-هدف-کاربردی-سامانه)
-2. [چرا گت‌نامبر متمایز است؟](#۲-چرا-گت‌نامبر-متمایز-است؟)
-3. [بررسی قابلیت‌های کلیدی سیستم](#۳-بررسی-قابلیت‌های-کلیدی-سیستم)
-   - [موتور تخصیص و چرخه حیات شماره‌ها](#۳۱-موتور-تخصیص-و-چرخه-حیات-شماره‌ها)
-   - [هاب پیام‌رسانی شبه‌موبایل و گفتگومحور](#۳۲-هاب-پیام‌رسانی-شبه‌موبایل-و-گفتگومحور)
-   - [وب‌سوکت آنی با روِرب و اکو](#۳۳-وب‌سوکت-آنی-با-روِرب-و-اکو)
-   - [کیف پول داخلی و درگاه پرداخت کریپتو](#۳۴-کیف-پول-داخلی-و-درگاه-پرداخت-کریپتو)
-   - [وب‌سرویس یکپارچه توسعه‌دهندگان](#۳۵-وب‌سرویس-یکپارچه-توسعه‌دهندگان)
-   - [میز خدمت و تیکتینگ سازمانی](#۳۶-میز-خدمت-و-تیکتینگ-سازمانی)
-   - [استقلال کامل از سی‌دی‌ان و امنیت اینترانت](#۳۷-استقلال-کامل-از-سی‌دی‌ان-و-امنیت-اینترانت)
-4. [معماری سیستم و مدل داده‌ها](#۴-معماری-سیستم-و-مدل-داده‌ها)
-5. [سناریوهای کاربری و مدیریتی](#۵-سناریوهای-کاربری-و-مدیریتی)
-6. [راهنمای سریع وب‌سرویس برای برنامه‌نویسان](#۶-راهنمای-سریع-وب‌سرویس-برای-برنامه‌نویسان)
-7. [راهنمای راه‌اندازی و نصب گام‌به‌گام](#۷-راهنمای-راه‌اندازی-و-نصب-گام‌به‌گام)
-8. [پردازش‌های پس‌زمینه و زمان‌بندی](#۸-پردازش‌های-پس‌زمینه-و-زمان‌بندی)
-9. [تضمین کیفیت و آزمون‌های خودکار](#۹-تضمین-کیفیت-و-آزمون‌های-خودکار)
-10. [مجوز و حقوق مالکیت معنوی](#۱۰-مجوز-و-حقوق-مالکیت-معنوی)
+۱. [ماهیت و واقعیت پروژه](#۱-ماهیت-و-واقعیت-پروژه)
+۲. [چرا سافت‌فون و چرا GetNumber؟ (بقا و پایداری در شرایط اینترانت)](#۲-چرا-سافتفون-و-چرا-getnumber-بقا-و-پایداری-در-شرایط-اینترانت)
+۳. [معماری سیستم و جریان داده‌ها](#۳-معماری-سیستم-و-جریان-دادهها)
+۴. [امکانات و قابلیت‌های فنی](#۴-امکانات-و-قابلیتهای-فنی)
+   - [موتور تماس صوتی و تصویری WebRTC](#۴۱-موتور-تماس-صوتی-و-تصویری-webrtc)
+   - [دیمن بریج صوتی به زبان Go و سرور رله داخلی](#۴۲-دیمن-بریج-صوتی-به-زبان-go-و-سرور-رله-داخلی)
+   - [ماتریس چندلایه سرورهای STUN و TURN](#۴۳-ماتریس-چندلایه-سرورهای-stun-و-turn)
+   - [مرکز پیام‌رسانی و مدیریت چت دوطرفه](#۴۴-مرکز-پیامرسانی-و-مدیریت-چت-دوطرفه)
+   - [سیستم مالی، تعرفه‌ها و حسابداری کوین](#۴۵-سیستم-مالی-تعرفهها-و-حسابداری-کوین)
+   - [حریم خصوصی و حذف نرم (Soft-Delete)](#۴۶-حریم-خصوصی-و-حذف-نرم-soft-delete)
+۵. [مسیر توسعه و فیچرهای تکمیلی آینده (نقشه راه برنامه‌نویسان)](#۵-مسیر-توسعه-و-فیچرهای-تکمیلی-آینده-نقشه-راه-برنامهنویسان)
+۶. [راهنمای نصب و راه‌اندازی گام‌به‌گام](#۶-راهنمای-نصب-و-راهاندازی-گامبهگام)
+۷. [راه‌اندازی دیمن بریج صوتی Go](#۷-راهاندازی-دیمن-بریج-صوتی-go)
+۸. [تضمین کیفیت و آزمون‌های خودکار](#۸-تضمین-کیفیت-و-آزمونهای-خودکار)
+۹. [مجوز و مالکیت معنوی](#۹-مجوز-و-مالکیت-معنوی)
 
 ---
 
-### ۱. معرفی و هدف کاربردی سامانه
+### ۱. ماهیت و واقعیت پروژه
 
-پلتفرم **GetNumber** یک سامانه جامع، سلف‌هاستد و آماده استقرار سازمانی است که بر پایه **Laravel 13**، **Inertia.js v2** و **Vue 3 (TypeScript)** توسعه یافته است. این سیستم به منظور مدیریت استخر شماره‌های مجازی، برقراری ارتباطات متنی دوطرفه، ارائه وب‌سرویس به سامانه‌های جانبی و مدیریت تراکنش‌های مالی با ارزهای دیجیتال طراحی شده است.
+سامانه **GetNumber** یک **سافت‌فون سازمانی مبتنی بر وب (WebRTC Softphone)** و پلتفرم ارتباطی بلادرنگ است. این سیستم به کاربران اجازه می‌دهد بدون نیاز به نصب هرگونه نرم‌افزار جانبی یا پلاگین، مستقیماً از طریق مرورگر اقدام به برقراری **تماس‌های صوتی و تصویری دوطرفه (P2P و Relayed)**، تبادل پیام‌های متنی، مدیریت خطوط و آیدی‌های ارتباطی، و شارژ کیف پول اعتباری نمایند.
 
-در پروژه‌های واقعی و سازمان‌ها چالش‌های زیر همواره وجود دارد:
-- هزینه‌های سنگین اپراتورهای عمومی مخابراتی، احراز هویت‌های دست‌وپاگیر و وابستگی به سرویس‌های متمرکز خارجی.
-- محدودیت شبکه‌های ایزوله بانکی، دولتی، دیتاسنترهای داخلی و شبکه ملی اطلاعات در استفاده از سرویس‌ها و فونت‌های تحت وب خارجی (`CDN`).
-- نیاز تیم‌های نرم‌افزاری به بستری پایدار جهت تست یکپارچه سناریوهای پیامکی، ایجاد خطوط خدمات مشتریان، صدور شماره‌های اختصاصی و شارژ کیف پول با کریپتو.
-
-سامانه GetNumber تمامی این نیازها را در قالب یک نرم‌افزار منسجم برطرف می‌کند. کاربران می‌توانند موجودی حساب خود را با ارز دیجیتال شارژ کنند، خطوط مورد نظر را تحویل بگیرند، به صورت زنده در محیطی مشابه پیام‌رسان‌های موبایل چت کنند و با توکن‌های امن، سامانه را به نرم‌افزارهای خود متصل نمایند.
+برخلاف سامانه‌های تجاری متداول که به شدت به سرویس‌های ابری خارجی (نظیر Twilio، Google Meet، WhatsApp و Zoom) وابسته‌اند، GetNumber به صورت **۱۰۰٪ مستقل، بدون وابستگی به CDN خارجی و آماده برای استقرار محلی (Self-Hosted)** توسعه یافته است و می‌تواند در شبکه‌های ایزوله بانکی، سازمان‌ها و شبکه ملی اطلاعات (اینترانت ایران) با حداکثر کارایی عمل کند.
 
 ---
 
-### ۲. چرا گت‌نامبر متمایز است؟
+### ۲. چرا سافت‌فون و چرا GetNumber؟ (بقا و پایداری در شرایط اینترانت)
 
-| شاخص ارزیابی | سرویس‌های رایج ابری | سامانه بومی و مستقل GetNumber |
-| :--- | :--- | :--- |
-| **محیط میزبانی** | وابسته به ابر خارجی و در معرض تحریم یا قطع ارتباط | **۱۰۰٪ سلف‌هاستد و قابل استقرار در اینترانت** بدون هیچ وابستگی بیرونی |
-| **بارگذاری منابع فرانت‌اند** | وابستگی به گوگل، کلودفلر یا سی‌دی‌ان‌های خارجی | **باندل ۱۰۰٪ محلی تمام اسکریپت‌ها**، کیوآرکد آفلاین و فونت متن‌باز وزیزمتن |
-| **کنترل همزمانی در تخصیص** | خطای واگذاری همزمان یک خط در ترافیک‌های لحظه‌ای | **قفل سطری بدبینانه (`lockForUpdate`)** درون تراکنش‌های پایگاه‌داده |
-| **سیستم مالی و شارژ** | نیازمند درگاه بانکی سنتی با محدودیت جغرافیایی | **موتور پرداخت رمزارز** (پشتیبانی ترون TRX، تتر، نوبیتکس، والکس و ترون‌اسکن) |
-| **تبادل داده در فرانت‌اند** | پولینگ‌های مداوم یا اشتراک‌های پرهزینه پوشر | **وب‌سوکت آنی مبتنی بر Laravel Reverb** به همراه بازگشت هوشمند به پولینگ |
-| **حریم خصوصی شماره‌های آزادشده** | باقی‌ماندن سوابق پیام‌ها برای کاربر جدید خط | **پاک‌سازی اتمیک پیام‌های پیشین** در لحظه بازیافت یا حذف شماره |
-| **مکانیزم احراز هویت** | وابسته به سرور ایمیل خارجی جهت فعال‌سازی | **احراز هویت کاربری با شناسه یکتا (`username`)** بدون ریسک افشای ایمیل |
+در شرایط اختلال، فیلترینگ شدید پروتکل‌ها یا قطعی کامل اینترنت بین‌الملل:
+- **از کار افتادن نرم‌افزارهای خارجی:** تمامی پیام‌رسان‌ها و سرویس‌های تماس تجاری خارجی از دسترس خارج می‌شوند و حتی سرورهای عمومی STUN (مانند گوگل و کلادفلر) دچار وقفه زمانی و اختلال در رزولوشن DNS می‌گردند.
+- **مسدودسازی پورت‌های استاندارد VoIP:** پروتکل‌های سنتی SIP روی پورت‌های معمول (`5060`) یا بسته‌های مشکوک اغلب توسط فایروال‌ها یا سیستم‌های بازرسی عمیق بسته (DPI) مسدود یا محدود می‌شوند.
+- **الزامات امنیت داده:** شرکت‌ها و بانک‌ها اجازه عبور صدای مکالمات و پیام‌های داخلی از سرورهای خارج از کشور را ندارند.
 
----
-
-### ۳. بررسی قابلیت‌های کلیدی سیستم
-
-#### ۳.۱. موتور تخصیص و چرخه حیات شماره‌ها
-- **استخر شماره‌های استاندارد:** پشتیبانی از خطوط ۹ رقمی (از `000000000` تا `999999999`) با حفظ صفرهای اول و الحاق به پیشوندهای سازمانی فعال (پیش‌فرض `+85`).
-- **مدیریت داینامیک پیشوندها:** امکان تعریف و مدیریت کدهای مخابراتی مختلف با امکان تعیین پیشوند پیش‌فرض و جلوگیری سیستمی از حذف کدهای دارای شماره فعال.
-- **تخصیص اتمیک و ضد همزمانی:** لایه سرویس `PhoneNumberAllocationService` با بهره‌گیری از قفل سطری بدبینانه (`Pessimistic Locking`) تضمین می‌کند هیچ شماره‌ای حتی در صدم ثانیه به دو کاربر متفاوت واگذار نشود.
-- **سرشماره‌های اختصاصی (۴ تا ۸ رقم):** مشترکین می‌توانند سرشماره‌های رند یا کوتاه دلخواه خود را درخواست دهند تا پس از بررسی اداری توسط مدیران، خط موردنظر تخصیص داده شود.
-- **خطوط انحصاری پلتفرم:** سرشماره‌های سیستمی ویژه راهبران (مانند `1000` یا `9999`) با سیاست قابل تنظیم یک‌طرفه یا دوطرفه (`accepts_incoming_sms`).
-- **رفت‌وروب خودکار خطوط:** اجرای دوره‌ای دستور `php artisan numbers:sweep-expired` در پس‌زمینه جهت آزادسازی شماره‌های منقضی‌شده و پاک‌سازی پیام‌ها برای تضمین حریم خصوصی مالک جدید.
-
-#### ۳.۲. هاب پیام‌رسانی شبه‌موبایل و گفتگومحور
-- **رشته‌گفتگوهای ساختاریافته:** گروه‌بندی پیام‌ها بر اساس شماره مخاطب (`peer_number`) جهت ارائه محیطی مشابه اپلیکیشن‌های موبایل.
-- **سوییچ سریع میان خطوط (Multi-SIM):** امکان جابه‌جایی سریع و بدون نیاز به رفرش صفحه بین خطوط مختلف تحت مالکیت کاربر.
-- **ارسال چندگانه هوشمند:** ارسال پیامک تکی یا انبوه به مخاطبان از طریق فیلد انتخاب چیپ‌های تعاملی.
-- **بازرس مکالمات برای مدیران:** مانیتورینگ متمرکز گفتگوها در دو حالت «حباب‌های چت با نمایش جزئیات کامل طرفین» و «جدول داده‌های خام»، به همراه قابلیت ارسال پاسخ سازمانی.
-- **جلوگیری از جعل عنوان:** عنوان فرستنده پیامک (`display_title`) منحصراً از سرور خوانده شده و کاربر امکان دستکاری آن را نخواهد داشت.
-
-#### ۳.۳. وب‌سوکت آنی با روِرب و اکو
-- **تحویل بلادرنگ پیام‌ها:** یکپارچگی کامل با **Laravel Reverb** و کلاینت **Laravel Echo** جهت نمایش آنی پیام‌های ورودی و خروجی بدون رفرش صفحه.
-- **نمایش وضعیت تحویل دوخطی (تیک دوم):** به‌روزرسانی لحظه‌ای وضعیت خوانده شدن و تحویل پیام در محیط گفتگو.
-- **انعطاف‌پذیری و بازگشت خودکار:** چنانچه پورت‌های وب‌سوکت به دلیل فایروال مسدود شوند، کلاینت (`resources/js/echo.ts`) سامانه را بدون وقفه به حالت پولینگ هر ۴ ثانیه (هماهنگ با `Page Visibility API` برای توقف در تب‌های پس‌زمینه) منتقل می‌کند.
-
-#### ۳.۴. کیف پول داخلی و درگاه پرداخت کریپتو
-- **دفترکل اتمیک دارایی:** ثبت موجودی حساب در قالب واحد اعتباری با جدول تراکنش‌های تفکیک‌شده و کلید یکتایی جهت جلوگیری قطعی از شارژ تکراری.
-- **شبکه ترون (TRON):** امکان افزایش اعتبار با استفاده از رمزارز TRX و تتر TRC20 با نرخ تبدیل مستقیم.
-- **درایورهای چندگانه صرافی و شبکه:**
-  - **درگاه صرافی نوبیتکس (Nobitex):** اتصال مستقیم به وب‌سرویس نوبیتکس (`apiv2.nobitex.ir`) با پشتیبانی از **امضای دیجیتال Ed25519**، تشخیص محدودیت آی‌پی، دریافت خودکار آدرس کیف پول و پشتیبانی از آدرس دستی رزرو.
-  - **درگاه‌های والکس، ترون‌گرید و ترون‌اسکن:** ماژول‌های آماده برای استعلام مستقیم وضعیت تراکنش‌ها از بلاکچین.
-  - **درگاه شبیه‌ساز (Mock Gateway):** درایور سندباکس داخلی جهت اجرای تست‌های خودکار بدون نیاز به شبکه اصلی کریپتو.
-- **تولید کیوآرکد آفلاین:** تولید کدهای QR آدرس واریز به صورت محلی در مرورگر کاربر با کتابخانه `qrcode` بدون استفاده از سرویس‌های آنلاین خارجی.
-- **اعتبارسنجی ۳ مرحله‌ای شناسه تراکنش:** پردازش کد رهگیری هش با جاب صف `VerifyCryptoDepositJob`، استعلام دوره‌ای وضعیت و ارجاع خودکار به بازبینی دستی در صورت عدم تایید شبکه.
-- **میز مدیریت پرداخت‌ها:** پنل اختصاصی مدیر جهت تنظیم درگاه‌ها، استعلام وضعیت تراکنش‌ها، تایید یا رد دستی واریزی‌ها همراه با ثبت دلیل و لاگ ممیزی.
-
-#### ۳.۵. وب‌سرویس یکپارچه توسعه‌دهندگان
-- **توکن‌های امنیتی هش‌شده:** ذخیره‌سازی کلیدهای دسترسی با الگوریتم یک‌طرفه `SHA-256` و نمایش مقدار خام کلید منحصراً در لحظه ایجاد یا بازنشانی.
-- **سطوح دسترسی ریزدانه:** تخصیص دسترسی‌های مشخص به هر توکن (`messages:send`، `numbers:read` و...).
-- **ارسال تکی و انبوه پیامک:** ارسال پیام به یک یا چندین شماره مقصد از طریق اندپوینت `POST /api/v1/messages`.
-- **وب‌هوک ورودی با کنترل تکرار (Idempotency):** دریافت آنی پیام‌ها با اندپوینت `POST /api/v1/messages/inbound` و کلید ترکیبی یکتا `(source_system_id, client_message_id)` جهت مقابله با پیام‌های تکراری ناشی از خطای شبکه.
-- **مستندات تعاملی داخل سیستم:** راهنمای فنی کامل و آماده کپی نمونه کدها در آدرس `/docs/api`.
-
-#### ۳.۶. میز خدمت و تیکتینگ سازمانی
-- **چرخه کامل رسیدگی به تیکت‌ها:** صدور کد رهگیری خودکار و یکتا با ساختار اتمیک `TK-XXXXX`.
-- **دسته‌بندی دپارتمان و اولویت:** تفکیک بر اساس بخش‌ها (`technical`, `numbers`, `api`, `general`) و اولویت‌های کاری (`low`, `medium`, `high`, `urgent`).
-- **نقش مستقل کارشناس پشتیبانی (`agent`):** پنل ویژه کارشناسان جهت پاسخ‌گویی، تغییر وضعیت تیکت و ارجاع به همکاران متخصص.
-- **پیوست‌های حفاظت‌شده:** ذخیره امن فایل‌های ضمیمه در مسیر خصوصی `storage/app/private/tickets/...` و دانلود فایل صرفاً از طریق استریم احراز هویت شده در لایه Policy.
-
-#### ۳.۷. استقلال کامل از سی‌دی‌ان و امنیت اینترانت
-- **عدم وابستگی به اینترنت جهانی:** کامپایل بومی تمامی قالب‌ها، اسکریپت‌ها و فونت استاندارد وزیزمتن (`@fontsource/vazirmatn`) برای محیط‌های ملی و اینترانت.
-- **سرآیندهای امنیتی سخت‌گیرانه:** اعمال مداوم سیاست‌های امنیتی CSP، HSTS، X-Frame-Options و X-Content-Type-Options در کلیه روت‌های وب و وب‌سرویس.
-- **دفترکل ممیزی رخدادها:** ثبت تمام تغییرات حساس کاربری، مالی و خطوط در جدول `audit_logs` به همراه آی‌پی و جزئیات تغییرات در فیلد JSON.
+**پلتفرم GetNumber به عنوان یک نجات‌بخش ارتباطی عمل می‌کند:**
+۱. **استقلال ۱۰۰٪ از CDNهای خارجی:** فونت وزیرمتن، استایل‌ها، اسکریپت‌ها و کیوآرکدها همگی به شکل آفلاین در داخل پروژه باندل شده‌اند.
+۲. **دیمن اختصاصی به زبان Go روی پورت‌های خاص:** دیمن صوتی بر روی پورت‌های فایروال‌گریز (مانند پورت وب‌سوکت `993` و وب `587` یا پورت‌های سفارشی) فعال می‌شود تا بدون ایجاد حساسیت در شبکه عمل کند.
+۳. **سرور رله داخلی (STUN/TURN) در داخل سرور ملی:** با تعبیه سرورهای RFC 5389 و RFC 5766/8656 در دل سورس Go و تولید توکن‌های پویای امنیتی HMAC-SHA1، رله رسانه حتی در شرایط فیلترینگ کامل شبکه جهانی در بستر ملی با پینگ میلی‌ثانیه‌ای برقرار می‌ماند.
+۴. **حالت آفلاین قطعی اینترنت (Strict Offline Mode):** با فعال‌سازی این حالت، تمامی آدرس‌های خارجی ابری به صورت خودکار از پروسه دریافت کاندیدای ICE حذف می‌شوند تا اتصال کاربر بدون کوچک‌ترین معطلی به شکل P2P محلی یا از طریق رله داخلی متصل گردد.
 
 ---
 
-### ۴. معماری سیستم و مدل داده‌ها
+### ۳. معماری سیستم و جریان داده‌ها
 
 ```mermaid
-erDiagram
-    USERS ||--o{ WALLETS : "مالک کیف پول"
-    WALLETS ||--o{ WALLET_TRANSACTIONS : "سوابق تراکنش‌ها"
-    USERS ||--o{ CRYPTO_DEPOSITS : "ایجاد واریز کریپتو"
-    PAYMENT_GATEWAYS ||--o{ CRYPTO_DEPOSITS : "پردازش درگاه"
-    
-    USERS ||--o{ PHONE_NUMBERS : "مالکیت خطوط"
-    USERS ||--o{ NUMBER_REQUESTS : "ثبت درخواست شماره"
-    USERS ||--o{ API_TOKENS : "صدور توکن"
-    USERS ||--o{ AUDIT_LOGS : "ایجاد رخداد امنیتی"
-    USERS ||--o{ TICKETS : "ثبت تیکت"
-    USERS ||--o{ TICKET_MESSAGES : "ارسال پیام پشتیبانی"
-    
-    PHONE_PREFIXES ||--o{ PHONE_NUMBERS : "پیشوند خطوط"
-    PHONE_NUMBERS ||--o{ MESSAGES : "ارسال یا دریافت"
-    PHONE_NUMBERS ||--o| NUMBER_REQUESTS : "تخصیص یافته به"
-    
-    TICKETS ||--|{ TICKET_MESSAGES : "شامل پیام‌ها"
-    TICKET_MESSAGES ||--o{ TICKET_ATTACHMENTS : "ضمیمه فایل"
+flowchart TD
+    subgraph لایه_کاربر ["لایه کاربر (سافت‌فون در مرورگر)"]
+        A["مرورگر تماس‌گیرنده\n(Vue 3 + WebRTC)"]
+        B["مرورگر دریافت‌کننده\n(Vue 3 + WebRTC)"]
+    end
 
-    USERS {
-        bigint id PK
-        string username UK "ورود با نام کاربری"
-        string name "نام و نام خانوادگی"
-        string role "admin | agent | user"
-        string status "active | suspended | inactive"
-    }
+    subgraph لایه_سیگنالینگ ["لایه کنترل و سیگنالینگ"]
+        C["بک‌اند لاراول ۱۳\n(احراز هویت، تعرفه‌ها، تخصیص خطوط)"]
+        D["دیمن بریج صوتی Go\n(وب‌سوکت ۹۹۳ و وب ۵۸۷)"]
+        E["لاراول ریورب / پولینگ\n(سیگنالینگ جایگزین و پیام‌رسانی چت)"]
+    end
 
-    WALLETS {
-        bigint id PK
-        bigint user_id FK
-        decimal balance "موجودی قابل استفاده"
-    }
+    subgraph لایه_رسانه ["لایه انتقال صدا و تصویر (Media Relay)"]
+        F["سرور STUN داخلی (پورت ۳۴۷۸)\nکشف آدرس NAT"]
+        G["سرور TURN رله داخلی (۳۴۷۸ و TLS ۵۳۴۹)\nانتقال مدیا در شبکه متقارن"]
+        H["سرورهای STUN عمومی پشتیبان\n(گوگل، کلادفلر، اکیگا)"]
+    end
 
-    CRYPTO_DEPOSITS {
-        bigint id PK
-        bigint user_id FK
-        string tracking_code UK
-        string currency "TRX | USDT"
-        string network "TRON | TRC20"
-        decimal requested_amount
-        string deposit_address
-        string tx_hash UK
-        string status "pending_transfer | verifying | completed | failed"
-    }
+    A <-->|"احراز هویت و مدیریت خطوط"| C
+    B <-->|"احراز هویت و مدیریت خطوط"| C
+    A <-->|"سیگنالینگ پرسرعت (WebSocket)"| D
+    B <-->|"سیگنالینگ پرسرعت (WebSocket)"| D
+    C <-->|"توکن احراز هویت مشترک"| D
 
-    PHONE_NUMBERS {
-        bigint id PK
-        string number UK "شماره با حفظ صفرهای اول"
-        string type "user_standard | user_service | platform_service"
-        string status "available | allocated | reserved | suspended"
-        bigint user_id FK "nullable"
-        boolean accepts_incoming_sms
-    }
-
-    MESSAGES {
-        bigint id PK
-        bigint phone_number_id FK
-        string destination_number
-        string sender
-        text body
-        string direction "inbound | outbound"
-        string client_message_id "کلید یکتایی"
-        string delivery_status "sent | delivered | read"
-    }
+    A -.->|"۱. اتصال مستقیم بدون رله (Host P2P)"| B
+    A -.->|"۲. مسیریابی از طریق STUN داخلی"| F
+    B -.->|"۲. مسیریابی از طریق STUN داخلی"| F
+    A -.->|"۳. عبور ترافیک از سرور رله TURN داخلی"| G
+    B -.->|"۳. عبور ترافیک از سرور رله TURN داخلی"| G
+    A -.->|"۴. مسیرهای پشتیبان اینترنت عمومی"| H
 ```
 
 ---
 
-### ۵. سناریوهای کاربری و مدیریتی
+### ۴. امکانات و قابلیت‌های فنی
 
-#### 👤 فرآیند و تجربه کاربر
-1. **ورود به سامانه:** احراز هویت سریع با `username` و رمزعبور، بدون معطلی برای لینک‌های فعال‌سازی ایمیلی.
-2. **افزایش اعتبار حساب:** مراجعه به بخش پروفایل/کیف پول، انتخاب مبلغ TRX، مشاهده کیوآرکد آفلاین آدرس کیف پول، واریز وجه و ثبت شناسه تراکنش (TX Hash).
-3. **دریافت شماره:** انتخاب آنی شماره از استخر ۹ رقمی یا ارسال درخواست بررسی برای سرشماره‌های رند ۴ تا ۸ رقمی.
-4. **ارسال و دریافت پیام:** ورود به بخش پیام‌ها، انتخاب خط فعال فرستنده، درج شماره مقصد و چت دوطرفه بلادرنگ.
-5. **ارتباط با وب‌سرویس:** تولید توکن اختصاصی با سطوح دسترسی محدود جهت استفاده در اسکریپت‌ها یا نرم‌افزارهای سازمان.
-6. **پشتیبانی:** ثبت تیکت‌های پشتیبانی به همراه ضمیمه فایل و پیگیری پاسخ کارشناسان.
+#### ۴.۱. موتور تماس صوتی و تصویری WebRTC
+- **صفحه‌کلید دوگانه (Dual Dialpad):**
+  - **شماره‌گیر استاندارد عددی (3x4):** جهت شماره‌گیری خطوط سنتی، سرشماره‌های مجازی (`+85`, `+98`) و داخلی‌های سازمانی (`1001`, `851`).
+  - **ورودی آیدی اختصاصی (@):** برقراری تماس صوتی یا تصویری مستقیم P2P بر اساس شناسه کاربری (`@ceo`, `@support`).
+- **طراحی بهینه‌شده و متقارن کادر شماره‌گیر:**
+  - حذف کامل حاشیه و مستطیل مشکی فوکوس پیش‌فرض مرورگر از روی فیلد شماره به کمک کلاس‌های اسکوپ‌شده CSS.
+  - اصلاح بیرون‌زدگی آیکون پاک‌کردن رقم (`⌫`) و تقارن ریاضی چپ و راست جهت حفظ عدد در مرکز دقیق بدون هیچ لرزش افقی (Layout Shift).
+  - کلید پاک‌کردن یک رقم و پاک‌کردن کل شماره به همراه دفترچه مخاطبین سازمانی.
+- **کنترل و ارتقای کیفیت رسانه:**
+  - **کدک Opus با قابلیت In-Band FEC و DTX:** اصلاح ساختار SDP مطابق با RFC 4566 جهت بازیابی خودکار بسته‌های گم‌شده صدا حتی در شرایط ۳۰٪ افت بسته شبکه (Packet Loss).
+  - **حذف نویز فعال (Noise Cancelling):** کلید فعال‌سازی آنی فیلترهای حذف پژواک، سرکوب نویز محیط و کنترل خودکار گین صدا در حین مکالمه.
+  - **سوییچ هوشمند دوربین (جلوی سلفی / پشت محیطی):** جابجایی بلادرنگ میان دوربین جلو (`facingMode: user`) و عقب (`facingMode: environment`) بر روی گوشی‌های موبایل بدون قطع شدن تماس.
+  - **تنظیم کیفیت ویدیو:** تغییر کیفیت تصویر (HD 720p، SD 480p، Low 360p) و امکان مشاهده در نمای تمام‌صفحه.
 
-#### 🛡️ فرآیند و وظایف راهبر و کارشناسان
-1. **داشبورد نظارتی:** پایش لحظه‌ای تعداد خطوط تخصیص‌یافته، پیام‌های روزانه، تراکنش‌ها و کاربران آنلاین.
-2. **مدیریت استخر شماره‌ها:** تولید شماره‌های جدید با حفظ صفرهای مقدماتی، تعریف پیشوندهای دلخواه و کنترل سقف تخصیص هر کاربر.
-3. **بررسی درخواست‌های سرشماره:** مشاهده درخواست شماره‌های کوتاه، بررسی دلیل فنی مشترک و تایید یا رد مستدل با تخصیص خودکار.
-4. **مدیریت درگاه‌های پرداخت:** ثبت کلیدهای وب‌سرویس و امضای دیجیتال نوبیتکس، همگام‌سازی روزانه آدرس‌های واریز و بررسی تراکنش‌های معلق.
-5. **رسیدگی به تیکت‌ها:** ارجاع تیکت به کارشناس مربوطه، تغییر وضعیت به در حال بررسی یا پاسخ‌داده‌شده.
-6. **لاگ‌های ممیزی امنیتی:** جستجو در سوابق رویدادها همراه با جزئیات آی‌پی و تغییرات رخ داده برای پاسخگویی به مراجع ناظر.
+#### ۴.۲. دیمن بریج صوتی به زبان Go و سرور رله داخلی
+- **دیمن فوق‌سریع و سبک:** توسعه‌یافته با زبان Go و استفاده از پکیج‌های پیشرفته `pion/webrtc` و `pion/turn`.
+- **فعالیت بر روی پورت‌های پنهان و امن:** امکان اجرا روی پورت‌های سطح پایین مانند `587` برای وضعیت HTTP و `993` برای وب‌سوکت جهت دور زدن محدودیت‌های فایروال و بازرسی پورت.
+- **احراز هویت با سکرت‌توکن SHA-256 HMAC:** تبادل پیام‌های سیگنالینگ بین لاراول و دیمن با توکن امن ۳۲ کاراکتری.
+- **مدیریت نشست‌ها در حافظه رم:** پایش پایدار تماس‌های فعال، مدت مکالمه و قطع خودکار طرفین بدون سربار دیتابیس.
 
----
+#### ۴.۳. ماتریس چندلایه سرورهای STUN و TURN
+- **لایه اول (کاندیدای Host):** برقراری مستقیم تماس درون‌شبکه‌ای بدون مصرف ترافیک سرور در صورت حضور کاربران در یک شبکه مشترک.
+- **لایه دوم (STUN و TURN داخلی):** فعال بودن پروتکل‌های RFC 5389 و RFC 5766 روی پورت ۳۴۷۸ سرور ملی با پشتیبانی از پروتکل رمزنگاری‌شده TURNS (پورت ۵۳۴۹).
+- **لایه سوم (تولید توکن یکبارمصرف REST):** تولید خودکار نام کاربری و پسورد بر اساس کلید HMAC-SHA1 با فرمت زمان‌دار (`timestamp:user_id`) جهت جلوگیری از سوءاستفاده افراد متفرقه از سرور رله.
+- **لایه چهارم (لیست پشتیبان عمومی):** بیش از ۵۰ سرور عمومی STUN (نظیر گوگل و کلادفلر) به عنوان ذخیره در زمان فعال بودن اینترنت بین‌الملل.
+- **حالت اینترانت بدون قطعی:** حذف کامل تأخیرهای مربوط به تایم‌اوت دامنه‌های خارجی در زمان قطعی سراسری وب.
 
-### ۶. راهنمای سریع وب‌سرویس برای برنامه‌نویسان
+#### ۴.۴. مرکز پیام‌رسانی و مدیریت چت دوطرفه
+- **رابط کاربری شبیه پیام‌رسان‌های موبایلی:** گروه‌بندی پیام‌ها در رشته‌های گفتگو بر اساس شماره مخاطب.
+- **تغییر آنی سیم‌کارت فعال:** سوئیچ بین خطوط مجازی مختلف کاربر بدون بارگذاری مجدد صفحه.
+- **تیک‌های تحویل و خوانده‌شدن:** اطلاع‌رسانی زنده وضعیت پیام با وب‌سوکت ریورب.
+- **حذف نرم پیام‌ها (Soft-Delete):** امکان حذف تکی، گروهی و کل گفتگو با قابلیت بازگردانی و حفظ گزارش‌ها در پنل مدیریت.
 
-تمامی درخواست‌ها باید حامل توکن دسترسی در سرآیند `Authorization` باشند:
+#### ۴.۵. سیستم مالی، تعرفه‌ها و حسابداری کوین
+- **تفکیک هوشمند تعرفه‌ها:** محاسبه جداگانه نرخ مکالمه بر حسب دقیقه برای تماس‌های آیدی به آیدی (`id_voice_rate_per_minute`) و تماس‌های خطوط تلفنی.
+- **جلوگیری از تراکنش صفر ریالی:** در تماس‌های رایگان (تعرفه ۰ کوین)، هیچ تراکنش بیهوده‌ای در کیف پول ثبت نمی‌شود.
+- **درگاه‌های شارژ رمزارزی:** پذیرش ترون (TRX و USDT)، صرافی نوبیتکس و والکس با تولید آفلاین کیوآرکد آدرس‌ها.
 
-```http
-Authorization: Bearer gn_live_your_api_token_here
-Accept: application/json
-Content-Type: application/json
-```
-
-#### ارسال پیامک تکی به مقصد
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "from": "000100200",
-    "to": "+85000100201",
-    "message": "کد ورود شما به سامانه: 481902",
-    "client_message_id": "TX-REQ-98120"
-  }'
-```
-
-#### ارسال گروهی پیامک (Bulk Dispatch)
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "000100200",
-    "destinations": ["+85000100201", "+85000100202", "+85000100203"],
-    "body": "به‌روزرسانی سرورها امشب در ساعت ۰۲:۰۰ انجام می‌شود.",
-    "client_message_id": "BROADCAST-2026-11"
-  }'
-```
-
-#### ثبت وب‌هوک پیام ورودی (Inbound Webhook)
-```bash
-curl -X POST "http://localhost:8000/api/v1/messages/inbound" \
-  -H "Authorization: Bearer gn_live_abcdef123456" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "destination_number": "+85000100200",
-    "sender": "+989120000000",
-    "body": "درخواست شما با موفقیت ثبت شد.",
-    "source_system_id": "TELCO_GATEWAY_MAIN",
-    "client_message_id": "HOOK_UUID_772183"
-  }'
-```
-
-#### استعلام پیام‌های جدید با پولینگ
-```bash
-curl -X GET "http://localhost:8000/api/v1/messages/poll?since_id=1400" \
-  -H "Authorization: Bearer gn_live_abcdef123456"
-```
+#### ۴.۶. حریم خصوصی و حذف نرم (Soft-Delete)
+- تمام تماس‌ها و پیام‌ها دارای فیلد ایندکس‌شده `user_deleted_at` هستند.
+- کاربر می‌تواند به سادگی تاریخچه خود را پاک کند، در حالی که اسناد ممیزی در پنل راهبر برای پیشگیری از تخلفات حفظ می‌شوند.
 
 ---
 
-### ۷. راهنمای راه‌اندازی و نصب گام‌به‌گام
+### ۵. مسیر توسعه و فیچرهای تکمیلی آینده (نقشه راه برنامه‌نویسان)
 
-#### پیش‌نیازهای سرور
-- **PHP:** نسخه `8.3` یا بالاتر (اکستنشن‌های `bcmath`, `curl`, `mbstring`, `openssl`, `pdo_mysql` یا `pdo_sqlite`, `sodium`, `xml`, `zip`)
-- **Node.js:** نسخه `20.x` یا `22.x LTS` همراه با `npm 10.x`
-- **Composer:** نسخه `2.8` یا بالاتر
-- **Database:** MariaDB 10.4+، MySQL 8.0+ یا SQLite 3
+برای ارتقای GetNumber از یک سافت‌فون سازمانی به یک اکوسیستم مخابراتی تمام‌عیار، توسعه‌دهندگان می‌توانند ماژول‌های کاربردی زیر را به سیستم الحاق نمایند:
 
-#### مراحل نصب و راه‌اندازی
+```mermaid
+flowchart LR
+    A["هسته سافت‌فون GetNumber"] --> B["۱. اتصال به شبکه تلفن ثابت و ترانک SIP"]
+    A --> C["۲. ویدیوکنفرانس گروهی با سرور SFU"]
+    A --> D["۳. وب‌اپلیکیشن پیش‌رونده PWA و CallKit"]
+    A --> E["۴. رمزنگاری سرتاسری پیشرفته (E2EE)"]
+    A --> F["۵. تلفن گویا (IVR) و صندوق صوتی"]
+    A --> G["۶. اشتراک‌گذاری صفحه و وایت‌برد"]
+    A --> H["۷. تبدیل گفتار به متن آفلاین با AI"]
+```
 
+#### ۱. اتصال به ترانک‌های SIP و گیت‌وی‌های مخابراتی (Asterisk / FreePBX / Kamailio)
+- **هدف:** اتصال سافت‌فون مرورگر به خطوط تلفن ثابت شهری (PSTN)، شماره‌های مخابراتی و تلفن‌های همراه کشور.
+- **معماری:** راه‌اندازی یک واسط SIP-to-WebRTC با استفاده از **Kamailio** یا استریسک (**Asterisk / FreePBX**) مجهز به ماژول `chan_pjsip` و ترانسپورت WSS.
+- **ارزش افزوده:** کاربر با سافت‌فون در مرورگر می‌تواند شماره همراه یا ثابت واقعی یک شهروند را شماره‌گیری کند یا تماس‌های ورودی خطوط مخابراتی را بر روی مرورگر تحویل بگیرد.
+
+#### ۲. کنفرانس‌های گروهی چندنفره با سرور SFU (اتاق‌های صوتی و تصویری)
+- **هدف:** پشتیبانی از جلسات کاری، وبینارها و کلاس‌های آنلاین با حضور ۱۰ تا ۱۰۰ کاربر همزمان.
+- **معماری:** ادغام یک واحد فوروارد انتخابی (SFU) نظیر **LiveKit** یا **mediasoup** در کنار بریج صوتی Go.
+- **ارزش افزوده:** عبور از محدودیت ساختار Mesh مستقیم (که بیش از ۳ کاربر پهنای باند آپلود کلاینت‌ها را مسدود می‌کند) و جایگزینی با مسیریابی یک‌طرفه با مصرف حداقل پهنای باند.
+
+#### ۳. وب‌اپلیکیشن پیش‌رونده PWA و هماهنگی با CallKit موبایل
+- **هدف:** زنگ خوردن واقعی گوشی تلفن همراه در زمان دریافت تماس ورودی حتی در حالتی که صفحه گوشی قفل یا مرورگر بسته است.
+- **معماری:** فعال‌سازی **Web Push API** در کنار یک پکیج سبک Capacitor برای ادغام با فریم‌ورک **CallKit** در iOS و **ConnectionService** در سیستم‌عامل اندروید.
+- **ارزش افزوده:** کاربر نیازی به باز نگه داشتن صفحه وب ندارد و مانند یک تماس معمولی تلفنی، اعلان تمام‌صفحه دریافت می‌کند.
+
+#### ۴. رمزنگاری سرتاسری فوق‌امنیتی (End-to-End Encryption)
+- **هدف:** تضمین امنیتی ۱۰۰٪ که حتی مدیر سرور نیز نتواند صدای مکالمات یا تصویر کاربران را شنود کند.
+- **معماری:** استفاده از استاندارد **WebRTC Insertable Streams** بر پایه فریم‌ورک **SFrame (RFC 9605)** یا پروتکل‌های تبادل کلید MLS / Double Ratchet.
+- **ارزش افزوده:** فریم‌های صوتی و تصویری در مبدأ رمزگذاری شده و تنها با کلید خصوصی طرف مقصد رمزگشایی می‌شوند.
+
+#### ۵. سیستم تلفن گویا (IVR) و صندوق صوتی خودکار (Voicemail)
+- **هدف:** راه‌اندازی منوهای پاسخگوی هوشمند صوتی («برای فروش عدد ۱ و برای پشتیبانی عدد ۲ را فشار دهید») و ضبط پیغام در زمان عدم پاسخگویی.
+- **معماری:** پردازش سیگنال‌های DTMF مطابق با استانداردهای RFC 4733 بر روی سرور Go و ذخیره صوت‌های ضبط‌شده در حافظه ایزوله برای بازپخش توسط صاحب خط.
+- **ارزش افزوده:** تبدیل سیستم به یک مرکز تماس (Call Center) کامل شرکتی.
+
+#### ۶. اشتراک‌گذاری دسکتاپ (Screen Sharing) و وایت‌برد همکاری
+- **هدف:** پشتیبانی فنی از راه دور و ارائه فایل‌ها و ارائه‌های کاری در حین مکالمه تصویری.
+- **معماری:** بهره‌گیری از متد استاندارد `navigator.mediaDevices.getDisplayMedia()` در کنار کانواس تعاملی SVG جهت یادداشت‌نویسی همزمان طرفین روی تصویر.
+
+#### ۷. رونویسی زنده و تبدیل صوت به متن با هوش مصنوعی محلی (On-Prem AI)
+- **هدف:** تهیه خودکار صورت‌جلسات، یادداشت‌برداری متنی از مکالمه و آرشیو متنی بدون ارسال داده به سرورهای خارجی.
+- **معماری:** اتصال استریم صوتی ذخیره‌شده به مدل‌های محلی و آفلاین نظیر **Whisper.cpp** یا **Vosk** مستقر بر روی همان سرور لینوکس.
+- **ارزش افزوده:** پردازش گفتار به متن فارسی و انگلیسی به شکل ۱۰۰٪ داخلی بدون نیاز به اینترنت و بدون نقض حریم خصوصی کاربران.
+
+---
+
+### ۶. راهنمای نصب و راه‌اندازی گام‌به‌گام
+
+#### پیش‌نیازها
+- **PHP:** نسخه `8.3+` به همراه اکستنشن‌های ضروری (`bcmath`, `curl`, `mbstring`, `openssl`, `pdo_sqlite` یا `pdo_mysql`, `sodium`, `zip`)
+- **Node.js:** نسخه `20.x` یا `22.x LTS`
+- **Go:** نسخه `1.22+` (تنها در صورت کامپایل دستی دیمن بریج)
+- **Composer:** نسخه `2.8+`
+- **Database:** SQLite 3 یا MySQL 8.0+
+
+#### دستورات راه‌اندازی اولیه
 ```bash
-# ۱. کلون پروژه و ورود به دایرکتوری اصلی
+# ۱. کلون پروژه
 git clone https://github.com/shanaqisaeed/GetNumber.git
 cd GetNumber
 
-# ۲. نصب بسته‌های بک‌اند
+# ۲. نصب وابستگی‌های PHP
 composer install --optimize-autoloader
 
-# ۳. آماده‌سازی فایل تنظیمات محیطی
+# ۳. تنظیم فایل پیکربندی
 cp .env.example .env
 php artisan key:generate
 
-# ۴. اجرای مایگریشن‌ها و داده‌های اولیه سامانه
+# ۴. اجرای مایگریشن‌ها و سید دیتابیس
 php artisan migrate --force
 php artisan db:seed --force
 
-# ۵. نصب وابستگی‌های فرانت‌اند و کامپایل بیلد نهایی
+# ۵. نصب پکیج‌های فرانت‌اند و کامپایل بیلد نهایی
 npm install
 npm run build
 
-# ۶. اجرای سرور توسعه محلی
+# ۶. اجرای سرور توسعه محلی لاراول
 php artisan serve
 ```
 
-#### راه‌اندازی سرویس وب‌سوکت و صف پردازش
-جهت فعال‌سازی وب‌سوکت Reverb و صف بررسی تراکنش‌های ارز دیجیتال، این دستورات را در ترمینال‌های مجزا اجرا نمایید:
+---
+
+### ۷. راه‌اندازی دیمن بریج صوتی Go
+
+سورس کامل دیمن سیگنالینگ و رله صوتی در مسیر `services/voice-bridge` قرار دارد:
 
 ```bash
-# اجرای سرور وب‌سوکت Laravel Reverb
-php artisan reverb:start
+# ورود به پوشه سرویس
+cd services/voice-bridge
 
-# اجرای ورکر پردازش صف‌های پس‌زمینه
-php artisan queue:listen --tries=3
+# کامپایل دستی (اختیاری):
+go build -o voice-bridge main.go
+
+# نصب خودکار، ایجاد سرویس لینوکس و تنظیم فایروال (Ubuntu/Debian):
+sudo bash install.sh
 ```
 
-#### حساب‌های پیش‌فرض راه‌اندازی
+#### جدول پورت‌های مورد نیاز در فایروال
+| پورت | پروتکل | کاربرد |
+|:---:|:---:|:---|
+| `587` / `49000` | TCP | وب‌سرویس وضعیت و احراز هویت بریج |
+| `993` / `49001` | TCP | وب‌سوکت سیگنالینگ بلادرنگ تماس WebRTC |
+| `3478` | UDP + TCP | سرور کشف NAT (STUN) و رله رسانه (TURN) |
+| `5349` | TCP | رله امن با گواهینامه SSL/TLS (TURNS) |
+| `49152:49250` | UDP | بازه پورت‌های مدیا برای عبور بسته‌های صوت و تصویر |
 
-| نام کاربری | نقش کاربری | کلمه عبور پیش‌فرض | سطح دسترسی |
-| :---: | :---: | :---: | :--- |
-| `admin` | **راهبر ارشد سامانه** | `Admin@123456` | دسترسی کامل به خطوط، کاربران، درگاه‌های پرداخت، توکن‌ها و لاگ‌ها |
-| `user` | **مشترک سازمانی نمونه** | `User@123456` | تخصیص شماره، ارسال/دریافت پیام، شارژ کیف پول و توکن API |
+پس از نصب، مقدار **Bridge Secret Token** نمایش‌داده‌شده را در پنل ادمین لاراول در بخش **تنظیمات بریج صوتی** ثبت نمایید.
 
 ---
 
-### ۸. پردازش‌های پس‌زمینه و زمان‌بندی
+### ۸. تضمین کیفیت و آزمون‌های خودکار
 
-جهت اجرای خودکار فرآیندهای پس‌زمینه (نظیر آزادسازی خطوط، استعلام تراکنش‌های رمزارز و همگام‌سازی کیف‌پول نوبیتکس)، کران‌جاب زیر را در سرور ثبت نمایید:
-
-```bash
-* * * * * cd /path-to-project/GetNumber && php artisan schedule:run >> /dev/null 2>&1
-```
-
-دستورات زمان‌بندی‌شده سامانه:
-- `numbers:sweep-expired`: اجرای خودکار ساعتی برای آزادسازی شماره‌های منقضی و حذف پیام‌های قبلی.
-- `payments:verify-pending`: اجرای دقیقه‌ای برای استعلام و اعتبارسنجی شبکه ترون جهت تراکنش‌های در انتظار تایید.
-- `payments:nobitex:sync-wallet`: اجرای روزانه برای اعتبارسنجی توکن صرافی و همگام‌سازی آدرس واریز TRX.
-
----
-
-### ۹. تضمین کیفیت و آزمون‌های خودکار
-
-پروژه GetNumber دارای مجموعه‌ای کامل از **بیش از ۱۸۰ تست خودکار** است که تمامی سناریوهای کارکردی، امنیتی، همزمانی و مالی را پوشش می‌دهد:
+پروژه دارای مجموعه‌ای کامل از آزمون‌های خودکار به منظور صحه‌سنجی کارکرد سافت‌فون، احراز هویت، تراکنش‌ها و اعتبارسنجی‌ها می‌باشد:
 
 ```bash
-# اجرای سوئیت کامل آزمون‌ها
+# اجرای تمامی تست‌های سامانه
 php artisan test
 
-# اجرای تست‌ها در نمای خلاصه
-php artisan test --compact
+# اجرای تست‌های ویژه سافت‌فون، بریج و حذف نرم
+php artisan test tests/Feature/SoftDeleteAndTariffTest.php tests/Feature/VoiceCallAndBridgeTest.php
 ```
-
-محورهای آزمون‌های پوشش‌داده‌شده:
-- تضمین عدم وقوع Race Condition در تخصیص شماره‌ها با قفل بدبینانه.
-- کنترل Idempotency در وب‌هوک با کلید ترکیبی `(source_system_id, client_message_id)`.
-- اعتبارسنجی امضاهای دیجیتال Ed25519 و کنترل دسترسی آی‌پی در درگاه نوبیتکس.
-- یکپارچگی دفترکل موجودی کیف پول، کسر اتمیک هزینه شماره و عودت خودکار در زمان خطا.
-- کانال‌های مجوز وب‌سوکت Reverb و ارسال رویدادهای زنده دوطرفه.
-- اعتبارسنجی سرآیندهای امنیتی CSP، HSTS، X-Frame در روت‌های عمومی و خصوصی.
 
 ---
 
-### ۱۰. مجوز و حقوق مالکیت معنوی
+### ۹. مجوز و مالکیت معنوی
 
-این نرم‌افزار تحت مجوز بین‌المللی **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)** منتشر شده است.
+این نرم‌افزار به صورت متن‌باز تحت مجوز بین‌المللی **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)** عرضه شده است.
 
 ```text
 Copyright (C) 2026 Saeed Shanaqi (https://github.com/shanaqisaeed/GetNumber)
 All Rights Reserved under GNU General Public License v3.0.
 ```
 
-- **حفظ حق انتساب و اصالت اثر:** نام پدیدآورنده اصلی (**Saeed Shanaqi**) و پیوند مخزن گیت‌هاب باید در تمامی فایل‌های سورس‌کد، مستندات و رابط کاربری دست‌نخورده باقی بماند.
-- **تضمین کپی‌لفت متقابل:** هرگونه استفاده، توسعه یا انتشار نسخه‌های انشعابی الزاماً باید تحت همین مجوز (GPL-3.0) همراه با انتشار سورس‌کد کامل صورت گیرد.
+- **حفظ حق مؤلف:** نام پدیدآورنده اصلی اثر (**Saeed Shanaqi**) و پیوند به مخزن گیت‌هاب باید در تمامی فایل‌های سورس، مستندات و رابط‌های کاربری حفظ گردد.
+- **انتشار متن‌باز مشتقات:** هرگونه توسعه یا تغییر این نرم‌افزار منوط به انتشار کدهای تکمیلی تحت همین مجوز (GPLv3) خواهد بود.
