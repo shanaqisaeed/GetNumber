@@ -28,6 +28,9 @@ class PhoneNumber extends Model
         'rond_pattern',
         'display_title',
         'user_id',
+        'organization_id',
+        'assigned_user_id',
+        'is_organization',
         'allocated_at',
         'reserved_until',
         'expires_at',
@@ -48,6 +51,7 @@ class PhoneNumber extends Model
             'reserved_until' => 'datetime',
             'expires_at' => 'datetime',
             'accepts_incoming_sms' => 'boolean',
+            'is_organization' => 'boolean',
         ];
     }
 
@@ -105,6 +109,16 @@ class PhoneNumber extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
     /**

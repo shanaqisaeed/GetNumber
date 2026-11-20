@@ -599,4 +599,63 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(ServiceSubResource::class);
     }
+
+    /**
+     * Organizations owned by this user.
+     */
+    public function ownedOrganizations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Organization::class, 'owner_user_id');
+    }
+
+    /**
+     * Organization memberships where this user is an employee/member.
+     */
+    public function organizationMemberships(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(OrganizationMember::class, 'user_id');
+    }
+
+    /**
+     * Organizations the user belongs to as a member/staff.
+     */
+    public function organizations(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_members', 'user_id', 'organization_id')
+            ->withPivot(['role', 'status'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get or automatically initialize the personal organization workspace for this user.
+     */
+    public function getOrCreatePersonalOrganization(): Organization
+    {
+        $org = $this->ownedOrganizations()->first();
+        if ($org) {
+            return $org;
+        }
+
+        return $this->ownedOrganizations()->create([
+            'name' => $this->name . ' - ' . __('organization.dashboard.title'),
+            'status' => 'active',
+        ]);
+    }
+
+    /**
+     * Dedicated organization phone number assigned to this user (if any).
+     */
+    public function assignedOrganizationPhoneNumber(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PhoneNumber::class, 'assigned_user_id');
+    }
+
+    /**
+     * Dedicated organization custom ID assigned to this user (if any).
+     */
+    public function assignedOrganizationCustomId(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(ServiceResourceAllocation::class, 'assigned_user_id')
+            ->where('service_key', 'custom_id');
+    }
 }

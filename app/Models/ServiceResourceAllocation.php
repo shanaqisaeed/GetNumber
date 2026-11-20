@@ -12,6 +12,9 @@ class ServiceResourceAllocation extends Model
     protected $fillable = [
         'uuid',
         'user_id',
+        'organization_id',
+        'assigned_user_id',
+        'is_organization',
         'service_definition_id',
         'service_order_id',
         'service_key',
@@ -43,6 +46,7 @@ class ServiceResourceAllocation extends Model
             'allocated_at' => 'datetime',
             'expires_at' => 'datetime',
             'released_at' => 'datetime',
+            'is_organization' => 'boolean',
         ];
     }
 
@@ -61,6 +65,16 @@ class ServiceResourceAllocation extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function organization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function assignedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
     }
 
     public function serviceDefinition(): BelongsTo
