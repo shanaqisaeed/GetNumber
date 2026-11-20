@@ -448,6 +448,11 @@ class SettingController extends Controller
 
             if ($response->successful()) {
                 $data = $response->json();
+                if (is_array($data)) {
+                    if (empty($data['bridge_host']) || $data['bridge_host'] === '0.0.0.0') {
+                        $data['bridge_host'] = ($host !== '0.0.0.0' && !empty($host)) ? $host : $request->getHost();
+                    }
+                }
                 $authValid = $data['auth_valid'] ?? true;
                 $authRequired = $data['auth_required'] ?? false;
 

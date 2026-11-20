@@ -103,7 +103,6 @@ const keypadMode = ref<'numeric' | 'alphanumeric'>(
     props.initial_destination?.startsWith('@') ? 'alphanumeric' : 'numeric'
 );
 const isContactPickerOpen = ref(false);
-const isAutoInitiateModalOpen = ref(false);
 const isCalling = ref(false);
 const activeCallId = ref<number | null>(null);
 const callDuration = ref(0);
@@ -119,6 +118,16 @@ const isNoiseCancellationEnabled = ref(
         : true
 );
 const callError = ref('');
+
+// WebRTC Video Calling & Multi-Camera Management
+const isVideoCall = ref(false);
+const isCameraOn = ref(false);
+const availableCameras = ref<{ deviceId: string; label: string }[]>([]);
+const selectedCameraId = ref<string>('');
+const videoQuality = ref<'hd' | 'sd' | 'low'>('hd');
+const localVideo = ref<HTMLVideoElement | null>(null);
+const remoteVideo = ref<HTMLVideoElement | null>(null);
+const optimalRouteInfo = ref<string>('');
 
 // Bridge & WebRTC State
 const bridgeSessionId = ref<string | null>(null);
@@ -194,49 +203,115 @@ const ensureAtPrefix = () => {
     }
 };
 
+const getNormalizedDestination = (): string => {
+    let dest = destinationInput.value.trim();
+    if (!dest) return '';
+    if (keypadMode.value === 'alphanumeric') {
+        if (!dest.startsWith('@')) {
+            dest = '@' + dest.replace(/^@+/, '');
+        }
+    } else {
+        if (/[a-zA-Z]/.test(dest) && !dest.startsWith('+') && !dest.startsWith('@')) {
+            dest = '@' + dest;
+        }
+    }
+    return dest;
+};
+
 watch(destinationInput, (val) => {
     if (val && (val.startsWith('@') || (/[a-zA-Z]/.test(val) && !val.startsWith('+')))) {
         keypadMode.value = 'alphanumeric';
     }
 });
 
-// Request Microphone Access with Intelligent Acoustic Noise Suppression
-const requestMicrophoneAccess = async (): Promise<boolean> => {
+// Camera Device Enumeration
+const enumerateCameras = async () => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        availableCameras.value = videoDevices.map((d, index) => ({
+            deviceId: d.deviceId,
+            label: d.label || `دوربین ${index + 1}`,
+        }));
+        if (videoDevices.length > 0 && !selectedCameraId.value) {
+            selectedCameraId.value = videoDevices[0].deviceId;
+        }
+    } catch (e) {
+        console.warn('[WebRTC-Video] Could not enumerate cameras:', e);
+    }
+};
+
+const getVideoConstraints = (): MediaTrackConstraints => {
+    const base: MediaTrackConstraints = {};
+    if (selectedCameraId.value) {
+        base.deviceId = { exact: selectedCameraId.value };
+    }
+    if (videoQuality.value === 'hd') {
+        base.width = { ideal: 1280 };
+        base.height = { ideal: 720 };
+        base.frameRate = { ideal: 30, max: 30 };
+    } else if (videoQuality.value === 'sd') {
+        base.width = { ideal: 640 };
+        base.height = { ideal: 480 };
+        base.frameRate = { ideal: 24, max: 30 };
+    } else {
+        base.width = { ideal: 480 };
+        base.height = { ideal: 360 };
+        base.frameRate = { ideal: 15, max: 20 };
+    }
+    return base;
+};
+
+const attachLocalStreamToVideo = () => {
+    if (localVideo.value && localMediaStream) {
+        localVideo.value.srcObject = localMediaStream;
+        localVideo.value.play().catch(() => {});
+    }
+};
+
+// Request Media Access with Noise Suppression and Optional Video Track
+const requestMediaAccess = async (withVideo = false): Promise<boolean> => {
     micPermissionGranted.value = null;
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
         micPermissionGranted.value = false;
         callError.value = __('user.calls.mic_unsupported');
         return false;
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
+        const constraints: MediaStreamConstraints = {
             audio: {
                 echoCancellation: { ideal: true },
                 noiseSuppression: { ideal: isNoiseCancellationEnabled.value },
                 autoGainControl: { ideal: true },
-                // Advanced WebRTC & Chromium constraints for crystal-clear noise reduction
-                // @ts-ignore
-                googEchoCancellation: { ideal: true },
-                // @ts-ignore
-                googAutoGainControl: { ideal: true },
-                // @ts-ignore
-                googNoiseSuppression: { ideal: isNoiseCancellationEnabled.value },
-                // @ts-ignore
-                googHighpassFilter: { ideal: isNoiseCancellationEnabled.value },
-                // @ts-ignore
-                googTypingNoiseDetection: { ideal: isNoiseCancellationEnabled.value },
-                // @ts-ignore
-                googAudioMirroring: { ideal: false },
             },
-        });
+        };
+        if (withVideo) {
+            constraints.video = getVideoConstraints();
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         localMediaStream = stream;
         micPermissionGranted.value = true;
         isMicModalOpen.value = false;
         callError.value = '';
-        console.log('[WebRTC] 🎙️ Microphone initialized with Noise Cancellation:', isNoiseCancellationEnabled.value);
+
+        if (withVideo && stream.getVideoTracks().length > 0) {
+            isCameraOn.value = true;
+            isVideoCall.value = true;
+            attachLocalStreamToVideo();
+            await enumerateCameras();
+        }
+
+        console.log('[WebRTC] 🎙️ Audio/Video initialized. Video:', withVideo, '| Noise Cancellation:', isNoiseCancellationEnabled.value);
         return true;
-    } catch {
+    } catch (err: any) {
+        if (withVideo) {
+            console.warn('[WebRTC] Camera access failed or blocked, falling back to audio-only:', err);
+            isVideoCall.value = false;
+            return await requestMediaAccess(false);
+        }
         micPermissionGranted.value = false;
         isMicModalOpen.value = true;
         callError.value = __('user.calls.mic_blocked');
@@ -245,9 +320,9 @@ const requestMicrophoneAccess = async (): Promise<boolean> => {
 };
 
 const retryMicrophoneAndCall = async () => {
-    const ok = await requestMicrophoneAccess();
+    const ok = await requestMediaAccess(isVideoCall.value);
     if (ok) {
-        await startCall(false);
+        await startCall(false, isVideoCall.value);
     }
 };
 
@@ -267,6 +342,94 @@ const toggleSpeaker = () => {
     }
 };
 
+// Live Camera Toggle During Call
+const toggleCamera = async () => {
+    if (!localMediaStream) return;
+
+    const currentVideoTracks = localMediaStream.getVideoTracks();
+    if (currentVideoTracks.length > 0) {
+        const track = currentVideoTracks[0];
+        track.enabled = !track.enabled;
+        isCameraOn.value = track.enabled;
+        if (!track.enabled && !isVideoCall.value) {
+            track.stop();
+            localMediaStream.removeTrack(track);
+        }
+    } else {
+        try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({
+                video: getVideoConstraints(),
+            });
+            const newTrack = videoStream.getVideoTracks()[0];
+            localMediaStream.addTrack(newTrack);
+            isCameraOn.value = true;
+            isVideoCall.value = true;
+            attachLocalStreamToVideo();
+
+            if (peerConnection) {
+                const senders = peerConnection.getSenders();
+                const videoSender = senders.find(s => s.track?.kind === 'video');
+                if (videoSender) {
+                    await videoSender.replaceTrack(newTrack);
+                } else {
+                    peerConnection.addTrack(newTrack, localMediaStream);
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    await sendSignalingMessage('offer', offer);
+                }
+            }
+        } catch (e) {
+            console.warn('[WebRTC-Video] Could not enable camera:', e);
+            callError.value = __('user.calls.audio_only_fallback');
+        }
+    }
+};
+
+// Switch Camera (Front / Rear)
+const switchCamera = async () => {
+    if (availableCameras.value.length < 2 || !localMediaStream) return;
+    const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
+    const nextIndex = (currentIndex + 1) % availableCameras.value.length;
+    selectedCameraId.value = availableCameras.value[nextIndex].deviceId;
+
+    const currentVideoTracks = localMediaStream.getVideoTracks();
+    try {
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: getVideoConstraints(),
+        });
+        const newTrack = newStream.getVideoTracks()[0];
+        if (currentVideoTracks.length > 0) {
+            currentVideoTracks[0].stop();
+            localMediaStream.removeTrack(currentVideoTracks[0]);
+        }
+        localMediaStream.addTrack(newTrack);
+        attachLocalStreamToVideo();
+
+        if (peerConnection) {
+            const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) {
+                await sender.replaceTrack(newTrack);
+            }
+        }
+    } catch (e) {
+        console.warn('[WebRTC-Video] Could not switch camera:', e);
+    }
+};
+
+// Change Video Resolution Quality
+const setVideoQuality = async (q: 'hd' | 'sd' | 'low') => {
+    videoQuality.value = q;
+    if (!localMediaStream) return;
+    const videoTracks = localMediaStream.getVideoTracks();
+    if (videoTracks.length > 0) {
+        try {
+            await videoTracks[0].applyConstraints(getVideoConstraints());
+        } catch (e) {
+            console.warn('[WebRTC-Video] Could not apply video constraints:', e);
+        }
+    }
+};
+
 // Toggle Noise Cancellation live during or before a call
 const toggleNoiseCancellation = async () => {
     isNoiseCancellationEnabled.value = !isNoiseCancellationEnabled.value;
@@ -281,16 +444,6 @@ const toggleNoiseCancellation = async () => {
                     echoCancellation: true,
                     noiseSuppression: isNoiseCancellationEnabled.value,
                     autoGainControl: true,
-                    // @ts-ignore
-                    googEchoCancellation: true,
-                    // @ts-ignore
-                    googAutoGainControl: true,
-                    // @ts-ignore
-                    googNoiseSuppression: isNoiseCancellationEnabled.value,
-                    // @ts-ignore
-                    googHighpassFilter: isNoiseCancellationEnabled.value,
-                    // @ts-ignore
-                    googTypingNoiseDetection: isNoiseCancellationEnabled.value,
                 });
                 console.log('[WebRTC] 🎧 Live track noise cancellation updated:', isNoiseCancellationEnabled.value);
             } catch (err) {
@@ -300,7 +453,7 @@ const toggleNoiseCancellation = async () => {
     }
 };
 
-// Enhance Opus SDP with In-Band FEC & DTX (Discontinuous Transmission to eliminate background noise during silence)
+// Enhance Opus SDP with In-Band FEC & DTX
 const enhanceOpusSdp = (sdp?: string): string => {
     if (!sdp || !sdp.includes('opus/48000')) {
         return sdp || '';
@@ -352,7 +505,7 @@ const buildRtcConfiguration = (): RTCConfiguration => {
     const cfg = activeRtcConfig.value || props.rtc_config;
     const iceServers: RTCIceServer[] = Array.isArray(cfg?.iceServers) ? cfg.iceServers : [];
     console.log('[WebRTC] 🌐 Effective ICE Servers configuration:', JSON.stringify(iceServers, null, 2));
-    console.log('[WebRTC] 🛡️ Has TURN:', Boolean(cfg?.hasTurn), '| Policy:', cfg?.iceTransportPolicy || 'all', '| Offline Mode:', Boolean(cfg?.isOfflineMode));
+    console.log('[WebRTC] 🛡️ Has TURN:', Boolean(cfg?.hasTurn), '| Policy:', cfg?.iceTransportPolicy || 'all');
     return {
         iceServers: iceServers,
         iceTransportPolicy: (cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
@@ -381,7 +534,7 @@ const sendSignalingMessage = async (type: string, payload: any) => {
         payload: payload,
     });
 
-    // 1. Go WebSocket bridge signaling (ultra-low latency if connected or queued)
+    // 1. Go WebSocket bridge signaling
     if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN && bridgeSessionId.value) {
         try {
             bridgeSocket.send(rawWsPayload);
@@ -391,22 +544,56 @@ const sendSignalingMessage = async (type: string, payload: any) => {
         }
     } else if (bridgeSocket && bridgeSocket.readyState === WebSocket.CONNECTING && bridgeSessionId.value) {
         pendingWsMessages.value.push(rawWsPayload);
-        console.log('[WebRTC-WS] ⏳ Queued signaling message until WebSocket open:', type);
     }
 
-    // 2. Atomic DB signaling mailbox in Laravel (guaranteed across all networks/devices)
+    // 2. Atomic DB signaling mailbox in Laravel
     try {
         await axios.post(route('voice.signal', activeCallId.value), {
             type: type,
             payload: payload,
         });
-        console.log('[WebRTC-DB] 📬 Saved signaling message in DB mailbox:', type);
     } catch (e) {
         console.warn('[WebRTC-DB] ⚠️ DB signaling mailbox error:', e);
     }
 };
 
 let pendingCandidates: RTCIceCandidateInit[] = [];
+
+// Real-time Candidate & Route Evaluation
+const detectOptimalRoute = (candidate: RTCIceCandidate) => {
+    let routeDesc = '';
+    if (candidate.type === 'relay') {
+        routeDesc = 'سرور رله امن (TURN)';
+    } else if (candidate.type === 'srflx') {
+        routeDesc = 'ارتباط بهینه P2P (STUN)';
+    } else if (candidate.type === 'host') {
+        routeDesc = 'اتصال مستقیم شبکه (Host P2P)';
+    }
+    if (routeDesc && (!optimalRouteInfo.value || candidate.type === 'relay')) {
+        optimalRouteInfo.value = routeDesc;
+        sendSignalingMessage('route_selected', {
+            type: candidate.type,
+            candidate: candidate.candidate,
+            route: routeDesc,
+        });
+    }
+};
+
+// Call duration timer: strictly starts only when media is connected
+const startCallTimer = () => {
+    if (callTimer) return;
+    callDuration.value = 0;
+    callTimer = setInterval(() => {
+        callDuration.value++;
+    }, 1000);
+};
+
+const stopCallTimer = () => {
+    if (callTimer) {
+        clearInterval(callTimer);
+        callTimer = null;
+    }
+};
 
 const createPeerConnection = () => {
     if (peerConnection) {
@@ -420,7 +607,7 @@ const createPeerConnection = () => {
 
     const pc = new RTCPeerConnection(buildRtcConfiguration());
 
-    // Attach local microphone tracks (or create a sendrecv transceiver if mic is not yet available)
+    // Attach local audio tracks
     const audioTracks = localMediaStream ? localMediaStream.getAudioTracks() : [];
     if (audioTracks.length > 0 && localMediaStream) {
         audioTracks.forEach(track => {
@@ -434,34 +621,54 @@ const createPeerConnection = () => {
         } catch {}
     }
 
-    // Connect remote incoming audio stream to audio element
+    // Attach local video tracks if video call is active
+    const videoTracks = localMediaStream ? localMediaStream.getVideoTracks() : [];
+    if (videoTracks.length > 0 && localMediaStream) {
+        videoTracks.forEach(track => {
+            try {
+                pc.addTrack(track, localMediaStream!);
+            } catch {}
+        });
+    } else {
+        try {
+            pc.addTransceiver('video', { direction: 'sendrecv' });
+        } catch {}
+    }
+
+    // Connect remote incoming audio and video streams
     pc.ontrack = (event) => {
         let stream = event.streams && event.streams[0] ? event.streams[0] : null;
         if (!stream && event.track) {
             stream = new MediaStream([event.track]);
         }
-        if (remoteAudio.value && stream) {
-            remoteAudio.value.srcObject = stream;
-            remoteAudio.value.muted = false;
-            remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
-            remoteAudio.value.play()
-                .then(() => {
-                    isAudioPlaybackBlocked.value = false;
-                })
-                .catch(e => {
-                    console.warn('Audio autoplay blocked by browser, awaiting user tap:', e);
-                    isAudioPlaybackBlocked.value = true;
-                });
+        if (event.track.kind === 'video') {
+            isVideoCall.value = true;
+            if (remoteVideo.value && stream) {
+                remoteVideo.value.srcObject = stream;
+                remoteVideo.value.play().catch(() => {});
+            }
+        } else if (event.track.kind === 'audio') {
+            if (remoteAudio.value && stream) {
+                remoteAudio.value.srcObject = stream;
+                remoteAudio.value.muted = false;
+                remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
+                remoteAudio.value.play()
+                    .then(() => {
+                        isAudioPlaybackBlocked.value = false;
+                    })
+                    .catch(e => {
+                        console.warn('Audio autoplay blocked by browser:', e);
+                        isAudioPlaybackBlocked.value = true;
+                    });
+            }
         }
     };
 
     // Relay local ICE candidates
     pc.onicecandidate = (event) => {
         if (event.candidate) {
-            console.log('[WebRTC] ❄️ Local candidate gathered:', event.candidate.type, event.candidate.address || event.candidate.relatedAddress, event.candidate.port, event.candidate.candidate);
+            detectOptimalRoute(event.candidate);
             sendSignalingMessage('ice_candidate', event.candidate.toJSON());
-        } else {
-            console.log('[WebRTC] ❄️ ICE candidate gathering complete');
         }
     };
 
@@ -471,6 +678,7 @@ const createPeerConnection = () => {
         if (st === 'connected' || st === 'completed' || pc.connectionState === 'connected') {
             mediaConnectionState.value = 'connected';
             isBridgeConnected.value = true;
+            startCallTimer();
         } else if (st === 'failed' || pc.connectionState === 'failed') {
             mediaConnectionState.value = 'failed';
             const hasTurn = Boolean((activeRtcConfig.value || props.rtc_config)?.hasTurn);
@@ -494,7 +702,6 @@ const createPeerConnection = () => {
 const handleSignalingPayload = async (type: string, payload: any) => {
     if (!peerConnection || !payload) return;
 
-    // Deduplicate identical signaling messages arriving via both WebSocket and HTTP poll
     try {
         const sigKey = `${type}:${typeof payload === 'string' ? payload : JSON.stringify(payload)}`;
         if (type !== 'end_call' && type !== 'call_ended') {
@@ -506,14 +713,15 @@ const handleSignalingPayload = async (type: string, payload: any) => {
     } catch {}
 
     try {
-        if (type === 'offer') {
+        if (type === 'route_selected' && payload?.route) {
+            optimalRouteInfo.value = payload.route;
+        } else if (type === 'offer') {
             if (peerConnection.signalingState !== 'stable') {
                 try {
                     await peerConnection.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
                 } catch {}
             }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
-            // Drain any pending ICE candidates queued before remote description was ready
             for (const cand of pendingCandidates) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
@@ -595,7 +803,6 @@ const connectBridgeWebSocket = (wsUrl: string) => {
             bridgeSocket = null;
         }
 
-        // On remote/production HTTPS domain, if wsUrl points to localhost/127.0.0.1 or insecure ws://, avoid connecting to prevent mixed content or localhost connection refused
         const isRemote = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
         if (isRemote && (wsUrl.includes('127.0.0.1') || wsUrl.includes('localhost') || (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')))) {
             isBridgeConnected.value = false;
@@ -608,9 +815,7 @@ const connectBridgeWebSocket = (wsUrl: string) => {
         }
 
         bridgeSocket = new WebSocket(targetWsUrl);
-        console.log('[WebRTC-WS] 🔌 Initiating WebSocket connection to:', targetWsUrl);
         bridgeSocket.onopen = () => {
-            console.log('[WebRTC-WS] 🟢 Connected to Voice Bridge signaling WebSocket');
             isBridgeConnected.value = true;
             if (bridgeSessionId.value) {
                 bridgeSocket?.send(JSON.stringify({
@@ -618,16 +823,12 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                     session_id: bridgeSessionId.value,
                 }));
             }
-            // Flush any signaling messages queued before socket opened (e.g. Offer, candidates)
             while (pendingWsMessages.value.length > 0) {
                 const nextMsg = pendingWsMessages.value.shift();
                 if (nextMsg && bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
                     try {
                         bridgeSocket.send(nextMsg);
-                        console.log('[WebRTC-WS] 🚀 Flushed queued signaling message to bridge');
-                    } catch (e) {
-                        console.warn('[WebRTC-WS] ⚠️ Failed flushing queued message:', e);
-                    }
+                    } catch {}
                 }
             }
             bridgePingInterval = setInterval(() => {
@@ -651,26 +852,23 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                         pingMs.value = msg.ping_ms;
                     }
                 } else if (msg.type === 'channel_connected') {
-                    console.log('[WebRTC-WS] 🎉 Voice channel synchronized between peers!');
                     isBridgeConnected.value = true;
+                    mediaConnectionState.value = 'connected';
+                    startCallTimer();
                 } else if (msg.type === 'call_ended') {
-                    console.log('[WebRTC-WS] ⏹️ Remote peer ended call via bridge');
                     callError.value = __('user.calls.call_ended_by_peer');
                     endCall();
-                } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice_candidate') {
-                    console.log('[WebRTC-WS] 📥 Inbound peer signaling payload received via WS:', msg.type);
+                } else if (msg.type === 'offer' || msg.type === 'answer' || msg.type === 'ice_candidate' || msg.type === 'route_selected') {
                     handleSignalingPayload(msg.type, msg.data || msg.payload);
                 }
             } catch (e) {
                 console.warn('[WebRTC-WS] ⚠️ Error parsing WebSocket message:', e);
             }
         };
-        bridgeSocket.onerror = (e) => {
-            console.warn('[WebRTC-WS] ❌ WebSocket error:', e);
+        bridgeSocket.onerror = () => {
             isBridgeConnected.value = false;
         };
-        bridgeSocket.onclose = (e) => {
-            console.log('[WebRTC-WS] 🔌 WebSocket closed. Code:', e.code, 'Reason:', e.reason);
+        bridgeSocket.onclose = () => {
             isBridgeConnected.value = false;
             if (bridgePingInterval) clearInterval(bridgePingInterval);
         };
@@ -679,9 +877,10 @@ const connectBridgeWebSocket = (wsUrl: string) => {
     }
 };
 
-// Start Voice Call
-const startCall = async (skipMicCheck = false) => {
-    if (!destinationInput.value.trim() || !selectedLine.value || isCalling.value) return;
+// Start Voice or Video Call
+const startCall = async (skipMicCheck = false, withVideo = false) => {
+    const cleanDest = getNormalizedDestination();
+    if (!cleanDest || !selectedLine.value || isCalling.value) return;
 
     callError.value = '';
     lastSignalId = 0;
@@ -689,11 +888,13 @@ const startCall = async (skipMicCheck = false) => {
     pendingWsMessages.value = [];
     isAudioPlaybackBlocked.value = false;
     mediaConnectionState.value = 'new';
+    optimalRouteInfo.value = '';
+    isVideoCall.value = withVideo;
     
-    // Check & request microphone permission if not explicitly bypassed
+    // Check & request media permission
     if (!skipMicCheck) {
-        const hasMic = await requestMicrophoneAccess();
-        if (!hasMic) return;
+        const hasMedia = await requestMediaAccess(withVideo);
+        if (!hasMedia) return;
     }
 
     if (isMicModalOpen.value) {
@@ -709,11 +910,6 @@ const startCall = async (skipMicCheck = false) => {
     }
 
     try {
-        let cleanDest = destinationInput.value.trim();
-        if ((keypadMode.value === 'alphanumeric' || /^[a-zA-Z_]/.test(cleanDest)) && !cleanDest.startsWith('@') && !cleanDest.startsWith('+') && !/^\d+$/.test(cleanDest)) {
-            cleanDest = '@' + cleanDest;
-        }
-
         const res = await axios.post(route('voice.initiate'), {
             line_key: selectedLineKey.value || undefined,
             phone_number_id: selectedLine.value?.id,
@@ -734,20 +930,19 @@ const startCall = async (skipMicCheck = false) => {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);
             }
 
-            callTimer = setInterval(() => {
-                callDuration.value++;
-            }, 1000);
-
-            // Establish WebRTC Audio Peer Connection
+            // Establish WebRTC Peer Connection
             const pc = createPeerConnection();
-            const offer = await pc.createOffer({ offerToReceiveAudio: true });
+            const offer = await pc.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: withVideo,
+            });
             if (offer.sdp) {
                 offer.sdp = enhanceOpusSdp(offer.sdp);
             }
             await pc.setLocalDescription(offer);
             await sendSignalingMessage('offer', offer);
 
-            // Periodic Balance & Active Status Heartbeat (every 2 seconds)
+            // Periodic Balance & Active Status Heartbeat
             pulseTimer = setInterval(async () => {
                 if (!activeCallId.value || !isCalling.value) return;
                 try {
@@ -761,7 +956,7 @@ const startCall = async (skipMicCheck = false) => {
                 } catch {}
             }, 2000);
 
-            // WebRTC Signaling Queue Poll (every 800ms)
+            // WebRTC Signaling Queue Poll
             signalPollTimer = setInterval(pollSignals, 800);
         } else {
             throw new Error(res.data?.message || __('user.calls.call_init_error'));
@@ -776,11 +971,7 @@ const startCall = async (skipMicCheck = false) => {
     }
 };
 
-const initiateCallAction = () => {
-    startCall(false);
-};
-
-// End Voice Call (Mutual Hangup)
+// End Call (Mutual Hangup)
 const endCall = async () => {
     if (signalPollTimer) {
         clearInterval(signalPollTimer);
@@ -790,10 +981,7 @@ const endCall = async () => {
         clearInterval(pulseTimer);
         pulseTimer = null;
     }
-    if (callTimer) {
-        clearInterval(callTimer);
-        callTimer = null;
-    }
+    stopCallTimer();
     if (pingTimer) {
         clearInterval(pingTimer);
         pingTimer = null;
@@ -803,7 +991,6 @@ const endCall = async () => {
         bridgePingInterval = null;
     }
 
-    // Send hangup signal to peer first so both sides hang up together
     if (activeCallId.value) {
         sendSignalingMessage('end_call', { reason: 'user_hangup' });
     }
@@ -821,6 +1008,12 @@ const endCall = async () => {
     if (remoteAudio.value) {
         remoteAudio.value.srcObject = null;
     }
+    if (remoteVideo.value) {
+        remoteVideo.value.srcObject = null;
+    }
+    if (localVideo.value) {
+        localVideo.value.srcObject = null;
+    }
     if (bridgeSocket) {
         try {
             bridgeSocket.close();
@@ -834,6 +1027,9 @@ const endCall = async () => {
     pendingWsMessages.value = [];
     lastSignalId = 0;
     processedSignalHashes.clear();
+    isCameraOn.value = false;
+    isVideoCall.value = false;
+    optimalRouteInfo.value = '';
 
     const terminatingCallId = activeCallId.value;
     activeCallId.value = null;
@@ -848,13 +1044,12 @@ const endCall = async () => {
             duration_seconds: finalDuration,
         });
     } catch {
-        // continue clean-up
     } finally {
         router.reload({ only: ['calls', 'wallet_balance'] });
     }
 };
 
-// Incoming Call Sound & Ringtone Simulation (Calm Acoustic Chime)
+// Incoming Call Sound & Ringtone
 const playRingtone = () => {
     calmRingtone.play();
 };
@@ -883,7 +1078,7 @@ const checkIncomingCall = async () => {
     } catch {}
 };
 
-const answerIncomingCall = async () => {
+const answerIncomingCall = async (withVideo = false) => {
     if (!incomingCall.value) return;
     stopRingtone();
     lastSignalId = 0;
@@ -891,6 +1086,8 @@ const answerIncomingCall = async () => {
     pendingWsMessages.value = [];
     isAudioPlaybackBlocked.value = false;
     mediaConnectionState.value = 'new';
+    optimalRouteInfo.value = '';
+    isVideoCall.value = withVideo;
 
     if (remoteAudio.value) {
         remoteAudio.value.muted = false;
@@ -915,20 +1112,14 @@ const answerIncomingCall = async () => {
                 activeRtcConfig.value = answeredCall.rtc_config;
             }
 
-            await requestMicrophoneAccess();
+            await requestMediaAccess(withVideo);
 
-            callTimer = setInterval(() => {
-                callDuration.value++;
-            }, 1000);
-
-            // Establish Callee WebRTC Peer Connection
             createPeerConnection();
 
             if (bridgeWsEndpoint.value) {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);
             }
 
-            // Callee Pulse Heartbeat (Detects if caller hung up or balance expired)
             pulseTimer = setInterval(async () => {
                 if (!activeCallId.value || !isCalling.value) return;
                 try {
@@ -942,7 +1133,6 @@ const answerIncomingCall = async () => {
                 } catch {}
             }, 2000);
 
-            // Callee Signaling Poll (Fetches caller's Offer & candidates)
             signalPollTimer = setInterval(pollSignals, 800);
             await pollSignals();
         }
@@ -990,9 +1180,11 @@ const navigateHistoryPage = (url: string | null) => {
     if (!url) return;
     const urlObj = new URL(url, window.location.origin);
     urlObj.searchParams.set('tab', 'history');
+    activeTab.value = 'history';
     router.visit(urlObj.toString(), {
         preserveState: true,
         preserveScroll: true,
+        only: ['calls'],
     });
 };
 
@@ -1000,15 +1192,21 @@ onMounted(() => {
     if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
         const target = params.get('destination') || params.get('peer') || params.get('to') || params.get('number') || params.get('custom_id');
-        if (target) {
+        
+        // Prioritize history tab if page or tab=history is present
+        if (params.get('tab') === 'history' || params.has('page')) {
+            activeTab.value = 'history';
+            if (target) {
+                destinationInput.value = target.trim();
+            }
+        } else if (target) {
             destinationInput.value = target.trim();
             if (target.startsWith('@') || /[a-zA-Z]/.test(target)) {
                 keypadMode.value = 'alphanumeric';
             }
             activeTab.value = 'dialer';
-        } else if (params.get('tab') === 'history' || params.has('page')) {
-            activeTab.value = 'history';
         }
+
         const lineKeyParam = params.get('line_key');
         if (lineKeyParam) {
             const matched = props.lines.find((l) => l.key === lineKeyParam);
@@ -1026,7 +1224,7 @@ onMounted(() => {
         }
     }
 
-    // Auto-answer or open incoming call if redirected from global call modal
+    // Auto-answer or open incoming call if redirected
     if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const autoAnswer = urlParams.get('auto_answer');
@@ -1039,7 +1237,7 @@ onMounted(() => {
             };
             if (autoAnswer === '1') {
                 setTimeout(() => {
-                    answerIncomingCall();
+                    answerIncomingCall(false);
                 }, 300);
             } else {
                 isIncomingCallModalOpen.value = true;
@@ -1048,13 +1246,12 @@ onMounted(() => {
         }
     }
 
-    // Start incoming call detector
     checkIncomingCall();
     incomingPollTimer = setInterval(checkIncomingCall, 3500);
 });
 
 onUnmounted(() => {
-    if (callTimer) clearInterval(callTimer);
+    stopCallTimer();
     if (pulseTimer) clearInterval(pulseTimer);
     if (signalPollTimer) clearInterval(signalPollTimer);
     if (pingTimer) clearInterval(pingTimer);
@@ -1076,6 +1273,12 @@ onUnmounted(() => {
     if (remoteAudio.value) {
         remoteAudio.value.srcObject = null;
     }
+    if (remoteVideo.value) {
+        remoteVideo.value.srcObject = null;
+    }
+    if (localVideo.value) {
+        localVideo.value.srcObject = null;
+    }
 });
 </script>
 
@@ -1083,90 +1286,6 @@ onUnmounted(() => {
     <Head :title="__('user.calls.page_title')" />
 
     <UserLayout>
-        <!-- Auto-Initiate Call Modal (When redirected from Dashboard or External Link) -->
-        <teleport to="body">
-            <transition enter-active-class="transition duration-200 ease-out" enter-from-class="opacity-0 scale-95" enter-to-class="opacity-100 scale-100" leave-active-class="transition duration-150 ease-in" leave-from-class="opacity-100 scale-100" leave-to-class="opacity-0 scale-95">
-                <div v-if="isAutoInitiateModalOpen" class="fixed inset-0 z-[110] bg-black/60 backdrop-blur-md flex items-center justify-center p-4" @click.self="isAutoInitiateModalOpen = false">
-                    <div class="glass-card w-full max-w-md p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl space-y-5 bg-white/95 dark:bg-slate-900/95 text-slate-900 dark:text-white">
-                        <div class="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-white/10">
-                            <div class="flex items-center gap-2.5">
-                                <div class="w-9 h-9 rounded-2xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h3 class="text-sm font-black">{{ __('user.calls.initiate_modal_title') }}</h3>
-                                    <p class="text-[11px] text-slate-400">{{ __('user.calls.initiate_modal_desc') }}</p>
-                                </div>
-                            </div>
-                            <button type="button" @click="isAutoInitiateModalOpen = false" class="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs">✕</button>
-                        </div>
-
-                        <!-- Destination Target Display -->
-                        <div class="p-3.5 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
-                            <span class="text-xs text-slate-500 dark:text-slate-400 font-bold">{{ __('user.calls.destination_target') }}</span>
-                            <span class="font-mono font-black text-base text-slate-900 dark:text-white" dir="ltr">{{ destinationInput }}</span>
-                        </div>
-
-                        <!-- Outbound Caller Line Display -->
-                        <div v-if="selectedLine" class="p-3 rounded-2xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/80 dark:border-indigo-500/20 flex items-center justify-between">
-                            <span class="text-xs text-indigo-700 dark:text-indigo-300 font-bold">{{ __('user.calls.active_caller_line') }}</span>
-                            <div class="text-left font-mono font-black text-sm text-indigo-600 dark:text-indigo-400" dir="ltr">
-                                {{ selectedLine.formatted_number }}
-                            </div>
-                        </div>
-
-                        <!-- Prominent Noise Cancellation Option Review -->
-                        <div class="p-3.5 rounded-2xl bg-purple-50/60 dark:bg-purple-950/25 border border-purple-200/70 dark:border-purple-500/20 flex items-center justify-between gap-3">
-                            <div class="flex items-center gap-2.5">
-                                <span class="text-xl">🎧</span>
-                                <div>
-                                    <div class="text-xs font-black text-purple-900 dark:text-purple-300">{{ __('user.calls.nc_option_title') }}</div>
-                                    <div class="text-[10px] text-slate-500 dark:text-slate-400">{{ __('user.calls.nc_option_desc') }}</div>
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                @click="toggleNoiseCancellation"
-                                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none"
-                                :class="isNoiseCancellationEnabled ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'"
-                                role="switch"
-                                :aria-checked="isNoiseCancellationEnabled"
-                            >
-                                <span
-                                    class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out"
-                                    :class="isNoiseCancellationEnabled ? 'translate-x-0' : '-translate-x-5'"
-                                />
-                            </button>
-                        </div>
-
-                        <!-- Modal Actions -->
-                        <div class="flex items-center justify-end gap-2.5 pt-2">
-                            <button
-                                type="button"
-                                @click="isAutoInitiateModalOpen = false"
-                                class="px-4 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all"
-                            >
-                                {{ __('user.calls.cancel_call') }}
-                            </button>
-                            <button
-                                type="button"
-                                @click="isAutoInitiateModalOpen = false; startCall()"
-                                :disabled="!destinationInput.trim() || !selectedLine"
-                                class="px-6 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 transition-all active:scale-95 disabled:opacity-40"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                                <span>{{ __('user.calls.confirm_and_call') }}</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </transition>
-        </teleport>
-
         <div class="space-y-4">
             <!-- Header Command Card -->
             <div class="dash-wallet-card">
@@ -1263,12 +1382,47 @@ onUnmounted(() => {
             </div>
 
             <!-- ======================================================== -->
-            <!-- TAB 1: PHONE DIALER (Mobile Layout: 1-2-3 / 4-5-6 / 7-8-9 / *-0-#) -->
+            <!-- TAB 1: PHONE DIALER & ACTIVE CALL (VOICE & VIDEO)        -->
             <!-- ======================================================== -->
-            <div v-if="activeTab === 'dialer'" class="glass-card !p-5 max-w-md mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl">
+            <div v-if="activeTab === 'dialer'" class="glass-card !p-5 max-w-lg mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl">
                 <!-- If currently in active call session -->
-                <div v-if="isCalling" class="text-center py-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                    <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                <div v-if="isCalling" class="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <!-- VIDEO CALL CONTAINER (When Video is enabled) -->
+                    <div v-if="isVideoCall" class="relative w-full aspect-video rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center">
+                        <!-- Remote Video Feed -->
+                        <video
+                            ref="remoteVideo"
+                            autoplay
+                            playsinline
+                            class="w-full h-full object-cover"
+                        ></video>
+
+                        <!-- Local Video Picture-in-Picture Preview -->
+                        <div class="absolute top-3 left-3 w-28 sm:w-36 aspect-video rounded-2xl overflow-hidden border-2 border-white/40 shadow-2xl bg-slate-900 z-20">
+                            <video
+                                ref="localVideo"
+                                autoplay
+                                playsinline
+                                muted
+                                class="w-full h-full object-cover"
+                            ></video>
+                            <span v-if="!isCameraOn" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-[10px] text-slate-300 font-bold">
+                                {{ __('user.calls.toggle_camera_off') }}
+                            </span>
+                        </div>
+
+                        <!-- Video Call Floating Top Status Badge -->
+                        <div class="absolute top-3 right-3 z-20 flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-mono">
+                            <span class="w-2 h-2 rounded-full" :class="mediaConnectionState === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400 animate-ping'"></span>
+                            <span class="font-bold">{{ mediaConnectionState === 'connected' ? formatTimer(callDuration) : __('user.calls.call_connecting') }}</span>
+                            <span v-if="optimalRouteInfo" class="text-[10px] text-slate-300 border-r border-white/20 pr-1.5 mr-1.5 hidden sm:inline">
+                                {{ optimalRouteInfo }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- AUDIO CALL CONTAINER (Standard Voice Wave Avatar) -->
+                    <div v-else class="relative w-24 h-24 mx-auto flex items-center justify-center">
                         <span class="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping"></span>
                         <div class="w-20 h-20 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xl shadow-emerald-500/40">
                             <svg class="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1282,8 +1436,8 @@ onUnmounted(() => {
                         <div class="text-2xl font-black font-mono tracking-wider text-slate-900 dark:text-white" dir="ltr">
                             {{ destinationInput }}
                         </div>
-                        <div class="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
-                            {{ formatTimer(callDuration) }}
+                        <div v-if="!isVideoCall" class="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-2">
+                            {{ mediaConnectionState === 'connected' ? formatTimer(callDuration) : __('user.calls.call_connecting') }}
                         </div>
 
                         <!-- Real-time Bridge & WebRTC Media Channel Status Indicator -->
@@ -1293,7 +1447,7 @@ onUnmounted(() => {
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>{{ __('user.calls.audio_connected') }}</span>
+                                <span>{{ isVideoCall ? 'اتصال صوتی و تصویری برقرار است' : __('user.calls.audio_connected') }}</span>
                                 <span class="text-slate-400">|</span>
                                 <span>{{ __('user.calls.ping_ms', { ms: pingMs }) }}</span>
                             </div>
@@ -1321,6 +1475,12 @@ onUnmounted(() => {
                                 <span>🟡 {{ __('user.calls.audio_connecting') }}</span>
                                 <span class="text-slate-400">|</span>
                                 <span>{{ __('user.calls.ping_ms', { ms: pingMs }) }}</span>
+                            </div>
+
+                            <!-- Optimal Route Display -->
+                            <div v-if="optimalRouteInfo" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-white/5 flex items-center gap-1.5">
+                                <span>🌐</span>
+                                <span>مسیر ارتباطی: <strong>{{ optimalRouteInfo }}</strong></span>
                             </div>
 
                             <!-- Browser Autoplay Unblock Prompt -->
@@ -1351,9 +1511,53 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <!-- Call Controls -->
-                    <div class="flex items-center justify-center gap-3 sm:gap-4 pt-3">
-                        <!-- Mute / Unmute -->
+                    <!-- Video Controls Row (When in Video Call) -->
+                    <div v-if="isVideoCall" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-around gap-2 max-w-sm mx-auto text-xs">
+                        <!-- Camera Switcher (If multiple cameras available) -->
+                        <button
+                            v-if="availableCameras.length > 1"
+                            type="button"
+                            @click="switchCamera"
+                            class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1 hover:bg-slate-50"
+                            :title="__('user.calls.switch_camera')"
+                        >
+                            <span>🔄</span>
+                            <span class="text-[10px]">{{ __('user.calls.switch_camera') }}</span>
+                        </button>
+
+                        <!-- Video Quality Selector -->
+                        <div class="flex items-center gap-1">
+                            <span class="text-[10px] text-slate-400 font-bold">{{ __('user.calls.video_quality_label') }}</span>
+                            <button
+                                type="button"
+                                @click="setVideoQuality('hd')"
+                                class="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold"
+                                :class="videoQuality === 'hd' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'"
+                            >
+                                HD
+                            </button>
+                            <button
+                                type="button"
+                                @click="setVideoQuality('sd')"
+                                class="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold"
+                                :class="videoQuality === 'sd' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'"
+                            >
+                                SD
+                            </button>
+                            <button
+                                type="button"
+                                @click="setVideoQuality('low')"
+                                class="px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold"
+                                :class="videoQuality === 'low' ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300'"
+                            >
+                                360p
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Call Action Controls (Mute, Camera, Hangup, Speaker) -->
+                    <div class="flex items-center justify-center gap-3 sm:gap-4 pt-3 flex-wrap">
+                        <!-- Mute / Unmute Mic -->
                         <button
                             type="button"
                             @click="toggleMute"
@@ -1367,18 +1571,18 @@ onUnmounted(() => {
                             <span class="text-[9px] font-bold">{{ isMuted ? __('user.calls.muted_label') : __('user.calls.unmuted_label') }}</span>
                         </button>
 
-                        <!-- Noise Cancellation Live Toggle -->
+                        <!-- Camera Toggle (Enable / Disable Video Track) -->
                         <button
                             type="button"
-                            @click="toggleNoiseCancellation"
+                            @click="toggleCamera"
                             class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
-                            :class="isNoiseCancellationEnabled ? 'bg-purple-500/20 border-purple-500 text-purple-600 dark:text-purple-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'"
-                            :title="isNoiseCancellationEnabled ? __('user.calls.nc_btn_active_title') : __('user.calls.nc_btn_inactive_title')"
+                            :class="isCameraOn ? 'bg-indigo-500/20 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'"
+                            :title="isCameraOn ? __('user.calls.toggle_camera_off') : __('user.calls.toggle_camera_on')"
                         >
                             <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
-                            <span class="text-[9px] font-bold">{{ isNoiseCancellationEnabled ? __('user.calls.nc_short_on') : __('user.calls.nc_short_off') }}</span>
+                            <span class="text-[9px] font-bold">{{ isCameraOn ? 'دوربین روشن' : 'دوربین خاموش' }}</span>
                         </button>
 
                         <!-- Hang up button -->
@@ -1435,7 +1639,7 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <!-- Dialed Number Display Area with Contact Picker Link -->
+                    <!-- Clean Responsive Dialed Number Display Area -->
                     <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2 min-h-[60px]">
                         <div class="flex items-center gap-1.5 shrink-0">
                             <span v-if="keypadMode === 'alphanumeric'" class="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-mono font-black text-xs border border-indigo-500/20">
@@ -1451,7 +1655,7 @@ onUnmounted(() => {
                             dir="ltr"
                         />
 
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1 shrink-0">
                             <!-- Contact Picker Button -->
                             <button
                                 type="button"
@@ -1466,10 +1670,11 @@ onUnmounted(() => {
 
                             <!-- Backspace Button -->
                             <button
+                                v-if="destinationInput"
                                 type="button"
                                 @click="backspace"
-                                class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-                                :disabled="!destinationInput"
+                                class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                :title="__('user.calls.clear_input')"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-7.172a2 2 0 01-1.414-.586L3 12z" />
@@ -1568,18 +1773,30 @@ onUnmounted(() => {
                         </button>
                     </div>
 
-                    <!-- Green Action Call Button -->
-                    <div class="pt-2 flex justify-center">
+                    <!-- Dual Action Call Buttons (Voice Call & Video Call) -->
+                    <div class="pt-2 flex items-center justify-center gap-3">
                         <button
                             type="button"
-                            @click="initiateCallAction"
+                            @click="startCall(false, false)"
                             :disabled="!destinationInput.trim() || !selectedLine"
-                            class="w-full max-w-xs py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+                            class="flex-1 py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                             <span>{{ __('user.calls.start_call_btn') }}</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="startCall(false, true)"
+                            :disabled="!destinationInput.trim() || !selectedLine"
+                            class="flex-1 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/30 transition-all active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>{{ __('user.calls.start_video_call_btn') }}</span>
                         </button>
                     </div>
                 </div>
@@ -1683,7 +1900,7 @@ onUnmounted(() => {
             @select="handleContactSelected"
         />
 
-        <!-- Incoming Call Modal Notification -->
+        <!-- Incoming Call Modal Notification (Supports Voice or Video) -->
         <div
             v-if="isIncomingCallModalOpen"
             class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
@@ -1708,12 +1925,12 @@ onUnmounted(() => {
                     </div>
                 </div>
 
-                <div class="flex items-center justify-center gap-3 pt-2">
+                <div class="flex items-center justify-center gap-2 pt-2">
                     <!-- Decline button -->
                     <button
                         type="button"
                         @click="declineIncomingCall"
-                        class="flex-1 py-3 px-4 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-rose-600/30 transition-transform active:scale-95"
+                        class="flex-1 py-3 px-3 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-lg shadow-rose-600/30 transition-transform active:scale-95"
                     >
                         <svg class="w-4 h-4 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -1721,22 +1938,34 @@ onUnmounted(() => {
                         <span>{{ __('user.calls.decline_btn') }}</span>
                     </button>
 
-                    <!-- Answer button -->
+                    <!-- Answer Voice button -->
                     <button
                         type="button"
-                        @click="answerIncomingCall"
-                        class="flex-1 py-3 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-transform active:scale-95"
+                        @click="answerIncomingCall(false)"
+                        class="flex-1 py-3 px-3 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-lg shadow-emerald-600/30 transition-transform active:scale-95"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                         </svg>
-                        <span>{{ __('user.calls.answer_btn') }}</span>
+                        <span>صوتی</span>
+                    </button>
+
+                    <!-- Answer Video button -->
+                    <button
+                        type="button"
+                        @click="answerIncomingCall(true)"
+                        class="flex-1 py-3 px-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1 shadow-lg shadow-indigo-600/30 transition-transform active:scale-95"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        <span>تصویری</span>
                     </button>
                 </div>
             </div>
         </div>
 
-        <!-- Microphone Access & Permission Helper Modal -->
+        <!-- Microphone & Media Access Helper Modal -->
         <div
             v-if="isMicModalOpen"
             class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 dark:bg-black/80 backdrop-blur-md"
@@ -1776,8 +2005,7 @@ onUnmounted(() => {
             </div>
         </div>
 
-        <!-- Offscreen WebRTC Remote Audio Player (rendered in DOM to prevent browser autoplay throttling) -->
+        <!-- Hidden WebRTC Remote Audio Player -->
         <audio ref="remoteAudio" autoplay playsinline class="fixed -top-96 -left-96 w-1 h-1 opacity-0 pointer-events-none"></audio>
     </UserLayout>
 </template>
-
