@@ -515,6 +515,7 @@ type SignalingHub struct {
 	store              *SessionStore
 	secret             string
 	defaultCallbackURL string
+	disconnectTimers   map[string]*time.Timer // sessionID -> grace period timer
 }
 
 func NewSignalingHub(store *SessionStore, secret string, defaultCallbackURL string) *SignalingHub {
@@ -523,6 +524,7 @@ func NewSignalingHub(store *SessionStore, secret string, defaultCallbackURL stri
 		store:              store,
 		secret:             secret,
 		defaultCallbackURL: defaultCallbackURL,
+		disconnectTimers:   make(map[string]*time.Timer),
 	}
 }
 
@@ -598,37 +600,99 @@ func (hub *SignalingHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		hub.Lock()
 		sessID := hub.conns[conn]
 		delete(hub.conns, conn)
+
+		peersLeft := 0
+		for _, s := range hub.conns {
+			if s == sessID {
+				peersLeft++
+			}
+		}
 		hub.Unlock()
 
 		if sessID != "" {
-			sess, hasSess := hub.store.Get(sessID)
-			callbackURL := hub.defaultCallbackURL
-			if hasSess && sess.CallbackURL != "" {
-				callbackURL = sess.CallbackURL
-			}
-			hub.store.End(sessID, 0)
-
-			endMsg := WSMessage{
-				Type:       "call_ended",
-				SessionID:  sessID,
-				Status:     "completed",
-				ServerTime: time.Now().UnixMilli(),
-			}
-			data, _ := json.Marshal(endMsg)
-
-			hub.RLock()
-			for c, s := range hub.conns {
-				if s == sessID {
-					writer := bufio.NewWriter(c)
-					_ = writeWSFrame(writer, 0x01, data)
+			if peersLeft > 0 {
+				// At least one peer remains waiting in session: start 15s grace period for temporary network/socket recovery
+				reconnMsg := WSMessage{
+					Type:       "peer_reconnecting",
+					SessionID:  sessID,
+					Status:     "reconnecting",
+					ServerTime: time.Now().UnixMilli(),
 				}
-			}
-			hub.RUnlock()
+				data, _ := json.Marshal(reconnMsg)
 
-			if callbackURL != "" {
-				notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", sessID, 0)
+				hub.RLock()
+				for c, s := range hub.conns {
+					if s == sessID {
+						writer := bufio.NewWriter(c)
+						_ = writeWSFrame(writer, 0x01, data)
+					}
+				}
+				hub.RUnlock()
+
+				log.Printf("[VOICE-BRIDGE] ⏳ Peer temporarily disconnected (session: %s), 15s grace period active for network recovery...", sessID)
+
+				hub.Lock()
+				if existingTimer, exists := hub.disconnectTimers[sessID]; exists {
+					existingTimer.Stop()
+				}
+				hub.disconnectTimers[sessID] = time.AfterFunc(15*time.Second, func() {
+					hub.Lock()
+					delete(hub.disconnectTimers, sessID)
+					curPeers := 0
+					for _, s := range hub.conns {
+						if s == sessID {
+							curPeers++
+						}
+					}
+					hub.Unlock()
+
+					// If still not reconnected, finalize termination
+					if curPeers <= 1 {
+						sess, hasSess := hub.store.Get(sessID)
+						callbackURL := hub.defaultCallbackURL
+						if hasSess && sess.CallbackURL != "" {
+							callbackURL = sess.CallbackURL
+						}
+						hub.store.End(sessID, 0)
+
+						endMsg := WSMessage{
+							Type:       "call_ended",
+							SessionID:  sessID,
+							Status:     "completed",
+							ServerTime: time.Now().UnixMilli(),
+						}
+						endData, _ := json.Marshal(endMsg)
+
+						hub.RLock()
+						for c, s := range hub.conns {
+							if s == sessID {
+								writer := bufio.NewWriter(c)
+								_ = writeWSFrame(writer, 0x01, endData)
+							}
+						}
+						hub.RUnlock()
+
+						if callbackURL != "" {
+							notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", sessID, 0)
+						}
+						log.Printf("[VOICE-BRIDGE] ⚠️ Grace period expired for session %s (peer did not reconnect). Call ended.", sessID)
+					}
+				})
+				hub.Unlock()
+			} else {
+				// No peers left at all in session - clean up session
+				sess, hasSess := hub.store.Get(sessID)
+				callbackURL := hub.defaultCallbackURL
+				if hasSess && sess.CallbackURL != "" {
+					callbackURL = sess.CallbackURL
+				}
+				hub.store.End(sessID, 0)
+
+				if callbackURL != "" {
+					notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", sessID, 0)
+				}
+				log.Printf("[VOICE-BRIDGE] ⚠️ All peers left session %s, session ended.", sessID)
 			}
-			log.Printf("[VOICE-BRIDGE] ⚠️ WebSocket peer disconnected (session: %s), notified remaining peers and dispatched webhook", sessID)
 		}
 	}()
 
@@ -718,6 +782,11 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 	case "join_session":
 		hub.Lock()
 		hub.conns[conn] = msg.SessionID
+		if timer, exists := hub.disconnectTimers[msg.SessionID]; exists {
+			timer.Stop()
+			delete(hub.disconnectTimers, msg.SessionID)
+			log.Printf("[VOICE-BRIDGE] ✅ Peer reconnected successfully within grace period (session: %s)! Disconnect timer cancelled.", msg.SessionID)
+		}
 		activeInSession := 0
 		for _, sID := range hub.conns {
 			if sID == msg.SessionID {
@@ -821,6 +890,13 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 		}
 
 	case "end_call":
+		hub.Lock()
+		if timer, exists := hub.disconnectTimers[msg.SessionID]; exists {
+			timer.Stop()
+			delete(hub.disconnectTimers, msg.SessionID)
+		}
+		hub.Unlock()
+
 		sess, hasSess := hub.store.Get(msg.SessionID)
 		srcNum := "caller"
 		dstNum := "callee"

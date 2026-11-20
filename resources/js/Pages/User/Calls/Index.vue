@@ -122,6 +122,8 @@ const callError = ref('');
 // WebRTC Video Calling & Multi-Camera Management
 const isVideoCall = ref(false);
 const isCameraOn = ref(false);
+const currentFacingMode = ref<'user' | 'environment'>('user');
+const isSwitchingCamera = ref(false);
 const availableCameras = ref<{ deviceId: string; label: string }[]>([]);
 const selectedCameraId = ref<string>('');
 const videoQuality = ref<'hd' | 'sd' | 'low'>('hd');
@@ -130,6 +132,11 @@ const remoteVideo = ref<HTMLVideoElement | null>(null);
 const videoContainerRef = ref<HTMLElement | null>(null);
 const isFullscreen = ref(false);
 const optimalRouteInfo = ref<string>('');
+const isNetworkDisconnected = ref(false);
+const isPeerReconnecting = ref(false);
+let remoteMediaStream: MediaStream | null = null;
+let wsReconnectTimer: any = null;
+let iceRestartDebounceTimer: any = null;
 
 const toggleFullscreen = async () => {
     try {
@@ -248,10 +255,16 @@ const enumerateCameras = async () => {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        availableCameras.value = videoDevices.map((d, index) => ({
-            deviceId: d.deviceId,
-            label: d.label || `دوربین ${index + 1}`,
-        }));
+        availableCameras.value = videoDevices.map((d, index) => {
+            let label = d.label;
+            if (!label) {
+                label = index === 0 ? 'دوربین جلو / سلفی' : `دوربین ${index + 1}`;
+            }
+            return {
+                deviceId: d.deviceId,
+                label,
+            };
+        });
         if (videoDevices.length > 0 && !selectedCameraId.value) {
             selectedCameraId.value = videoDevices[0].deviceId;
         }
@@ -260,23 +273,21 @@ const enumerateCameras = async () => {
     }
 };
 
+const getVideoQualityResolution = () => {
+    if (videoQuality.value === 'hd') {
+        return { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } };
+    } else if (videoQuality.value === 'sd') {
+        return { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } };
+    }
+    return { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 20 } };
+};
+
 const getVideoConstraints = (): MediaTrackConstraints => {
-    const base: MediaTrackConstraints = {};
+    const base: MediaTrackConstraints = { ...getVideoQualityResolution() };
     if (selectedCameraId.value && selectedCameraId.value.length > 5) {
         base.deviceId = { ideal: selectedCameraId.value };
-    }
-    if (videoQuality.value === 'hd') {
-        base.width = { ideal: 1280 };
-        base.height = { ideal: 720 };
-        base.frameRate = { ideal: 30, max: 30 };
-    } else if (videoQuality.value === 'sd') {
-        base.width = { ideal: 640 };
-        base.height = { ideal: 480 };
-        base.frameRate = { ideal: 24, max: 30 };
     } else {
-        base.width = { ideal: 480 };
-        base.height = { ideal: 360 };
-        base.frameRate = { ideal: 15, max: 20 };
+        base.facingMode = { ideal: currentFacingMode.value };
     }
     return base;
 };
@@ -479,34 +490,71 @@ const toggleCamera = async () => {
     }
 };
 
-// Switch Camera (Front / Rear)
+// Switch Camera (Front / Rear) - Full Mobile and Desktop Support
 const switchCamera = async () => {
-    if (availableCameras.value.length < 2 || !localMediaStream) return;
-    const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
-    const nextIndex = (currentIndex + 1) % availableCameras.value.length;
-    selectedCameraId.value = availableCameras.value[nextIndex].deviceId;
+    if (!localMediaStream || isSwitchingCamera.value) return;
+    isSwitchingCamera.value = true;
+
+    // Toggle facingMode (user <-> environment)
+    currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
+
+    // If multiple camera devices enumerated, advance deviceId selection
+    if (availableCameras.value.length > 1) {
+        const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
+        const nextIndex = (currentIndex + 1) % availableCameras.value.length;
+        selectedCameraId.value = availableCameras.value[nextIndex]?.deviceId || '';
+    } else {
+        selectedCameraId.value = '';
+    }
 
     const currentVideoTracks = localMediaStream.getVideoTracks();
     try {
-        const newStream = await navigator.mediaDevices.getUserMedia({
-            video: getVideoConstraints(),
-        });
-        const newTrack = newStream.getVideoTracks()[0];
-        if (currentVideoTracks.length > 0) {
-            currentVideoTracks[0].stop();
-            localMediaStream.removeTrack(currentVideoTracks[0]);
+        let newStream: MediaStream | null = null;
+        try {
+            // First attempt exact facingMode (standard on iOS Safari and Android Chrome)
+            newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { exact: currentFacingMode.value },
+                    ...getVideoQualityResolution(),
+                },
+            });
+        } catch {
+            // Fallback to general constraints
+            newStream = await navigator.mediaDevices.getUserMedia({
+                video: getVideoConstraints(),
+            });
         }
-        localMediaStream.addTrack(newTrack);
-        attachLocalStreamToVideo();
 
-        if (peerConnection) {
-            const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) {
-                await sender.replaceTrack(newTrack);
+        const newTrack = newStream?.getVideoTracks()[0];
+        if (newTrack) {
+            currentVideoTracks.forEach(t => {
+                t.stop();
+                localMediaStream?.removeTrack(t);
+            });
+            localMediaStream.addTrack(newTrack);
+            await attachLocalStreamToVideo();
+
+            // Seamlessly swap the video track on the WebRTC peer connection sender
+            if (peerConnection) {
+                const senders = peerConnection.getSenders();
+                const videoSender = senders.find(s => s.track?.kind === 'video');
+                if (videoSender) {
+                    await videoSender.replaceTrack(newTrack);
+                } else {
+                    peerConnection.addTrack(newTrack, localMediaStream);
+                    const offer = await peerConnection.createOffer();
+                    await peerConnection.setLocalDescription(offer);
+                    await sendSignalingMessage('offer', offer);
+                }
             }
+            await enumerateCameras();
         }
     } catch (e) {
         console.warn('[WebRTC-Video] Could not switch camera:', e);
+        // Revert facing mode on failure
+        currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
+    } finally {
+        isSwitchingCamera.value = false;
     }
 };
 
@@ -751,8 +799,15 @@ const createPeerConnection = () => {
     pc.ontrack = async (event) => {
         let stream = event.streams && event.streams[0] ? event.streams[0] : null;
         if (!stream && event.track) {
-            stream = new MediaStream([event.track]);
+            if (!remoteMediaStream) {
+                remoteMediaStream = new MediaStream();
+            }
+            remoteMediaStream.addTrack(event.track);
+            stream = remoteMediaStream;
+        } else if (stream) {
+            remoteMediaStream = stream;
         }
+
         if (event.track.kind === 'video') {
             isVideoCall.value = true;
             await nextTick();
@@ -760,6 +815,11 @@ const createPeerConnection = () => {
                 remoteVideo.value.srcObject = stream;
                 remoteVideo.value.play().catch(() => {});
             }
+            event.track.onunmute = () => {
+                if (remoteVideo.value) {
+                    remoteVideo.value.play().catch(() => {});
+                }
+            };
         } else if (event.track.kind === 'audio') {
             if (remoteAudio.value && stream) {
                 remoteAudio.value.srcObject = stream;
@@ -774,6 +834,11 @@ const createPeerConnection = () => {
                         isAudioPlaybackBlocked.value = true;
                     });
             }
+            event.track.onunmute = () => {
+                if (remoteAudio.value) {
+                    remoteAudio.value.play().catch(() => {});
+                }
+            };
         }
     };
 
@@ -791,15 +856,30 @@ const createPeerConnection = () => {
         if (st === 'connected' || st === 'completed' || pc.connectionState === 'connected') {
             mediaConnectionState.value = 'connected';
             isBridgeConnected.value = true;
+            isNetworkDisconnected.value = false;
+            isPeerReconnecting.value = false;
             startCallTimer();
+            if (remoteVideo.value) {
+                remoteVideo.value.play().catch(() => {});
+            }
         } else if (st === 'failed' || pc.connectionState === 'failed') {
             mediaConnectionState.value = 'failed';
+            isNetworkDisconnected.value = true;
             const hasTurn = Boolean((activeRtcConfig.value || props.rtc_config)?.hasTurn);
             if (!hasTurn) {
                 callError.value = __('user.calls.turn_required_error');
             }
+            setTimeout(() => {
+                if (isCalling.value) performIceRestart();
+            }, 1000);
         } else if (st === 'disconnected') {
             mediaConnectionState.value = 'disconnected';
+            isNetworkDisconnected.value = true;
+            setTimeout(() => {
+                if (isCalling.value && pc.iceConnectionState === 'disconnected') {
+                    performIceRestart();
+                }
+            }, 2500);
         } else if (st === 'checking') {
             mediaConnectionState.value = 'connecting';
         }
@@ -908,6 +988,58 @@ const pollSignals = async () => {
     }
 };
 
+// Perform WebRTC ICE Restart and Media Track Recovery
+const performIceRestart = async () => {
+    if (!peerConnection || !isCalling.value) return;
+    if (iceRestartDebounceTimer) return;
+    iceRestartDebounceTimer = setTimeout(() => {
+        iceRestartDebounceTimer = null;
+    }, 2000);
+
+    console.log('[WebRTC] 🔄 Performing ICE restart and renegotiating media tracks...');
+    try {
+        if (localMediaStream) {
+            const senders = peerConnection.getSenders();
+            localMediaStream.getTracks().forEach(track => {
+                if (track.readyState === 'live') {
+                    const sender = senders.find(s => s.track?.kind === track.kind);
+                    if (sender) {
+                        sender.replaceTrack(track).catch(() => {});
+                    }
+                }
+            });
+        }
+
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        if (offer.sdp) {
+            offer.sdp = enhanceOpusSdp(offer.sdp);
+        }
+        await peerConnection.setLocalDescription(offer);
+        await sendSignalingMessage('offer', offer);
+
+        if (remoteVideo.value) {
+            remoteVideo.value.play().catch(() => {});
+        }
+        if (remoteAudio.value) {
+            remoteAudio.value.play().catch(() => {});
+        }
+    } catch (e) {
+        console.warn('[WebRTC] ICE restart failed:', e);
+    }
+};
+
+const scheduleWsReconnect = () => {
+    if (!isCalling.value || !bridgeWsEndpoint.value) return;
+    if (wsReconnectTimer) return;
+    wsReconnectTimer = setTimeout(() => {
+        wsReconnectTimer = null;
+        if (isCalling.value && bridgeWsEndpoint.value && (!bridgeSocket || bridgeSocket.readyState === WebSocket.CLOSED || bridgeSocket.readyState === WebSocket.CLOSING)) {
+            console.log('[WebRTC-WS] 🔄 Retrying connection to voice bridge...');
+            connectBridgeWebSocket(bridgeWsEndpoint.value);
+        }
+    }, 1500);
+};
+
 // WebSocket signaling connection to Voice Bridge
 const connectBridgeWebSocket = (wsUrl: string) => {
     try {
@@ -929,7 +1061,12 @@ const connectBridgeWebSocket = (wsUrl: string) => {
 
         bridgeSocket = new WebSocket(targetWsUrl);
         bridgeSocket.onopen = () => {
+            if (wsReconnectTimer) {
+                clearTimeout(wsReconnectTimer);
+                wsReconnectTimer = null;
+            }
             isBridgeConnected.value = true;
+            isNetworkDisconnected.value = false;
             if (bridgeSessionId.value) {
                 bridgeSocket?.send(JSON.stringify({
                     type: 'join_session',
@@ -944,6 +1081,7 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                     } catch {}
                 }
             }
+            if (bridgePingInterval) clearInterval(bridgePingInterval);
             bridgePingInterval = setInterval(() => {
                 if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
                     bridgeSocket.send(JSON.stringify({
@@ -953,6 +1091,11 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                     }));
                 }
             }, 2500);
+
+            // If reconnecting while peer connection was interrupted, trigger ICE restart to rebind media
+            if (peerConnection && (mediaConnectionState.value === 'disconnected' || mediaConnectionState.value === 'failed' || isNetworkDisconnected.value)) {
+                setTimeout(performIceRestart, 400);
+            }
         };
         bridgeSocket.onmessage = (event) => {
             try {
@@ -964,10 +1107,17 @@ const connectBridgeWebSocket = (wsUrl: string) => {
                     } else if (typeof msg.ping_ms === 'number' && msg.ping_ms > 0) {
                         pingMs.value = msg.ping_ms;
                     }
-                } else if (msg.type === 'channel_connected') {
+                } else if (msg.type === 'channel_connected' || msg.type === 'peer_reconnected') {
                     isBridgeConnected.value = true;
+                    isPeerReconnecting.value = false;
+                    isNetworkDisconnected.value = false;
                     mediaConnectionState.value = 'connected';
                     startCallTimer();
+                    if (remoteVideo.value) {
+                        remoteVideo.value.play().catch(() => {});
+                    }
+                } else if (msg.type === 'peer_reconnecting') {
+                    isPeerReconnecting.value = true;
                 } else if (msg.type === 'call_ended') {
                     callError.value = __('user.calls.call_ended_by_peer');
                     endCall();
@@ -980,13 +1130,16 @@ const connectBridgeWebSocket = (wsUrl: string) => {
         };
         bridgeSocket.onerror = () => {
             isBridgeConnected.value = false;
+            scheduleWsReconnect();
         };
         bridgeSocket.onclose = () => {
             isBridgeConnected.value = false;
             if (bridgePingInterval) clearInterval(bridgePingInterval);
+            scheduleWsReconnect();
         };
     } catch {
         isBridgeConnected.value = false;
+        scheduleWsReconnect();
     }
 };
 
@@ -1304,11 +1457,31 @@ const navigateHistoryPage = (url: string | null) => {
     });
 };
 
+const handleOnline = () => {
+    console.log('[WebRTC] 🌐 Network online event detected');
+    isNetworkDisconnected.value = false;
+    if (isCalling.value) {
+        scheduleWsReconnect();
+        setTimeout(() => {
+            performIceRestart();
+        }, 600);
+    }
+};
+
+const handleOffline = () => {
+    console.warn('[WebRTC] ⚠️ Network offline event detected');
+    if (isCalling.value) {
+        isNetworkDisconnected.value = true;
+    }
+};
+
 onMounted(() => {
     resetMediaControlStates();
     if (typeof window !== 'undefined') {
         window.addEventListener('beforeunload', handlePageUnload);
         window.addEventListener('pagehide', handlePageUnload);
+        window.addEventListener('online', handleOnline);
+        window.addEventListener('offline', handleOffline);
         document.addEventListener('fullscreenchange', () => {
             isFullscreen.value = Boolean(document.fullscreenElement);
         });
@@ -1376,7 +1549,11 @@ onUnmounted(() => {
     if (typeof window !== 'undefined') {
         window.removeEventListener('beforeunload', handlePageUnload);
         window.removeEventListener('pagehide', handlePageUnload);
+        window.removeEventListener('online', handleOnline);
+        window.removeEventListener('offline', handleOffline);
     }
+    if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
+    if (iceRestartDebounceTimer) clearTimeout(iceRestartDebounceTimer);
     handlePageUnload();
     resetMediaControlStates();
     stopCallTimer();
@@ -1515,6 +1692,21 @@ onUnmounted(() => {
             <div v-if="activeTab === 'dialer'" :class="['glass-card !p-5 mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300', isCalling && isVideoCall ? 'max-w-4xl' : 'max-w-lg']">
                 <!-- If currently in active call session -->
                 <div v-if="isCalling" class="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                    <!-- Network Status Alert Banner -->
+                    <div
+                        v-if="isNetworkDisconnected || isPeerReconnecting"
+                        class="p-3 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-600 dark:text-amber-300 text-xs font-bold text-center flex items-center justify-center gap-2 animate-pulse shadow-lg"
+                    >
+                        <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>
+                            {{ isNetworkDisconnected 
+                                ? 'اتصال اینترنت شما قطع شد. در حال تلاش برای اتصال مجدد و همگام‌سازی دوباره تصویر و صدا...' 
+                                : 'ارتباط طرف مقابل موقتاً قطع شده است. در حال انتظار برای بازیابی اتصال همتا...' }}
+                        </span>
+                    </div>
+
                     <!-- VIDEO CALL CONTAINER (When Video is enabled) -->
                     <div
                         v-if="isVideoCall"
@@ -1536,11 +1728,25 @@ onUnmounted(() => {
                                 autoplay
                                 playsinline
                                 muted
-                                class="w-full h-full object-cover"
+                                class="w-full h-full object-cover transition-transform"
+                                :class="currentFacingMode === 'user' ? '-scale-x-100' : ''"
                             ></video>
                             <span v-if="!isCameraOn" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-[10px] text-slate-300 font-bold">
                                 {{ __('user.calls.toggle_camera_off') }}
                             </span>
+                            <!-- Quick Switch Camera Button on PiP -->
+                            <button
+                                v-if="isCameraOn"
+                                type="button"
+                                @click.stop="switchCamera"
+                                :disabled="isSwitchingCamera"
+                                class="absolute bottom-1 right-1 w-6 h-6 rounded-md bg-black/70 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all"
+                                :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
+                            >
+                                <svg class="w-3.5 h-3.5" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                            </button>
                         </div>
 
                         <!-- Video Call Floating Top Status Badge -->
@@ -1659,17 +1865,20 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Video Controls Row (When in Video Call) -->
-                    <div v-if="isVideoCall" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-around gap-2 max-w-sm mx-auto text-xs">
-                        <!-- Camera Switcher (If multiple cameras available) -->
+                    <div v-if="isVideoCall" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-around gap-2 max-w-sm mx-auto text-xs flex-wrap">
+                        <!-- Camera Switcher -->
                         <button
-                            v-if="availableCameras.length > 1"
+                            v-if="isCameraOn"
                             type="button"
                             @click="switchCamera"
-                            class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1 hover:bg-slate-50"
-                            :title="__('user.calls.switch_camera')"
+                            :disabled="isSwitchingCamera"
+                            class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1.5 hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                            :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
                         >
-                            <span>🔄</span>
-                            <span class="text-[10px]">{{ __('user.calls.switch_camera') }}</span>
+                            <svg class="w-3.5 h-3.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span class="text-[10px] font-bold">{{ currentFacingMode === 'user' ? 'دوربین: جلو (سلفی)' : 'دوربین: عقب' }}</span>
                         </button>
 
                         <!-- Video Quality Selector -->
@@ -1702,7 +1911,7 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <!-- Call Action Controls (Mute, Camera, Hangup, Speaker) -->
+                    <!-- Call Action Controls (Mute, Camera, Switch Camera, Hangup, Speaker) -->
                     <div class="flex items-center justify-center gap-3 sm:gap-4 pt-3 flex-wrap">
                         <!-- Mute / Unmute Mic -->
                         <button
@@ -1730,6 +1939,21 @@ onUnmounted(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
                             <span class="text-[9px] font-bold">{{ isCameraOn ? 'دوربین روشن' : 'دوربین خاموش' }}</span>
+                        </button>
+
+                        <!-- Camera Switch Button in Action Controls -->
+                        <button
+                            v-if="isCameraOn"
+                            type="button"
+                            @click="switchCamera"
+                            :disabled="isSwitchingCamera"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-500 transition-all active:scale-95 disabled:opacity-50"
+                            :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
+                        >
+                            <svg class="w-4 h-4 mb-0.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ currentFacingMode === 'user' ? 'دوربین جلو' : 'دوربین عقب' }}</span>
                         </button>
 
                         <!-- Hang up button -->
