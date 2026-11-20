@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
@@ -244,8 +244,8 @@ const enumerateCameras = async () => {
 
 const getVideoConstraints = (): MediaTrackConstraints => {
     const base: MediaTrackConstraints = {};
-    if (selectedCameraId.value) {
-        base.deviceId = { exact: selectedCameraId.value };
+    if (selectedCameraId.value && selectedCameraId.value.length > 5) {
+        base.deviceId = { ideal: selectedCameraId.value };
     }
     if (videoQuality.value === 'hd') {
         base.width = { ideal: 1280 };
@@ -263,7 +263,8 @@ const getVideoConstraints = (): MediaTrackConstraints => {
     return base;
 };
 
-const attachLocalStreamToVideo = () => {
+const attachLocalStreamToVideo = async () => {
+    await nextTick();
     if (localVideo.value && localMediaStream) {
         localVideo.value.srcObject = localMediaStream;
         localVideo.value.play().catch(() => {});
@@ -279,44 +280,50 @@ const requestMediaAccess = async (withVideo = false): Promise<boolean> => {
         return false;
     }
 
+    // Step 1: Request microphone track
     try {
-        const constraints: MediaStreamConstraints = {
+        const stream = await navigator.mediaDevices.getUserMedia({
             audio: {
                 echoCancellation: { ideal: true },
                 noiseSuppression: { ideal: isNoiseCancellationEnabled.value },
                 autoGainControl: { ideal: true },
             },
-        };
-        if (withVideo) {
-            constraints.video = getVideoConstraints();
-        }
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        });
         localMediaStream = stream;
         micPermissionGranted.value = true;
         isMicModalOpen.value = false;
         callError.value = '';
-
-        if (withVideo && stream.getVideoTracks().length > 0) {
-            isCameraOn.value = true;
-            isVideoCall.value = true;
-            attachLocalStreamToVideo();
-            await enumerateCameras();
-        }
-
-        console.log('[WebRTC] 🎙️ Audio/Video initialized. Video:', withVideo, '| Noise Cancellation:', isNoiseCancellationEnabled.value);
-        return true;
-    } catch (err: any) {
-        if (withVideo) {
-            console.warn('[WebRTC] Camera access failed or blocked, falling back to audio-only:', err);
-            isVideoCall.value = false;
-            return await requestMediaAccess(false);
-        }
+    } catch {
         micPermissionGranted.value = false;
         isMicModalOpen.value = true;
         callError.value = __('user.calls.mic_blocked');
         return false;
     }
+
+    // Step 2: If withVideo requested, explicitly request camera stream
+    if (withVideo) {
+        try {
+            const videoStream = await navigator.mediaDevices.getUserMedia({
+                video: getVideoConstraints(),
+            });
+            const vTrack = videoStream.getVideoTracks()[0];
+            if (vTrack && localMediaStream) {
+                localMediaStream.addTrack(vTrack);
+                isCameraOn.value = true;
+                isVideoCall.value = true;
+                await attachLocalStreamToVideo();
+                await enumerateCameras();
+            }
+        } catch (videoErr: any) {
+            console.warn('[WebRTC] Camera access failed or blocked:', videoErr);
+            isVideoCall.value = false;
+            isCameraOn.value = false;
+            callError.value = __('user.calls.audio_only_fallback');
+        }
+    }
+
+    console.log('[WebRTC] 🎙️ Audio/Video initialized. Video:', withVideo, '| Noise Cancellation:', isNoiseCancellationEnabled.value);
+    return true;
 };
 
 const retryMicrophoneAndCall = async () => {
@@ -361,26 +368,28 @@ const toggleCamera = async () => {
                 video: getVideoConstraints(),
             });
             const newTrack = videoStream.getVideoTracks()[0];
-            localMediaStream.addTrack(newTrack);
-            isCameraOn.value = true;
-            isVideoCall.value = true;
-            attachLocalStreamToVideo();
+            if (newTrack) {
+                localMediaStream.addTrack(newTrack);
+                isCameraOn.value = true;
+                isVideoCall.value = true;
+                await attachLocalStreamToVideo();
 
-            if (peerConnection) {
-                const senders = peerConnection.getSenders();
-                const videoSender = senders.find(s => s.track?.kind === 'video');
-                if (videoSender) {
-                    await videoSender.replaceTrack(newTrack);
-                } else {
-                    peerConnection.addTrack(newTrack, localMediaStream);
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await sendSignalingMessage('offer', offer);
+                if (peerConnection) {
+                    const senders = peerConnection.getSenders();
+                    const videoSender = senders.find(s => s.track?.kind === 'video');
+                    if (videoSender) {
+                        await videoSender.replaceTrack(newTrack);
+                    } else {
+                        peerConnection.addTrack(newTrack, localMediaStream);
+                        const offer = await peerConnection.createOffer();
+                        await peerConnection.setLocalDescription(offer);
+                        await sendSignalingMessage('offer', offer);
+                    }
                 }
             }
         } catch (e) {
             console.warn('[WebRTC-Video] Could not enable camera:', e);
-            callError.value = __('user.calls.audio_only_fallback');
+            callError.value = __('softphone.devices.cam_permission_denied') || __('user.calls.audio_only_fallback');
         }
     }
 };
@@ -563,11 +572,11 @@ let pendingCandidates: RTCIceCandidateInit[] = [];
 const detectOptimalRoute = (candidate: RTCIceCandidate) => {
     let routeDesc = '';
     if (candidate.type === 'relay') {
-        routeDesc = 'سرور رله امن (TURN)';
+        routeDesc = 'سرور رله امن';
     } else if (candidate.type === 'srflx') {
-        routeDesc = 'ارتباط بهینه P2P (STUN)';
+        routeDesc = 'ارتباط اینترنتی مستقیم';
     } else if (candidate.type === 'host') {
-        routeDesc = 'اتصال مستقیم شبکه (Host P2P)';
+        routeDesc = 'اتصال مستقیم همتا‌به‌همتا';
     }
     if (routeDesc && (!optimalRouteInfo.value || candidate.type === 'relay')) {
         optimalRouteInfo.value = routeDesc;
@@ -636,13 +645,14 @@ const createPeerConnection = () => {
     }
 
     // Connect remote incoming audio and video streams
-    pc.ontrack = (event) => {
+    pc.ontrack = async (event) => {
         let stream = event.streams && event.streams[0] ? event.streams[0] : null;
         if (!stream && event.track) {
             stream = new MediaStream([event.track]);
         }
         if (event.track.kind === 'video') {
             isVideoCall.value = true;
+            await nextTick();
             if (remoteVideo.value && stream) {
                 remoteVideo.value.srcObject = stream;
                 remoteVideo.value.play().catch(() => {});

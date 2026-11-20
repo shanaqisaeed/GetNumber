@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onUnmounted, watch } from 'vue';
+import { ref, onUnmounted, watch, nextTick } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import { __ } from '@/Composables/useTrans';
 import { CalmRingtone } from '@/Utils/ringtone';
@@ -42,12 +42,14 @@ async function enumerateVideoDevices() {
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoInputs = devices.filter(d => d.kind === 'videoinput');
-        availableCameras.value = videoInputs.map((d, i) => ({
-            deviceId: d.deviceId,
-            label: d.label || `دوربین ${i + 1}`,
-        }));
-        if (videoInputs.length > 0 && !selectedCameraId.value) {
-            selectedCameraId.value = videoInputs[0].deviceId;
+        availableCameras.value = videoInputs
+            .filter(d => Boolean(d.deviceId))
+            .map((d, i) => ({
+                deviceId: d.deviceId,
+                label: d.label || `دوربین ${i + 1}`,
+            }));
+        if (availableCameras.value.length > 0 && !selectedCameraId.value) {
+            selectedCameraId.value = availableCameras.value[0].deviceId;
         }
     } catch {}
 }
@@ -128,13 +130,16 @@ function toggleTestSound() {
 async function startCameraTest() {
     cameraError.value = null;
     try {
-        const constraints: MediaStreamConstraints = {
-            video: selectedCameraId.value
-                ? { deviceId: { exact: selectedCameraId.value } }
-                : { width: { ideal: 1280 }, height: { ideal: 720 } },
-        };
-        cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const videoConstraints: boolean | MediaTrackConstraints = (selectedCameraId.value && selectedCameraId.value.length > 5)
+            ? { deviceId: { ideal: selectedCameraId.value } }
+            : true;
+
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraints,
+        });
         isTestingCamera.value = true;
+
+        await nextTick();
         if (testVideo.value) {
             testVideo.value.srcObject = cameraStream;
             testVideo.value.play().catch(() => {});
@@ -148,7 +153,8 @@ async function startCameraTest() {
                 cameraResolution.value = `${settings.width}×${settings.height}${settings.frameRate ? ` (${Math.round(settings.frameRate)}fps)` : ''}`;
             }
         }
-    } catch {
+    } catch (err: any) {
+        console.error('[CameraTest] Error requesting camera:', err);
         cameraError.value = __('softphone.devices.cam_permission_denied');
         stopCameraTest();
     }
@@ -183,9 +189,28 @@ function closeModal() {
     emit('close');
 }
 
-watch(() => props.show, (newVal) => {
+// Automatically trigger test when switching tabs
+watch(activeTab, async (newTab) => {
+    if (newTab === 'video') {
+        stopMicTest();
+        await nextTick();
+        if (!isTestingCamera.value) {
+            await startCameraTest();
+        }
+    } else {
+        stopCameraTest();
+        if (!isTestingMic.value) {
+            await startMicTest();
+        }
+    }
+});
+
+watch(() => props.show, async (newVal) => {
     if (newVal) {
-        enumerateVideoDevices();
+        activeTab.value = 'audio';
+        await enumerateVideoDevices();
+        await nextTick();
+        await startMicTest();
     } else {
         stopMicTest();
         stopCameraTest();
