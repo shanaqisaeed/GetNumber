@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\PhoneNumberStatus;
 use App\Enums\PhoneNumberType;
 use App\Enums\UserRole;
+use App\Models\Message;
 use App\Models\Organization;
 use App\Models\OrganizationMember;
 use App\Models\OrganizationWallet;
@@ -351,5 +352,55 @@ class CommercialTransformationTest extends TestCase
         $this->assertArrayHasKey('bulk_sms', $faOrg);
         $this->assertArrayHasKey('wallet', $faOrg);
         $this->assertArrayHasKey('contacts', $faOrg);
+    }
+
+    /**
+     * Test 9: Softphone dashboard renders recent conversations without SQL column errors.
+     */
+    public function test_softphone_dashboard_renders_successfully_with_recent_conversations(): void
+    {
+        $line = PhoneNumber::create([
+            'user_id' => $this->user->id,
+            'phone_prefix_id' => $this->prefix->id,
+            'number' => '100888',
+            'formatted_number' => '+98100888',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+        ]);
+
+        // Inbound unread SMS
+        Message::create([
+            'phone_number_id' => $line->id,
+            'destination_number' => $line->number,
+            'sender' => '+989121111111',
+            'peer_number' => '+989121111111',
+            'body' => 'Hello from peer 1',
+            'server_received_at' => now(),
+            'direction' => \App\Enums\MessageDirection::Inbound,
+            'processing_status' => \App\Enums\MessageProcessingStatus::Received,
+        ]);
+
+        // Outbound SMS
+        Message::create([
+            'phone_number_id' => $line->id,
+            'destination_number' => '+989121111111',
+            'sender' => $line->number,
+            'peer_number' => '+989121111111',
+            'body' => 'Reply to peer 1',
+            'server_received_at' => now(),
+            'direction' => \App\Enums\MessageDirection::Outbound,
+            'processing_status' => \App\Enums\MessageProcessingStatus::Processed,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('dashboard'));
+
+        $response->assertOk();
+        $response->assertInertia(fn ($page) => $page
+            ->component('User/Softphone/Dashboard')
+            ->has('recent_conversations', 1)
+            ->where('recent_conversations.0.peer', '+989121111111')
+            ->where('recent_conversations.0.unread_count', 1)
+            ->where('recent_conversations.0.last_message', 'Reply to peer 1')
+        );
     }
 }
