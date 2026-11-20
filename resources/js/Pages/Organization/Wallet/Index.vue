@@ -28,6 +28,8 @@ interface MemberUsageItem {
 
 const props = defineProps<{
     balance: string;
+    personal_balance?: string;
+    is_admin?: boolean;
     currency: string;
     transactions: {
         data: TransactionItem[];
@@ -52,6 +54,20 @@ const isDepositModalOpen = ref(false);
 const depositForm = useForm({
     amount: 500000,
 });
+
+const isTransferModalOpen = ref(false);
+const transferForm = useForm({
+    amount: 100,
+});
+
+function submitTransfer() {
+    transferForm.post(route('org.wallet.transfer_from_personal'), {
+        onSuccess: () => {
+            isTransferModalOpen.value = false;
+            transferForm.reset();
+        },
+    });
+}
 
 const presetAmounts = [100000, 250000, 500000, 1000000, 2000000];
 
@@ -85,14 +101,26 @@ function submitDeposit() {
                     </p>
                 </div>
 
-                <button
-                    type="button"
-                    @click="isDepositModalOpen = true"
-                    class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition-all flex items-center gap-2 self-start sm:self-auto active:scale-95"
-                >
-                    <span>💳</span>
-                    <span>{{ __('organization.wallet.deposit') }}</span>
-                </button>
+                <div class="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                    <button
+                        v-if="is_admin"
+                        type="button"
+                        @click="isTransferModalOpen = true"
+                        class="px-4 py-3 rounded-2xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-500 dark:text-indigo-300 border border-indigo-500/30 font-extrabold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-xs"
+                    >
+                        <span>🔄</span>
+                        <span>{{ __('organization.wallet.transfer_from_personal') }}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="isDepositModalOpen = true"
+                        class="px-5 py-3 rounded-2xl bg-purple-600 hover:bg-purple-500 text-white font-extrabold text-xs shadow-lg shadow-purple-600/30 transition-all flex items-center gap-2 active:scale-95"
+                    >
+                        <span>💳</span>
+                        <span>{{ __('organization.wallet.deposit') }}</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Staff Usage Breakdown Card -->
@@ -251,6 +279,63 @@ function submitDeposit() {
                             class="px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold shadow-md shadow-purple-600/30 disabled:opacity-50"
                         >
                             {{ __('organization.wallet.deposit_button') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </Modal>
+
+        <!-- Transfer from Personal Wallet Modal (Admin Only) -->
+        <Modal :show="isTransferModalOpen" max-width="md" @close="isTransferModalOpen = false">
+            <div class="p-6 space-y-5">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-black text-slate-900 dark:text-white">
+                        {{ __('organization.wallet.transfer_modal_title') }}
+                    </h3>
+                    <button type="button" @click="isTransferModalOpen = false" class="text-slate-400 hover:text-white text-xs">✕</button>
+                </div>
+
+                <p class="text-xs text-slate-400">
+                    {{ __('organization.wallet.transfer_modal_desc') }}
+                </p>
+
+                <div class="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-between text-xs">
+                    <span class="text-slate-600 dark:text-slate-300 font-bold">{{ __('organization.wallet.personal_balance_label') }}</span>
+                    <span class="font-mono font-black text-indigo-600 dark:text-indigo-400" dir="ltr">
+                        {{ personal_balance || '0' }} {{ currency }}
+                    </span>
+                </div>
+
+                <form @submit.prevent="submitTransfer" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            {{ __('organization.wallet.transfer_amount') }}
+                        </label>
+                        <input
+                            v-model.number="transferForm.amount"
+                            type="number"
+                            min="0.0001"
+                            step="any"
+                            required
+                            dir="ltr"
+                            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+
+                    <div class="flex items-center justify-end gap-2 pt-2">
+                        <button
+                            type="button"
+                            @click="isTransferModalOpen = false"
+                            class="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                            {{ __('ui.buttons.cancel') }}
+                        </button>
+                        <button
+                            type="submit"
+                            :disabled="transferForm.processing"
+                            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 disabled:opacity-50"
+                        >
+                            {{ __('organization.wallet.submit_transfer') }}
                         </button>
                     </div>
                 </form>

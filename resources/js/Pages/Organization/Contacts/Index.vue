@@ -33,15 +33,21 @@ const filteredContacts = computed(() => {
 
 const form = useForm({
     name: '',
+    type: 'phone' as 'phone' | 'custom_id',
     phone_number: '',
     notes: '',
 });
 
 function submitAddContact() {
+    const raw = form.phone_number.trim();
+    if (form.type === 'custom_id' && !raw.startsWith('@')) {
+        form.phone_number = '@' + raw;
+    }
     form.post(route('org.contacts.store'), {
         onSuccess: () => {
             isAddModalOpen.value = false;
             form.reset();
+            form.type = 'phone';
         },
     });
 }
@@ -183,6 +189,33 @@ function deleteContact(contact: ContactItem) {
                 </div>
 
                 <form @submit.prevent="submitAddContact" class="space-y-4">
+                    <!-- Contact Type Selection (Phone vs Custom ID) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            {{ __('organization.contacts.contact_type') }}
+                        </label>
+                        <div class="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800">
+                            <button
+                                type="button"
+                                @click="form.type = 'phone'"
+                                class="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                                :class="form.type === 'phone' ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'"
+                            >
+                                <span>📞</span>
+                                <span>{{ __('organization.contacts.type_phone') }}</span>
+                            </button>
+                            <button
+                                type="button"
+                                @click="form.type = 'custom_id'"
+                                class="py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                                :class="form.type === 'custom_id' ? 'bg-white dark:bg-slate-900 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-white'"
+                            >
+                                <span>🆔</span>
+                                <span>{{ __('organization.contacts.type_custom_id') }}</span>
+                            </button>
+                        </div>
+                    </div>
+
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                             {{ __('organization.contacts.name') }}
@@ -197,13 +230,14 @@ function deleteContact(contact: ContactItem) {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            {{ __('organization.contacts.phone') }}
+                            {{ form.type === 'custom_id' ? __('organization.contacts.type_custom_id') : __('organization.contacts.type_phone') }}
                         </label>
                         <input
                             v-model="form.phone_number"
                             type="text"
                             required
                             dir="ltr"
+                            :placeholder="form.type === 'custom_id' ? __('organization.contacts.identifier_placeholder_id') : __('organization.contacts.identifier_placeholder_phone')"
                             class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
                         />
                     </div>

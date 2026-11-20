@@ -56,4 +56,5 @@ Route::middleware(['auth'])->prefix('org')->name('org.')->group(function () {
     // Corporate Ledger & Wallet
     Route::get('/wallet', [OrgWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/deposit', [OrgWalletController::class, 'deposit'])->name('wallet.deposit');
+    Route::post('/wallet/transfer-from-personal', [OrgWalletController::class, 'transferFromPersonal'])->name('wallet.transfer_from_personal');
 });

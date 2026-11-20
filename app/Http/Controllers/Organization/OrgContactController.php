@@ -51,11 +51,16 @@ class OrgContactController extends Controller
             'notes' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $phoneOrId = trim($validated['phone_number']);
+        if ($request->input('type') === 'custom_id' && ! str_starts_with($phoneOrId, '@')) {
+            $phoneOrId = '@' . $phoneOrId;
+        }
+
         $org->sharedContacts()->create([
             'user_id' => $user->id,
             'is_shared' => true,
             'name' => $validated['name'],
-            'phone_number' => $validated['phone_number'],
+            'phone_number' => $phoneOrId,
             'avatar_color' => $validated['avatar_color'] ?? 'indigo',
             'notes' => $validated['notes'] ?? null,
         ]);

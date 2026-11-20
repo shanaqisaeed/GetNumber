@@ -47,6 +47,8 @@ const estimateResult = ref<{
     per_segment_rate: number;
     total_cost: number;
     has_sufficient_balance: boolean;
+    estimated_cost?: number;
+    total_segments?: number;
 } | null>(null);
 
 // Batch details modal state
@@ -240,12 +242,12 @@ function submitCampaign() {
                             <div class="flex items-center justify-between text-xs font-bold">
                                 <span class="text-slate-600 dark:text-slate-300">{{ __('organization.bulk_sms.estimated_cost') }}:</span>
                                 <span class="text-purple-600 dark:text-purple-400 font-mono font-black" dir="ltr">
-                                    {{ estimateResult.total_cost.toLocaleString() }} {{ currency }}
+                                    {{ (estimateResult.total_cost ?? estimateResult.estimated_cost ?? 0).toLocaleString() }} {{ currency }}
                                 </span>
                             </div>
                             <div class="flex items-center justify-between text-[11px] text-slate-400">
-                                <span>{{ __('organization.bulk_sms.estimated_recipients') }}: {{ estimateResult.recipients_count }}</span>
-                                <span>{{ __('organization.bulk_sms.total_segments') }}: {{ estimateResult.segments }}</span>
+                                <span>{{ __('organization.bulk_sms.estimated_recipients') }}: {{ estimateResult.recipients_count ?? rawRecipientsList.length }}</span>
+                                <span>{{ __('organization.bulk_sms.total_segments') }}: {{ estimateResult.total_segments ?? estimateResult.segments ?? 1 }}</span>
                             </div>
                             <div v-if="!estimateResult.has_sufficient_balance" class="text-rose-500 text-xs font-bold pt-1">
                                 ⚠️ {{ __('organization.bulk_sms.insufficient_org_balance') }}

@@ -14,8 +14,16 @@ interface MemberItem {
     account_id?: string;
     role: string;
     status: string;
-    assigned_line: string | null;
+    assigned_line: any;
     joined_at: string;
+}
+
+function formatAssignedLine(line: any): string {
+    if (!line) return '';
+    if (typeof line === 'object') {
+        return line.formatted_number || line.number || '';
+    }
+    return String(line);
 }
 
 interface AvailableLineItem {
@@ -178,7 +186,7 @@ function removeMember(member: MemberItem) {
                                 <td class="p-4">
                                     <div v-if="member.assigned_line" class="flex items-center gap-2">
                                         <span class="px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-500 font-mono font-bold text-xs border border-emerald-500/20" dir="ltr">
-                                            {{ member.assigned_line }}
+                                            {{ formatAssignedLine(member.assigned_line) }}
                                         </span>
                                         <button
                                             type="button"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
@@ -193,6 +193,12 @@ const ensureAtPrefix = () => {
         destinationInput.value = '@' + destinationInput.value;
     }
 };
+
+watch(destinationInput, (val) => {
+    if (val && (val.startsWith('@') || (/[a-zA-Z]/.test(val) && !val.startsWith('+')))) {
+        keypadMode.value = 'alphanumeric';
+    }
+});
 
 // Request Microphone Access with Intelligent Acoustic Noise Suppression
 const requestMicrophoneAccess = async (): Promise<boolean> => {
@@ -703,10 +709,15 @@ const startCall = async (skipMicCheck = false) => {
     }
 
     try {
+        let cleanDest = destinationInput.value.trim();
+        if ((keypadMode.value === 'alphanumeric' || /^[a-zA-Z_]/.test(cleanDest)) && !cleanDest.startsWith('@') && !cleanDest.startsWith('+') && !/^\d+$/.test(cleanDest)) {
+            cleanDest = '@' + cleanDest;
+        }
+
         const res = await axios.post(route('voice.initiate'), {
             line_key: selectedLineKey.value || undefined,
             phone_number_id: selectedLine.value?.id,
-            destination: destinationInput.value.trim(),
+            destination: cleanDest,
         });
 
         if (res.data?.success && res.data.call) {
@@ -959,7 +970,30 @@ const formatTimer = (seconds: number) => {
 // Redial / Call from History or Contact
 const dialNumber = (number: string) => {
     destinationInput.value = number.replace(/\s+/g, '');
-    activeTab.value = 'dialer';
+    setTab('dialer');
+};
+
+const setTab = (tab: 'dialer' | 'history') => {
+    activeTab.value = tab;
+    if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href);
+        if (tab === 'history') {
+            url.searchParams.set('tab', 'history');
+        } else {
+            url.searchParams.delete('tab');
+        }
+        window.history.replaceState({}, '', url.toString());
+    }
+};
+
+const navigateHistoryPage = (url: string | null) => {
+    if (!url) return;
+    const urlObj = new URL(url, window.location.origin);
+    urlObj.searchParams.set('tab', 'history');
+    router.visit(urlObj.toString(), {
+        preserveState: true,
+        preserveScroll: true,
+    });
 };
 
 onMounted(() => {
@@ -972,9 +1006,8 @@ onMounted(() => {
                 keypadMode.value = 'alphanumeric';
             }
             activeTab.value = 'dialer';
-            if (params.get('auto_open') === '1') {
-                isAutoInitiateModalOpen.value = true;
-            }
+        } else if (params.get('tab') === 'history' || params.has('page')) {
+            activeTab.value = 'history';
         }
         const lineKeyParam = params.get('line_key');
         if (lineKeyParam) {
@@ -1184,7 +1217,7 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2 flex-1 max-w-md">
                     <button
                         type="button"
-                        @click="activeTab = 'dialer'"
+                        @click="setTab('dialer')"
                         class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
                         :class="activeTab === 'dialer'
                             ? 'bg-emerald-600 border-emerald-600 text-white shadow-md shadow-emerald-600/20'
@@ -1198,7 +1231,7 @@ onUnmounted(() => {
 
                     <button
                         type="button"
-                        @click="activeTab = 'history'"
+                        @click="setTab('history')"
                         class="flex-1 py-2.5 px-3 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border"
                         :class="activeTab === 'history'
                             ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/20'
@@ -1404,15 +1437,11 @@ onUnmounted(() => {
 
                     <!-- Dialed Number Display Area with Contact Picker Link -->
                     <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2 min-h-[60px]">
-                        <button
-                            type="button"
-                            v-if="destinationInput"
-                            @click="clearInput"
-                            class="text-xs text-slate-400 hover:text-rose-500 font-bold px-2"
-                        >
-                            {{ __('user.calls.clear_input') }}
-                        </button>
-                        <div v-else class="w-12"></div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <span v-if="keypadMode === 'alphanumeric'" class="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-mono font-black text-xs border border-indigo-500/20">
+                                @
+                            </span>
+                        </div>
 
                         <input
                             type="text"
@@ -1627,7 +1656,7 @@ onUnmounted(() => {
                             v-for="(link, i) in calls.links"
                             :key="i"
                             type="button"
-                            @click="link.url && router.visit(link.url)"
+                            @click="navigateHistoryPage(link.url)"
                             class="px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
                             :class="[
                                 link.active ? 'bg-indigo-600 text-white shadow-md' : 'glass-pill text-slate-600 dark:text-slate-400',

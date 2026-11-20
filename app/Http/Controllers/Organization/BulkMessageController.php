@@ -102,6 +102,7 @@ class BulkMessageController extends Controller
             'total_segments' => $totalSegments,
             'rate_per_segment' => $ratePerSegment,
             'estimated_cost' => $estimatedCost,
+            'total_cost' => $estimatedCost,
             'org_balance' => (string) $wallet->balance,
             'has_sufficient_balance' => $hasEnoughBalance,
             'has_enough_balance' => $hasEnoughBalance,
@@ -112,7 +113,7 @@ class BulkMessageController extends Controller
     /**
      * Dispatch enterprise bulk SMS campaign.
      */
-    public function send(Request $request): JsonResponse
+    public function send(Request $request): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $user = $request->user();
         $org = $user->getOrCreatePersonalOrganization();
@@ -120,18 +121,22 @@ class BulkMessageController extends Controller
 
         $validated = $request->validate([
             'from_number_id' => ['required', 'exists:phone_numbers,id'],
-            'destinations' => ['required'],
+            'destinations' => ['nullable'],
+            'recipients_text' => ['nullable', 'string'],
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
         $fromNumber = PhoneNumber::where('organization_id', $org->id)
             ->findOrFail($validated['from_number_id']);
 
-        $rawDest = $validated['destinations'];
-        $destArray = is_string($rawDest) ? preg_split('/[\r\n,]+/', $rawDest) : (array) $rawDest;
-        $destArray = array_values(array_filter(array_map('trim', $destArray)));
+        $rawDest = $validated['destinations'] ?? $validated['recipients_text'] ?? '';
+        $destArray = is_string($rawDest) ? preg_split('/[\r\n,;]+/', $rawDest) : (array) $rawDest;
+        $destArray = array_values(array_filter(array_map('trim', $destArray), fn($s) => strlen($s) >= 7));
 
         if (empty($destArray)) {
+            if ($request->header('X-Inertia')) {
+                return back()->with('error', __('system.validation_error'));
+            }
             return response()->json([
                 'success' => false,
                 'message' => __('system.validation_error'),
@@ -144,6 +149,9 @@ class BulkMessageController extends Controller
         $totalCost = round(count($destArray) * $segmentInfo['segments_count'] * $ratePerSegment, 4);
 
         if (bccomp((string) $wallet->balance, (string) $totalCost, 4) < 0) {
+            if ($request->header('X-Inertia')) {
+                return back()->with('error', __('organization.bulk_sms.insufficient_org_balance'));
+            }
             return response()->json([
                 'success' => false,
                 'message' => __('organization.bulk_sms.insufficient_org_balance'),
@@ -166,6 +174,10 @@ class BulkMessageController extends Controller
             userId: $user->id,
             metadata: ['batch_id' => $batch->batch_id, 'recipients_count' => count($destArray)]
         );
+
+        if ($request->header('X-Inertia')) {
+            return back()->with('success', __('organization.bulk_sms.campaign_started'));
+        }
 
         return response()->json([
             'success' => true,

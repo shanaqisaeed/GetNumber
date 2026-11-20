@@ -100,14 +100,13 @@ function handleContactSelected(contact: PickerContactItem) {
     startCall(contact.phone_number);
 }
 
-// Start Call: Redirects to /calls with prefilled destination and auto_open modal for noise cancellation review
+// Start Call: Redirects to /calls with prefilled destination directly into dialer input
 function startCall(dest?: string) {
     const target = dest || destinationInput.value;
     if (!target) return;
 
     router.visit(route('calls.index', {
         destination: target.trim(),
-        auto_open: 1,
     }));
 }
 </script>

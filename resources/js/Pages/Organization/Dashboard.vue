@@ -28,7 +28,15 @@ interface MemberPreview {
     email: string;
     role: string;
     status: string;
-    assigned_line: string | null;
+    assigned_line: any;
+}
+
+function formatAssignedLine(line: any): string {
+    if (!line) return '';
+    if (typeof line === 'object') {
+        return line.formatted_number || line.number || '';
+    }
+    return String(line);
 }
 
 const props = defineProps<{
@@ -226,7 +234,7 @@ const props = defineProps<{
 
                             <div class="text-left shrink-0">
                                 <span v-if="member.assigned_line" class="inline-block px-2 py-0.5 rounded-lg bg-emerald-500/10 text-emerald-500 font-mono text-xs font-bold" dir="ltr">
-                                    {{ member.assigned_line }}
+                                    {{ formatAssignedLine(member.assigned_line) }}
                                 </span>
                                 <span v-else class="text-[11px] text-slate-400 italic">
                                     {{ __('organization.team.no_line_assigned') }}
