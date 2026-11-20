@@ -22,16 +22,13 @@ class LineManagementController extends Controller
         $user = $request->user();
         $org = $user->getOrCreatePersonalOrganization();
 
-        // 0. Automatically link corporate/enterprise numbers (4-8 digits, UserService, etc.) to the organization
+        // 0. Automatically link corporate/enterprise service numbers (strictly determined by commercial type)
         PhoneNumber::where('user_id', $user->id)
             ->whereNull('organization_id')
-            ->where(function ($sub) {
-                $sub->whereRaw('LENGTH(number) BETWEEN 4 AND 8')
-                    ->orWhereIn('type', [
-                        PhoneNumberType::UserService->value,
-                        PhoneNumberType::PlatformService->value,
-                    ]);
-            })
+            ->whereIn('type', [
+                PhoneNumberType::UserService->value,
+                PhoneNumberType::PlatformService->value,
+            ])
             ->update([
                 'organization_id' => $org->id,
                 'is_organization' => true,
@@ -48,7 +45,7 @@ class LineManagementController extends Controller
         $members = $org->members()->with('user')->get();
         $membersByUserId = $members->keyBy('user_id');
 
-        // 1. Organization phone numbers (including 4-8 digit shortcodes and corporate service lines)
+        // 1. Organization phone numbers (strictly commercial/service types or org-allocated numbers)
         $phoneLines = PhoneNumber::query()
             ->with(['assignedUser', 'phonePrefix'])
             ->where(function ($q) use ($org, $user) {
@@ -56,13 +53,10 @@ class LineManagementController extends Controller
                   ->orWhere('is_organization', true)
                   ->orWhere(function ($sub) use ($user) {
                       $sub->where('user_id', $user->id)
-                          ->where(function ($tq) {
-                              $tq->whereRaw('LENGTH(number) BETWEEN 4 AND 8')
-                                 ->orWhereIn('type', [
-                                     PhoneNumberType::UserService->value,
-                                     PhoneNumberType::PlatformService->value,
-                                 ]);
-                          });
+                          ->whereIn('type', [
+                              PhoneNumberType::UserService->value,
+                              PhoneNumberType::PlatformService->value,
+                          ]);
                   });
             })
             ->get()

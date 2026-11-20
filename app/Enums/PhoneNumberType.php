@@ -26,4 +26,9 @@ enum PhoneNumberType: string
     {
         return $this === self::UserService || $this === self::PlatformService;
     }
+
+    public function isCommercial(): bool
+    {
+        return $this === self::UserService || $this === self::PlatformService;
+    }
 }

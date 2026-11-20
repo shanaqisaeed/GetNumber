@@ -409,13 +409,23 @@ class CommercialTransformationTest extends TestCase
      */
     public function test_organization_lines_inventory_renders_cleanly_and_includes_shortcode_lines(): void
     {
-        // Add a 4-digit shortcode number
+        // Add a 4-digit shortcode number with commercial UserService type
         $shortNumber = PhoneNumber::create([
             'user_id' => $this->user->id,
             'phone_prefix_id' => $this->prefix->id,
             'number' => '1010',
             'formatted_number' => '+981010',
             'type' => PhoneNumberType::UserService,
+            'status' => PhoneNumberStatus::Allocated,
+        ]);
+
+        // Add a 4-digit number with standard user type (must NOT be treated as commercial)
+        $standardNumber = PhoneNumber::create([
+            'user_id' => $this->user->id,
+            'phone_prefix_id' => $this->prefix->id,
+            'number' => '2020',
+            'formatted_number' => '+982020',
+            'type' => PhoneNumberType::UserStandard,
             'status' => PhoneNumberStatus::Allocated,
         ]);
 
@@ -431,16 +441,18 @@ class CommercialTransformationTest extends TestCase
         $response->assertOk();
         $response->assertInertia(fn ($page) => $page
             ->component('Organization/Lines/Index')
-            ->has('lines')
+            ->has('lines', 1)
+            ->where('lines.0.number', '1010')
             ->has('eligible_members', 1)
             ->where('eligible_members.0.email', $employeeUser->email)
         );
 
         $this->assertEquals($this->org->id, $shortNumber->fresh()->organization_id);
+        $this->assertNull($standardNumber->fresh()->organization_id);
     }
 
     /**
-     * Test 11: Organization requests index aggregates stats across both requests and enterprise service orders.
+     * Test 11: Organization requests index aggregates stats and shows orders inside the main requests list.
      */
     public function test_organization_requests_aggregates_service_orders_in_stats(): void
     {
@@ -466,8 +478,10 @@ class CommercialTransformationTest extends TestCase
         $response->assertInertia(fn ($page) => $page
             ->component('Organization/Requests/Index')
             ->where('stats.approved', 1)
-            ->has('enterprise_orders', 1)
-            ->where('enterprise_orders.0.requested_identifier', '@saeed')
+            ->has('requests.data', 1)
+            ->where('requests.data.0.order_number', 'SRV-TEST-001')
+            ->where('requests.data.0.status', 'approved')
+            ->where('requests.data.0.requested_identifier', '@saeed')
         );
     }
 }

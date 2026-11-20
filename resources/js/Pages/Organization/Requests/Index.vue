@@ -12,7 +12,10 @@ interface AllocatedNumber {
 }
 
 interface NumberRequestItem {
-    id: number;
+    id: string | number;
+    raw_id?: number;
+    order_number?: string;
+    item_type?: 'number_request' | 'service_order';
     phone_prefix_id?: number | null;
     prefix?: {
         id: number;
@@ -20,22 +23,23 @@ interface NumberRequestItem {
         country_name?: string;
         flag?: string;
     } | null;
-    requested_length: number;
+    requested_length?: number | null;
     service_title: string;
-    description: string;
-    preferred_number: string | null;
+    description?: string | null;
+    preferred_number?: string | null;
+    requested_identifier?: string | null;
     is_rond?: boolean;
     rond_tier?: string;
     held_amount?: string;
     hold_reference_id?: string;
-    accepts_incoming_sms: boolean;
+    accepts_incoming_sms?: boolean;
     status: 'pending' | 'approved' | 'rejected';
     status_label: string;
     status_badge: string;
-    rejection_reason: string | null;
-    allocated_number: AllocatedNumber | null;
-    reviewer_name: string | null;
-    reviewed_at: string | null;
+    rejection_reason?: string | null;
+    allocated_number?: AllocatedNumber | null;
+    reviewer_name?: string | null;
+    reviewed_at?: string | null;
     created_at: string;
 }
 
@@ -394,13 +398,25 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     <!-- Header: Service Title & Status Badge -->
                     <div class="flex items-center justify-between gap-2">
                         <div class="flex items-center flex-wrap gap-2 min-w-0">
+                            <!-- Order / Request Code -->
+                            <span v-if="req.order_number" class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20 text-slate-500 dark:text-slate-400 shrink-0" dir="ltr">
+                                {{ req.order_number }}
+                            </span>
                             <span v-if="req.prefix" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-700 dark:text-indigo-400 shrink-0">
                                 {{ req.prefix.flag }} {{ req.prefix.prefix }}
                             </span>
-                            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0">
+                            <span v-if="req.requested_length" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0">
                                 {{ __('user.requests.digits_unit', { count: req.requested_length }) }}
                             </span>
                             <span
+                                v-if="req.requested_identifier"
+                                class="text-[10px] font-mono font-black px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-400 shrink-0"
+                                dir="ltr"
+                            >
+                                {{ req.requested_identifier }}
+                            </span>
+                            <span
+                                v-if="req.accepts_incoming_sms !== undefined && req.item_type === 'number_request'"
                                 class="text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0"
                                 :class="req.accepts_incoming_sms ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400' : 'bg-slate-500/10 border-slate-500/30 text-slate-500'"
                             >
@@ -408,9 +424,10 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             </span>
                             <span
                                 v-if="req.held_amount && Number(req.held_amount) > 0"
-                                class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 shrink-0"
+                                class="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 shrink-0"
+                                dir="ltr"
                             >
-                                {{ __('user.requests.held_amount', { amount: req.held_amount }) }}
+                                {{ req.held_amount }} TRX
                             </span>
                             <span class="text-xs font-black text-slate-900 dark:text-white truncate">
                                 {{ req.service_title }}
@@ -470,7 +487,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             >{{ __('user.requests.details') }}</button>
 
                             <button
-                                v-if="req.status === 'pending'"
+                                v-if="req.status === 'pending' && req.item_type !== 'service_order'"
                                 type="button"
                                 @click="openCancelModal(req)"
                                 class="font-bold text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300"
@@ -521,52 +538,6 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                     </button>
                 </div>
             </div>
-
-            <!-- 4. Recent Enterprise Multi-Service Orders & Contracts History (Bottom Section) -->
-            <div v-if="enterprise_orders && enterprise_orders.length > 0" class="glass-card !p-4 space-y-3 bg-white/90 dark:bg-slate-900/60 border-slate-200/90 dark:border-white/10">
-                <div class="flex items-center justify-between border-b border-slate-200/70 dark:border-white/10 pb-2.5">
-                    <div class="flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-                        <h3 class="text-xs font-black text-slate-900 dark:text-white">
-                            {{ __('catalog.ui.enterprise_orders_history') }}
-                        </h3>
-                    </div>
-                    <span class="text-[10px] text-slate-500 font-mono">
-                        {{ enterprise_orders.length }} {{ __('user.requests.details') }}
-                    </span>
-                </div>
-                <div class="space-y-2">
-                    <div
-                        v-for="ord in enterprise_orders"
-                        :key="ord.id"
-                        class="p-3 rounded-xl bg-slate-100/80 dark:bg-slate-950/60 border border-slate-200/80 dark:border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs hover:border-purple-500/30 transition-all"
-                    >
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="font-mono font-bold text-[11px] text-slate-400" dir="ltr">{{ ord.order_number }}</span>
-                            <span class="font-bold text-slate-800 dark:text-slate-200">{{ ord.service_title }}</span>
-                            <span class="font-mono font-black text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs" dir="ltr">{{ ord.requested_identifier }}</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span
-                                class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border shadow-xs"
-                                :class="ord.status === 'completed' || ord.status === 'approved' || ord.status === 'fulfilled'
-                                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                                    : ord.status === 'rejected' || ord.status === 'cancelled'
-                                    ? 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                                    : 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400'"
-                            >
-                                {{ ord.status === 'completed' || ord.status === 'approved' || ord.status === 'fulfilled'
-                                    ? __('user.requests.stat_approved')
-                                    : ord.status === 'rejected' || ord.status === 'cancelled'
-                                    ? __('user.requests.stat_rejected')
-                                    : __('user.requests.stat_pending') }}
-                            </span>
-                            <span class="font-mono font-bold text-emerald-600 dark:text-emerald-400" dir="ltr">{{ ord.final_amount }} TRX</span>
-                            <span class="text-[10px] text-slate-400 font-mono">{{ ord.created_at }}</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <!-- 5. Details Modal -->
@@ -592,7 +563,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <div class="w-9 h-9 rounded-2xl bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25 flex items-center justify-center text-base shrink-0 shadow-sm">
                                     🔍
                                 </div>
-                                <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.requests.modal_details_title', { id: selectedRequest.id }) }}</h3>
+                                <h3 class="font-black text-sm text-slate-900 dark:text-white">{{ __('user.requests.modal_details_title', { id: selectedRequest.order_number || selectedRequest.id }) }}</h3>
                             </div>
                             <button
                                 type="button"
@@ -616,11 +587,19 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                                 <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_title') }}</span>
                                 <span class="font-bold text-slate-900 dark:text-white">{{ selectedRequest.service_title }}</span>
                             </div>
-                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                            <div v-if="selectedRequest.requested_identifier" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.preferred_number') }}</span>
+                                <span dir="ltr" class="font-mono font-black text-purple-600 dark:text-purple-400">{{ selectedRequest.requested_identifier }}</span>
+                            </div>
+                            <div v-if="selectedRequest.requested_length" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
                                 <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_length') }}</span>
                                 <span class="font-mono font-bold text-purple-600 dark:text-purple-400">{{ __('user.requests.digits_unit', { count: selectedRequest.requested_length }) }}</span>
                             </div>
-                            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                            <div v-if="selectedRequest.held_amount && Number(selectedRequest.held_amount) > 0" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
+                                <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.held_amount_label') }}</span>
+                                <span dir="ltr" class="font-mono font-bold text-emerald-600 dark:text-emerald-400">{{ selectedRequest.held_amount }} TRX</span>
+                            </div>
+                            <div v-if="selectedRequest.accepts_incoming_sms !== undefined && selectedRequest.item_type === 'number_request'" class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/70 dark:border-white/5">
                                 <span class="text-slate-500 dark:text-slate-400">{{ __('user.requests.detail_incoming') }}</span>
                                 <span
                                     class="text-[10px] font-bold px-2.5 py-0.5 rounded-full border"
