@@ -358,6 +358,51 @@ const applyCloudflarePreset = () => {
     bridgeForm.offline_mode = false;
 };
 
+const applyGlobalStunPoolPreset = () => {
+    bridgeForm.stun_urls = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun3.l.google.com:19302",
+        "stun:stun4.l.google.com:19302",
+        "stun:stun.cloudflare.com:3478",
+        "stun:stun.sipgate.net:3478",
+        "stun:stun.sipgate.net:10000",
+        "stun:stun.voip.blackberry.com:3478",
+        "stun:stun.wire.com:3478",
+        "stun:stun.schlund.de"
+    ].join('\n');
+    bridgeForm.turn_urls = '';
+    bridgeForm.turn_domain_or_ip = '';
+    bridgeForm.turn_secret = '';
+    bridgeForm.turn_username = '';
+    bridgeForm.turn_credential = '';
+    bridgeForm.turns_enabled = false;
+    bridgeForm.offline_mode = false;
+};
+
+const applyOpenRelayPreset = () => {
+    bridgeForm.stun_urls = [
+        "stun:stun.cloudflare.com:3478",
+        "stun:stun.l.google.com:19302",
+        "stun:openrelay.metered.ca:80"
+    ].join('\n');
+    bridgeForm.turn_urls = [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp",
+        "turns:openrelay.metered.ca:443?transport=tcp"
+    ].join('\n');
+    bridgeForm.turn_username = 'openrelayproject';
+    bridgeForm.turn_credential = 'openrelayproject';
+    bridgeForm.turn_domain_or_ip = 'openrelay.metered.ca';
+    bridgeForm.turn_port = 80;
+    bridgeForm.turns_port = 443;
+    bridgeForm.turns_enabled = true;
+    bridgeForm.turn_secret = '';
+    bridgeForm.offline_mode = false;
+};
+
 const applyPrivatePreset = () => {
     const host = (bridgeForm.host && bridgeForm.host !== '0.0.0.0' && bridgeForm.host !== '127.0.0.1')
         ? bridgeForm.host
@@ -1208,6 +1253,22 @@ const testBridgeConnection = async () => {
                                         </button>
                                         <button
                                             type="button"
+                                            @click="applyGlobalStunPoolPreset"
+                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition shadow-xs flex items-center gap-1"
+                                        >
+                                            <span>🌐</span>
+                                            <span>استخر جامع STUN های جهانی</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            @click="applyOpenRelayPreset"
+                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 transition shadow-xs flex items-center gap-1"
+                                        >
+                                            <span>🔄</span>
+                                            <span>رله رایگان OpenRelay (TURN)</span>
+                                        </button>
+                                        <button
+                                            type="button"
                                             @click="applyPrivatePreset"
                                             class="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition shadow-xs flex items-center gap-1"
                                         >
@@ -1222,9 +1283,21 @@ const testBridgeConnection = async () => {
                                     <!-- Public vs Private STUN/TURN Clarification Notice -->
                                     <div class="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
                                         <span class="shrink-0 text-sm">💡</span>
-                                        <span>
-                                            <strong>توجه درباره سرورهای گوگل و کلادفلر:</strong> این سرورها صرفاً خدمات رایگان STUN (کشف IP عمومی و برقراری مستقیم P2P) ارائه می‌دهند و فاقد رله TURN یا کلید HMAC هستند؛ لذا با انتخاب آنها، فیلدهای TURN و کلید اعتبارسنجی خودکار خالی می‌شوند. در صورت نیاز به رله تضمینی از پشت فایروال‌های بسته شرکتی، از پریست «سرور شخصی Coturn» استفاده نمایید.
-                                        </span>
+                                        <div class="space-y-1">
+                                            <div>
+                                                <strong>راهنمای گزینه‌ها و رله‌ها:</strong>
+                                                سرورهای گوگل، کلادفلر و استخر جامع جهانی صرفاً پروتکل STUN (یافتن آی‌پی عمومی) را ارائه می‌دهند. برای عبور از فایروال‌های متقارن و بسته‌های بسته (Symmetric NAT)، نیاز به سرور TURN است.
+                                            </div>
+                                            <div>
+                                                • <strong>OpenRelay:</strong> سرویس رایگان اشتراکی برای تست و رله عمومی TURN بدون نیاز به سرور اختصاصی.
+                                            </div>
+                                            <div>
+                                                • <strong>Xirsys TURN:</strong> در صورت استفاده از اکانت Xirsys (مطابق <a href="https://docs.xirsys.com/api/turn" target="_blank" class="underline font-bold">مستندات Xirsys API</a>)، می‌توانید آدرس رله و کلیدهای آن را در کادرهای TURN زیر وارد نمایید.
+                                            </div>
+                                            <div>
+                                                • <strong>سرور شخصی Coturn:</strong> بالاترین پایداری، کیفیت و امنیت اختصاصی با رمزنگاری TLS (TURNS).
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

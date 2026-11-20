@@ -123,10 +123,28 @@ const submitOrgWalletAdjustment = () => {
 
 function formatAssignedLine(line: any): string {
     if (!line) return '-';
-    if (typeof line === 'object') {
-        return line.formatted_number || line.number || line.display_title || '-';
+    let parsed = line;
+    if (typeof line === 'string') {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+                parsed = JSON.parse(trimmed);
+            } catch {
+                return trimmed;
+            }
+        } else {
+            return trimmed;
+        }
     }
-    return String(line);
+    if (parsed && typeof parsed === 'object') {
+        const num = parsed.formatted_number || parsed.number || '';
+        const title = parsed.display_title || '';
+        if (num && title && num !== title) {
+            return `${num} (${title})`;
+        }
+        return num || title || '-';
+    }
+    return String(parsed);
 }
 
 // User Profile & Account Form

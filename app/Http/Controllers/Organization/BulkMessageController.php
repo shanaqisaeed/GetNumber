@@ -28,8 +28,12 @@ class BulkMessageController extends Controller
         $org = $user->getOrCreatePersonalOrganization();
         $wallet = $org->getOrCreateWallet();
 
-        // Sender lines belonging to the organization
-        $senderLines = $org->phoneNumbers()
+        // Sender lines belonging to the organization or owner
+        $senderLines = PhoneNumber::where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
+            ->where('is_active', true)
             ->with('phonePrefix')
             ->get()
             ->map(fn ($p) => [
@@ -41,19 +45,24 @@ class BulkMessageController extends Controller
             ]);
 
         // Recent batches for organization lines
-        $phoneIds = $org->phoneNumbers()->pluck('id');
+        $phoneIds = PhoneNumber::where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
+            ->pluck('id');
+
         $recentBatches = MessageBatch::whereIn('phone_number_id', $phoneIds)
             ->latest('id')
             ->limit(10)
             ->get()
             ->map(fn ($b) => [
-                'batch_id' => $b->batch_id,
-                'total_count' => $b->total_count,
-                'processed_count' => $b->processed_count,
-                'success_count' => $b->success_count,
-                'failed_count' => $b->failed_count,
-                'status' => $b->status,
-                'created_at' => $b->created_at->format('Y/m/d H:i'),
+                'batch_id' => (string) $b->batch_id,
+                'total_count' => (int) $b->total_count,
+                'processed_count' => (int) $b->processed_count,
+                'success_count' => (int) $b->success_count,
+                'failed_count' => (int) $b->failed_count,
+                'status' => (string) $b->status,
+                'created_at' => $b->created_at?->format('Y/m/d H:i') ?: '',
             ]);
 
         return Inertia::render('Organization/BulkSms/Index', [
@@ -81,7 +90,10 @@ class BulkMessageController extends Controller
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
-        $fromNumber = PhoneNumber::where('organization_id', $org->id)
+        $fromNumber = PhoneNumber::where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
             ->with('phonePrefix')
             ->findOrFail($validated['from_number_id']);
 
@@ -167,7 +179,10 @@ class BulkMessageController extends Controller
             'body' => ['required', 'string', 'max:2000'],
         ]);
 
-        $fromNumber = PhoneNumber::where('organization_id', $org->id)
+        $fromNumber = PhoneNumber::where(function ($q) use ($org, $user) {
+                $q->where('organization_id', $org->id)
+                  ->orWhere('user_id', $user->id);
+            })
             ->with('phonePrefix')
             ->findOrFail($validated['from_number_id']);
 

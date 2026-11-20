@@ -127,7 +127,25 @@ const selectedCameraId = ref<string>('');
 const videoQuality = ref<'hd' | 'sd' | 'low'>('hd');
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
+const videoContainerRef = ref<HTMLElement | null>(null);
+const isFullscreen = ref(false);
 const optimalRouteInfo = ref<string>('');
+
+const toggleFullscreen = async () => {
+    try {
+        if (!document.fullscreenElement) {
+            if (videoContainerRef.value?.requestFullscreen) {
+                await videoContainerRef.value.requestFullscreen();
+                isFullscreen.value = true;
+            }
+        } else {
+            if (document.exitFullscreen) {
+                await document.exitFullscreen();
+                isFullscreen.value = false;
+            }
+        }
+    } catch {}
+};
 
 // Bridge & WebRTC State
 const bridgeSessionId = ref<string | null>(null);
@@ -462,34 +480,54 @@ const toggleNoiseCancellation = async () => {
     }
 };
 
-// Enhance Opus SDP with In-Band FEC & DTX
+// Enhance Opus SDP with In-Band FEC & DTX (Strict RFC 4566 CRLF compliance)
 const enhanceOpusSdp = (sdp?: string): string => {
     if (!sdp || !sdp.includes('opus/48000')) {
         return sdp || '';
     }
-    const match = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
-    if (!match) {
-        return sdp;
-    }
-    const pt = match[1];
-    const fmtpRegex = new RegExp(`a=fmtp:${pt}\\s+([^\\r\\n]+)`, 'i');
-    const existing = sdp.match(fmtpRegex);
+    try {
+        // Normalize line endings to LF first for clean processing
+        const normalized = sdp.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const lines = normalized.split('\n');
 
-    if (existing) {
-        let params = existing[1];
-        if (!params.includes('useinbandfec=')) {
-            params += ';useinbandfec=1';
+        const ptMatch = normalized.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+        if (!ptMatch) {
+            return sdp;
         }
-        if (!params.includes('usedtx=')) {
-            params += ';usedtx=1';
+        const pt = ptMatch[1];
+        let foundFmtp = false;
+
+        const newLines: string[] = [];
+        for (const line of lines) {
+            if (line.toLowerCase().startsWith(`a=fmtp:${pt}`)) {
+                foundFmtp = true;
+                let params = line.substring(`a=fmtp:${pt}`.length).trim();
+                if (!params.includes('useinbandfec=')) {
+                    params += (params ? ';' : '') + 'useinbandfec=1';
+                }
+                if (!params.includes('usedtx=')) {
+                    params += (params ? ';' : '') + 'usedtx=1';
+                }
+                if (!params.includes('stereo=')) {
+                    params += (params ? ';' : '') + 'stereo=0';
+                }
+                newLines.push(`a=fmtp:${pt} ${params}`);
+            } else {
+                newLines.push(line);
+            }
         }
-        if (!params.includes('stereo=')) {
-            params += ';stereo=0';
+
+        if (!foundFmtp) {
+            const rtpmapIdx = newLines.findIndex(l => l.toLowerCase().startsWith(`a=rtpmap:${pt}`));
+            if (rtpmapIdx !== -1) {
+                newLines.splice(rtpmapIdx + 1, 0, `a=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0`);
+            }
         }
-        return sdp.replace(fmtpRegex, `a=fmtp:${pt} ${params}`);
-    } else {
-        const replacement = `a=rtpmap:${pt} opus/48000/2\r\na=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0`;
-        return sdp.replace(new RegExp(`a=rtpmap:${pt}\\s+opus\\/48000\\/2`, 'i'), replacement);
+
+        // Rejoin strictly with RFC 4566 CRLF (\r\n) and terminate with \r\n
+        return newLines.filter(l => l.length > 0).join('\r\n') + '\r\n';
+    } catch {
+        return sdp;
     }
 };
 
@@ -513,8 +551,6 @@ const activeRtcConfig = ref<{
 const buildRtcConfiguration = (): RTCConfiguration => {
     const cfg = activeRtcConfig.value || props.rtc_config;
     const iceServers: RTCIceServer[] = Array.isArray(cfg?.iceServers) ? cfg.iceServers : [];
-    console.log('[WebRTC] 🌐 Effective ICE Servers configuration:', JSON.stringify(iceServers, null, 2));
-    console.log('[WebRTC] 🛡️ Has TURN:', Boolean(cfg?.hasTurn), '| Policy:', cfg?.iceTransportPolicy || 'all');
     return {
         iceServers: iceServers,
         iceTransportPolicy: (cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
@@ -1200,6 +1236,9 @@ const navigateHistoryPage = (url: string | null) => {
 
 onMounted(() => {
     if (typeof window !== 'undefined') {
+        document.addEventListener('fullscreenchange', () => {
+            isFullscreen.value = Boolean(document.fullscreenElement);
+        });
         const params = new URLSearchParams(window.location.search);
         const target = params.get('destination') || params.get('peer') || params.get('to') || params.get('number') || params.get('custom_id');
         
@@ -1394,11 +1433,15 @@ onUnmounted(() => {
             <!-- ======================================================== -->
             <!-- TAB 1: PHONE DIALER & ACTIVE CALL (VOICE & VIDEO)        -->
             <!-- ======================================================== -->
-            <div v-if="activeTab === 'dialer'" class="glass-card !p-5 max-w-lg mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl">
+            <div v-if="activeTab === 'dialer'" :class="['glass-card !p-5 mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300', isCalling && isVideoCall ? 'max-w-4xl' : 'max-w-lg']">
                 <!-- If currently in active call session -->
                 <div v-if="isCalling" class="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
                     <!-- VIDEO CALL CONTAINER (When Video is enabled) -->
-                    <div v-if="isVideoCall" class="relative w-full aspect-video rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center">
+                    <div
+                        v-if="isVideoCall"
+                        ref="videoContainerRef"
+                        class="relative w-full aspect-video rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center group"
+                    >
                         <!-- Remote Video Feed -->
                         <video
                             ref="remoteVideo"
@@ -1408,7 +1451,7 @@ onUnmounted(() => {
                         ></video>
 
                         <!-- Local Video Picture-in-Picture Preview -->
-                        <div class="absolute top-3 left-3 w-28 sm:w-36 aspect-video rounded-2xl overflow-hidden border-2 border-white/40 shadow-2xl bg-slate-900 z-20">
+                        <div class="absolute top-3 left-3 w-28 sm:w-40 aspect-video rounded-2xl overflow-hidden border-2 border-white/40 shadow-2xl bg-slate-900 z-20 transition-all">
                             <video
                                 ref="localVideo"
                                 autoplay
@@ -1429,6 +1472,21 @@ onUnmounted(() => {
                                 {{ optimalRouteInfo }}
                             </span>
                         </div>
+
+                        <!-- Fullscreen Toggle Overlay Button -->
+                        <button
+                            type="button"
+                            @click="toggleFullscreen"
+                            class="absolute bottom-3 right-3 z-20 w-8 h-8 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white flex items-center justify-center transition-all opacity-80 hover:opacity-100"
+                            :title="isFullscreen ? __('user.calls.exit_fullscreen') : __('user.calls.fullscreen')"
+                        >
+                            <svg v-if="isFullscreen" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                            <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                            </svg>
+                        </button>
                     </div>
 
                     <!-- AUDIO CALL CONTAINER (Standard Voice Wave Avatar) -->
@@ -1652,6 +1710,17 @@ onUnmounted(() => {
                     <!-- Clean Responsive Dialed Number Display Area -->
                     <div class="p-3.5 rounded-2xl bg-slate-100/90 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2 min-h-[60px]">
                         <div class="flex items-center gap-1.5 shrink-0">
+                            <!-- Contact Picker Button -->
+                            <button
+                                type="button"
+                                @click="isContactPickerOpen = true"
+                                class="w-10 h-10 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
+                                :title="__('user.calls.pick_contact_title')"
+                            >
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                            </button>
                             <span v-if="keypadMode === 'alphanumeric'" class="px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-500 font-mono font-black text-xs border border-indigo-500/20">
                                 @
                             </span>
@@ -1661,32 +1730,20 @@ onUnmounted(() => {
                             type="text"
                             v-model="destinationInput"
                             :placeholder="keypadMode === 'numeric' ? __('user.calls.placeholder_number') : __('user.calls.placeholder_handle')"
-                            class="flex-1 text-center font-mono font-black text-xl text-slate-900 dark:text-white bg-transparent outline-none tracking-wider"
+                            class="flex-1 text-center font-mono font-black text-2xl text-slate-900 dark:text-white bg-transparent border-0 outline-none ring-0 focus:ring-0 tracking-wider"
                             dir="ltr"
                         />
 
-                        <div class="flex items-center gap-1 shrink-0">
-                            <!-- Contact Picker Button -->
-                            <button
-                                type="button"
-                                @click="isContactPickerOpen = true"
-                                class="w-9 h-9 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition-colors"
-                                :title="__('user.calls.pick_contact_title')"
-                            >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                                </svg>
-                            </button>
-
+                        <div class="flex items-center gap-1 shrink-0 w-10 justify-end">
                             <!-- Backspace Button -->
                             <button
                                 v-if="destinationInput"
                                 type="button"
                                 @click="backspace"
-                                class="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
+                                class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors"
                                 :title="__('user.calls.clear_input')"
                             >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-7.172a2 2 0 01-1.414-.586L3 12z" />
                                 </svg>
                             </button>

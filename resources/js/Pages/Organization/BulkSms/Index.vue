@@ -41,6 +41,7 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const fileFeedback = ref<string | null>(null);
 
 const isEstimating = ref(false);
+const estimateError = ref<string | null>(null);
 const estimateResult = ref<{
     recipients_count: number;
     segments: number;
@@ -79,6 +80,7 @@ async function runCostEstimation() {
     }
 
     isEstimating.value = true;
+    estimateError.value = null;
     try {
         const response = await axios.post(route('org.bulk_sms.estimate'), {
             from_number_id: form.from_number_id,
@@ -87,8 +89,16 @@ async function runCostEstimation() {
             body: form.body,
         });
 
-        estimateResult.value = response.data;
-    } catch {} finally {
+        if (response.data && (response.data.success || response.data.total_cost !== undefined)) {
+            estimateResult.value = response.data;
+        } else {
+            estimateResult.value = null;
+            estimateError.value = response.data?.message || null;
+        }
+    } catch (err: any) {
+        estimateResult.value = null;
+        estimateError.value = err.response?.data?.message || null;
+    } finally {
         isEstimating.value = false;
     }
 }
@@ -249,7 +259,7 @@ function submitCampaign() {
                             <div class="flex items-center justify-between text-xs font-bold">
                                 <span class="text-slate-600 dark:text-slate-300">{{ __('organization.bulk_sms.estimated_cost') }}:</span>
                                 <span class="text-purple-600 dark:text-purple-400 font-mono font-black" dir="ltr">
-                                    {{ (estimateResult.total_cost ?? estimateResult.estimated_cost ?? 0).toLocaleString() }} {{ currency }}
+                                    {{ Number(estimateResult.total_cost ?? estimateResult.estimated_cost ?? 0).toLocaleString() }} {{ currency }}
                                 </span>
                             </div>
                             <div class="flex items-center justify-between text-[11px] text-slate-400">
@@ -278,6 +288,10 @@ function submitCampaign() {
                             </div>
                         </div>
 
+                        <div v-if="estimateError" class="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-bold">
+                            ⚠️ {{ estimateError }}
+                        </div>
+
                         <!-- Actions -->
                         <div class="flex items-center justify-between pt-2">
                             <button
@@ -286,7 +300,8 @@ function submitCampaign() {
                                 :disabled="isEstimating"
                                 class="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all disabled:opacity-50"
                             >
-                                {{ __('organization.bulk_sms.estimate_cost') }}
+                                <span v-if="isEstimating">...</span>
+                                <span v-else>{{ __('organization.bulk_sms.estimate_cost') }}</span>
                             </button>
 
                             <button
@@ -294,7 +309,8 @@ function submitCampaign() {
                                 :disabled="form.processing || (estimateResult !== null && !estimateResult.has_sufficient_balance)"
                                 class="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50 active:scale-95"
                             >
-                                {{ __('organization.bulk_sms.send_campaign') }}
+                                <span v-if="form.processing">{{ __('ui.general.loading') || 'در حال ارسال...' }}</span>
+                                <span v-else>{{ __('organization.bulk_sms.send_campaign') }}</span>
                             </button>
                         </div>
                     </form>
@@ -319,7 +335,7 @@ function submitCampaign() {
                         >
                             <div class="flex items-center justify-between">
                                 <span class="font-mono font-bold text-slate-700 dark:text-slate-300" dir="ltr">
-                                    {{ batch.batch_id.substring(0, 10) }}...
+                                    {{ batch.batch_id ? (batch.batch_id.length > 10 ? batch.batch_id.substring(0, 10) + '...' : batch.batch_id) : '—' }}
                                 </span>
                                 <span
                                     class="px-2 py-0.5 rounded-md text-[10px] font-bold"

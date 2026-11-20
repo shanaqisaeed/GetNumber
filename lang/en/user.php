@@ -479,6 +479,8 @@ return [
         'video_quality_hd' => 'HD 720p',
         'video_quality_sd' => 'SD 480p',
         'video_quality_low' => 'Low Data (360p)',
+        'fullscreen' => 'Fullscreen',
+        'exit_fullscreen' => 'Exit Fullscreen',
         'call_connecting' => 'Connecting call...',
         'call_ringing' => 'Ringing...',
         'call_connected' => 'Call connected',
