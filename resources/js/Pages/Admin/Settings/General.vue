@@ -338,11 +338,23 @@ const bridgeSubTab = ref<'connection' | 'relay' | 'guide'>('connection');
 
 const applyGoogleStunPreset = () => {
     bridgeForm.stun_urls = "stun:stun.l.google.com:19302\nstun:stun1.l.google.com:19302\nstun:stun2.l.google.com:19302";
+    bridgeForm.turn_urls = '';
+    bridgeForm.turn_domain_or_ip = '';
+    bridgeForm.turn_secret = '';
+    bridgeForm.turn_username = '';
+    bridgeForm.turn_credential = '';
+    bridgeForm.turns_enabled = false;
     bridgeForm.offline_mode = false;
 };
 
 const applyCloudflarePreset = () => {
     bridgeForm.stun_urls = "stun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302";
+    bridgeForm.turn_urls = '';
+    bridgeForm.turn_domain_or_ip = '';
+    bridgeForm.turn_secret = '';
+    bridgeForm.turn_username = '';
+    bridgeForm.turn_credential = '';
+    bridgeForm.turns_enabled = false;
     bridgeForm.offline_mode = false;
 };
 
@@ -1206,6 +1218,14 @@ const testBridgeConnection = async () => {
                                     <p class="text-[10px] text-indigo-700 dark:text-indigo-300/80 pt-1">
                                         {{ __('admin.settings.general.preset_fallback_hint') }}
                                     </p>
+
+                                    <!-- Public vs Private STUN/TURN Clarification Notice -->
+                                    <div class="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
+                                        <span class="shrink-0 text-sm">💡</span>
+                                        <span>
+                                            <strong>توجه درباره سرورهای گوگل و کلادفلر:</strong> این سرورها صرفاً خدمات رایگان STUN (کشف IP عمومی و برقراری مستقیم P2P) ارائه می‌دهند و فاقد رله TURN یا کلید HMAC هستند؛ لذا با انتخاب آنها، فیلدهای TURN و کلید اعتبارسنجی خودکار خالی می‌شوند. در صورت نیاز به رله تضمینی از پشت فایروال‌های بسته شرکتی، از پریست «سرور شخصی Coturn» استفاده نمایید.
+                                        </span>
+                                    </div>
                                 </div>
 
                                 <!-- Dedicated STUN/TURN Host & Ports -->

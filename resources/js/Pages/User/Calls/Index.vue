@@ -629,7 +629,7 @@ const createPeerConnection = () => {
                 pc.addTrack(track, localMediaStream!);
             } catch {}
         });
-    } else {
+    } else if (isVideoCall.value) {
         try {
             pc.addTransceiver('video', { direction: 'sendrecv' });
         } catch {}
