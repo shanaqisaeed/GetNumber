@@ -310,6 +310,8 @@ return [
         'twoway_badge' => 'دوطرفه (دریافت فعال)',
         'oneway_badge' => 'یک‌طرفه (صرفاً ارسال)',
         'held_amount' => 'وجه مسدود: :amount کوین',
+        'preferred_number' => 'شماره یا شناسه درخواستی:',
+        'held_amount_label' => 'مبلغ بلوکه‌شده:',
         'allocated_number' => 'شماره تخصیص‌یافته:',
         'copy' => 'کپی',
         'rejection_reason' => 'علت عدم تأیید:',

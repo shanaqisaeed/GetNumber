@@ -104,7 +104,7 @@ const deleteNumberPermanently = () => {
     <Head :title="__('admin.numbers.edit_page.head_title', { number: number.formatted_number })" />
 
     <AdminLayout>
-        <div class="space-y-6 max-w-6xl mx-auto">
+        <div class="space-y-6 w-full">
             <!-- Header -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700/60">
                 <div class="flex items-center gap-4">

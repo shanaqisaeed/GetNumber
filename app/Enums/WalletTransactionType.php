@@ -14,6 +14,7 @@ enum WalletTransactionType: string
     case Reversal = 'REVERSAL';
     case ServiceUsage = 'SERVICE_USAGE';
     case VoiceCall = 'VOICE_CALL';
+    case CorporateTransfer = 'CORPORATE_TRANSFER';
 
     public function label(): string
     {
@@ -24,7 +25,7 @@ enum WalletTransactionType: string
     {
         return match ($this) {
             self::Deposit, self::AdminCredit, self::Refund, self::HoldRelease => true,
-            self::NumberPurchase, self::AdminDebit, self::Hold, self::ServiceUsage, self::VoiceCall => false,
+            self::NumberPurchase, self::AdminDebit, self::Hold, self::ServiceUsage, self::VoiceCall, self::CorporateTransfer => false,
             self::Reversal => false,
         };
     }
@@ -42,6 +43,7 @@ enum WalletTransactionType: string
             self::Reversal => 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25',
             self::ServiceUsage => 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25',
             self::VoiceCall => 'bg-violet-500/15 text-violet-600 dark:text-violet-400 border border-violet-500/25',
+            self::CorporateTransfer => 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25',
         };
     }
 }

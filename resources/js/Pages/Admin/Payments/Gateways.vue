@@ -120,7 +120,7 @@ const submitGatewayUpdate = () => {
             </div>
         </template>
 
-        <div class="space-y-6 max-w-4xl mx-auto">
+        <div class="space-y-6 w-full">
             <div class="grid grid-cols-1 gap-4">
                 <div
                     v-for="g in gateways"

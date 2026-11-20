@@ -49,6 +49,12 @@ const estimateResult = ref<{
     has_sufficient_balance: boolean;
     estimated_cost?: number;
     total_segments?: number;
+    intra_recipients?: number;
+    inter_recipients?: number;
+    id_recipients?: number;
+    intra_rate?: number;
+    inter_rate?: number;
+    id_rate?: number;
 } | null>(null);
 
 // Batch details modal state
@@ -64,7 +70,7 @@ const rawRecipientsList = computed(() => {
     return form.recipients_text
         .split(/[\n,;]+/)
         .map(s => s.trim())
-        .filter(s => s.length >= 7);
+        .filter(s => s.length >= 3);
 });
 
 async function runCostEstimation() {
@@ -77,6 +83,7 @@ async function runCostEstimation() {
         const response = await axios.post(route('org.bulk_sms.estimate'), {
             from_number_id: form.from_number_id,
             destinations_count: rawRecipientsList.value.length,
+            recipients_text: form.recipients_text,
             body: form.body,
         });
 
@@ -238,7 +245,7 @@ function submitCampaign() {
                         </div>
 
                         <!-- Cost Estimation Card -->
-                        <div v-if="estimateResult" class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 space-y-2">
+                        <div v-if="estimateResult" class="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 space-y-2.5">
                             <div class="flex items-center justify-between text-xs font-bold">
                                 <span class="text-slate-600 dark:text-slate-300">{{ __('organization.bulk_sms.estimated_cost') }}:</span>
                                 <span class="text-purple-600 dark:text-purple-400 font-mono font-black" dir="ltr">
@@ -249,6 +256,23 @@ function submitCampaign() {
                                 <span>{{ __('organization.bulk_sms.estimated_recipients') }}: {{ estimateResult.recipients_count ?? rawRecipientsList.length }}</span>
                                 <span>{{ __('organization.bulk_sms.total_segments') }}: {{ estimateResult.total_segments ?? estimateResult.segments ?? 1 }}</span>
                             </div>
+
+                            <!-- Intra vs Inter Prefix Tariff Breakdown -->
+                            <div v-if="estimateResult.intra_recipients || estimateResult.inter_recipients" class="pt-2 border-t border-purple-500/15 grid grid-cols-2 gap-2 text-[11px]">
+                                <div class="p-2 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-0.5">
+                                    <div class="text-slate-500 dark:text-slate-400 font-bold">{{ __('organization.bulk_sms.intra_recipients') }}</div>
+                                    <div class="text-purple-600 dark:text-purple-400 font-mono font-bold" dir="ltr">
+                                        {{ estimateResult.intra_recipients || 0 }} × {{ estimateResult.intra_rate ?? estimateResult.per_segment_rate }} {{ currency }}
+                                    </div>
+                                </div>
+                                <div class="p-2 rounded-xl bg-purple-500/5 border border-purple-500/10 space-y-0.5">
+                                    <div class="text-slate-500 dark:text-slate-400 font-bold">{{ __('organization.bulk_sms.inter_recipients') }}</div>
+                                    <div class="text-purple-600 dark:text-purple-400 font-mono font-bold" dir="ltr">
+                                        {{ estimateResult.inter_recipients || 0 }} × {{ estimateResult.inter_rate ?? estimateResult.per_segment_rate }} {{ currency }}
+                                    </div>
+                                </div>
+                            </div>
+
                             <div v-if="!estimateResult.has_sufficient_balance" class="text-rose-500 text-xs font-bold pt-1">
                                 ⚠️ {{ __('organization.bulk_sms.insufficient_org_balance') }}
                             </div>

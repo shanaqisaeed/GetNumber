@@ -116,7 +116,7 @@ class OrgWalletController extends Controller
             // 1. Debit admin personal wallet
             $personalWallet->debit(
                 amount: $amount,
-                type: 'transfer_to_org',
+                type: \App\Enums\WalletTransactionType::CorporateTransfer,
                 description: __('organization.wallet.tx_transfer_to_org', ['org' => $org->name]),
                 userId: $user->id,
                 metadata: ['organization_id' => $org->id]

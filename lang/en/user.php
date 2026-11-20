@@ -310,6 +310,8 @@ return [
         'twoway_badge' => 'Two-way (Inbound Active)',
         'oneway_badge' => 'One-way (Outbound Only)',
         'held_amount' => 'Held Amount: :amount Coins',
+        'preferred_number' => 'Requested Number / Identifier:',
+        'held_amount_label' => 'Held Amount:',
         'allocated_number' => 'Allocated Number:',
         'copy' => 'Copy',
         'rejection_reason' => 'Rejection Reason:',

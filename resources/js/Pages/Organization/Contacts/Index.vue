@@ -148,7 +148,7 @@ function deleteContact(contact: ContactItem) {
                         <!-- Direct Softphone Actions -->
                         <div class="flex items-center gap-2">
                             <Link
-                                :href="route('messages.index', { peer: contact.phone_number })"
+                                :href="route('messages.index', { peer: contact.phone_number, to: contact.phone_number })"
                                 class="flex-1 py-1.5 px-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-500 text-center text-[11px] font-bold transition-all flex items-center justify-center gap-1"
                             >
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +157,7 @@ function deleteContact(contact: ContactItem) {
                                 <span>{{ __('organization.contacts.open_in_softphone_chat') }}</span>
                             </Link>
                             <Link
-                                :href="route('calls.index', { peer: contact.phone_number })"
+                                :href="route('calls.index', { destination: contact.phone_number, peer: contact.phone_number, to: contact.phone_number })"
                                 class="py-1.5 px-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 text-[11px] font-bold transition-all flex items-center justify-center"
                                 :title="__('organization.contacts.call_in_softphone')"
                             >

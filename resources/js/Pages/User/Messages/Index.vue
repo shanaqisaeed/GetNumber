@@ -365,18 +365,18 @@ const handleLoadOlder = async () => {
     });
 };
 
-// Handle direct 1-to-1 message sent completion
+// Handle direct 1-to-1 message sent completion: close modal and return to conversation list
 const handleSingleSent = (payload: any) => {
-    if (payload.peer) {
-        const targetPeer = payload.peer.replace(/^\+?85/, '').trim();
-        router.get(
-            route('messages.index'),
-            { phone_number_id: selectedLineId.value, peer: targetPeer },
-            { preserveState: false }
-        );
-    } else {
-        closeChatOrComposer();
+    closeChatOrComposer();
+    if (typeof window !== 'undefined' && window.history) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('peer');
+        url.searchParams.delete('to');
+        url.searchParams.delete('recipient');
+        url.searchParams.delete('phone');
+        window.history.replaceState({}, '', url.toString());
     }
+    performPoll(true);
 };
 
 const handleEscape = (e: KeyboardEvent) => {
@@ -391,7 +391,7 @@ onMounted(() => {
     window.addEventListener('keydown', handleEscape);
     if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
-        const toParam = params.get('to') || params.get('recipient') || params.get('phone');
+        const toParam = params.get('peer') || params.get('to') || params.get('recipient') || params.get('phone');
         if (toParam) {
             const cleanTo = toParam.trim();
             const existing = conversationList.value.find(
@@ -399,9 +399,17 @@ onMounted(() => {
             );
             if (existing) {
                 selectConversation(existing);
-            } else {
-                prefilledRecipient.value = cleanTo;
-                isComposingNew.value = true;
+            } else if (!currentActivePeer.value) {
+                currentActivePeer.value = cleanTo;
+                currentPeerInfo.value = {
+                    number: cleanTo,
+                    formatted_number: cleanTo,
+                    title: cleanTo,
+                    type: cleanTo.startsWith('@') ? 'custom_id' : 'contact',
+                    type_label: cleanTo.startsWith('@') ? 'Custom ID' : 'Contact',
+                    accepts_incoming_sms: true,
+                    can_reply: true,
+                };
             }
         }
     }

@@ -54,7 +54,7 @@ class VoiceCallController extends Controller
         $selectedLineKey = $selectedLine ? $selectedLine['key'] : null;
         $selectedLineId = $selectedLine ? $selectedLine['id'] : null;
 
-        $initialDestination = $request->input('destination', '');
+        $initialDestination = (string) ($request->input('destination') ?: $request->input('peer') ?: $request->input('to') ?: $request->input('number') ?: '');
 
         $callsQuery = VoiceCall::where('user_id', $user->id)
             ->with('phoneNumber');

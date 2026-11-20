@@ -75,34 +75,75 @@ class BulkMessageController extends Controller
 
         $validated = $request->validate([
             'from_number_id' => ['required', 'exists:phone_numbers,id'],
-            'destinations_count' => ['required', 'integer', 'min:1', 'max:50000'],
+            'destinations_count' => ['nullable', 'integer', 'min:1', 'max:50000'],
+            'destinations' => ['nullable'],
+            'recipients_text' => ['nullable', 'string'],
             'body' => ['required', 'string', 'max:5000'],
         ]);
 
         $fromNumber = PhoneNumber::where('organization_id', $org->id)
+            ->with('phonePrefix')
             ->findOrFail($validated['from_number_id']);
 
-        $ratePerSegment = (float) ($fromNumber->phonePrefix?->sms_tariff_rate_per_segment ?? 0.0500);
-        $calcResult = $this->calculator->calculate(
-            text: $validated['body'],
-            destinationsCount: $validated['destinations_count'],
-            ratePerSegment: (string) $ratePerSegment
-        );
-        $segmentsPerMsg = max(1, $calcResult['segment_count']);
-        $totalSegments = $segmentsPerMsg * $validated['destinations_count'];
-        $estimatedCost = (float) $calcResult['total_cost'];
+        $fromPrefix = $fromNumber->phonePrefix ?: \App\Models\PhonePrefix::getDefaultPrefix();
 
-        $hasEnoughBalance = bccomp((string) $wallet->balance, (string) $estimatedCost, 4) >= 0;
+        $calcResult = $this->calculator->calculateSegments($validated['body']);
+        $segmentsPerMsg = max(1, $calcResult['segments_count']);
+
+        $rawDest = $validated['destinations'] ?? $validated['recipients_text'] ?? null;
+        $destArray = [];
+        if (! empty($rawDest)) {
+            $parsed = is_string($rawDest) ? preg_split('/[\r\n,;]+/', $rawDest) : (array) $rawDest;
+            $destArray = array_values(array_filter(array_map('trim', $parsed), fn($s) => strlen($s) >= 3));
+        }
+
+        $recipientsCount = ! empty($destArray) ? count($destArray) : (int) ($validated['destinations_count'] ?? 1);
+        $totalSegments = $segmentsPerMsg * $recipientsCount;
+
+        $intraCount = 0;
+        $interCount = 0;
+        $idCount = 0;
+        $totalCost = 0.0;
+        $intraRate = (float) $fromPrefix->getIntraSmsRate();
+        $interRate = (float) $fromPrefix->getInterSmsRate();
+        $idRate = (float) \App\Models\SystemSetting::get('id_sms_rate', '0.0200');
+
+        if (! empty($destArray)) {
+            foreach ($destArray as $dest) {
+                $rate = $fromPrefix->calculateSmsRateForDestination($dest, $org->id);
+                $totalCost += ($rate * $segmentsPerMsg);
+                if (str_starts_with($dest, '@') || ! preg_match('/^\+?\d+$/', $dest)) {
+                    $idCount++;
+                } elseif ($fromPrefix->isIntraPrefix($dest, $org->id)) {
+                    $intraCount++;
+                } else {
+                    $interCount++;
+                }
+            }
+        } else {
+            // Default estimation when destinations list is not yet provided: use intra rate
+            $intraCount = $recipientsCount;
+            $totalCost = $recipientsCount * $segmentsPerMsg * $intraRate;
+        }
+
+        $totalCost = round($totalCost, 4);
+        $hasEnoughBalance = bccomp((string) $wallet->balance, (string) $totalCost, 4) >= 0;
 
         return response()->json([
             'success' => true,
-            'recipients_count' => $validated['destinations_count'],
+            'recipients_count' => $recipientsCount,
             'segments' => $segmentsPerMsg,
             'segments_count' => $segmentsPerMsg,
             'total_segments' => $totalSegments,
-            'rate_per_segment' => $ratePerSegment,
-            'estimated_cost' => $estimatedCost,
-            'total_cost' => $estimatedCost,
+            'rate_per_segment' => $intraRate,
+            'intra_rate' => $intraRate,
+            'inter_rate' => $interRate,
+            'id_rate' => $idRate,
+            'intra_recipients' => $intraCount,
+            'inter_recipients' => $interCount,
+            'id_recipients' => $idCount,
+            'estimated_cost' => $totalCost,
+            'total_cost' => $totalCost,
             'org_balance' => (string) $wallet->balance,
             'has_sufficient_balance' => $hasEnoughBalance,
             'has_enough_balance' => $hasEnoughBalance,
@@ -127,11 +168,14 @@ class BulkMessageController extends Controller
         ]);
 
         $fromNumber = PhoneNumber::where('organization_id', $org->id)
+            ->with('phonePrefix')
             ->findOrFail($validated['from_number_id']);
+
+        $fromPrefix = $fromNumber->phonePrefix ?: \App\Models\PhonePrefix::getDefaultPrefix();
 
         $rawDest = $validated['destinations'] ?? $validated['recipients_text'] ?? '';
         $destArray = is_string($rawDest) ? preg_split('/[\r\n,;]+/', $rawDest) : (array) $rawDest;
-        $destArray = array_values(array_filter(array_map('trim', $destArray), fn($s) => strlen($s) >= 7));
+        $destArray = array_values(array_filter(array_map('trim', $destArray), fn($s) => strlen($s) >= 3));
 
         if (empty($destArray)) {
             if ($request->header('X-Inertia')) {
@@ -143,10 +187,27 @@ class BulkMessageController extends Controller
             ], 422);
         }
 
-        // Calculate and debit organization wallet
-        $ratePerSegment = (float) ($fromNumber->phonePrefix?->sms_tariff_rate_per_segment ?? 0.0500);
+        // Calculate and debit organization wallet based on intra vs inter tariffs from admin
         $segmentInfo = $this->calculator->calculateSegments($validated['body']);
-        $totalCost = round(count($destArray) * $segmentInfo['segments_count'] * $ratePerSegment, 4);
+        $segmentsCount = max(1, $segmentInfo['segments_count']);
+
+        $totalCost = 0.0;
+        $intraCount = 0;
+        $interCount = 0;
+        $idCount = 0;
+
+        foreach ($destArray as $dest) {
+            $itemRate = $fromPrefix->calculateSmsRateForDestination($dest, $org->id);
+            $totalCost += ($itemRate * $segmentsCount);
+            if (str_starts_with($dest, '@') || ! preg_match('/^\+?\d+$/', $dest)) {
+                $idCount++;
+            } elseif ($fromPrefix->isIntraPrefix($dest, $org->id)) {
+                $intraCount++;
+            } else {
+                $interCount++;
+            }
+        }
+        $totalCost = round($totalCost, 4);
 
         if (bccomp((string) $wallet->balance, (string) $totalCost, 4) < 0) {
             if ($request->header('X-Inertia')) {
@@ -170,9 +231,17 @@ class BulkMessageController extends Controller
         $wallet->debit(
             amount: (string) $totalCost,
             type: 'bulk_sms',
-            description: __('organization.bulk_sms.cost_source_notice'),
+            description: __('organization.bulk_sms.cost_source_notice') . " (Intra: {$intraCount}, Inter: {$interCount})",
             userId: $user->id,
-            metadata: ['batch_id' => $batch->batch_id, 'recipients_count' => count($destArray)]
+            metadata: [
+                'batch_id' => $batch->batch_id,
+                'recipients_count' => count($destArray),
+                'intra_recipients' => $intraCount,
+                'inter_recipients' => $interCount,
+                'id_recipients' => $idCount,
+                'intra_rate' => (float) $fromPrefix->getIntraSmsRate(),
+                'inter_rate' => (float) $fromPrefix->getInterSmsRate(),
+            ]
         );
 
         if ($request->header('X-Inertia')) {

@@ -111,6 +111,8 @@ return [
         'estimate_cost' => 'Estimate Cost',
         'estimated_recipients' => 'Valid Recipients Count',
         'estimated_cost' => 'Estimated Campaign Cost',
+        'intra_recipients' => 'Intra-Prefix (Internal)',
+        'inter_recipients' => 'Inter-Prefix (External)',
         'per_segment_rate' => 'Rate Per Segment',
         'total_segments' => 'Total Message Segments',
         'cost_source_notice' => 'The cost of this bulk campaign will be deducted directly from organization wallet.',

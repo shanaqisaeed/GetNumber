@@ -111,6 +111,8 @@ return [
         'estimate_cost' => 'محاسبه تخمین هزینه',
         'estimated_recipients' => 'تعداد گیرندگان معتبر',
         'estimated_cost' => 'هزینه تخمینی کمپین',
+        'intra_recipients' => 'داخلی به داخلی',
+        'inter_recipients' => 'پیش‌شماره به دیگر',
         'per_segment_rate' => 'تعرفه هر بخش پیامک',
         'total_segments' => 'تعداد کل بخش‌ها',
         'cost_source_notice' => 'هزینه ارسال این پیامک گروهی مستقیماً از کیف پول سازمان کسر خواهد شد.',

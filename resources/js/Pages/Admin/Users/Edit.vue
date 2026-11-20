@@ -137,7 +137,7 @@ const releaseAllocation = (alloc: ServiceAllocationItem) => {
     <Head :title="__('admin.users.edit_page.head_title', { name: user.name })" />
 
     <AdminLayout>
-        <div class="space-y-6 max-w-6xl mx-auto">
+        <div class="space-y-6 w-full">
             <!-- Header Command Bar -->
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm border border-slate-200/80 dark:border-slate-800/80">
                 <div class="flex items-center gap-4">

@@ -86,5 +86,6 @@ return [
         'REVERSAL' => 'Adjustment Reversal',
         'SERVICE_USAGE' => 'SMS / Service Usage Fee',
         'VOICE_CALL' => 'Voice Call Usage Fee',
+        'CORPORATE_TRANSFER' => 'Transfer to Corporate Wallet',
     ],
 ];

@@ -999,10 +999,10 @@ const navigateHistoryPage = (url: string | null) => {
 onMounted(() => {
     if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
-        const target = params.get('to') || params.get('destination') || params.get('number') || params.get('custom_id');
+        const target = params.get('destination') || params.get('peer') || params.get('to') || params.get('number') || params.get('custom_id');
         if (target) {
             destinationInput.value = target.trim();
-            if (target.startsWith('@')) {
+            if (target.startsWith('@') || /[a-zA-Z]/.test(target)) {
                 keypadMode.value = 'alphanumeric';
             }
             activeTab.value = 'dialer';

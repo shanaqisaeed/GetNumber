@@ -1,0 +1,1 @@
+import{_ as o}from"./ChatWindow.vue_vue_type_script_setup_true_lang-BZMlvIDF.js";import"./app-g3TLwX6n.js";import"./ChatMessageItem.vue_vue_type_script_setup_true_lang-1ywNgMKg.js";import"./MessageComposer.vue_vue_type_script_setup_true_lang-DqFNy8ro.js";export{o as default};

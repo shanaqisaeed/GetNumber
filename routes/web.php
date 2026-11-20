@@ -254,11 +254,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('/users/{user}/status', [AdminUserController::class, 'updateStatus'])->name('users.status');
     Route::get('/users/{user}/numbers', [AdminUserController::class, 'numbers'])->name('users.numbers');
     Route::post('/users/{user}/wallet/adjust', [AdminUserController::class, 'adjustWallet'])->name('users.wallet.adjust');
+    Route::post('/users/{user}/org-wallet/adjust', [AdminUserController::class, 'adjustOrgWallet'])->name('users.org_wallet.adjust');
 
     Route::get('/numbers', [AdminPhoneNumberController::class, 'index'])->name('numbers.index');
     Route::post('/numbers', [AdminPhoneNumberController::class, 'store'])->name('numbers.store');
     Route::get('/numbers/{number}/edit', [AdminPhoneNumberController::class, 'edit'])->name('numbers.edit');
-    Route::patch('/numbers/{number}', [AdminPhoneNumberController::class, 'update'])->name('numbers.update');
+    Route::match(['put', 'patch'], '/numbers/{number}', [AdminPhoneNumberController::class, 'update'])->name('numbers.update');
     Route::delete('/numbers/{number}', [AdminPhoneNumberController::class, 'destroy'])->name('numbers.destroy');
     Route::patch('/numbers/{number}/status', [AdminPhoneNumberController::class, 'updateStatus'])->name('numbers.status');
     Route::post('/numbers/{number}/assign', [AdminPhoneNumberController::class, 'assign'])->name('numbers.assign');

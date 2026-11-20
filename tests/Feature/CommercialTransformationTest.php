@@ -484,4 +484,81 @@ class CommercialTransformationTest extends TestCase
             ->where('requests.data.0.requested_identifier', '@saeed')
         );
     }
+
+    /**
+     * Test 12: Organization bulk SMS accurately applies admin tariffs for intra-prefix vs inter-prefix destinations.
+     */
+    public function test_bulk_sms_differentiates_intra_and_inter_prefix_tariffs_from_admin(): void
+    {
+        $orgWallet = $this->org->getOrCreateWallet();
+        $orgWallet->credit(5000.0, 'Bulk SMS Funds');
+
+        // Set explicit intra and inter tariffs on prefix
+        $this->prefix->update([
+            'sms_intra_prefix_rate' => 0.0400,
+            'sms_inter_prefix_rate' => 0.1500,
+        ]);
+
+        $otherPrefix = PhonePrefix::create([
+            'prefix' => '+1',
+            'clean_prefix' => '1',
+            'country_name' => 'USA',
+            'name' => 'US',
+            'is_default' => false,
+            'is_active' => true,
+        ]);
+
+        $orgLine = PhoneNumber::create([
+            'user_id' => $this->user->id,
+            'organization_id' => $this->org->id,
+            'phone_prefix_id' => $this->prefix->id,
+            'number' => '100999',
+            'formatted_number' => '+98100999',
+            'type' => PhoneNumberType::UserStandard,
+            'status' => PhoneNumberStatus::Allocated,
+            'is_organization' => true,
+        ]);
+
+        // Destination 1: Internal shortcode (1000) -> intra (0.0400)
+        // Destination 2: Same prefix number (+989120000000) -> intra (0.0400)
+        // Destination 3: Different prefix number (+12025550199) -> inter (0.1500)
+        $recipients = "1000\n+989120000000\n+12025550199";
+
+        $response = $this->actingAs($this->user)
+            ->postJson(route('org.bulk_sms.estimate'), [
+                'from_number_id' => $orgLine->id,
+                'recipients_text' => $recipients,
+                'body' => 'Test message',
+            ]);
+
+        $response->assertOk();
+        $this->assertEquals(3, $response->json('recipients_count'));
+        $this->assertEquals(2, $response->json('intra_recipients'));
+        $this->assertEquals(1, $response->json('inter_recipients'));
+        // 2 intra * 0.0400 + 1 inter * 0.1500 = 0.0800 + 0.1500 = 0.2300
+        $this->assertEquals(0.23, (float) $response->json('total_cost'));
+    }
+
+    /**
+     * Test 13: Softphone calls and messages endpoints prefill contact from peer/destination query param.
+     */
+    public function test_softphone_calls_and_messages_prefill_contact_destination_from_peer_param(): void
+    {
+        // 1. Calls page accepts peer parameter
+        $callsResponse = $this->actingAs($this->user)->get(route('calls.index', ['peer' => '+981000']));
+        $callsResponse->assertOk();
+        $callsResponse->assertInertia(fn ($page) => $page
+            ->component('User/Calls/Index')
+            ->where('initial_destination', '+981000')
+        );
+
+        // 2. Messages page accepts peer parameter
+        $messagesResponse = $this->actingAs($this->user)->get(route('messages.index', ['peer' => '1000']));
+        $messagesResponse->assertOk();
+        $messagesResponse->assertInertia(fn ($page) => $page
+            ->component('User/Messages/Index')
+            ->where('activePeer', '1000')
+            ->has('activePeerDetails')
+        );
+    }
 }

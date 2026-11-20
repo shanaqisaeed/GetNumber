@@ -84,9 +84,17 @@ class MessageController extends Controller
 
         $conversations = collect();
         // Only set activePeer if user explicitly asked for a peer conversation
-        $activePeer = $request->filled('peer')
-            ? \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($request->input('peer'))
-            : null;
+        $rawPeer = $request->input('peer') ?: $request->input('to') ?: $request->input('destination') ?: $request->input('number');
+        $activePeer = null;
+        if (! empty($rawPeer)) {
+            $trimmed = trim((string) $rawPeer);
+            if (str_starts_with($trimmed, '@') || ! preg_match('/^\+?[0-9]+$/', $trimmed)) {
+                $activePeer = str_starts_with($trimmed, '@') ? $trimmed : '@' . $trimmed;
+            } else {
+                $activePeer = \App\Services\PhoneNumberNormalizer::resolveToStoredNumber($trimmed)
+                    ?: preg_replace('/[^\d]/', '', $trimmed);
+            }
+        }
         $activeMessages = collect();
         $activePeerDetails = null;
 
@@ -153,41 +161,67 @@ class MessageController extends Controller
 
             // 1. If an active conversation is open, mark messages as read first
             if ($activePeer) {
-                $activeMessages = $this->messageService->getConversationMessages($currentNumber, $activePeer);
+                if (str_starts_with($activePeer, '@')) {
+                    $activeMessages = Message::where(function ($q) use ($activePeer, $currentNumber) {
+                        $q->where(function ($sub) use ($activePeer, $currentNumber) {
+                            $sub->where('phone_number_id', $currentNumber->id)
+                                ->where('destination_number', $activePeer);
+                        })->orWhere(function ($sub) use ($activePeer, $currentNumber) {
+                            $sub->where('phone_number_id', $currentNumber->id)
+                                ->where('sender', $activePeer);
+                        });
+                    })->latest('server_received_at')->get()->sortBy('id')->values();
 
-                $defaultPrefix = \App\Models\PhonePrefix::getDefaultPrefixString();
-                $peerRecord = PhoneNumber::with('user')->where('number', $activePeer)->first();
-                $isCommercial = $peerRecord ? $peerRecord->type->isService() : false;
-                $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$activePeer}"));
+                    $activePeerDetails = [
+                        'number' => $activePeer,
+                        'formatted_number' => $activePeer,
+                        'title' => $activePeer,
+                        'type' => 'custom_id',
+                        'type_label' => __('controllers.user.messages.type_label_handle'),
+                        'badge_class' => 'bg-blue-500/15 text-blue-600',
+                        'is_own_number' => false,
+                        'is_commercial' => false,
+                        'accepts_incoming_sms' => true,
+                        'can_reply' => true,
+                        'can_reply_reason' => null,
+                    ];
+                } else {
+                    $activeMessages = $this->messageService->getConversationMessages($currentNumber, $activePeer);
 
-                $canReply = true;
-                $canReplyReason = null;
-                if ($peerRecord) {
-                    if (! $peerRecord->accepts_incoming_sms) {
-                        $canReply = false;
-                        $canReplyReason = __('controllers.user.messages.one_way_prefix_notice');
-                    } else {
-                        $check = $peerRecord->canReceiveMessagesFrom($currentNumber, $user);
-                        if (! $check['allowed']) {
+                    $defaultPrefix = \App\Models\PhonePrefix::getDefaultPrefixString();
+                    $peerRecord = PhoneNumber::with('user')->where('number', $activePeer)->first();
+                    $isCommercial = $peerRecord ? $peerRecord->type->isService() : false;
+                    $peerTitle = $peerRecord?->display_title ?: ($peerRecord?->user?->name ?: ($peerRecord?->effective_title ?? "{$defaultPrefix} {$activePeer}"));
+
+                    $canReply = true;
+                    $canReplyReason = null;
+                    if ($peerRecord) {
+                        if (! $peerRecord->accepts_incoming_sms) {
                             $canReply = false;
-                            $canReplyReason = $check['reason'];
+                            $canReplyReason = __('controllers.user.messages.one_way_prefix_notice');
+                        } else {
+                            $check = $peerRecord->canReceiveMessagesFrom($currentNumber, $user);
+                            if (! $check['allowed']) {
+                                $canReply = false;
+                                $canReplyReason = $check['reason'];
+                            }
                         }
                     }
-                }
 
-                $activePeerDetails = [
-                    'number' => $activePeer,
-                    'formatted_number' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$activePeer}",
-                    'title' => $peerTitle,
-                    'type' => $peerRecord?->type->value,
-                    'type_label' => $peerRecord?->type->label(),
-                    'badge_class' => $peerRecord?->type->badgeClasses(),
-                    'is_own_number' => $peerRecord && $peerRecord->user_id === $user->id,
-                    'is_commercial' => $isCommercial,
-                    'accepts_incoming_sms' => $peerRecord ? (bool) $peerRecord->accepts_incoming_sms : true,
-                    'can_reply' => $canReply,
-                    'can_reply_reason' => $canReplyReason,
-                ];
+                    $activePeerDetails = [
+                        'number' => $activePeer,
+                        'formatted_number' => $peerRecord ? $peerRecord->formatted_number : "{$defaultPrefix} {$activePeer}",
+                        'title' => $peerTitle,
+                        'type' => $peerRecord?->type->value ?? 'contact',
+                        'type_label' => $peerRecord?->type->label() ?? __('controllers.user.messages.peer_type_contact'),
+                        'badge_class' => $peerRecord?->type->badgeClasses() ?? 'bg-slate-500/10 text-slate-500',
+                        'is_own_number' => $peerRecord && $peerRecord->user_id === $user->id,
+                        'is_commercial' => $isCommercial,
+                        'accepts_incoming_sms' => $peerRecord ? (bool) $peerRecord->accepts_incoming_sms : true,
+                        'can_reply' => $canReply,
+                        'can_reply_reason' => $canReplyReason,
+                    ];
+                }
             }
 
             // 2. Fetch conversations after read state has been updated

@@ -107,6 +107,80 @@ class PhonePrefix extends Model
     }
 
     /**
+     * Determine if a destination number is intra-prefix (same prefix or internal shortcode)
+     * relative to this prefix.
+     */
+    public function isIntraPrefix(string $destination, ?int $organizationId = null): bool
+    {
+        $dest = trim($destination);
+        if (empty($dest)) {
+            return true;
+        }
+
+        // Custom IDs are handled separately by ID tariff
+        if (str_starts_with($dest, '@')) {
+            return false;
+        }
+
+        $clean = preg_replace('/[^\d]/', '', $dest);
+        if (empty($clean)) {
+            return true;
+        }
+
+        // 4 to 8 digit numbers without international country code are internal shortcodes/lines
+        if (strlen($clean) >= 4 && strlen($clean) <= 8) {
+            return true;
+        }
+
+        // If destination exists in database and belongs to same prefix or same organization
+        $existing = PhoneNumber::where('number', $clean)->first();
+        if ($existing) {
+            if ($organizationId && $existing->organization_id === $organizationId) {
+                return true;
+            }
+            if ($existing->phone_prefix_id === $this->id) {
+                return true;
+            }
+        }
+
+        // Check if destination starts with this prefix's clean prefix
+        $senderCleanPrefix = $this->clean_prefix ?: preg_replace('/[^\d]/', '', $this->prefix);
+        if (! empty($senderCleanPrefix) && str_starts_with($clean, $senderCleanPrefix)) {
+            return true;
+        }
+
+        // Check if destination matches any other active registered prefix
+        $otherPrefixes = static::where('id', '!=', $this->id)
+            ->where('is_active', true)
+            ->get();
+        foreach ($otherPrefixes as $other) {
+            $otherClean = $other->clean_prefix ?: preg_replace('/[^\d]/', '', $other->prefix);
+            if (! empty($otherClean) && str_starts_with($clean, $otherClean)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Calculate the SMS rate per segment for a specific destination from admin tariffs.
+     */
+    public function calculateSmsRateForDestination(string $destination, ?int $organizationId = null): float
+    {
+        $dest = trim($destination);
+        if (str_starts_with($dest, '@') || (! preg_match('/^\+?\d+$/', $dest) && ! empty($dest))) {
+            return (float) SystemSetting::get('id_sms_rate', '0.0200');
+        }
+
+        if ($this->isIntraPrefix($dest, $organizationId)) {
+            return (float) $this->getIntraSmsRate();
+        }
+
+        return (float) $this->getInterSmsRate();
+    }
+
+    /**
      * Resolve a PhonePrefix model from a raw phone number or prefix ID.
      */
     public static function resolveForNumber(?string $rawNumber = null, ?int $prefixId = null): ?self

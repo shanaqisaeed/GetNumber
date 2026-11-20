@@ -24,6 +24,22 @@ class SmsSegmentCalculatorService
     protected const DEFAULT_RATE_PER_SEGMENT = '0.0500';
 
     /**
+     * Helper to calculate segment count and encoding info for a text.
+     *
+     * @return array{segment_count: int, segments_count: int, encoding: string, character_count: int}
+     */
+    public function calculateSegments(string $text): array
+    {
+        $res = $this->calculate($text);
+        return [
+            'segment_count' => $res['segment_count'],
+            'segments_count' => $res['segment_count'],
+            'encoding' => $res['encoding'],
+            'character_count' => $res['character_count'],
+        ];
+    }
+
+    /**
      * Calculate SMS segments, encoding type, character count, and cost estimate.
      *
      * @return array{
