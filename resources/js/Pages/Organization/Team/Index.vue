@@ -9,7 +9,9 @@ interface MemberItem {
     id: number;
     user_id: number;
     name: string;
-    email: string;
+    email?: string;
+    username?: string;
+    account_id?: string;
     role: string;
     status: string;
     assigned_line: string | null;
@@ -35,7 +37,9 @@ const props = defineProps<{
 const isAddModalOpen = ref(false);
 const addForm = useForm({
     name: '',
+    username: '',
     email: '',
+    password: '',
     role: 'member',
 });
 
@@ -142,7 +146,7 @@ function removeMember(member: MemberItem) {
                         <thead class="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                             <tr>
                                 <th class="p-4 font-bold">{{ __('organization.team.name') }}</th>
-                                <th class="p-4 font-bold">{{ __('organization.team.email') }}</th>
+                                <th class="p-4 font-bold">{{ __('organization.team.username') }}</th>
                                 <th class="p-4 font-bold">{{ __('organization.team.role') }}</th>
                                 <th class="p-4 font-bold">{{ __('organization.team.assigned_line') }}</th>
                                 <th class="p-4 font-bold">{{ __('organization.team.status') }}</th>
@@ -160,7 +164,9 @@ function removeMember(member: MemberItem) {
                                         <span>{{ member.name }}</span>
                                     </div>
                                 </td>
-                                <td class="p-4 text-slate-500 font-mono" dir="ltr">{{ member.email }}</td>
+                                <td class="p-4 text-slate-500 font-mono text-xs" dir="ltr">
+                                    {{ member.username ? (member.username.startsWith('@') ? member.username : '@' + member.username) : (member.email || '—') }}
+                                </td>
                                 <td class="p-4">
                                     <span
                                         class="px-2 py-0.5 rounded-lg text-[11px] font-bold"
@@ -258,13 +264,30 @@ function removeMember(member: MemberItem) {
 
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                            {{ __('organization.team.email') }}
+                            {{ __('organization.team.username') }}
                         </label>
                         <input
-                            v-model="addForm.email"
-                            type="email"
+                            v-model="addForm.username"
+                            type="text"
                             required
                             dir="ltr"
+                            :placeholder="__('organization.team.username_placeholder')"
+                            class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
+                        />
+                        <p class="text-[10px] text-slate-400 mt-1">
+                            {{ __('organization.team.username_help') }}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                            {{ __('organization.team.initial_password') }}
+                        </label>
+                        <input
+                            v-model="addForm.password"
+                            type="password"
+                            dir="ltr"
+                            :placeholder="__('organization.team.initial_password_placeholder')"
                             class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-mono focus:ring-2 focus:ring-purple-500 outline-none"
                         />
                     </div>

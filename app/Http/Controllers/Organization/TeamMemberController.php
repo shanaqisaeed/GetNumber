@@ -33,6 +33,8 @@ class TeamMemberController extends Controller
                 'user_id' => $m->user_id,
                 'name' => $m->user?->name,
                 'email' => $m->user?->email,
+                'username' => $m->user?->username ?: ($m->user?->email ?: $m->user?->account_id),
+                'account_id' => $m->user?->account_id,
                 'role' => $m->role,
                 'status' => $m->status,
                 'assigned_line' => $m->assigned_line,
@@ -84,20 +86,52 @@ class TeamMemberController extends Controller
         $org = $user->getOrCreatePersonalOrganization();
 
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:120'],
+            'username' => ['nullable', 'string', 'max:120'],
+            'email' => ['nullable', 'string', 'max:120'],
             'name' => ['required', 'string', 'max:120'],
             'role' => ['required', 'string', 'in:admin,member'],
+            'password' => ['nullable', 'string', 'min:6', 'max:64'],
         ]);
 
-        // Find or create member user
-        $targetUser = User::where('email', $validated['email'])->first();
+        $rawIdentifier = $validated['username'] ?? $validated['email'] ?? null;
+        if (! $rawIdentifier) {
+            return back()->with('error', __('organization.team.identifier_required'));
+        }
+
+        $cleanIdentifier = strtolower(trim(ltrim($rawIdentifier, '@')));
+
+        // Search for existing user by id, account_id, email, or username in identities
+        $targetUser = User::where('id', $cleanIdentifier)
+            ->orWhere('account_id', strtoupper($cleanIdentifier))
+            ->orWhere('email', $cleanIdentifier)
+            ->orWhereHas('identities', function ($q) use ($cleanIdentifier) {
+                $q->whereIn('provider', ['username', 'email'])
+                  ->where('provider_id', $cleanIdentifier);
+            })
+            ->first();
+
+        $generatedPassword = null;
+
         if (! $targetUser) {
+            $plainPassword = $validated['password'] ?: Str::random(10);
+            if (empty($validated['password'])) {
+                $generatedPassword = $plainPassword;
+            }
+
             $targetUser = User::create([
                 'name' => $validated['name'],
-                'email' => $validated['email'],
-                'password' => Hash::make(Str::random(16)),
+                'role' => \App\Enums\UserRole::User,
+                'status' => \App\Enums\UserStatus::Active,
                 'account_tier' => 'enterprise',
             ]);
+
+            $targetUser->linkIdentity(
+                'username',
+                $cleanIdentifier,
+                null,
+                ['registered_with' => 'organization_member', 'org_id' => $org->id],
+                $plainPassword
+            );
         }
 
         // Check if already in this organization
@@ -106,7 +140,7 @@ class TeamMemberController extends Controller
             ->first();
 
         if ($existing) {
-            return back()->with('error', __('organization.team.already_has_line_error'));
+            return back()->with('error', __('organization.team.already_member_error'));
         }
 
         $org->members()->create([
@@ -115,7 +149,15 @@ class TeamMemberController extends Controller
             'status' => 'active',
         ]);
 
-        return back()->with('success', __('organization.team.member_added'));
+        $msg = __('organization.team.member_added');
+        if ($generatedPassword) {
+            $msg .= ' — ' . __('organization.team.credentials_notice', [
+                'username' => $cleanIdentifier,
+                'password' => $generatedPassword,
+            ]);
+        }
+
+        return back()->with('success', $msg);
     }
 
     /**

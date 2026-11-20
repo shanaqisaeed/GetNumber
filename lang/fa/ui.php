@@ -732,6 +732,16 @@ return [
         ],
     ],
 
+    'buttons' => [
+        'cancel' => 'انصراف',
+        'confirm' => 'تأیید',
+        'save' => 'ذخیره',
+        'delete' => 'حذف',
+        'close' => 'بستن',
+        'submit' => 'ثبت',
+        'back' => 'بازگشت',
+    ],
+
     'general' => [
         'error_generic_title' => 'خطای سیستمی (:status)',
         'error_generic_desc' => 'خطای غیرمنتظره‌ای در پردازش درخواست رخ داده است.',

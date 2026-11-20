@@ -6,7 +6,7 @@ return [
         'dialer' => 'Smart Dialpad',
         'calls' => 'Calls',
         'messages' => 'SMS Messages',
-        'contacts' => 'Contacts Directory',
+        'contacts' => 'Contacts',
         'quick_wallet' => 'Wallet',
         'audio_settings' => 'Audio Settings',
         'switch_to_org' => 'Switch to Organization',

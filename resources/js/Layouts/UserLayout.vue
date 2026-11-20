@@ -239,7 +239,7 @@ const navItems = computed(() => [
 </script>
 
 <template>
-    <div class="min-h-screen w-full flex bg-[var(--bg-canvas)] relative transition-colors duration-300 overflow-x-hidden">
+    <div class="h-screen w-full flex bg-[var(--bg-canvas)] relative transition-colors duration-300 overflow-hidden">
         <!-- Notification Permission Request Modal -->
         <NotificationPermissionModal />
 
@@ -610,7 +610,7 @@ const navItems = computed(() => [
         <!-- ============================================================= -->
         <!-- 2. MAIN APP CANVAS (Right/Center on Desktop)                  -->
         <!-- ============================================================= -->
-        <div class="flex-1 flex flex-col min-w-0 min-h-screen relative z-10">
+        <div class="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto relative z-10">
             <!-- Mobile Top Header Bar (md:hidden) -->
             <header class="md:hidden sticky top-0 z-30 pt-3 pb-2.5 px-4 flex items-center justify-between border-b border-slate-200/80 dark:border-white/10 backdrop-blur-xl bg-[var(--bg-canvas)]/85 transition-colors gap-3">
                 <div class="flex items-center gap-2.5 min-w-0">

@@ -732,6 +732,16 @@ return [
         ],
     ],
 
+    'buttons' => [
+        'cancel' => 'Cancel',
+        'confirm' => 'Confirm',
+        'save' => 'Save',
+        'delete' => 'Delete',
+        'close' => 'Close',
+        'submit' => 'Submit',
+        'back' => 'Back',
+    ],
+
     'general' => [
         'error_generic_title' => 'System Error (:status)',
         'error_generic_desc' => 'An unexpected error occurred while processing the request.',

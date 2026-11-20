@@ -132,6 +132,7 @@ class LineManagementController extends Controller
                 'id' => $m->id,
                 'name' => $m->user?->name,
                 'email' => $m->user?->email,
+                'username' => $m->user?->username ?: ($m->user?->email ?: $m->user?->account_id),
             ]);
 
         return Inertia::render('Organization/Lines/Index', [

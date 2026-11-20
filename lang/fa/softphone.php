@@ -6,7 +6,7 @@ return [
         'dialer' => 'شماره‌گیر هوشمند',
         'calls' => 'تماس‌ها',
         'messages' => 'پیامک‌ها',
-        'contacts' => 'دفترچه مخاطبین',
+        'contacts' => 'مخاطبین',
         'quick_wallet' => 'کیف پول',
         'audio_settings' => 'تنظیمات صوتی',
         'switch_to_org' => 'ورود به پنل سازمانی',

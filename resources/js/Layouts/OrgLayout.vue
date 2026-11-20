@@ -92,9 +92,9 @@ const navigation = [
 </script>
 
 <template>
-    <div class="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col md:flex-row transition-colors duration-200">
+    <div class="h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col md:flex-row transition-colors duration-200">
         <!-- Mobile Header Bar -->
-        <header class="md:hidden sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
+        <header class="md:hidden shrink-0 sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
             <button
                 type="button"
                 @click="isMobileSidebarOpen = !isMobileSidebarOpen"
@@ -121,13 +121,13 @@ const navigation = [
         <!-- Sidebar (Desktop & Mobile Drawer) -->
         <aside
             :class="[
-                'fixed inset-y-0 right-0 md:relative md:inset-auto z-50 w-72 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-300 md:translate-x-0',
+                'fixed inset-y-0 right-0 md:static z-50 w-72 h-screen shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-transform duration-300 md:translate-x-0 overflow-hidden',
                 isMobileSidebarOpen ? 'translate-x-0' : 'translate-x-full'
             ]"
         >
             <div class="flex-1 min-h-0 flex flex-col">
                 <!-- Brand & Organization Title with Language & Theme Switches -->
-                <div class="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80">
+                <div class="p-3.5 border-b border-slate-200/80 dark:border-slate-800/80 shrink-0">
                     <div class="flex items-center justify-between gap-2">
                         <div class="flex items-center gap-2.5 min-w-0 flex-1">
                             <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-purple-600/30 font-black text-lg shrink-0">
@@ -174,7 +174,7 @@ const navigation = [
                 </div>
 
                 <!-- Navigation List -->
-                <nav class="p-3.5 space-y-1 overflow-y-auto flex-1">
+                <nav class="p-3.5 space-y-1 overflow-y-auto flex-1 min-h-0">
                     <Link
                         v-for="item in navigation"
                         :key="item.href"
@@ -231,7 +231,23 @@ const navigation = [
             </div>
 
             <!-- Sidebar Bottom: Switch to Softphone & User Info -->
-            <div class="p-3.5 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2.5 shrink-0">
+            <div class="p-3.5 border-t border-slate-200/80 dark:border-slate-800/80 space-y-2 shrink-0">
+                <!-- Admin Dashboard Link (For Admins & Superadmins) -->
+                <div v-if="$page.props.auth?.user?.is_admin">
+                    <Link
+                        :href="route('admin.dashboard')"
+                        class="w-full py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold flex items-center justify-between gap-2 transition-all active:scale-95 shadow-xs"
+                    >
+                        <div class="flex items-center gap-2">
+                            <svg class="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            <span>{{ __('ui.layouts.user.nav.switch_to_admin') }}</span>
+                        </div>
+                        <span class="text-[10px]">⚙️</span>
+                    </Link>
+                </div>
+
                 <Link
                     :href="route('dashboard')"
                     class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white text-xs font-black shadow-md shadow-indigo-600/20 flex items-center justify-center gap-2 transition-all active:scale-95"
@@ -262,7 +278,7 @@ const navigation = [
         ></div>
 
         <!-- Main Body Area -->
-        <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main class="flex-1 min-w-0 h-screen overflow-y-auto p-4 sm:p-6 lg:p-8">
             <slot />
         </main>
     </div>

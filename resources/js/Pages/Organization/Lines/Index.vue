@@ -27,6 +27,7 @@ interface EligibleMember {
     id: number;
     name: string;
     email: string;
+    username?: string;
 }
 
 const props = defineProps<{
@@ -259,7 +260,7 @@ function unassignLine(line: LineItem) {
                                 :key="member.id"
                                 :value="String(member.id)"
                             >
-                                {{ member.name }} ({{ member.email }})
+                                {{ member.name }} ({{ member.username ? (member.username.startsWith('@') ? member.username : '@' + member.username) : member.email }})
                             </option>
                         </select>
                     </div>
