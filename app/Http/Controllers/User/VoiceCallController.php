@@ -31,6 +31,15 @@ class VoiceCallController extends Controller
     {
         $user = $request->user();
 
+        // Auto-terminate any orphaned active calls initiated by this user (e.g., from page reload or abrupt disconnect)
+        $staleCalls = VoiceCall::where('user_id', $user->id)
+            ->whereIn('status', ['in_progress', 'initiating', 'ringing'])
+            ->get();
+
+        foreach ($staleCalls as $stale) {
+            $this->voiceCallService->endCall($stale);
+        }
+
         $allLines = \App\Http\Controllers\User\SoftphoneDashboardController::resolveOperableLines($user);
 
         $selectedKey = $request->input('line_key');
@@ -423,7 +432,9 @@ class VoiceCallController extends Controller
     public function end(Request $request, VoiceCall $voiceCall): JsonResponse
     {
         $user = $request->user();
-        if (! $user->isAdmin() && $voiceCall->user_id !== $user->id) {
+        $isCaller = $voiceCall->user_id === $user->id;
+        $isCallee = ($voiceCall->metadata['callee_user_id'] ?? null) === $user->id;
+        if (! $user->isAdmin() && ! $isCaller && ! $isCallee) {
             abort(403, __('controllers.user.calls.access_denied'));
         }
 

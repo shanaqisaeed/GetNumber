@@ -351,6 +351,20 @@ const retryMicrophoneAndCall = async () => {
     }
 };
 
+const resetMediaControlStates = () => {
+    isMuted.value = false;
+    isSpeakerOn.value = false;
+    if (localMediaStream) {
+        localMediaStream.getAudioTracks().forEach(track => {
+            track.enabled = true;
+        });
+    }
+    if (remoteAudio.value) {
+        remoteAudio.value.muted = false;
+        remoteAudio.value.volume = 0.85;
+    }
+};
+
 const toggleMute = () => {
     isMuted.value = !isMuted.value;
     if (localMediaStream) {
@@ -363,7 +377,60 @@ const toggleMute = () => {
 const toggleSpeaker = () => {
     isSpeakerOn.value = !isSpeakerOn.value;
     if (remoteAudio.value) {
-        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.7;
+        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
+    }
+};
+
+const handlePageUnload = () => {
+    if (!isCalling.value || !activeCallId.value) return;
+
+    const terminatingId = activeCallId.value;
+    const sessId = bridgeSessionId.value;
+
+    // 1. Immediately send WebSocket end_call if bridge socket is open
+    if (bridgeSocket && bridgeSocket.readyState === WebSocket.OPEN) {
+        try {
+            bridgeSocket.send(JSON.stringify({
+                type: 'end_call',
+                session_id: sessId || undefined,
+                call_id: terminatingId,
+            }));
+            bridgeSocket.close();
+        } catch {}
+    }
+
+    // 2. Dispatch keepalive fetch / sendBeacon to guarantee backend call termination
+    try {
+        const token = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '';
+        const endUrl = route('voice.end', terminatingId);
+        const payload = JSON.stringify({
+            duration_seconds: callDuration.value,
+            _token: token,
+        });
+
+        if (navigator.sendBeacon) {
+            const blob = new Blob([payload], { type: 'application/json' });
+            navigator.sendBeacon(endUrl, blob);
+        } else {
+            fetch(endUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                },
+                body: payload,
+                keepalive: true,
+            });
+        }
+    } catch {}
+
+    // 3. Immediately close peer connection & release hardware media streams
+    if (peerConnection) {
+        try { peerConnection.close(); } catch {}
+    }
+    if (localMediaStream) {
+        localMediaStream.getTracks().forEach(t => t.stop());
     }
 };
 
@@ -928,6 +995,7 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
     const cleanDest = getNormalizedDestination();
     if (!cleanDest || !selectedLine.value || isCalling.value) return;
 
+    resetMediaControlStates();
     callError.value = '';
     lastSignalId = 0;
     processedSignalHashes.clear();
@@ -1082,6 +1150,7 @@ const endCall = async () => {
     isCalling.value = false;
     const finalDuration = callDuration.value;
     callDuration.value = 0;
+    resetMediaControlStates();
 
     if (!terminatingCallId) return;
 
@@ -1127,6 +1196,7 @@ const checkIncomingCall = async () => {
 const answerIncomingCall = async (withVideo = false) => {
     if (!incomingCall.value) return;
     stopRingtone();
+    resetMediaControlStates();
     lastSignalId = 0;
     processedSignalHashes.clear();
     pendingWsMessages.value = [];
@@ -1235,7 +1305,10 @@ const navigateHistoryPage = (url: string | null) => {
 };
 
 onMounted(() => {
+    resetMediaControlStates();
     if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', handlePageUnload);
+        window.addEventListener('pagehide', handlePageUnload);
         document.addEventListener('fullscreenchange', () => {
             isFullscreen.value = Boolean(document.fullscreenElement);
         });
@@ -1300,6 +1373,12 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handlePageUnload);
+        window.removeEventListener('pagehide', handlePageUnload);
+    }
+    handlePageUnload();
+    resetMediaControlStates();
     stopCallTimer();
     if (pulseTimer) clearInterval(pulseTimer);
     if (signalPollTimer) clearInterval(signalPollTimer);

@@ -1,1 +1,0 @@
-import{_ as o}from"./TwoFactorAuthenticationForm.vue_vue_type_script_setup_true_lang-BbvhvZt_.js";import"./app-C2wyjaxa.js";import"./QrCode.vue_vue_type_script_setup_true_lang-DWqxMLDA.js";export{o as default};

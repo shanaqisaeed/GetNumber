@@ -596,8 +596,40 @@ func (hub *SignalingHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		hub.Lock()
+		sessID := hub.conns[conn]
 		delete(hub.conns, conn)
 		hub.Unlock()
+
+		if sessID != "" {
+			sess, hasSess := hub.store.Get(sessID)
+			callbackURL := hub.defaultCallbackURL
+			if hasSess && sess.CallbackURL != "" {
+				callbackURL = sess.CallbackURL
+			}
+			hub.store.End(sessID, 0)
+
+			endMsg := WSMessage{
+				Type:       "call_ended",
+				SessionID:  sessID,
+				Status:     "completed",
+				ServerTime: time.Now().UnixMilli(),
+			}
+			data, _ := json.Marshal(endMsg)
+
+			hub.RLock()
+			for c, s := range hub.conns {
+				if s == sessID {
+					writer := bufio.NewWriter(c)
+					_ = writeWSFrame(writer, 0x01, data)
+				}
+			}
+			hub.RUnlock()
+
+			if callbackURL != "" {
+				notifyLaravelWebhook(callbackURL, hub.secret, "session_ended", sessID, 0)
+			}
+			log.Printf("[VOICE-BRIDGE] ⚠️ WebSocket peer disconnected (session: %s), notified remaining peers and dispatched webhook", sessID)
+		}
 	}()
 
 	for {
