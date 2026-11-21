@@ -1,0 +1,73 @@
+{
+  "id": "/",
+  "name": "GetNumber Softphone",
+  "short_name": "GetNumber",
+  "description": "سافت‌فون و پلتفرم ارتباطی یکپارچه صوتی، تصویری و پیامکی GetNumber",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/calls",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "window-controls-overlay",
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#020617",
+  "theme_color": "#0f172a",
+  "orientation": "portrait-primary",
+  "categories": [
+    "business",
+    "communication",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "شماره‌گیر تماس",
+      "short_name": "تماس",
+      "description": "برقراری تماس صوتی یا تصویری",
+      "url": "/calls?tab=dialer",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "تاریخچه تماس‌ها",
+      "short_name": "تاریخچه",
+      "description": "مشاهده ریزمکالمات و تماس‌ها",
+      "url": "/calls?tab=history",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "پیامک‌ها",
+      "short_name": "پیام‌ها",
+      "description": "صندوق پیامک‌های دریافتی و ارسالی",
+      "url": "/messages",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

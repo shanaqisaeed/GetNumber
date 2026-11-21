@@ -1,0 +1,16 @@
+{
+  "name": "getnumber-mobile-softphone",
+  "version": "1.0.0",
+  "description": "GetNumber Native Mobile Softphone Bridge with CallKit, ConnectionService and Permanent Background Wakeup",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync",
+    "open:android": "cap open android",
+    "open:ios": "cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  }
+}

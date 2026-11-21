@@ -133,6 +133,8 @@ return [
         'incoming_call_title' => '📞 Incoming Voice Call',
         'incoming_call_on_line' => 'on line :destination',
         'incoming_call_body' => 'Incoming call from :caller :line',
+        'action_answer' => '📞 Answer',
+        'action_decline' => '❌ Decline',
         'package_not_installed' => 'The web push notification package (minishlink/web-push) is not installed on the server.',
     ],
     'auth' => [

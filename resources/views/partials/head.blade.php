@@ -3,6 +3,18 @@
 <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 
+<!-- Progressive Web App (PWA) Manifest & Meta Tags (100% Intranet-Safe & Self-Hosted) -->
+<link rel="manifest" href="/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GetNumber">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+<meta name="application-name" content="GetNumber">
+<meta name="msapplication-TileColor" content="#0f172a">
+
 <!-- Instant Theme Preload (Prevents Flash of Wrong Theme) -->
 <script>
     (function() {

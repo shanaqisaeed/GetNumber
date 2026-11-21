@@ -258,8 +258,21 @@ class WebPushNotificationService
             'tag' => 'getnumber-call-' . $call->id,
             'renotify' => true,
             'requireInteraction' => true,
-            'vibrate' => [300, 150, 300, 150, 300],
+            'vibrate' => [500, 250, 500, 250, 500, 250, 500, 250, 500, 250, 500],
+            'actions' => [
+                [
+                    'action' => 'answer',
+                    'title' => __('services.web_push.action_answer'),
+                    'icon' => '/icon-192.png',
+                ],
+                [
+                    'action' => 'decline',
+                    'title' => __('services.web_push.action_decline'),
+                    'icon' => '/icon-192.png',
+                ],
+            ],
             'data' => [
+                'type' => 'voice_call',
                 'url' => "/calls?incoming_call_id={$call->id}&auto_answer=1",
                 'callId' => $call->id,
                 'caller' => $caller,

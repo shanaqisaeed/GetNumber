@@ -68,6 +68,18 @@ Route::get('/admin/icon-192.png', function () {
     return response('', 204);
 });
 
+// Web App Manifest (PWA)
+Route::get('/manifest.json', function () {
+    $manifestPath = public_path('manifest.json');
+    if (file_exists($manifestPath)) {
+        return response()->file($manifestPath, [
+            'Content-Type' => 'application/manifest+json; charset=utf-8',
+            'Cache-Control' => 'public, max-age=3600',
+        ]);
+    }
+    return response('', 404);
+})->name('pwa.manifest');
+
 // Service Worker for Web Push Notifications
 Route::get('/sw.js', function () {
     $swPath = public_path('sw.js');

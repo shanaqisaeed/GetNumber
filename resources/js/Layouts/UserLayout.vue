@@ -5,6 +5,7 @@ import { useWebNotifications } from '@/Composables/useWebNotifications';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
 import LineSwitcherModal, { LineOption } from '@/Components/LineSwitcherModal.vue';
 import AudioDeviceTestModal from '@/Components/AudioDeviceTestModal.vue';
+import PwaInstallBanner from '@/Components/PwaInstallBanner.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import { useTheme } from '@/Composables/useTheme';
@@ -54,6 +55,25 @@ onMounted(() => {
     initChannel((switchedKey) => {
         router.reload();
     });
+
+    // Listen for Service Worker incoming call wakeups and actions
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            const data = event.data;
+            if (data?.type === 'incoming_call_push') {
+                checkGlobalIncomingCall();
+            } else if (data?.type === 'call_declined_from_notification') {
+                ringtone.stop();
+                incomingCall.value = null;
+            } else if (data?.type === 'answer_incoming_call') {
+                if (data.callId) {
+                    ringtone.stop();
+                    incomingCall.value = null;
+                    router.visit(route('calls.index', { incoming_call_id: data.callId, auto_answer: 1 }));
+                }
+            }
+        });
+    }
 });
 
 watch(
@@ -681,6 +701,9 @@ const navItems = computed(() => [
 
             <!-- Main Content Area with Adaptive Padding -->
             <main class="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+                <!-- PWA Install & Offline Intranet Banner -->
+                <PwaInstallBanner />
+
                 <!-- Flash Messages -->
                 <transition enter-active-class="transition ease-out duration-200" enter-from-class="opacity-0 -translate-y-2" enter-to-class="opacity-100 translate-y-0">
                     <div v-if="$page.props.flash?.success" class="mb-3.5 p-3 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-600 dark:text-emerald-300 text-xs font-bold flex items-center gap-2">

@@ -133,6 +133,8 @@ return [
         'incoming_call_title' => '📞 تماس صوتی ورودی',
         'incoming_call_on_line' => 'روی خط :destination',
         'incoming_call_body' => 'تماس ورودی از :caller :line',
+        'action_answer' => '📞 پاسخ به تماس',
+        'action_decline' => '❌ رد تماس',
         'package_not_installed' => 'پکیج ارسال نوتیفیکیشن وب (minishlink/web-push) روی سرور نصب نیست.',
     ],
     'auth' => [

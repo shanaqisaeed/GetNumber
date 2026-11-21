@@ -6,6 +6,7 @@ import UserLayout from '@/Layouts/UserLayout.vue';
 import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Components/ContactPickerModal.vue';
 import { CalmRingtone } from '@/Utils/ringtone';
 import { __ } from '@/Composables/useTrans';
+import { usePwaInstall } from '@/Composables/usePwaInstall';
 
 interface LineItem {
     id: number;
@@ -118,6 +119,7 @@ const isNoiseCancellationEnabled = ref(
         : true
 );
 const callError = ref('');
+const { acquireWakeLock, releaseWakeLock } = usePwaInstall();
 
 // WebRTC Video Calling & Multi-Camera Management
 const isVideoCall = ref(false);
@@ -2265,6 +2267,7 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
 
     isCalling.value = true;
     callDuration.value = 0;
+    acquireWakeLock();
 
     if (remoteAudio.value) {
         remoteAudio.value.muted = false;
@@ -2424,6 +2427,7 @@ const endCall = async () => {
     const finalDuration = callDuration.value;
     callDuration.value = 0;
     resetMediaControlStates();
+    releaseWakeLock();
 
     if (!terminatingCallId) return;
 
@@ -2492,6 +2496,7 @@ const answerIncomingCall = async (withVideo = false) => {
             destinationInput.value = answeredCall.source || incomingCall.value.source || '';
             isCalling.value = true;
             callDuration.value = 0;
+            acquireWakeLock();
             pingMs.value = answeredCall.ping_ms || incomingCall.value.ping_ms || 22;
             bridgeSessionId.value = answeredCall.bridge_session_id || incomingCall.value.bridge_session_id || null;
             bridgeWsEndpoint.value = answeredCall.bridge_ws_endpoint || incomingCall.value.bridge_ws_endpoint || null;
@@ -2735,6 +2740,27 @@ onMounted(() => {
             navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
         }
     }
+
+    // Service Worker incoming call push and action synchronization
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            const data = event.data;
+            if (data?.type === 'incoming_call_push') {
+                checkIncomingCall();
+            } else if (data?.type === 'call_declined_from_notification') {
+                stopRingtone();
+                isIncomingCallModalOpen.value = false;
+                incomingCall.value = null;
+            } else if (data?.type === 'answer_incoming_call') {
+                if (incomingCall.value && String(incomingCall.value.id) === String(data.callId)) {
+                    answerIncomingCall(false);
+                } else if (data.callId) {
+                    incomingCall.value = { id: parseInt(data.callId, 10), source: 'تماس ورودی' };
+                    answerIncomingCall(false);
+                }
+            }
+        });
+    }
 });
 
 const handleDeviceChange = () => {
@@ -2756,6 +2782,7 @@ onUnmounted(() => {
     if (iceRestartDebounceTimer) clearTimeout(iceRestartDebounceTimer);
     handlePageUnload();
     resetMediaControlStates();
+    releaseWakeLock();
     stopCallTimer();
     if (pulseTimer) clearInterval(pulseTimer);
     if (signalPollTimer) clearInterval(signalPollTimer);
