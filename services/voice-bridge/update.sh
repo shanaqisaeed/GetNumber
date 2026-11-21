@@ -129,6 +129,8 @@ printf "    ${CYAN}➜${RESET} ${GRAY}[2/4] Deploying newly compiled binary...${
 BINARY_SRC=""
 if [ -f "${SCRIPT_DIR}/voice-bridge-linux-amd64" ] && [ "$ARCH" = "x86_64" ]; then
     BINARY_SRC="${SCRIPT_DIR}/voice-bridge-linux-amd64"
+elif [ -f "${SCRIPT_DIR}/voice-bridge-linux-arm64" ] && ([ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]); then
+    BINARY_SRC="${SCRIPT_DIR}/voice-bridge-linux-arm64"
 elif [ -f "${SCRIPT_DIR}/voice-bridge" ]; then
     BINARY_SRC="${SCRIPT_DIR}/voice-bridge"
 elif command -v go >/dev/null 2>&1 && [ -f "${SCRIPT_DIR}/main.go" ]; then
