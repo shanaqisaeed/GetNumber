@@ -1,12 +1,12 @@
 /**
- * GetNumber High-Performance Service Worker & Native Calling Engine (Phase 2)
+ * Ravyno High-Performance Service Worker & Native Calling Engine
  * 100% Intranet-Safe & Self-Hosted:
  * - Native Incoming Call Notifications with [Answer / Decline] Actions
  * - Background Sync & WakeLock Keep-Alive Support
  * - Offline Shell & Resilient Asset Caching
  */
 
-const CACHE_NAME = 'getnumber-shell-v2';
+const CACHE_NAME = 'ravyno-shell-v3';
 const STATIC_ASSETS = [
     '/manifest.json',
     '/icon-192.png',
@@ -16,14 +16,19 @@ const STATIC_ASSETS = [
     '/apple-touch-icon.png',
 ];
 
-// Install: Cache essential PWA shell assets and activate immediately
+// Install: Cache essential PWA shell assets safely and activate immediately without failing
 self.addEventListener('install', (event) => {
+    self.skipWaiting();
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(STATIC_ASSETS).catch((err) => {
-                console.warn('[SW] Non-blocking cache.addAll warning:', err);
-            });
-        }).then(() => self.skipWaiting())
+        caches.open(CACHE_NAME).then(async (cache) => {
+            for (const asset of STATIC_ASSETS) {
+                try {
+                    await cache.add(asset);
+                } catch (e) {
+                    // Non-fatal skip so SW activation is never blocked
+                }
+            }
+        })
     );
 });
 
@@ -45,11 +50,11 @@ self.addEventListener('activate', (event) => {
 // Push Event: Handle incoming voice call rings and SMS notifications
 self.addEventListener('push', (event) => {
     let payload = {
-        title: 'اعلان سامانه GetNumber',
+        title: 'Ravyno',
         body: 'رویداد جدید دریافت شد.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
-        tag: 'getnumber-notice-' + Date.now(),
+        tag: 'ravyno-notice-' + Date.now(),
         data: { url: '/calls' }
     };
 
@@ -65,9 +70,9 @@ self.addEventListener('push', (event) => {
         }
     }
 
-    const isCall = (payload.tag && payload.tag.startsWith('getnumber-call-')) || payload.data?.type === 'voice_call' || payload.data?.callId;
+    const isCall = (payload.tag && (payload.tag.startsWith('ravyno-call-') || payload.tag.startsWith('getnumber-call-'))) || payload.data?.type === 'voice_call' || payload.data?.callId;
     const title = payload.title || (isCall ? '📞 تماس صوتی ورودی' : 'پیامک جدید دریافت شد');
-    const tag = payload.tag || (isCall ? `getnumber-call-${payload.data?.callId || Date.now()}` : `getnumber-sms-${payload.data?.messageId || Date.now()}`);
+    const tag = payload.tag || (isCall ? `ravyno-call-${payload.data?.callId || Date.now()}` : `ravyno-sms-${payload.data?.messageId || Date.now()}`);
 
     const options = {
         body: payload.body || (isCall ? 'شما یک تماس ورودی جدید دارید.' : 'پیام جدیدی دریافت شد.'),
@@ -123,7 +128,7 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     const callId = event.notification.data?.callId;
-    const isCall = !!callId || (event.notification.tag && event.notification.tag.startsWith('getnumber-call-'));
+    const isCall = !!callId || (event.notification.tag && (event.notification.tag.startsWith('ravyno-call-') || event.notification.tag.startsWith('getnumber-call-')));
     const targetUrl = event.notification.data?.url || (isCall ? '/calls' : '/messages');
 
     // 1. User tapped "❌ رد تماس" (Decline) directly from notification / lockscreen
@@ -190,7 +195,7 @@ self.addEventListener('notificationclick', (event) => {
 
 // Background Sync: Ensures offline call state synchronization
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'getnumber-call-sync') {
+    if (event.tag === 'ravyno-call-sync' || event.tag === 'getnumber-call-sync') {
         event.waitUntil(
             self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
                 for (const client of clients) {

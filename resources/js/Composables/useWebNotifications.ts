@@ -55,7 +55,8 @@ export function useWebNotifications() {
     const registerServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
         if (!isPushApiSupported.value) return null;
         try {
-            return await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+            return await navigator.serviceWorker.ready;
         } catch (err) {
             console.warn('[WebPush] Service worker registration error:', err);
             return null;
@@ -260,8 +261,9 @@ export function useWebNotifications() {
         if ('serviceWorker' in navigator) {
             try {
                 let reg = await navigator.serviceWorker.getRegistration();
-                if (!reg) {
-                    reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                if (!reg || !reg.active) {
+                    await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+                    reg = await navigator.serviceWorker.ready;
                 }
                 if (reg && 'showNotification' in reg) {
                     await reg.showNotification(title, options);

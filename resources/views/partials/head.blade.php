@@ -8,11 +8,11 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="GetNumber">
+<meta name="apple-mobile-web-app-title" content="Ravyno">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
-<meta name="application-name" content="GetNumber">
+<meta name="application-name" content="Ravyno">
 <meta name="msapplication-TileColor" content="#0f172a">
 
 <!-- Instant Theme Preload (Prevents Flash of Wrong Theme) -->

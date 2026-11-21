@@ -4,6 +4,7 @@ import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import PwaInstallBanner from '@/Components/PwaInstallBanner.vue';
 import { useRealtimeMessages } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -416,6 +417,9 @@ const mobileBottomDockItems = computed(() => [
                     <div class="pb-1">
                         <Breadcrumb homeRoute="admin.dashboard" :homeLabel="__('ui.layouts.admin.nav.dashboard')" />
                     </div>
+
+                    <!-- Global PWA Install Banner -->
+                    <PwaInstallBanner />
 
                     <!-- Global Flash Messages -->
                     <div v-if="$page.props.flash?.success" class="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-2 shadow-sm">

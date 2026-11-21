@@ -772,10 +772,7 @@ const renegotiatePeerConnection = async () => {
     isRenegotiating = true;
     try {
         console.log('[WebRTC-Renegotiate] 🔄 Creating renegotiation offer...');
-        const offer = await peerConnection.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-        });
+        const offer = await peerConnection.createOffer();
         if (offer.sdp) {
             offer.sdp = enhanceOpusSdp(offer.sdp);
         }
@@ -814,7 +811,6 @@ const toggleCamera = async () => {
             if (videoTransceiverInstance) {
                 videoTransceiverInstance.direction = isRemoteVideoStreaming.value ? 'recvonly' : 'inactive';
             }
-            await renegotiatePeerConnection();
         }
 
         await syncAllVideoElements();
@@ -846,10 +842,12 @@ const toggleCamera = async () => {
                         if (videoTransceiverInstance) {
                             videoTransceiverInstance.direction = 'sendrecv';
                         }
+                    } else if (videoTransceiverInstance) {
+                        await videoTransceiverInstance.sender.replaceTrack(newTrack);
+                        videoTransceiverInstance.direction = 'sendrecv';
                     } else {
                         peerConnection.addTrack(newTrack, localMediaStream);
                     }
-                    await renegotiatePeerConnection();
                 }
 
                 await syncAllVideoElements();
@@ -1595,52 +1593,18 @@ const toggleNoiseCancellation = async () => {
     }
 };
 
-// Enhance Opus SDP with In-Band FEC & DTX (Strict RFC 4566 CRLF compliance)
+// Enhance Opus SDP with In-Band FEC & DTX safely without corrupting SDP structure
 const enhanceOpusSdp = (sdp?: string): string => {
     if (!sdp || !sdp.includes('opus/48000')) {
         return sdp || '';
     }
     try {
-        // Normalize line endings to LF first for clean processing
-        const normalized = sdp.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const lines = normalized.split('\n');
-
-        const ptMatch = normalized.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
-        if (!ptMatch) {
-            return sdp;
-        }
-        const pt = ptMatch[1];
-        let foundFmtp = false;
-
-        const newLines: string[] = [];
-        for (const line of lines) {
-            if (line.toLowerCase().startsWith(`a=fmtp:${pt}`)) {
-                foundFmtp = true;
-                let params = line.substring(`a=fmtp:${pt}`.length).trim();
-                if (!params.includes('useinbandfec=')) {
-                    params += (params ? ';' : '') + 'useinbandfec=1';
-                }
-                if (!params.includes('usedtx=')) {
-                    params += (params ? ';' : '') + 'usedtx=1';
-                }
-                if (!params.includes('stereo=')) {
-                    params += (params ? ';' : '') + 'stereo=0';
-                }
-                newLines.push(`a=fmtp:${pt} ${params}`);
-            } else {
-                newLines.push(line);
-            }
-        }
-
-        if (!foundFmtp) {
-            const rtpmapIdx = newLines.findIndex(l => l.toLowerCase().startsWith(`a=rtpmap:${pt}`));
-            if (rtpmapIdx !== -1) {
-                newLines.splice(rtpmapIdx + 1, 0, `a=fmtp:${pt} minptime=10;useinbandfec=1;usedtx=1;stereo=0`);
-            }
-        }
-
-        // Rejoin strictly with RFC 4566 CRLF (\r\n) and terminate with \r\n
-        return newLines.filter(l => l.length > 0).join('\r\n') + '\r\n';
+        return sdp.replace(/(a=fmtp:\d+\s+[^;\r\n]+)/gi, (match) => {
+            let updated = match;
+            if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
+            if (!updated.includes('usedtx=')) updated += ';usedtx=1';
+            return updated;
+        });
     } catch {
         return sdp;
     }
@@ -1755,7 +1719,7 @@ const stopCallTimer = () => {
     }
 };
 
-const createPeerConnection = () => {
+const createPeerConnection = (isCaller = false) => {
     if (peerConnection) {
         try {
             peerConnection.close();
@@ -1767,21 +1731,7 @@ const createPeerConnection = () => {
 
     const pc = new RTCPeerConnection(buildRtcConfiguration());
 
-    // Setup DataChannel for interactive whiteboard
-    try {
-        whiteboardDataChannel = pc.createDataChannel('whiteboard', { ordered: true });
-        setupWhiteboardDataChannel(whiteboardDataChannel);
-    } catch (e) {
-        console.warn('[WebRTC] DataChannel creation warning:', e);
-    }
-
-    pc.ondatachannel = (event) => {
-        if (event.channel.label === 'whiteboard') {
-            setupWhiteboardDataChannel(event.channel);
-        }
-    };
-
-    // Attach local audio tracks
+    // 1. Audio Track / Transceiver FIRST (m=audio, mid 0)
     const audioTracks = localMediaStream ? localMediaStream.getAudioTracks() : [];
     if (audioTracks.length > 0 && localMediaStream) {
         audioTracks.forEach(track => {
@@ -1795,7 +1745,7 @@ const createPeerConnection = () => {
         } catch {}
     }
 
-    // Attach local video tracks if video call is active, or add transceiver so mid-call camera activation is seamless
+    // 2. Video Transceiver SECOND (m=video, mid 1)
     const videoTracks = localMediaStream ? localMediaStream.getVideoTracks() : [];
     try {
         if (videoTracks.length > 0 && localMediaStream) {
@@ -1816,6 +1766,22 @@ const createPeerConnection = () => {
             });
         }
     }
+
+    // 3. DataChannel for whiteboard THIRD (m=application, mid 2) - caller creates it, callee receives via ondatachannel
+    if (isCaller) {
+        try {
+            whiteboardDataChannel = pc.createDataChannel('whiteboard', { ordered: true });
+            setupWhiteboardDataChannel(whiteboardDataChannel);
+        } catch (e) {
+            console.warn('[WebRTC] DataChannel creation warning:', e);
+        }
+    }
+
+    pc.ondatachannel = (event) => {
+        if (event.channel.label === 'whiteboard') {
+            setupWhiteboardDataChannel(event.channel);
+        }
+    };
 
     // Connect remote incoming audio and video streams
     pc.ontrack = async (event) => {
@@ -1894,11 +1860,8 @@ const createPeerConnection = () => {
         }
     };
 
-    // Auto-renegotiate when media pipeline needs renegotiation
-    pc.onnegotiationneeded = async () => {
-        console.log('[WebRTC] 🔄 onnegotiationneeded fired');
-        await renegotiatePeerConnection();
-    };
+    // Auto-renegotiate removed: transceivers and replaceTrack handle track switching seamlessly without SDP renegotiation glare
+    pc.onnegotiationneeded = null;
 
     // Process queued renegotiations on stable signaling state
     pc.onsignalingstatechange = () => {
@@ -2000,12 +1963,13 @@ const handleSignalingPayload = async (type: string, payload: any) => {
         } else if (type === 'whiteboard_event') {
             handleWhiteboardDataMessage(payload);
         } else if (type === 'offer') {
+            const offerData = typeof payload === 'string' ? JSON.parse(payload) : payload;
             if (peerConnection.signalingState !== 'stable') {
                 try {
                     await peerConnection.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
                 } catch {}
             }
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offerData));
             for (const cand of pendingCandidates) {
                 try {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
@@ -2021,8 +1985,9 @@ const handleSignalingPayload = async (type: string, payload: any) => {
             await sendSignalingMessage('answer', answer);
             syncAllVideoElements();
         } else if (type === 'answer') {
+            const answerData = typeof payload === 'string' ? JSON.parse(payload) : payload;
             if (peerConnection.signalingState === 'have-local-offer') {
-                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answerData));
                 for (const cand of pendingCandidates) {
                     try {
                         await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
@@ -2036,11 +2001,12 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                 }
             }
         } else if (type === 'ice_candidate') {
+            const candData = typeof payload === 'string' ? JSON.parse(payload) : payload;
             if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
-                pendingCandidates.push(payload);
+                pendingCandidates.push(candData);
             } else {
                 try {
-                    await peerConnection.addIceCandidate(new RTCIceCandidate(payload));
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(candData));
                 } catch {}
             }
         } else if (type === 'end_call' || type === 'call_ended') {
@@ -2295,12 +2261,9 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);
             }
 
-            // Establish WebRTC Peer Connection
-            const pc = createPeerConnection();
-            const offer = await pc.createOffer({
-                offerToReceiveAudio: true,
-                offerToReceiveVideo: true,
-            });
+            // Establish WebRTC Peer Connection as Caller
+            const pc = createPeerConnection(true);
+            const offer = await pc.createOffer();
             if (offer.sdp) {
                 offer.sdp = enhanceOpusSdp(offer.sdp);
             }
@@ -2508,7 +2471,7 @@ const answerIncomingCall = async (withVideo = false) => {
 
             await requestMediaAccess(withVideo);
 
-            createPeerConnection();
+            createPeerConnection(false);
 
             if (bridgeWsEndpoint.value) {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);

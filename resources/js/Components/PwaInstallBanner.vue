@@ -4,14 +4,14 @@ import { usePwaInstall } from '@/Composables/usePwaInstall';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 
 const { isInstallable, isStandalone, installApp } = usePwaInstall();
-const { isPermissionGranted, isPermissionDefault, subscribeToPush } = useWebNotifications();
+const { isPermissionDefault, subscribeToPush } = useWebNotifications();
 
 const isDismissed = ref(false);
 const isInstalling = ref(false);
 
 onMounted(() => {
     if (typeof window !== 'undefined') {
-        isDismissed.value = localStorage.getItem('getnumber_pwa_dismissed') === 'true';
+        isDismissed.value = localStorage.getItem('ravyno_pwa_dismissed') === 'true';
     }
 });
 
@@ -30,7 +30,7 @@ const handleInstall = async () => {
 const handleDismiss = () => {
     isDismissed.value = true;
     if (typeof window !== 'undefined') {
-        localStorage.setItem('getnumber_pwa_dismissed', 'true');
+        localStorage.setItem('ravyno_pwa_dismissed', 'true');
     }
 };
 
@@ -40,7 +40,6 @@ const handleEnableNotifications = async () => {
 </script>
 
 <template>
-    <!-- Show Banner only when installable or notifications not yet granted, and not dismissed, and not standalone -->
     <div
         v-if="!isDismissed && !isStandalone && (isInstallable || isPermissionDefault)"
         class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-3 sm:p-4 shadow-xl backdrop-blur-md text-white transition-all my-3"
@@ -53,18 +52,16 @@ const handleEnableNotifications = async () => {
                     </svg>
                 </div>
                 <div>
-                    <h4 class="text-sm font-bold flex items-center gap-2 text-white">
-                        <span>نصب نسخه پیش‌رونده (PWA) با زنگ بومی موبایل</span>
-                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">اینترانت ۱۰۰٪</span>
+                    <h4 class="text-sm font-bold text-white">
+                        برنامه ما را نصب کنید
                     </h4>
                     <p class="text-xs text-slate-300 mt-0.5">
-                        دریافت تماس و پیامک با زنگ واقعی، حتی هنگام قفل بودن صفحه و بسته بودن مرورگر در اینترانت ملی.
+                        برای دسترسی سریع‌تر، دریافت اعلان‌ها و زنگ تماس مستقیم روی گوشی، برنامه را نصب کنید.
                     </p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                <!-- Enable Push if default -->
                 <button
                     v-if="isPermissionDefault"
                     type="button"
@@ -74,10 +71,9 @@ const handleEnableNotifications = async () => {
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <span>فعال‌سازی زنگ پس‌زمینه</span>
+                    <span>فعال‌سازی اعلان و زنگ</span>
                 </button>
 
-                <!-- Install PWA Button -->
                 <button
                     v-if="isInstallable"
                     type="button"
@@ -91,7 +87,6 @@ const handleEnableNotifications = async () => {
                     <span>{{ isInstalling ? 'در حال نصب...' : 'نصب نرم‌افزار' }}</span>
                 </button>
 
-                <!-- Dismiss -->
                 <button
                     type="button"
                     @click="handleDismiss"

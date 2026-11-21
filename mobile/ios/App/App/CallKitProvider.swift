@@ -9,7 +9,7 @@ import AVFoundation
     public static let shared = CallKitProvider()
     
     public override init() {
-        let configuration = CXProviderConfiguration(localizedName: "GetNumber")
+        let configuration = CXProviderConfiguration(localizedName: "Ravyno")
         configuration.supportsVideo = true
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.phoneNumber, .generic]

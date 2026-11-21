@@ -52,13 +52,48 @@ Route::get('/sitemap.xml', function () {
     ]);
 })->name('sitemap');
 
-// Static App Icon Fallback
+// Static App Icon Fallback & PWA Image Assets (Guaranteed 200 OK)
 Route::get('/icon-192.png', function () {
     $path = public_path('icon-192.png');
     if (file_exists($path)) {
         return response()->file($path, ['Content-Type' => 'image/png']);
     }
     return response('', 204);
+});
+Route::get('/icon-512.png', function () {
+    $path = public_path('icon-512.png');
+    if (file_exists($path)) {
+        return response()->file($path, ['Content-Type' => 'image/png']);
+    }
+    $fallback192 = public_path('icon-192.png');
+    if (file_exists($fallback192)) {
+        return response()->file($fallback192, ['Content-Type' => 'image/png']);
+    }
+    return response('', 204);
+});
+Route::get('/icon-maskable-192.png', function () {
+    $path = public_path('icon-maskable-192.png');
+    if (!file_exists($path)) {
+        $path = public_path('icon-192.png');
+    }
+    return file_exists($path) ? response()->file($path, ['Content-Type' => 'image/png']) : response('', 204);
+});
+Route::get('/icon-maskable-512.png', function () {
+    $path = public_path('icon-maskable-512.png');
+    if (!file_exists($path)) {
+        $path = public_path('icon-512.png');
+    }
+    if (!file_exists($path)) {
+        $path = public_path('icon-192.png');
+    }
+    return file_exists($path) ? response()->file($path, ['Content-Type' => 'image/png']) : response('', 204);
+});
+Route::get('/apple-touch-icon.png', function () {
+    $path = public_path('apple-touch-icon.png');
+    if (!file_exists($path)) {
+        $path = public_path('icon-192.png');
+    }
+    return file_exists($path) ? response()->file($path, ['Content-Type' => 'image/png']) : response('', 204);
 });
 Route::get('/admin/icon-192.png', function () {
     $path = public_path('icon-192.png');

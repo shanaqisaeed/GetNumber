@@ -1,6 +1,6 @@
 {
-  "appId": "com.getnumber.softphone",
-  "appName": "GetNumber Softphone",
+  "appId": "com.ravyno.softphone",
+  "appName": "Ravyno",
   "webDir": "../public",
   "bundledWebRuntime": false,
   "server": {

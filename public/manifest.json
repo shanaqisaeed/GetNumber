@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "GetNumber Softphone",
-  "short_name": "GetNumber",
-  "description": "سافت‌فون و پلتفرم ارتباطی یکپارچه صوتی، تصویری و پیامکی GetNumber",
+  "name": "Ravyno",
+  "short_name": "Ravyno",
+  "description": "سامانه ارتباطی یکپارچه صوتی، تصویری و پیامکی Ravyno",
   "lang": "fa",
   "dir": "rtl",
   "start_url": "/calls",

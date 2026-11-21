@@ -97,7 +97,7 @@ public class GetNumberForegroundService extends Service {
         );
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("سافت‌فون GetNumber آماده تماس است")
+            .setContentTitle("سافت‌فون Ravyno آماده تماس است")
             .setContentText("سرویس زنگ بومی و دریافت پیامک در پس‌زمینه فعال است")
             .setSmallIcon(android.R.drawable.stat_sys_phone_call)
             .setContentIntent(pendingIntent)
