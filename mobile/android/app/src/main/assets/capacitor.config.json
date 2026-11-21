@@ -1,0 +1,25 @@
+{
+	"appId": "com.ravyno.softphone",
+	"appName": "Ravyno",
+	"webDir": "www",
+	"bundledWebRuntime": false,
+	"server": {
+		"url": "https://number.ravyno.site",
+		"cleartext": true,
+		"allowNavigation": [
+			"*"
+		]
+	},
+	"android": {
+		"allowMixedContent": true,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 1500,
+			"backgroundColor": "#020617",
+			"showSpinner": false
+		}
+	}
+}

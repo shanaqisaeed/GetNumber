@@ -356,23 +356,23 @@ watch(destinationInput, (val) => {
     }
 });
 
-// Camera Device Enumeration with Intelligent Multi-Lens, IR Filter & Front Camera Deduplication
+// Camera Device Enumeration with Intelligent Multi-Lens & Webcam Detection
 const enumerateCameras = async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
 
-        let seenFront = false;
         let backIdx = 0;
+        let frontIdx = 0;
         const result: { deviceId: string; label: string; facingMode: 'user' | 'environment' }[] = [];
 
         for (let i = 0; i < videoDevices.length; i++) {
             const d = videoDevices[i];
-            const raw = d.label || '';
+            const raw = (d.label || '').trim();
             const lower = raw.toLowerCase();
 
-            // 1. Filter out IR, Depth, ToF and non-standard virtual sensors
+            // 1. Filter out IR, Depth, ToF sensors
             if (lower.includes('ir ') || lower.includes('infra') || lower.includes('depth') || lower.includes('tof')) {
                 continue;
             }
@@ -383,23 +383,16 @@ const enumerateCameras = async () => {
                 backIdx++;
             } else if (lower.includes('front') || lower.includes('user') || lower.includes('selfie')) {
                 facing = 'user';
+                frontIdx++;
             } else {
                 facing = i === 0 ? 'user' : 'environment';
                 if (facing === 'environment') backIdx++;
-            }
-
-            // 2. Fix duplicate front camera issue on Android / PC Hello cameras:
-            // Strictly keep only 1 front camera (primary selfie sensor) to avoid confusing duplicates
-            if (facing === 'user') {
-                if (seenFront) {
-                    continue;
-                }
-                seenFront = true;
+                else frontIdx++;
             }
 
             let label = raw;
             if (!label) {
-                label = facing === 'user' ? 'دوربین جلو (سلفی)' : (backIdx > 1 ? `دوربین پشت (${backIdx})` : 'دوربین اصلی پشت');
+                label = facing === 'user' ? (frontIdx > 1 ? `دوربین جلو شماره ${frontIdx}` : 'دوربین جلو (سلفی)') : (backIdx > 1 ? `دوربین پشت (${backIdx})` : 'دوربین اصلی پشت');
             } else {
                 if (lower.includes('back') || lower.includes('rear')) {
                     if (lower.includes('wide') || lower.includes('ultra')) {
@@ -415,18 +408,22 @@ const enumerateCameras = async () => {
                     if (lower.includes('wide') || lower.includes('ultra')) {
                         label = 'دوربین جلو (فوق‌عریض / Ultra Wide)';
                     } else {
-                        label = 'دوربین جلو (سلفی)';
+                        label = frontIdx > 1 ? `دوربین جلو (${frontIdx})` : 'دوربین جلو (سلفی)';
                     }
                 } else {
-                    label = `وب‌کم (${raw.slice(0, 18)})`;
+                    const cleanName = raw.replace(/integrated webcam/i, 'وب‌کم پیش‌فرض').trim();
+                    label = `وب‌کم (${cleanName.slice(0, 24)})`;
                 }
             }
 
-            result.push({
-                deviceId: d.deviceId,
-                label,
-                facingMode: facing,
-            });
+            // Deduplicate: avoid adding identical deviceId
+            if (!result.some(r => r.deviceId === d.deviceId)) {
+                result.push({
+                    deviceId: d.deviceId,
+                    label,
+                    facingMode: facing,
+                });
+            }
         }
 
         availableCameras.value = result;
@@ -464,24 +461,96 @@ const enumerateAudioOutputs = async () => {
 
 const getVideoQualityResolution = () => {
     if (videoQuality.value === 'hd') {
-        return { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30, max: 30 } };
+        return { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } };
     } else if (videoQuality.value === 'sd') {
-        return { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } };
+        return { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24 } };
     }
-    return { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15, max: 20 } };
+    return { width: { ideal: 480 }, height: { ideal: 360 }, frameRate: { ideal: 15 } };
+};
+
+// Robust Video Stream Requester: Multi-strategy progressive fallback
+const getRobustVideoStream = async (targetDeviceId?: string, facing?: 'user' | 'environment'): Promise<MediaStream> => {
+    const devId = targetDeviceId || selectedCameraId.value;
+    const faceMode = facing || currentFacingMode.value;
+    const res = getVideoQualityResolution();
+
+    // Strategy 1: Explicit deviceId (ideal constraint, NO facingMode conflict)
+    if (devId && devId.length > 5) {
+        try {
+            console.log('[WebRTC-Camera] 🎥 Attempting stream with deviceId:', devId);
+            return await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: { ideal: devId },
+                    width: { ideal: res.width.ideal },
+                    height: { ideal: res.height.ideal },
+                },
+            });
+        } catch (err1) {
+            console.warn('[WebRTC-Camera] deviceId constraint attempt failed, trying facingMode fallback:', err1);
+        }
+    }
+
+    // Strategy 2: By facingMode (user vs environment)
+    try {
+        console.log('[WebRTC-Camera] 🎥 Attempting stream with facingMode:', faceMode);
+        return await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { ideal: faceMode },
+                width: { ideal: res.width.ideal },
+                height: { ideal: res.height.ideal },
+            },
+        });
+    } catch (err2) {
+        console.warn('[WebRTC-Camera] facingMode constraint attempt failed, trying generic video fallback:', err2);
+    }
+
+    // Strategy 3: Pure video fallback (guaranteed to work on any hardware)
+    console.log('[WebRTC-Camera] 🎥 Falling back to generic video: true');
+    return await navigator.mediaDevices.getUserMedia({
+        video: true,
+    });
 };
 
 const getVideoConstraints = (): MediaTrackConstraints => {
-    const base: MediaTrackConstraints = { ...getVideoQualityResolution() };
+    const res = getVideoQualityResolution();
     if (selectedCameraId.value && selectedCameraId.value.length > 5) {
-        base.deviceId = { ideal: selectedCameraId.value };
+        return {
+            deviceId: { ideal: selectedCameraId.value },
+            width: { ideal: res.width.ideal },
+            height: { ideal: res.height.ideal },
+        };
     }
-    base.facingMode = { ideal: currentFacingMode.value };
-    return base;
+    return {
+        facingMode: { ideal: currentFacingMode.value },
+        width: { ideal: res.width.ideal },
+        height: { ideal: res.height.ideal },
+    };
 };
 
 const syncAllVideoElements = async () => {
     await nextTick();
+
+    // 1. Resolve remote video track from remoteVideoStream, remoteMediaStream, or peerConnection receivers
+    let remoteTrack: MediaStreamTrack | null = null;
+    if (remoteVideoStream && remoteVideoStream.getVideoTracks().length > 0) {
+        remoteTrack = remoteVideoStream.getVideoTracks()[0];
+    } else if (remoteMediaStream && remoteMediaStream.getVideoTracks().length > 0) {
+        remoteTrack = remoteMediaStream.getVideoTracks()[0];
+    } else if (peerConnection) {
+        const receiver = peerConnection.getReceivers().find(r => r.track && r.track.kind === 'video');
+        if (receiver && receiver.track) {
+            remoteTrack = receiver.track;
+        }
+    }
+
+    if (remoteTrack) {
+        if (!remoteVideoStream) {
+            remoteVideoStream = new MediaStream([remoteTrack]);
+        } else if (!remoteVideoStream.getVideoTracks().some(t => t.id === remoteTrack!.id)) {
+            remoteVideoStream.addTrack(remoteTrack);
+        }
+    }
+
     const effectiveRemoteStream = remoteVideoStream || (remoteMediaStream?.getVideoTracks().length ? remoteMediaStream : null);
     if (effectiveRemoteStream) {
         if (remoteVideo.value) {
@@ -497,18 +566,22 @@ const syncAllVideoElements = async () => {
             whiteboardRemoteVideo.value.play().catch(() => {});
         }
     }
+
     if (localMediaStream) {
-        if (localVideo.value) {
-            if (localVideo.value.srcObject !== localMediaStream) {
-                localVideo.value.srcObject = localMediaStream;
+        const localVTracks = localMediaStream.getVideoTracks();
+        if (localVTracks.length > 0) {
+            if (localVideo.value) {
+                if (localVideo.value.srcObject !== localMediaStream) {
+                    localVideo.value.srcObject = localMediaStream;
+                }
+                localVideo.value.play().catch(() => {});
             }
-            localVideo.value.play().catch(() => {});
-        }
-        if (whiteboardPipVideo.value) {
-            if (whiteboardPipVideo.value.srcObject !== localMediaStream) {
-                whiteboardPipVideo.value.srcObject = localMediaStream;
+            if (whiteboardPipVideo.value) {
+                if (whiteboardPipVideo.value.srcObject !== localMediaStream) {
+                    whiteboardPipVideo.value.srcObject = localMediaStream;
+                }
+                whiteboardPipVideo.value.play().catch(() => {});
             }
-            whiteboardPipVideo.value.play().catch(() => {});
         }
     }
 
@@ -525,7 +598,7 @@ const syncAllVideoElements = async () => {
                 whiteboardRemoteVideo.value.play().catch(() => {});
             }
         }
-    }, 120);
+    }, 150);
 };
 
 const attachLocalStreamToVideo = async () => {
@@ -565,17 +638,18 @@ const requestMediaAccess = async (withVideo = false): Promise<boolean> => {
         return false;
     }
 
-    // Step 2: If withVideo requested, explicitly request camera stream
+    // Step 2: If withVideo requested, explicitly request camera stream using robust progressive fallback
     if (withVideo) {
         try {
-            const videoStream = await navigator.mediaDevices.getUserMedia({
-                video: getVideoConstraints(),
-            });
+            const videoStream = await getRobustVideoStream();
             const vTrack = videoStream.getVideoTracks()[0];
             if (vTrack && localMediaStream) {
                 localMediaStream.addTrack(vTrack);
                 isCameraOn.value = true;
                 isVideoCall.value = true;
+                const s = vTrack.getSettings?.();
+                if (s?.deviceId) selectedCameraId.value = s.deviceId;
+                if (s?.facingMode) currentFacingMode.value = s.facingMode as 'user' | 'environment';
                 await attachLocalStreamToVideo();
                 await enumerateCameras();
             }
@@ -794,6 +868,7 @@ const toggleCamera = async () => {
 
     const currentVideoTracks = localMediaStream.getVideoTracks();
     if (currentVideoTracks.length > 0 && isCameraOn.value) {
+        // TURN CAMERA OFF
         currentVideoTracks.forEach(track => {
             track.stop();
             localMediaStream?.removeTrack(track);
@@ -808,9 +883,7 @@ const toggleCamera = async () => {
             if (videoSender) {
                 videoSender.replaceTrack(null).catch(() => {});
             }
-            if (videoTransceiverInstance) {
-                videoTransceiverInstance.direction = isRemoteVideoStreaming.value ? 'recvonly' : 'inactive';
-            }
+            await renegotiatePeerConnection();
         }
 
         await syncAllVideoElements();
@@ -821,15 +894,20 @@ const toggleCamera = async () => {
             isVideoCall.value = false;
         }
     } else {
+        // TURN CAMERA ON
         try {
-            const videoStream = await navigator.mediaDevices.getUserMedia({
-                video: getVideoConstraints(),
-            });
+            const videoStream = await getRobustVideoStream();
             const newTrack = videoStream.getVideoTracks()[0];
             if (newTrack) {
                 localMediaStream.addTrack(newTrack);
                 isCameraOn.value = true;
                 isVideoCall.value = true;
+
+                // Sync detected hardware settings
+                const s = newTrack.getSettings?.();
+                if (s?.deviceId) selectedCameraId.value = s.deviceId;
+                if (s?.facingMode) currentFacingMode.value = s.facingMode as 'user' | 'environment';
+
                 await enumerateCameras();
 
                 if (peerConnection) {
@@ -848,6 +926,8 @@ const toggleCamera = async () => {
                     } else {
                         peerConnection.addTrack(newTrack, localMediaStream);
                     }
+                    // Trigger renegotiation to notify peer and ensure bidirectional video
+                    await renegotiatePeerConnection();
                 }
 
                 await syncAllVideoElements();
@@ -860,96 +940,42 @@ const toggleCamera = async () => {
     }
 };
 
-// Switch Camera (Front / Rear & Multi-Lens / USB Webcams)
-const switchCamera = async () => {
-    if (!localMediaStream || isSwitchingCamera.value) return;
-    isSwitchingCamera.value = true;
+// Directly Select a Specific Camera by Device ID
+const selectCamera = async (targetDeviceId: string) => {
+    if (!targetDeviceId || isSwitchingCamera.value) return;
+    const targetCam = availableCameras.value.find(c => c.deviceId === targetDeviceId);
+    if (!targetCam) return;
 
-    // 1. Advance to the next available camera
-    if (availableCameras.value.length > 1) {
-        const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
-        const nextIndex = (currentIndex + 1) % availableCameras.value.length;
-        selectedCameraId.value = availableCameras.value[nextIndex].deviceId;
-        currentFacingMode.value = availableCameras.value[nextIndex].facingMode;
-    } else {
-        // Toggle facing mode if no deviceId list yet
-        currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
+    isSwitchingCamera.value = true;
+    selectedCameraId.value = targetDeviceId;
+    currentFacingMode.value = targetCam.facingMode;
+
+    // Release old video tracks so hardware camera lock is cleared
+    if (localMediaStream) {
+        const oldTracks = localMediaStream.getVideoTracks();
+        oldTracks.forEach(t => {
+            t.stop();
+            localMediaStream?.removeTrack(t);
+        });
     }
 
-    // 2. CRITICAL: Stop previous tracks BEFORE requesting the new track so the hardware sensor lock is released!
-    const currentVideoTracks = localMediaStream.getVideoTracks();
-    currentVideoTracks.forEach(t => {
-        t.stop();
-        localMediaStream?.removeTrack(t);
-    });
-
     try {
-        let newStream: MediaStream | null = null;
-
-        // Attempt 1: By exact deviceId (if available)
-        if (selectedCameraId.value && selectedCameraId.value.length > 5) {
-            try {
-                newStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        deviceId: { exact: selectedCameraId.value },
-                        ...getVideoQualityResolution(),
-                    },
-                });
-            } catch (err1) {
-                console.log('[WebRTC-Video] Exact deviceId request failed, falling back:', err1);
-            }
-        }
-
-        // Attempt 2: By exact facingMode (standard iOS Safari & Android Chrome)
-        if (!newStream) {
-            try {
-                newStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { exact: currentFacingMode.value },
-                        ...getVideoQualityResolution(),
-                    },
-                });
-            } catch (err2) {
-                console.log('[WebRTC-Video] Exact facingMode request failed, falling back:', err2);
-            }
-        }
-
-        // Attempt 3: By ideal facingMode
-        if (!newStream) {
-            try {
-                newStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: { ideal: currentFacingMode.value },
-                        ...getVideoQualityResolution(),
-                    },
-                });
-            } catch (err3) {
-                console.log('[WebRTC-Video] Ideal facingMode request failed:', err3);
-            }
-        }
-
-        // Attempt 4: General fallback constraints
-        if (!newStream) {
-            newStream = await navigator.mediaDevices.getUserMedia({
-                video: getVideoConstraints(),
-            });
-        }
-
+        const newStream = await getRobustVideoStream(targetDeviceId, targetCam.facingMode);
         const newTrack = newStream?.getVideoTracks()[0];
         if (newTrack) {
+            if (!localMediaStream) {
+                localMediaStream = new MediaStream();
+            }
             localMediaStream.addTrack(newTrack);
+            isCameraOn.value = true;
+            isVideoCall.value = true;
+
+            const s = newTrack.getSettings?.();
+            if (s?.deviceId) selectedCameraId.value = s.deviceId;
+            if (s?.facingMode) currentFacingMode.value = s.facingMode as 'user' | 'environment';
+
             await syncAllVideoElements();
 
-            // Sync track settings
-            const settings = newTrack.getSettings?.();
-            if (settings?.deviceId) {
-                selectedCameraId.value = settings.deviceId;
-            }
-            if (settings?.facingMode) {
-                currentFacingMode.value = settings.facingMode as 'user' | 'environment';
-            }
-
-            // Seamlessly swap track on WebRTC peer connection
             if (peerConnection) {
                 let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
                 if (!videoSender && videoTransceiverInstance) {
@@ -960,30 +986,71 @@ const switchCamera = async () => {
                     if (videoTransceiverInstance) {
                         videoTransceiverInstance.direction = 'sendrecv';
                     }
+                } else if (videoTransceiverInstance) {
+                    await videoTransceiverInstance.sender.replaceTrack(newTrack);
+                    videoTransceiverInstance.direction = 'sendrecv';
                 } else {
                     peerConnection.addTrack(newTrack, localMediaStream);
                 }
                 await renegotiatePeerConnection();
             }
 
+            await sendSignalingMessage('camera_status', { is_camera_on: true });
             await enumerateCameras();
         }
     } catch (e) {
-        console.error('[WebRTC-Video] Could not switch camera:', e);
-        callError.value = 'خطا در سوییچ به دوربین انتخابی سخت‌افزار.';
-        // Attempt fallback to user camera
-        try {
-            const fallbackStream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: { ideal: 'user' }, ...getVideoQualityResolution() }
-            });
-            const fallbackTrack = fallbackStream.getVideoTracks()[0];
-            if (fallbackTrack && localMediaStream) {
-                localMediaStream.addTrack(fallbackTrack);
-                await syncAllVideoElements();
-            }
-        } catch {}
+        console.error('[WebRTC-Video] Could not switch to camera:', targetDeviceId, e);
+        callError.value = 'خطا در سوییچ به دوربین انتخابی.';
     } finally {
         isSwitchingCamera.value = false;
+    }
+};
+
+// Switch Camera (Cycle between available cameras or toggle front/rear)
+const switchCamera = async () => {
+    if (!localMediaStream || isSwitchingCamera.value) return;
+
+    if (availableCameras.value.length > 1) {
+        const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
+        const nextIndex = (currentIndex + 1) % availableCameras.value.length;
+        await selectCamera(availableCameras.value[nextIndex].deviceId);
+    } else {
+        isSwitchingCamera.value = true;
+        const nextFacing = currentFacingMode.value === 'user' ? 'environment' : 'user';
+        currentFacingMode.value = nextFacing;
+
+        const currentVideoTracks = localMediaStream.getVideoTracks();
+        currentVideoTracks.forEach(t => {
+            t.stop();
+            localMediaStream?.removeTrack(t);
+        });
+
+        try {
+            const newStream = await getRobustVideoStream(undefined, nextFacing);
+            const newTrack = newStream?.getVideoTracks()[0];
+            if (newTrack) {
+                localMediaStream.addTrack(newTrack);
+                await syncAllVideoElements();
+
+                if (peerConnection) {
+                    let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+                    if (!videoSender && videoTransceiverInstance) {
+                        videoSender = videoTransceiverInstance.sender;
+                    }
+                    if (videoSender) {
+                        await videoSender.replaceTrack(newTrack);
+                    } else {
+                        peerConnection.addTrack(newTrack, localMediaStream);
+                    }
+                    await renegotiatePeerConnection();
+                }
+                await enumerateCameras();
+            }
+        } catch (e) {
+            console.error('[WebRTC-Video] Could not switch camera facing:', e);
+        } finally {
+            isSwitchingCamera.value = false;
+        }
     }
 };
 
@@ -1101,9 +1168,7 @@ const stopScreenShare = async () => {
         localMediaStream?.addTrack(restoreTrack);
     } else if (isCameraOn.value) {
         try {
-            const camStream = await navigator.mediaDevices.getUserMedia({
-                video: getVideoConstraints(),
-            });
+            const camStream = await getRobustVideoStream();
             restoreTrack = camStream.getVideoTracks()[0];
             if (restoreTrack && localMediaStream) {
                 localMediaStream.addTrack(restoreTrack);
@@ -1745,7 +1810,7 @@ const createPeerConnection = (isCaller = false) => {
         } catch {}
     }
 
-    // 2. Video Transceiver SECOND (m=video, mid 1)
+    // 2. Video Transceiver SECOND (m=video, mid 1) - Always pre-negotiate as sendrecv so mid-call camera toggle transmits instantly
     const videoTracks = localMediaStream ? localMediaStream.getVideoTracks() : [];
     try {
         if (videoTracks.length > 0 && localMediaStream) {
@@ -1755,7 +1820,7 @@ const createPeerConnection = (isCaller = false) => {
             });
         } else {
             videoTransceiverInstance = pc.addTransceiver('video', {
-                direction: (isVideoCall.value || isCameraOn.value) ? 'sendrecv' : 'recvonly',
+                direction: 'sendrecv',
             });
         }
     } catch (e) {
@@ -1785,12 +1850,9 @@ const createPeerConnection = (isCaller = false) => {
 
     // Connect remote incoming audio and video streams
     pc.ontrack = async (event) => {
-        console.log('[WebRTC] 🎧 Incoming track:', event.track.kind, 'id:', event.track.id, 'readyState:', event.track.readyState);
+        console.log('[WebRTC] 🎧 Incoming track:', event.track.kind, 'id:', event.track.id, 'readyState:', event.track.readyState, 'muted:', event.track.muted);
 
         if (event.track.kind === 'video') {
-            isRemoteVideoStreaming.value = true;
-            isVideoCall.value = true;
-
             // Dedicated clean video MediaStream directly containing the remote video track
             if (!remoteVideoStream) {
                 remoteVideoStream = new MediaStream([event.track]);
@@ -1813,11 +1875,17 @@ const createPeerConnection = (isCaller = false) => {
                 remoteMediaStream.addTrack(event.track);
             }
 
-            await syncAllVideoElements();
+            // Only mark as active video call if the track is not muted (receiving real frames)
+            if (!event.track.muted) {
+                isRemoteVideoStreaming.value = true;
+                isVideoCall.value = true;
+                await syncAllVideoElements();
+            }
 
             event.track.onunmute = () => {
-                console.log('[WebRTC] 📹 Remote video track unmuted:', event.track.id);
+                console.log('[WebRTC] 📹 Remote video track unmuted (media flow active):', event.track.id);
                 isRemoteVideoStreaming.value = true;
+                isVideoCall.value = true;
                 syncAllVideoElements();
             };
             event.track.onended = () => {
@@ -3353,27 +3421,44 @@ onUnmounted(() => {
                     </div>
 
                     <!-- Video Controls Row (When in Video Call) -->
-                    <div v-if="isVideoCall" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-around gap-2 max-w-sm mx-auto text-xs flex-wrap">
-                        <!-- Camera Switcher -->
-                        <button
-                            v-if="isCameraOn"
-                            type="button"
-                            @click="switchCamera"
-                            :disabled="isSwitchingCamera"
-                            class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1.5 hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-50"
-                            :title="`سوییچ به دوربین بعدی (${activeCameraDisplayName})`"
-                        >
-                            <svg class="w-3.5 h-3.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            <span class="text-[10px] font-bold">{{ activeCameraDisplayName }}</span>
-                            <span v-if="currentCameraIndexDisplay" class="text-[9px] px-1 rounded bg-indigo-500/10 text-indigo-500 font-mono">
-                                {{ currentCameraIndexDisplay }}
-                            </span>
-                        </button>
+                    <div v-if="isVideoCall" class="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-2 max-w-md mx-auto text-xs flex-wrap">
+                        <!-- Camera Selector & Switcher -->
+                        <div v-if="isCameraOn && availableCameras.length > 1" class="flex items-center gap-1.5">
+                            <select
+                                :value="selectedCameraId"
+                                @change="selectCamera(($event.target as HTMLSelectElement).value)"
+                                :disabled="isSwitchingCamera"
+                                class="text-[11px] font-bold py-1 px-2 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 focus:ring-1 focus:ring-indigo-500 outline-none max-w-[140px] truncate"
+                                title="انتخاب مستقیم دوربین"
+                            >
+                                <option v-for="cam in availableCameras" :key="cam.deviceId" :value="cam.deviceId">
+                                    {{ cam.label }}
+                                </option>
+                            </select>
+
+                            <button
+                                type="button"
+                                @click="switchCamera"
+                                :disabled="isSwitchingCamera"
+                                class="px-2 py-1 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1 hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-50"
+                                :title="`سوییچ سریع به دوربین بعدی`"
+                            >
+                                <svg class="w-3.5 h-3.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span class="text-[10px]">بعدی</span>
+                                <span v-if="currentCameraIndexDisplay" class="text-[9px] px-1 rounded bg-indigo-500/10 text-indigo-500 font-mono">
+                                    {{ currentCameraIndexDisplay }}
+                                </span>
+                            </button>
+                        </div>
+                        <div v-else-if="isCameraOn" class="px-2 py-1 text-[10px] text-slate-600 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span>{{ activeCameraDisplayName }}</span>
+                        </div>
 
                         <!-- Video Quality Selector -->
-                        <div class="flex items-center gap-1">
+                        <div class="flex items-center gap-1 mr-auto sm:mr-0">
                             <span class="text-[10px] text-slate-400 font-bold">{{ __('user.calls.video_quality_label') }}</span>
                             <button
                                 type="button"
