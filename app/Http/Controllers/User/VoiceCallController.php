@@ -593,7 +593,7 @@ class VoiceCallController extends Controller
         }
 
         $validated = $request->validate([
-            'type' => ['required', 'string', 'in:offer,answer,ice_candidate,end_call,renegotiate'],
+            'type' => ['required', 'string', 'max:32'],
             'payload' => ['required'],
         ]);
 

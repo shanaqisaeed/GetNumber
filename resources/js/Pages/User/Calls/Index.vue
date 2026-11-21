@@ -138,6 +138,36 @@ let remoteMediaStream: MediaStream | null = null;
 let wsReconnectTimer: any = null;
 let iceRestartDebounceTimer: any = null;
 
+// Screen Sharing State
+const isScreenSharing = ref(false);
+const isRemoteScreenSharing = ref(false);
+let screenMediaStream: MediaStream | null = null;
+let originalCameraTrack: MediaStreamTrack | null = null;
+
+// Interactive Whiteboard State & WebRTC DataChannel
+const isWhiteboardOpen = ref(false);
+const isRemoteWhiteboardOpen = ref(false);
+const isWhiteboardCameraActive = ref(true); // User preference: camera PiP during whiteboard session
+const whiteboardCanvasRef = ref<HTMLCanvasElement | null>(null);
+const whiteboardPipVideo = ref<HTMLVideoElement | null>(null);
+const whiteboardTool = ref<'pen' | 'highlighter' | 'eraser'>('pen');
+const whiteboardColor = ref<string>('#ef4444');
+const whiteboardLineWidth = ref<number>(3);
+const isDataChannelReady = ref(false);
+let whiteboardDataChannel: RTCDataChannel | null = null;
+let isDrawingOnCanvas = false;
+let lastCanvasNx = 0;
+let lastCanvasNy = 0;
+const whiteboardUndoStack = ref<string[]>([]);
+const whiteboardColors = [
+    { hex: '#0f172a', name: 'مشکی' },
+    { hex: '#ef4444', name: 'قرمز' },
+    { hex: '#3b82f6', name: 'آبی' },
+    { hex: '#10b981', name: 'سبز' },
+    { hex: '#eab308', name: 'زرد فسفری' },
+    { hex: '#8b5cf6', name: 'بنفش' },
+];
+
 // Equipment & Hardware Testing Modal (Microphone, Camera, Speaker)
 const isDeviceTestModalOpen = ref(false);
 const isTestingDevices = ref(false);
@@ -535,6 +565,10 @@ const attachLocalStreamToVideo = async () => {
         localVideo.value.srcObject = localMediaStream;
         localVideo.value.play().catch(() => {});
     }
+    if (whiteboardPipVideo.value && localMediaStream && isWhiteboardCameraActive.value) {
+        whiteboardPipVideo.value.srcObject = localMediaStream;
+        whiteboardPipVideo.value.play().catch(() => {});
+    }
 };
 
 // Request Media Access with Noise Suppression and Optional Video Track
@@ -602,8 +636,15 @@ const retryMicrophoneAndCall = async () => {
 const resetMediaControlStates = () => {
     isMuted.value = false;
     isSpeakerOn.value = false;
+    isScreenSharing.value = false;
+    isRemoteScreenSharing.value = false;
+    isWhiteboardOpen.value = false;
+    isRemoteWhiteboardOpen.value = false;
     if (localMediaStream) {
         localMediaStream.getAudioTracks().forEach(track => {
+            track.enabled = true;
+        });
+        localMediaStream.getVideoTracks().forEach(track => {
             track.enabled = true;
         });
     }
@@ -852,6 +893,497 @@ const switchCamera = async () => {
     }
 };
 
+// =========================================================================
+// SCREEN SHARING (Display Media API & Dynamic Track Replacement)
+// =========================================================================
+const toggleScreenShare = async () => {
+    if (!isCalling.value) return;
+
+    if (isScreenSharing.value) {
+        await stopScreenShare();
+        return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
+        callError.value = __('user.calls.screen_share_unsupported') || 'مرورگر شما از اشتراک‌گذاری صفحه نمایش پشتیبانی نمی‌کند.';
+        return;
+    }
+
+    try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: {
+                cursor: 'always',
+            } as any,
+            audio: false,
+        });
+
+        const screenTrack = stream.getVideoTracks()[0];
+        if (!screenTrack) return;
+
+        screenMediaStream = stream;
+        isScreenSharing.value = true;
+        isVideoCall.value = true;
+
+        // Auto-revert when user clicks browser native stop sharing pill
+        screenTrack.onended = () => {
+            stopScreenShare();
+        };
+
+        // Cache original camera track if one was active
+        const currentVideoTracks = localMediaStream ? localMediaStream.getVideoTracks() : [];
+        if (currentVideoTracks.length > 0) {
+            originalCameraTrack = currentVideoTracks[0];
+            localMediaStream?.removeTrack(originalCameraTrack);
+        }
+
+        if (localMediaStream) {
+            localMediaStream.addTrack(screenTrack);
+        } else {
+            localMediaStream = new MediaStream([screenTrack]);
+        }
+
+        await attachLocalStreamToVideo();
+
+        // Swap on WebRTC peer connection
+        if (peerConnection) {
+            const senders = peerConnection.getSenders();
+            const videoSender = senders.find(s => s.track?.kind === 'video');
+            if (videoSender) {
+                await videoSender.replaceTrack(screenTrack);
+            } else {
+                peerConnection.addTrack(screenTrack, localMediaStream!);
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                await sendSignalingMessage('offer', offer);
+            }
+        }
+
+        await sendSignalingMessage('screen_share_status', { is_sharing: true });
+    } catch (err: any) {
+        if (err.name !== 'NotAllowedError') {
+            console.error('[ScreenShare] Error:', err);
+            callError.value = 'امکان اشتراک‌گذاری صفحه نمایش مقدور نشد.';
+        }
+        isScreenSharing.value = false;
+    }
+};
+
+const stopScreenShare = async () => {
+    if (!isScreenSharing.value && !screenMediaStream) return;
+
+    if (screenMediaStream) {
+        screenMediaStream.getTracks().forEach(t => t.stop());
+        screenMediaStream = null;
+    }
+
+    isScreenSharing.value = false;
+
+    // Remove ended screen track from local stream
+    if (localMediaStream) {
+        const screenTracks = localMediaStream.getVideoTracks().filter(t => t.readyState === 'ended' || t.label.toLowerCase().includes('screen') || t !== originalCameraTrack);
+        screenTracks.forEach(t => {
+            t.stop();
+            localMediaStream?.removeTrack(t);
+        });
+    }
+
+    let restoreTrack = originalCameraTrack;
+    if (restoreTrack && restoreTrack.readyState === 'live') {
+        localMediaStream?.addTrack(restoreTrack);
+    } else if (isCameraOn.value) {
+        try {
+            const camStream = await navigator.mediaDevices.getUserMedia({
+                video: getVideoConstraints(),
+            });
+            restoreTrack = camStream.getVideoTracks()[0];
+            if (restoreTrack && localMediaStream) {
+                localMediaStream.addTrack(restoreTrack);
+            }
+        } catch {}
+    }
+
+    originalCameraTrack = null;
+    await attachLocalStreamToVideo();
+
+    if (peerConnection) {
+        const senders = peerConnection.getSenders();
+        const videoSender = senders.find(s => s.track?.kind === 'video');
+        if (videoSender) {
+            await videoSender.replaceTrack(restoreTrack || null);
+        }
+    }
+
+    await sendSignalingMessage('screen_share_status', { is_sharing: false });
+};
+
+// =========================================================================
+// INTERACTIVE WHITEBOARD (Canvas, WebRTC DataChannel & Dual Transport)
+// =========================================================================
+const setupWhiteboardDataChannel = (channel: RTCDataChannel) => {
+    whiteboardDataChannel = channel;
+    channel.onopen = () => {
+        console.log('[WebRTC-DataChannel] 🟢 Whiteboard DataChannel opened successfully');
+        isDataChannelReady.value = true;
+        if (isWhiteboardOpen.value) {
+            sendWhiteboardMessage({ type: 'wb_sync_req' });
+        }
+    };
+    channel.onclose = () => {
+        console.log('[WebRTC-DataChannel] 🔴 Whiteboard DataChannel closed');
+        isDataChannelReady.value = false;
+    };
+    channel.onerror = (err) => {
+        console.warn('[WebRTC-DataChannel] ⚠️ DataChannel error:', err);
+    };
+    channel.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            handleWhiteboardDataMessage(data);
+        } catch (e) {
+            console.warn('[WebRTC-DataChannel] Bad payload:', e);
+        }
+    };
+};
+
+const sendWhiteboardMessage = (msg: any) => {
+    if (whiteboardDataChannel && whiteboardDataChannel.readyState === 'open') {
+        try {
+            whiteboardDataChannel.send(JSON.stringify(msg));
+            return;
+        } catch (e) {
+            console.warn('[WebRTC-DataChannel] Send failed, falling back to signaling:', e);
+        }
+    }
+    // Dual transport fallback via signaling mailbox / WebSocket
+    sendSignalingMessage('whiteboard_event', msg);
+};
+
+const handleWhiteboardDataMessage = (data: any) => {
+    if (!data || typeof data !== 'object') return;
+
+    if (data.type === 'wb_open') {
+        isRemoteWhiteboardOpen.value = true;
+        if (!isWhiteboardOpen.value) {
+            openWhiteboard(true);
+        }
+    } else if (data.type === 'wb_close') {
+        isRemoteWhiteboardOpen.value = false;
+    } else if (data.type === 'wb_draw') {
+        drawSegment(data.from[0], data.from[1], data.to[0], data.to[1], data.tool, data.color, data.width);
+    } else if (data.type === 'wb_clear') {
+        clearCanvasLocal();
+    } else if (data.type === 'wb_undo' && data.image) {
+        restoreCanvasFromDataUrl(data.image, false);
+    } else if (data.type === 'wb_sync_req') {
+        const canvas = whiteboardCanvasRef.value;
+        if (canvas) {
+            sendWhiteboardMessage({ type: 'wb_sync_res', image: canvas.toDataURL() });
+        }
+    } else if (data.type === 'wb_sync_res' && data.image) {
+        restoreCanvasFromDataUrl(data.image, false);
+    }
+};
+
+const getNormalizedCoords = (e: MouseEvent | Touch, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const nx = Math.max(0, Math.min(1, x / rect.width));
+    const ny = Math.max(0, Math.min(1, y / rect.height));
+    return { nx, ny };
+};
+
+const drawSegment = (
+    fromNx: number,
+    fromNy: number,
+    toNx: number,
+    toNy: number,
+    tool: 'pen' | 'highlighter' | 'eraser',
+    color: string,
+    width: number
+) => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const fromX = fromNx * rect.width;
+    const fromY = fromNy * rect.height;
+    const toX = toNx * rect.width;
+    const toY = toNy * rect.height;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (tool === 'eraser') {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = width * 4;
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+    } else if (tool === 'highlighter') {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width * 3;
+        ctx.globalAlpha = 0.35;
+        ctx.globalCompositeOperation = 'source-over';
+    } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.stroke();
+    ctx.restore();
+};
+
+const clearCanvasLocal = () => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+};
+
+const clearWhiteboard = () => {
+    clearCanvasLocal();
+    saveUndoState();
+    sendWhiteboardMessage({ type: 'wb_clear' });
+};
+
+const saveUndoState = () => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL();
+    if (whiteboardUndoStack.value.length > 25) {
+        whiteboardUndoStack.value.shift();
+    }
+    whiteboardUndoStack.value.push(dataUrl);
+};
+
+const undoWhiteboard = () => {
+    if (whiteboardUndoStack.value.length <= 1) {
+        clearWhiteboard();
+        return;
+    }
+    whiteboardUndoStack.value.pop();
+    const prev = whiteboardUndoStack.value[whiteboardUndoStack.value.length - 1];
+    if (prev) {
+        restoreCanvasFromDataUrl(prev, false);
+        sendWhiteboardMessage({ type: 'wb_undo', image: prev });
+    }
+};
+
+const restoreCanvasFromDataUrl = (dataUrl: string, pushUndo = true) => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+        const rect = canvas.getBoundingClientRect();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, rect.width, rect.height);
+        ctx.drawImage(img, 0, 0, rect.width, rect.height);
+        if (pushUndo) {
+            saveUndoState();
+        }
+    };
+    img.src = dataUrl;
+};
+
+const saveWhiteboardImage = () => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const link = document.createElement('a');
+    link.download = `whiteboard-${activeCallId.value || 'session'}-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+};
+
+const onCanvasMouseDown = (e: MouseEvent) => {
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    isDrawingOnCanvas = true;
+    const { nx, ny } = getNormalizedCoords(e, canvas);
+    lastCanvasNx = nx;
+    lastCanvasNy = ny;
+    drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
+    sendWhiteboardMessage({
+        type: 'wb_draw',
+        tool: whiteboardTool.value,
+        color: whiteboardColor.value,
+        width: whiteboardLineWidth.value,
+        from: [nx, ny],
+        to: [nx + 0.0001, ny + 0.0001],
+    });
+};
+
+const onCanvasMouseMove = (e: MouseEvent) => {
+    if (!isDrawingOnCanvas) return;
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const { nx, ny } = getNormalizedCoords(e, canvas);
+    drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
+    sendWhiteboardMessage({
+        type: 'wb_draw',
+        tool: whiteboardTool.value,
+        color: whiteboardColor.value,
+        width: whiteboardLineWidth.value,
+        from: [lastCanvasNx, lastCanvasNy],
+        to: [nx, ny],
+    });
+    lastCanvasNx = nx;
+    lastCanvasNy = ny;
+};
+
+const onCanvasMouseUp = () => {
+    if (!isDrawingOnCanvas) return;
+    isDrawingOnCanvas = false;
+    saveUndoState();
+};
+
+const handleTouchStart = (e: TouchEvent) => {
+    e.preventDefault();
+    if (e.touches.length !== 1) return;
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    isDrawingOnCanvas = true;
+    const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
+    lastCanvasNx = nx;
+    lastCanvasNy = ny;
+    drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
+    sendWhiteboardMessage({
+        type: 'wb_draw',
+        tool: whiteboardTool.value,
+        color: whiteboardColor.value,
+        width: whiteboardLineWidth.value,
+        from: [nx, ny],
+        to: [nx + 0.0001, ny + 0.0001],
+    });
+};
+
+const handleTouchMove = (e: TouchEvent) => {
+    e.preventDefault();
+    if (!isDrawingOnCanvas || e.touches.length !== 1) return;
+    const canvas = whiteboardCanvasRef.value;
+    if (!canvas) return;
+    const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
+    drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
+    sendWhiteboardMessage({
+        type: 'wb_draw',
+        tool: whiteboardTool.value,
+        color: whiteboardColor.value,
+        width: whiteboardLineWidth.value,
+        from: [lastCanvasNx, lastCanvasNy],
+        to: [nx, ny],
+    });
+    lastCanvasNx = nx;
+    lastCanvasNy = ny;
+};
+
+const handleTouchEnd = (e: TouchEvent) => {
+    e.preventDefault();
+    if (!isDrawingOnCanvas) return;
+    isDrawingOnCanvas = false;
+    saveUndoState();
+};
+
+const setupCanvas = () => {
+    nextTick(() => {
+        const canvas = whiteboardCanvasRef.value;
+        if (!canvas) return;
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(rect.width * dpr);
+        canvas.height = Math.round(rect.height * dpr);
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            ctx.scale(dpr, dpr);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, rect.width, rect.height);
+        }
+        whiteboardUndoStack.value = [];
+        saveUndoState();
+
+        canvas.removeEventListener('touchstart', handleTouchStart as any);
+        canvas.removeEventListener('touchmove', handleTouchMove as any);
+        canvas.removeEventListener('touchend', handleTouchEnd as any);
+        canvas.addEventListener('touchstart', handleTouchStart as any, { passive: false });
+        canvas.addEventListener('touchmove', handleTouchMove as any, { passive: false });
+        canvas.addEventListener('touchend', handleTouchEnd as any, { passive: false });
+
+        if (whiteboardPipVideo.value && localMediaStream && isWhiteboardCameraActive.value) {
+            whiteboardPipVideo.value.srcObject = localMediaStream;
+            whiteboardPipVideo.value.play().catch(() => {});
+        }
+    });
+};
+
+const openWhiteboard = (fromRemote = false) => {
+    isWhiteboardOpen.value = true;
+    setupCanvas();
+    if (!fromRemote) {
+        sendWhiteboardMessage({ type: 'wb_open' });
+    } else {
+        setTimeout(() => {
+            sendWhiteboardMessage({ type: 'wb_sync_req' });
+        }, 300);
+    }
+};
+
+const closeWhiteboard = () => {
+    isWhiteboardOpen.value = false;
+    if (localMediaStream) {
+        localMediaStream.getVideoTracks().forEach(t => {
+            t.enabled = isCameraOn.value;
+        });
+    }
+    sendWhiteboardMessage({ type: 'wb_close' });
+};
+
+const toggleWhiteboard = () => {
+    if (isWhiteboardOpen.value) {
+        closeWhiteboard();
+    } else {
+        openWhiteboard();
+    }
+};
+
+const toggleWhiteboardCamera = () => {
+    isWhiteboardCameraActive.value = !isWhiteboardCameraActive.value;
+    if (localMediaStream) {
+        const videoTracks = localMediaStream.getVideoTracks();
+        videoTracks.forEach(t => {
+            t.enabled = isWhiteboardCameraActive.value;
+        });
+    }
+    if (isWhiteboardCameraActive.value) {
+        nextTick(() => {
+            if (whiteboardPipVideo.value && localMediaStream) {
+                whiteboardPipVideo.value.srcObject = localMediaStream;
+                whiteboardPipVideo.value.play().catch(() => {});
+            }
+        });
+    }
+};
+
+watch([isWhiteboardOpen, isWhiteboardCameraActive], async ([isOpen, isCamActive]) => {
+    if (isOpen && isCamActive) {
+        await nextTick();
+        if (whiteboardPipVideo.value && localMediaStream) {
+            whiteboardPipVideo.value.srcObject = localMediaStream;
+            whiteboardPipVideo.value.play().catch(() => {});
+        }
+    }
+});
+
 // Change Video Resolution Quality
 const setVideoQuality = async (q: 'hd' | 'sd' | 'low') => {
     videoQuality.value = q;
@@ -1061,6 +1593,20 @@ const createPeerConnection = () => {
 
     const pc = new RTCPeerConnection(buildRtcConfiguration());
 
+    // Setup DataChannel for interactive whiteboard
+    try {
+        whiteboardDataChannel = pc.createDataChannel('whiteboard', { ordered: true });
+        setupWhiteboardDataChannel(whiteboardDataChannel);
+    } catch (e) {
+        console.warn('[WebRTC] DataChannel creation warning:', e);
+    }
+
+    pc.ondatachannel = (event) => {
+        if (event.channel.label === 'whiteboard') {
+            setupWhiteboardDataChannel(event.channel);
+        }
+    };
+
     // Attach local audio tracks
     const audioTracks = localMediaStream ? localMediaStream.getAudioTracks() : [];
     if (audioTracks.length > 0 && localMediaStream) {
@@ -1202,6 +1748,10 @@ const handleSignalingPayload = async (type: string, payload: any) => {
     try {
         if (type === 'route_selected' && payload?.route) {
             optimalRouteInfo.value = payload.route;
+        } else if (type === 'screen_share_status') {
+            isRemoteScreenSharing.value = Boolean(payload?.is_sharing);
+        } else if (type === 'whiteboard_event') {
+            handleWhiteboardDataMessage(payload);
         } else if (type === 'offer') {
             if (peerConnection.signalingState !== 'stable') {
                 try {
@@ -1555,6 +2105,20 @@ const endCall = async () => {
     if (activeCallId.value) {
         sendSignalingMessage('end_call', { reason: 'user_hangup' });
     }
+
+    if (isScreenSharing.value) {
+        await stopScreenShare();
+    }
+    if (isWhiteboardOpen.value) {
+        closeWhiteboard();
+    }
+    if (whiteboardDataChannel) {
+        try { whiteboardDataChannel.close(); } catch {}
+        whiteboardDataChannel = null;
+    }
+    isDataChannelReady.value = false;
+    isRemoteScreenSharing.value = false;
+    isRemoteWhiteboardOpen.value = false;
 
     if (peerConnection) {
         try {
@@ -2070,7 +2634,7 @@ onUnmounted(() => {
             <!-- ======================================================== -->
             <!-- TAB 1: PHONE DIALER & ACTIVE CALL (VOICE & VIDEO)        -->
             <!-- ======================================================== -->
-            <div v-if="activeTab === 'dialer'" :class="['glass-card !p-5 mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300', isCalling && isVideoCall ? 'max-w-4xl' : 'max-w-lg']">
+            <div v-if="activeTab === 'dialer'" :class="['glass-card !p-5 mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300', isCalling && (isVideoCall || isWhiteboardOpen) ? 'max-w-4xl' : 'max-w-lg']">
                 <!-- If currently in active call session -->
                 <div v-if="isCalling" class="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
                     <!-- Network Status Alert Banner -->
@@ -2088,9 +2652,190 @@ onUnmounted(() => {
                         </span>
                     </div>
 
-                    <!-- VIDEO CALL CONTAINER (When Video is enabled) -->
+                    <!-- Remote Whiteboard Invitation Alert Banner -->
                     <div
-                        v-if="isVideoCall"
+                        v-if="!isWhiteboardOpen && isRemoteWhiteboardOpen"
+                        class="p-3 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold text-center flex items-center justify-between gap-2 shadow-lg animate-pulse"
+                    >
+                        <div class="flex items-center gap-2">
+                            <span class="text-base">🎨</span>
+                            <span>طرف مقابل وایت‌برد تعاملی را باز کرده است.</span>
+                        </div>
+                        <button
+                            type="button"
+                            @click="openWhiteboard(true)"
+                            class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-colors"
+                        >
+                            پیوستن به تخته
+                        </button>
+                    </div>
+
+                    <!-- 1. INTERACTIVE WHITEBOARD CONTAINER -->
+                    <div
+                        v-if="isWhiteboardOpen"
+                        class="relative w-full rounded-3xl overflow-hidden bg-slate-900 border border-slate-700 shadow-2xl flex flex-col animate-in fade-in zoom-in-95 duration-200"
+                    >
+                        <!-- Whiteboard Top Toolbar -->
+                        <div class="p-2 sm:p-3 bg-slate-950/95 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 z-20 backdrop-blur-md">
+                            <!-- Tools: Pen, Highlighter, Eraser -->
+                            <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                                <button
+                                    type="button"
+                                    @click="whiteboardTool = 'pen'"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                    :class="whiteboardTool === 'pen' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+                                    title="قلم معمولی"
+                                >
+                                    <span>✏️</span>
+                                    <span class="hidden sm:inline">قلم</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="whiteboardTool = 'highlighter'"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                    :class="whiteboardTool === 'highlighter' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+                                    title="ماژیک هایلایتر نیمه‌شفاف"
+                                >
+                                    <span>🖍️</span>
+                                    <span class="hidden sm:inline">هایلایتر</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="whiteboardTool = 'eraser'"
+                                    class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                                    :class="whiteboardTool === 'eraser' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+                                    title="پاک‌کن"
+                                >
+                                    <span>🧹</span>
+                                    <span class="hidden sm:inline">پاک‌کن</span>
+                                </button>
+                            </div>
+
+                            <!-- Color Palette -->
+                            <div class="flex items-center gap-1.5 bg-slate-900 p-1.5 rounded-xl border border-slate-800">
+                                <button
+                                    v-for="c in whiteboardColors"
+                                    :key="c.hex"
+                                    type="button"
+                                    @click="whiteboardColor = c.hex"
+                                    class="w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 transition-transform active:scale-90"
+                                    :class="whiteboardColor === c.hex ? 'border-white scale-110 shadow-md ring-2 ring-indigo-400' : 'border-transparent opacity-80 hover:opacity-100'"
+                                    :style="{ backgroundColor: c.hex }"
+                                    :title="c.name"
+                                ></button>
+                            </div>
+
+                            <!-- Stroke Width -->
+                            <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                                <button
+                                    v-for="w in [2, 5, 10]"
+                                    :key="w"
+                                    type="button"
+                                    @click="whiteboardLineWidth = w"
+                                    class="w-7 h-7 rounded-lg text-[10px] font-mono font-bold flex items-center justify-center transition-all"
+                                    :class="whiteboardLineWidth === w ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
+                                >
+                                    {{ w === 2 ? 'نازک' : w === 5 ? 'عادی' : 'ضخیم' }}
+                                </button>
+                            </div>
+
+                            <!-- Actions: Undo, Clear, Save, Camera PiP Toggle, Close -->
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <button
+                                    type="button"
+                                    @click="undoWhiteboard"
+                                    class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="لغو آخرین رسم"
+                                >
+                                    <span>↩️</span>
+                                    <span class="hidden md:inline">لغو</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="clearWhiteboard"
+                                    class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="پاک‌کردن کل تخته"
+                                >
+                                    <span>🗑️</span>
+                                    <span class="hidden md:inline">پاک‌سازی</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="saveWhiteboardImage"
+                                    class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="دانلود تصویر وایت‌برد"
+                                >
+                                    <span>💾</span>
+                                    <span class="hidden md:inline">ذخیره</span>
+                                </button>
+                                
+                                <!-- User Choice: Toggle Camera PiP on Whiteboard -->
+                                <button
+                                    type="button"
+                                    @click="toggleWhiteboardCamera"
+                                    class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all"
+                                    :class="isWhiteboardCameraActive
+                                        ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400 hover:bg-indigo-600/30'
+                                        : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'"
+                                    :title="isWhiteboardCameraActive ? 'خاموش کردن دوربین جهت تمرکز روی تخته' : 'فعال‌سازی تصویر دوربین شناور روی تخته'"
+                                >
+                                    <span>{{ isWhiteboardCameraActive ? '📹 تصویر PiP: روشن' : '📷 دوربین: خاموش' }}</span>
+                                </button>
+
+                                <!-- Close Whiteboard Button -->
+                                <button
+                                    type="button"
+                                    @click="closeWhiteboard"
+                                    class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center gap-1 transition-all"
+                                    title="بستن وایت‌برد و بازگشت به تماس"
+                                >
+                                    <span>✖️</span>
+                                    <span>بستن تخته</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Whiteboard Canvas Drawing Surface with Touch & Mouse support -->
+                        <div class="relative w-full aspect-[16/10] sm:aspect-video bg-white overflow-hidden touch-none select-none">
+                            <canvas
+                                ref="whiteboardCanvasRef"
+                                @mousedown="onCanvasMouseDown"
+                                @mousemove="onCanvasMouseMove"
+                                @mouseup="onCanvasMouseUp"
+                                @mouseleave="onCanvasMouseUp"
+                                class="w-full h-full cursor-crosshair block"
+                            ></canvas>
+
+                            <!-- Floating PiP Camera on Whiteboard (when isWhiteboardCameraActive is true) -->
+                            <div
+                                v-if="isWhiteboardCameraActive && (isVideoCall || isCameraOn)"
+                                class="absolute bottom-4 left-4 w-32 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-indigo-500/70 shadow-2xl bg-slate-950 z-30 pointer-events-auto transition-all"
+                            >
+                                <video
+                                    ref="whiteboardPipVideo"
+                                    autoplay
+                                    playsinline
+                                    muted
+                                    class="w-full h-full object-cover transition-transform"
+                                    :class="currentFacingMode === 'user' ? '-scale-x-100' : ''"
+                                ></video>
+                                <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    <span>تصویر شما</span>
+                                </div>
+                            </div>
+
+                            <!-- Real-time sync badge indicator -->
+                            <div class="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-mono flex items-center gap-1.5 backdrop-blur-sm pointer-events-none">
+                                <span class="w-1.5 h-1.5 rounded-full" :class="isDataChannelReady ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
+                                <span>{{ isDataChannelReady ? 'کانال داده همتا (WebRTC DataChannel)' : 'همگام‌سازی ابری' }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 2. VIDEO CALL CONTAINER (When Video is enabled and Whiteboard is closed) -->
+                    <div
+                        v-else-if="isVideoCall"
                         ref="videoContainerRef"
                         class="relative w-full aspect-video rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center group"
                     >
@@ -2102,6 +2847,29 @@ onUnmounted(() => {
                             class="w-full h-full object-cover"
                         ></video>
 
+                        <!-- Screen Sharing Status Banners -->
+                        <div
+                            v-if="isScreenSharing"
+                            class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-emerald-600/90 backdrop-blur-md px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
+                        >
+                            <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                            <span>صفحه نمایش شما در حال اشتراک است</span>
+                            <button
+                                type="button"
+                                @click="stopScreenShare"
+                                class="px-2 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-[10px] transition-colors"
+                            >
+                                توقف
+                            </button>
+                        </div>
+                        <div
+                            v-else-if="isRemoteScreenSharing"
+                            class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-indigo-600/90 backdrop-blur-md px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
+                        >
+                            <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                            <span>در حال مشاهده صفحه نمایش طرف مقابل</span>
+                        </div>
+
                         <!-- Local Video Picture-in-Picture Preview -->
                         <div class="absolute top-3 left-3 w-28 sm:w-40 aspect-video rounded-2xl overflow-hidden border-2 border-white/40 shadow-2xl bg-slate-900 z-20 transition-all">
                             <video
@@ -2112,12 +2880,15 @@ onUnmounted(() => {
                                 class="w-full h-full object-cover transition-transform"
                                 :class="currentFacingMode === 'user' ? '-scale-x-100' : ''"
                             ></video>
-                            <span v-if="!isCameraOn" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-[10px] text-slate-300 font-bold">
+                            <span v-if="!isCameraOn && !isScreenSharing" class="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-[10px] text-slate-300 font-bold">
                                 {{ __('user.calls.toggle_camera_off') }}
+                            </span>
+                            <span v-else-if="isScreenSharing" class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600/80 text-[9px] text-white font-mono">
+                                صفحه نمایش
                             </span>
                             <!-- Quick Switch Camera Button on PiP -->
                             <button
-                                v-if="isCameraOn"
+                                v-if="isCameraOn && !isScreenSharing"
                                 type="button"
                                 @click.stop="switchCamera"
                                 :disabled="isSwitchingCamera"
@@ -2329,7 +3100,7 @@ onUnmounted(() => {
 
                         <!-- Camera Switch Button in Action Controls -->
                         <button
-                            v-if="isCameraOn"
+                            v-if="isCameraOn && !isScreenSharing"
                             type="button"
                             @click="switchCamera"
                             :disabled="isSwitchingCamera"
@@ -2340,6 +3111,39 @@ onUnmounted(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                             <span class="text-[9px] font-bold">{{ activeCameraShortName }}</span>
+                        </button>
+
+                        <!-- Screen Sharing Toggle Button -->
+                        <button
+                            type="button"
+                            @click="toggleScreenShare"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95"
+                            :class="isScreenSharing
+                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-emerald-500'"
+                            :title="isScreenSharing ? __('user.calls.screen_share_stop') : __('user.calls.screen_share_start')"
+                        >
+                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ isScreenSharing ? 'توقف اشتراک' : 'اشتراک صفحه' }}</span>
+                        </button>
+
+                        <!-- Interactive Whiteboard Toggle Button -->
+                        <button
+                            type="button"
+                            @click="toggleWhiteboard"
+                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 relative"
+                            :class="isWhiteboardOpen
+                                ? 'bg-purple-500/20 border-purple-500 text-purple-600 dark:text-purple-400'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-purple-500'"
+                            :title="isWhiteboardOpen ? __('user.calls.whiteboard_close') : __('user.calls.whiteboard_btn')"
+                        >
+                            <span v-if="isRemoteWhiteboardOpen && !isWhiteboardOpen" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-500 animate-ping"></span>
+                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                            <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? 'بستن تخته' : 'وایت‌برد' }}</span>
                         </button>
 
                         <!-- Hang up button -->

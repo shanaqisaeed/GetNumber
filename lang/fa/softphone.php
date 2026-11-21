@@ -59,6 +59,10 @@ return [
         'recent_calls' => 'تماس‌های اخیر',
         'clear_input' => 'پاک کردن',
         'backspace' => 'حذف رقم آخر',
+        'screen_share' => 'اشتراک صفحه',
+        'stop_screen_share' => 'توقف اشتراک',
+        'whiteboard' => 'وایت‌برد تعاملی',
+        'close_whiteboard' => 'بستن تخته',
     ],
 
     'call_waiting' => [
