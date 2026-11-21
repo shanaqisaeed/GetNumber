@@ -2738,29 +2738,44 @@ onMounted(() => {
         }
     }
 
-    // Auto-answer or open incoming call if redirected
+    // Auto-answer or open incoming call if redirected from global call modal or notification
     if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
-        const autoAnswer = urlParams.get('auto_answer');
-        const incomingCallId = urlParams.get('incoming_call_id');
+        const autoAnswer = urlParams.get('auto_answer') || (urlParams.has('active_call_id') ? '1' : null);
+        const incomingCallId = urlParams.get('incoming_call_id') || urlParams.get('active_call_id');
+        const withVideo = urlParams.get('with_video') === '1';
+
         if (incomingCallId) {
             incomingCall.value = {
                 id: parseInt(incomingCallId, 10),
                 source: urlParams.get('caller') || __('user.calls.incoming_call_fallback'),
                 destination: urlParams.get('line') || '',
             };
+
+            // Clean query parameters from URL so browser refresh does not re-answer
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('auto_answer');
+            cleanUrl.searchParams.delete('incoming_call_id');
+            cleanUrl.searchParams.delete('active_call_id');
+            cleanUrl.searchParams.delete('with_video');
+            cleanUrl.searchParams.delete('caller');
+            cleanUrl.searchParams.delete('line');
+            window.history.replaceState({}, '', cleanUrl.toString());
+
             if (autoAnswer === '1') {
-                setTimeout(() => {
-                    answerIncomingCall(false);
-                }, 300);
+                // Immediately answer without delay to avoid caller timeout
+                answerIncomingCall(withVideo);
             } else {
                 isIncomingCallModalOpen.value = true;
                 playRingtone();
             }
+        } else {
+            checkIncomingCall();
         }
+    } else {
+        checkIncomingCall();
     }
 
-    checkIncomingCall();
     incomingPollTimer = setInterval(checkIncomingCall, 3500);
 
     // Initial hardware discovery and devicechange listener

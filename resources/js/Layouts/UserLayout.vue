@@ -3,6 +3,7 @@ import { __ } from '@/Composables/useTrans';
 import { useRealtimeMessages, RealtimeMessagePayload } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import GlobalIncomingCallModal from '@/Components/GlobalIncomingCallModal.vue';
 import LineSwitcherModal, { LineOption } from '@/Components/LineSwitcherModal.vue';
 import AudioDeviceTestModal from '@/Components/AudioDeviceTestModal.vue';
 import PwaInstallBanner from '@/Components/PwaInstallBanner.vue';
@@ -13,7 +14,6 @@ import { useSoftphoneSync } from '@/Composables/useSoftphoneSync';
 import { PageProps } from '@/types';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
-import { CalmRingtone } from '@/Utils/ringtone';
 import axios from 'axios';
 
 const page = usePage<PageProps & {
@@ -49,31 +49,12 @@ const availableLines = computed<LineOption[]>(() => {
 });
 
 // Softphone Cross-Tab Synchronization
-const { isCallActiveInOtherTab, initChannel, broadcastCallAnswered, broadcastCallEnded } = useSoftphoneSync();
+const { isCallActiveInOtherTab, initChannel } = useSoftphoneSync();
 
 onMounted(() => {
     initChannel((switchedKey) => {
         router.reload();
     });
-
-    // Listen for Service Worker incoming call wakeups and actions
-    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
-        navigator.serviceWorker.addEventListener('message', (event) => {
-            const data = event.data;
-            if (data?.type === 'incoming_call_push') {
-                checkGlobalIncomingCall();
-            } else if (data?.type === 'call_declined_from_notification') {
-                ringtone.stop();
-                incomingCall.value = null;
-            } else if (data?.type === 'answer_incoming_call') {
-                if (data.callId) {
-                    ringtone.stop();
-                    incomingCall.value = null;
-                    router.visit(route('calls.index', { incoming_call_id: data.callId, auto_answer: 1 }));
-                }
-            }
-        });
-    }
 });
 
 watch(
@@ -89,84 +70,6 @@ const handleUnreadCountUpdated = (e: any) => {
     if (typeof e.detail?.total === 'number') {
         liveUnreadCount.value = e.detail.total;
     }
-};
-
-// Global Incoming Voice Call state & Calm Audio Ringtone engine
-interface IncomingCallState {
-    id: number;
-    caller: string;
-    callerName?: string;
-    line?: string;
-}
-
-const incomingCall = ref<IncomingCallState | null>(null);
-const ringtone = new CalmRingtone();
-let globalCallCheckTimer: ReturnType<typeof setInterval> | null = null;
-
-const checkGlobalIncomingCall = async () => {
-    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/calls')) {
-        return;
-    }
-    if (!user.value?.id) return;
-
-    try {
-        const res = await axios.get(route('voice.active_incoming'));
-        if (res.data?.has_incoming && res.data.call) {
-            const call = res.data.call;
-            if (!incomingCall.value || incomingCall.value.id !== call.id) {
-                const callerDisplay = call.source || __('ui.layouts.user.unknown_caller');
-                incomingCall.value = {
-                    id: call.id,
-                    caller: callerDisplay,
-                    callerName: callerDisplay,
-                    line: call.destination || '',
-                };
-                ringtone.play();
-
-                if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
-                    try {
-                        const notif = new Notification(__('ui.layouts.user.incoming_call_notif_title'), {
-                            body: __('ui.layouts.user.incoming_call_notif_body', { caller: callerDisplay, line: call.destination || '' }),
-                            icon: '/icon-192.png',
-                            badge: '/icon-192.png',
-                            tag: 'incoming-call-' + call.id,
-                            requireInteraction: true,
-                        });
-                        notif.onclick = () => {
-                            notif.close();
-                            window.focus();
-                            acceptIncomingCall();
-                        };
-                    } catch {}
-                }
-            }
-        } else {
-            if (incomingCall.value) {
-                ringtone.stop();
-                incomingCall.value = null;
-            }
-        }
-    } catch {}
-};
-
-const acceptIncomingCall = () => {
-    if (!incomingCall.value) return;
-    ringtone.stop();
-    broadcastCallAnswered(incomingCall.value.id);
-    const callId = incomingCall.value.id;
-    incomingCall.value = null;
-    router.visit(route('calls.index', { active_call_id: callId }));
-};
-
-const declineIncomingCall = async () => {
-    if (!incomingCall.value) return;
-    ringtone.stop();
-    const callId = incomingCall.value.id;
-    incomingCall.value = null;
-    try {
-        await axios.post(route('voice.decline', { voiceCall: callId }));
-        broadcastCallEnded();
-    } catch {}
 };
 
 // Web Notifications & WebSocket Integration
@@ -213,13 +116,10 @@ const { connectionState } = useRealtimeMessages({
 
 onMounted(() => {
     window.addEventListener('user-unread-count-updated', handleUnreadCountUpdated);
-    globalCallCheckTimer = setInterval(checkGlobalIncomingCall, 3500);
 });
 
 onUnmounted(() => {
     window.removeEventListener('user-unread-count-updated', handleUnreadCountUpdated);
-    if (globalCallCheckTimer) clearInterval(globalCallCheckTimer);
-    ringtone.stop();
 });
 
 const isMoreMenuOpen = ref(false);
@@ -316,52 +216,8 @@ const navItems = computed(() => [
             </div>
         </transition>
 
-        <!-- Global Incoming Voice Call Alert Card -->
-        <transition enter-active-class="transition ease-out duration-300" enter-from-class="-translate-y-12 opacity-0 scale-90" enter-to-class="translate-y-0 opacity-100 scale-100" leave-active-class="transition ease-in duration-200" leave-from-class="translate-y-0 opacity-100 scale-100" leave-to-class="-translate-y-12 opacity-0 scale-90">
-            <div v-if="incomingCall" class="fixed top-5 left-1/2 -translate-x-1/2 z-[120] w-[92%] max-w-[440px] p-4 rounded-3xl border border-emerald-500/50 shadow-2xl backdrop-blur-2xl bg-slate-900/95 text-white">
-                <div class="flex items-center justify-between gap-3">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <div class="relative w-12 h-12 flex items-center justify-center shrink-0">
-                            <span class="absolute inset-0 rounded-2xl bg-emerald-500/30 animate-ping"></span>
-                            <div class="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/50">
-                                <svg class="w-6 h-6 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div class="min-w-0 space-y-0.5">
-                            <div class="flex items-center gap-2">
-                                <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                    {{ __('ui.layouts.user.incoming_call_badge') }}
-                                </span>
-                                <span v-if="incomingCall.line" class="text-[10px] text-slate-400 truncate">
-                                    {{ __('ui.layouts.user.incoming_call_on_line', { line: incomingCall.line }) }}
-                                </span>
-                            </div>
-                            <div class="text-sm font-black font-mono tracking-wider truncate" dir="ltr">
-                                {{ incomingCall.callerName || incomingCall.caller }}
-                            </div>
-                            <div class="text-[11px] text-slate-400">
-                                {{ __('ui.layouts.user.incoming_call_ringing') }}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        <button type="button" @click="declineIncomingCall" class="w-10 h-10 rounded-2xl bg-rose-600/20 hover:bg-rose-600 text-rose-400 hover:text-white border border-rose-500/40 flex items-center justify-center transition-all">
-                            <svg class="w-5 h-5 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                        </button>
-                        <button type="button" @click="acceptIncomingCall" class="px-4 py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            <span>{{ __('ui.layouts.user.answer_call') }}</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </transition>
+        <!-- Global Centered Incoming Call Modal across all pages -->
+        <GlobalIncomingCallModal />
 
         <!-- Ambient Background Mesh -->
         <div class="ambient-mesh">

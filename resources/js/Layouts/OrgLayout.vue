@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { __ } from '@/Composables/useTrans';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
+import GlobalIncomingCallModal from '@/Components/GlobalIncomingCallModal.vue';
 import PwaInstallBanner from '@/Components/PwaInstallBanner.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
@@ -280,6 +281,7 @@ const navigation = [
 
         <!-- Main Body Area -->
         <main class="flex-1 min-w-0 h-screen overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <GlobalIncomingCallModal />
             <PwaInstallBanner />
             <slot />
         </main>

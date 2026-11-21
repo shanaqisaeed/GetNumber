@@ -4,6 +4,7 @@ import ThemeSwitcher from '@/Components/ThemeSwitcher.vue';
 import LanguageSwitcher from '@/Components/LanguageSwitcher.vue';
 import Breadcrumb from '@/Components/Breadcrumb.vue';
 import NotificationPermissionModal from '@/Components/NotificationPermissionModal.vue';
+import GlobalIncomingCallModal from '@/Components/GlobalIncomingCallModal.vue';
 import PwaInstallBanner from '@/Components/PwaInstallBanner.vue';
 import { useRealtimeMessages } from '@/Composables/useRealtimeMessages';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
@@ -150,6 +151,9 @@ const mobileBottomDockItems = computed(() => [
     <div class="h-screen h-dvh max-h-screen w-full bg-slate-50/70 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col lg:flex-row overflow-hidden transition-colors duration-300">
         <!-- Automatic Notification Permission Request Modal -->
         <NotificationPermissionModal />
+
+        <!-- Global Centered Incoming Call Modal -->
+        <GlobalIncomingCallModal />
 
         <!-- Admin Desktop Sidebar (Modern Glassmorphic Style, Matching User & Org Panels) -->
         <aside class="hidden lg:flex flex-col w-72 h-screen max-h-screen sticky top-0 shrink-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-l border-slate-200/80 dark:border-slate-800/80 select-none z-20">
