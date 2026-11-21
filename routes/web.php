@@ -53,6 +53,16 @@ Route::get('/sitemap.xml', function () {
 })->name('sitemap');
 
 // Static App Icon Fallback & PWA Image Assets (Guaranteed 200 OK)
+Route::get('/download/android', function () {
+    $apkPath = public_path('downloads/ravyno.apk');
+    if (file_exists($apkPath)) {
+        return response()->download($apkPath, 'ravyno.apk', [
+            'Content-Type' => 'application/vnd.android.package-archive',
+        ]);
+    }
+    return redirect()->route('calls.index')->with('error', 'فایل نصبی اندروید در حال حاضر در دسترس نیست. لطفاً از نسخه وب‌اپلیکیشن (PWA) استفاده نمایید.');
+})->name('download.android');
+
 Route::get('/icon-192.png', function () {
     $path = public_path('icon-192.png');
     if (file_exists($path)) {
