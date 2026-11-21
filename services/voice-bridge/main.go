@@ -842,7 +842,7 @@ func (hub *SignalingHub) processMessage(conn net.Conn, w *bufio.Writer, msg WSMe
 			hub.RUnlock()
 		}
 
-	case "offer", "answer", "ice_candidate", "renegotiate":
+	case "offer", "answer", "ice_candidate", "renegotiate", "camera_status", "screen_share_status", "whiteboard_event", "route_selected":
 		sess, hasSess := hub.store.Get(msg.SessionID)
 		srcNum := "caller"
 		dstNum := "callee"

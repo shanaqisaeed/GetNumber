@@ -135,6 +135,9 @@ const optimalRouteInfo = ref<string>('');
 const isNetworkDisconnected = ref(false);
 const isPeerReconnecting = ref(false);
 let remoteMediaStream: MediaStream | null = null;
+let remoteVideoStream: MediaStream | null = null;
+let isRenegotiating = false;
+let renegotiationQueued = false;
 let wsReconnectTimer: any = null;
 let iceRestartDebounceTimer: any = null;
 
@@ -477,26 +480,50 @@ const getVideoConstraints = (): MediaTrackConstraints => {
 
 const syncAllVideoElements = async () => {
     await nextTick();
-    if (remoteMediaStream) {
-        if (remoteVideo.value && remoteVideo.value.srcObject !== remoteMediaStream) {
-            remoteVideo.value.srcObject = remoteMediaStream;
+    const effectiveRemoteStream = remoteVideoStream || (remoteMediaStream?.getVideoTracks().length ? remoteMediaStream : null);
+    if (effectiveRemoteStream) {
+        if (remoteVideo.value) {
+            if (remoteVideo.value.srcObject !== effectiveRemoteStream) {
+                remoteVideo.value.srcObject = effectiveRemoteStream;
+            }
             remoteVideo.value.play().catch(() => {});
         }
-        if (whiteboardRemoteVideo.value && whiteboardRemoteVideo.value.srcObject !== remoteMediaStream) {
-            whiteboardRemoteVideo.value.srcObject = remoteMediaStream;
+        if (whiteboardRemoteVideo.value) {
+            if (whiteboardRemoteVideo.value.srcObject !== effectiveRemoteStream) {
+                whiteboardRemoteVideo.value.srcObject = effectiveRemoteStream;
+            }
             whiteboardRemoteVideo.value.play().catch(() => {});
         }
     }
     if (localMediaStream) {
-        if (localVideo.value && localVideo.value.srcObject !== localMediaStream) {
-            localVideo.value.srcObject = localMediaStream;
+        if (localVideo.value) {
+            if (localVideo.value.srcObject !== localMediaStream) {
+                localVideo.value.srcObject = localMediaStream;
+            }
             localVideo.value.play().catch(() => {});
         }
-        if (whiteboardPipVideo.value && whiteboardPipVideo.value.srcObject !== localMediaStream) {
-            whiteboardPipVideo.value.srcObject = localMediaStream;
+        if (whiteboardPipVideo.value) {
+            if (whiteboardPipVideo.value.srcObject !== localMediaStream) {
+                whiteboardPipVideo.value.srcObject = localMediaStream;
+            }
             whiteboardPipVideo.value.play().catch(() => {});
         }
     }
+
+    // Secondary delayed check to ensure dynamically mounted DOM video elements attach properly
+    setTimeout(() => {
+        const stream = remoteVideoStream || (remoteMediaStream?.getVideoTracks().length ? remoteMediaStream : null);
+        if (stream) {
+            if (remoteVideo.value && remoteVideo.value.srcObject !== stream) {
+                remoteVideo.value.srcObject = stream;
+                remoteVideo.value.play().catch(() => {});
+            }
+            if (whiteboardRemoteVideo.value && whiteboardRemoteVideo.value.srcObject !== stream) {
+                whiteboardRemoteVideo.value.srcObject = stream;
+                whiteboardRemoteVideo.value.play().catch(() => {});
+            }
+        }
+    }, 120);
 };
 
 const attachLocalStreamToVideo = async () => {
@@ -728,6 +755,38 @@ const handlePageUnload = () => {
     }
 };
 
+// WebRTC SDP Mid-Call Dynamic Renegotiation
+const renegotiatePeerConnection = async () => {
+    if (!peerConnection || !isCalling.value) return;
+    if (peerConnection.signalingState !== 'stable') {
+        console.log('[WebRTC-Renegotiate] ⏳ Signaling state is ' + peerConnection.signalingState + ', queueing renegotiation...');
+        renegotiationQueued = true;
+        return;
+    }
+    if (isRenegotiating) {
+        renegotiationQueued = true;
+        return;
+    }
+    isRenegotiating = true;
+    try {
+        console.log('[WebRTC-Renegotiate] 🔄 Creating renegotiation offer...');
+        const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: true,
+        });
+        if (offer.sdp) {
+            offer.sdp = enhanceOpusSdp(offer.sdp);
+        }
+        await peerConnection.setLocalDescription(offer);
+        await sendSignalingMessage('offer', offer);
+        console.log('[WebRTC-Renegotiate] 📤 Renegotiation offer sent successfully');
+    } catch (e) {
+        console.warn('[WebRTC-Renegotiate] ⚠️ Renegotiation error:', e);
+    } finally {
+        isRenegotiating = false;
+    }
+};
+
 // Live Camera Toggle During Call
 const toggleCamera = async () => {
     if (!localMediaStream) {
@@ -751,8 +810,9 @@ const toggleCamera = async () => {
                 videoSender.replaceTrack(null).catch(() => {});
             }
             if (videoTransceiverInstance) {
-                videoTransceiverInstance.direction = 'recvonly';
+                videoTransceiverInstance.direction = isRemoteVideoStreaming.value ? 'recvonly' : 'inactive';
             }
+            await renegotiatePeerConnection();
         }
 
         await syncAllVideoElements();
@@ -786,10 +846,8 @@ const toggleCamera = async () => {
                         }
                     } else {
                         peerConnection.addTrack(newTrack, localMediaStream);
-                        const offer = await peerConnection.createOffer();
-                        await peerConnection.setLocalDescription(offer);
-                        await sendSignalingMessage('offer', offer);
                     }
+                    await renegotiatePeerConnection();
                 }
 
                 await syncAllVideoElements();
@@ -904,10 +962,8 @@ const switchCamera = async () => {
                     }
                 } else {
                     peerConnection.addTrack(newTrack, localMediaStream);
-                    const offer = await peerConnection.createOffer();
-                    await peerConnection.setLocalDescription(offer);
-                    await sendSignalingMessage('offer', offer);
                 }
+                await renegotiatePeerConnection();
             }
 
             await enumerateCameras();
@@ -1003,10 +1059,8 @@ const toggleScreenShare = async () => {
                 }
             } else {
                 peerConnection.addTrack(screenTrack, localMediaStream!);
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                await sendSignalingMessage('offer', offer);
             }
+            await renegotiatePeerConnection();
         }
 
         await sendSignalingMessage('screen_share_status', { is_sharing: true });
@@ -1068,9 +1122,10 @@ const stopScreenShare = async () => {
         if (videoSender) {
             await videoSender.replaceTrack(restoreTrack || null);
         }
-        if (!restoreTrack && videoTransceiverInstance) {
-            videoTransceiverInstance.direction = 'recvonly';
+        if (videoTransceiverInstance) {
+            videoTransceiverInstance.direction = restoreTrack ? 'sendrecv' : (isRemoteVideoStreaming.value ? 'recvonly' : 'inactive');
         }
+        await renegotiatePeerConnection();
     }
 
     await sendSignalingMessage('screen_share_status', { is_sharing: false });
@@ -1762,34 +1817,60 @@ const createPeerConnection = () => {
 
     // Connect remote incoming audio and video streams
     pc.ontrack = async (event) => {
-        let stream = event.streams && event.streams[0] ? event.streams[0] : null;
-        if (!stream && event.track) {
-            if (!remoteMediaStream) {
-                remoteMediaStream = new MediaStream();
-            }
-            remoteMediaStream.addTrack(event.track);
-            stream = remoteMediaStream;
-        } else if (stream) {
-            remoteMediaStream = stream;
-        }
+        console.log('[WebRTC] 🎧 Incoming track:', event.track.kind, 'id:', event.track.id, 'readyState:', event.track.readyState);
 
         if (event.track.kind === 'video') {
             isRemoteVideoStreaming.value = true;
             isVideoCall.value = true;
-            syncAllVideoElements();
+
+            // Dedicated clean video MediaStream directly containing the remote video track
+            if (!remoteVideoStream) {
+                remoteVideoStream = new MediaStream([event.track]);
+            } else {
+                const curTracks = remoteVideoStream.getVideoTracks();
+                curTracks.forEach(t => {
+                    if (t.id !== event.track.id) {
+                        remoteVideoStream?.removeTrack(t);
+                    }
+                });
+                if (!remoteVideoStream.getVideoTracks().some(t => t.id === event.track.id)) {
+                    remoteVideoStream.addTrack(event.track);
+                }
+            }
+
+            if (!remoteMediaStream) {
+                remoteMediaStream = new MediaStream();
+            }
+            if (!remoteMediaStream.getVideoTracks().some(t => t.id === event.track.id)) {
+                remoteMediaStream.addTrack(event.track);
+            }
+
+            await syncAllVideoElements();
+
             event.track.onunmute = () => {
+                console.log('[WebRTC] 📹 Remote video track unmuted:', event.track.id);
                 isRemoteVideoStreaming.value = true;
                 syncAllVideoElements();
             };
             event.track.onended = () => {
+                console.log('[WebRTC] 📹 Remote video track ended:', event.track.id);
                 isRemoteVideoStreaming.value = false;
                 if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isWhiteboardOpen.value && !isRemoteWhiteboardOpen.value) {
                     isVideoCall.value = false;
                 }
             };
         } else if (event.track.kind === 'audio') {
-            if (remoteAudio.value && stream) {
-                remoteAudio.value.srcObject = stream;
+            const audioStream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+            if (!remoteMediaStream) {
+                remoteMediaStream = audioStream;
+            } else if (!remoteMediaStream.getAudioTracks().some(t => t.id === event.track.id)) {
+                try {
+                    remoteMediaStream.addTrack(event.track);
+                } catch {}
+            }
+
+            if (remoteAudio.value) {
+                remoteAudio.value.srcObject = audioStream;
                 remoteAudio.value.muted = false;
                 remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.35;
                 remoteAudio.value.play()
@@ -1801,14 +1882,28 @@ const createPeerConnection = () => {
                         isAudioPlaybackBlocked.value = true;
                     });
             }
-            if (stream) {
-                initWebAudioRouting(stream);
-            }
+            initWebAudioRouting(audioStream);
+
             event.track.onunmute = () => {
                 if (remoteAudio.value) {
                     remoteAudio.value.play().catch(() => {});
                 }
             };
+        }
+    };
+
+    // Auto-renegotiate when media pipeline needs renegotiation
+    pc.onnegotiationneeded = async () => {
+        console.log('[WebRTC] 🔄 onnegotiationneeded fired');
+        await renegotiatePeerConnection();
+    };
+
+    // Process queued renegotiations on stable signaling state
+    pc.onsignalingstatechange = () => {
+        console.log('[WebRTC] 🔄 Signaling State:', pc.signalingState);
+        if (pc.signalingState === 'stable' && renegotiationQueued) {
+            renegotiationQueued = false;
+            setTimeout(renegotiatePeerConnection, 100);
         }
     };
 
@@ -1829,6 +1924,7 @@ const createPeerConnection = () => {
             isNetworkDisconnected.value = false;
             isPeerReconnecting.value = false;
             startCallTimer();
+            syncAllVideoElements();
             if (remoteVideo.value) {
                 remoteVideo.value.play().catch(() => {});
             }
@@ -1888,6 +1984,7 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                 isVideoCall.value = true;
                 syncAllVideoElements();
             } else {
+                remoteVideoStream = null;
                 if (remoteVideo.value && !isRemoteScreenSharing.value) {
                     remoteVideo.value.srcObject = null;
                 }
@@ -1920,6 +2017,7 @@ const handleSignalingPayload = async (type: string, payload: any) => {
             }
             await peerConnection.setLocalDescription(answer);
             await sendSignalingMessage('answer', answer);
+            syncAllVideoElements();
         } else if (type === 'answer') {
             if (peerConnection.signalingState === 'have-local-offer') {
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
@@ -1929,6 +2027,11 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                     } catch {}
                 }
                 pendingCandidates = [];
+                syncAllVideoElements();
+                if (renegotiationQueued) {
+                    renegotiationQueued = false;
+                    setTimeout(renegotiatePeerConnection, 100);
+                }
             }
         } else if (type === 'ice_candidate') {
             if (!peerConnection.remoteDescription || !peerConnection.remoteDescription.type) {
@@ -2193,7 +2296,7 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
             const pc = createPeerConnection();
             const offer = await pc.createOffer({
                 offerToReceiveAudio: true,
-                offerToReceiveVideo: withVideo,
+                offerToReceiveVideo: true,
             });
             if (offer.sdp) {
                 offer.sdp = enhanceOpusSdp(offer.sdp);
@@ -2284,9 +2387,18 @@ const endCall = async () => {
     if (remoteVideo.value) {
         remoteVideo.value.srcObject = null;
     }
+    if (whiteboardRemoteVideo.value) {
+        whiteboardRemoteVideo.value.srcObject = null;
+    }
     if (localVideo.value) {
         localVideo.value.srcObject = null;
     }
+    if (whiteboardPipVideo.value) {
+        whiteboardPipVideo.value.srcObject = null;
+    }
+    remoteVideoStream = null;
+    isRenegotiating = false;
+    renegotiationQueued = false;
     if (bridgeSocket) {
         try {
             bridgeSocket.close();
@@ -2669,9 +2781,18 @@ onUnmounted(() => {
     if (remoteVideo.value) {
         remoteVideo.value.srcObject = null;
     }
+    if (whiteboardRemoteVideo.value) {
+        whiteboardRemoteVideo.value.srcObject = null;
+    }
     if (localVideo.value) {
         localVideo.value.srcObject = null;
     }
+    if (whiteboardPipVideo.value) {
+        whiteboardPipVideo.value.srcObject = null;
+    }
+    remoteVideoStream = null;
+    isRenegotiating = false;
+    renegotiationQueued = false;
 });
 </script>
 
@@ -2997,6 +3118,7 @@ onUnmounted(() => {
                                     ref="whiteboardRemoteVideo"
                                     autoplay
                                     playsinline
+                                    muted
                                     class="w-full h-full object-cover"
                                 ></video>
                                 <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono flex items-center gap-1">
@@ -3056,6 +3178,7 @@ onUnmounted(() => {
                             ref="remoteVideo"
                             autoplay
                             playsinline
+                            muted
                             class="w-full h-full object-cover"
                         ></video>
 
