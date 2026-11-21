@@ -158,15 +158,29 @@ const isRemoteWhiteboardOpen = ref(false);
 const isWhiteboardCameraActive = ref(true); // User preference: camera PiP during whiteboard session
 const whiteboardCanvasRef = ref<HTMLCanvasElement | null>(null);
 const whiteboardPipVideo = ref<HTMLVideoElement | null>(null);
+const whiteboardRemoteVideo = ref<HTMLVideoElement | null>(null);
 const whiteboardTool = ref<'pen' | 'highlighter' | 'eraser'>('pen');
 const whiteboardColor = ref<string>('#ef4444');
 const whiteboardLineWidth = ref<number>(3);
 const isDataChannelReady = ref(false);
 let whiteboardDataChannel: RTCDataChannel | null = null;
+let videoTransceiverInstance: RTCRtpTransceiver | null = null;
 let isDrawingOnCanvas = false;
 let lastCanvasNx = 0;
 let lastCanvasNy = 0;
 const whiteboardUndoStack = ref<string[]>([]);
+
+// Web Audio API for Realistic Speaker / Earpiece Acoustic Profiles
+let audioContext: AudioContext | null = null;
+let remoteAudioSourceNode: MediaStreamAudioSourceNode | null = null;
+let biquadFilterNode: BiquadFilterNode | null = null;
+let gainNode: GainNode | null = null;
+
+// User Identity for Whiteboard Attribution
+const localUserName = computed(() => {
+    const u = (props as any).auth?.user;
+    return u?.name || u?.phone || 'شما';
+});
 
 // Live Collaborative Indicators (Remote Cursor & Stroke Attribution)
 const remotePeerCursor = ref<{ x: number; y: number; visible: boolean; name: string }>({
@@ -370,9 +384,9 @@ const enumerateCameras = async () => {
             }
 
             // 2. Fix duplicate front camera issue on Android / PC Hello cameras:
-            // If already seen a front camera and this device does not explicitly have wide/ultra in label, skip duplicate
+            // Strictly keep only 1 front camera (primary selfie sensor) to avoid confusing duplicates
             if (facing === 'user') {
-                if (seenFront && !lower.includes('wide') && !lower.includes('ultra')) {
+                if (seenFront) {
                     continue;
                 }
                 seenFront = true;
@@ -461,17 +475,37 @@ const getVideoConstraints = (): MediaTrackConstraints => {
     return base;
 };
 
-const attachLocalStreamToVideo = async () => {
+const syncAllVideoElements = async () => {
     await nextTick();
-    if (localVideo.value && localMediaStream) {
-        localVideo.value.srcObject = localMediaStream;
-        localVideo.value.play().catch(() => {});
+    if (remoteMediaStream) {
+        if (remoteVideo.value && remoteVideo.value.srcObject !== remoteMediaStream) {
+            remoteVideo.value.srcObject = remoteMediaStream;
+            remoteVideo.value.play().catch(() => {});
+        }
+        if (whiteboardRemoteVideo.value && whiteboardRemoteVideo.value.srcObject !== remoteMediaStream) {
+            whiteboardRemoteVideo.value.srcObject = remoteMediaStream;
+            whiteboardRemoteVideo.value.play().catch(() => {});
+        }
     }
-    if (whiteboardPipVideo.value && localMediaStream && isWhiteboardCameraActive.value) {
-        whiteboardPipVideo.value.srcObject = localMediaStream;
-        whiteboardPipVideo.value.play().catch(() => {});
+    if (localMediaStream) {
+        if (localVideo.value && localVideo.value.srcObject !== localMediaStream) {
+            localVideo.value.srcObject = localMediaStream;
+            localVideo.value.play().catch(() => {});
+        }
+        if (whiteboardPipVideo.value && whiteboardPipVideo.value.srcObject !== localMediaStream) {
+            whiteboardPipVideo.value.srcObject = localMediaStream;
+            whiteboardPipVideo.value.play().catch(() => {});
+        }
     }
 };
+
+const attachLocalStreamToVideo = async () => {
+    await syncAllVideoElements();
+};
+
+watch([isVideoCall, isWhiteboardOpen, isWhiteboardCameraActive, isCameraOn, isScreenSharing, isRemoteScreenSharing, isRemoteVideoStreaming], () => {
+    syncAllVideoElements();
+});
 
 // Request Media Access with Noise Suppression and Optional Video Track
 const requestMediaAccess = async (withVideo = false): Promise<boolean> => {
@@ -567,26 +601,77 @@ const toggleMute = () => {
     }
 };
 
+const initWebAudioRouting = (stream: MediaStream) => {
+    try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        if (!audioContext) {
+            audioContext = new AudioCtx();
+        }
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().catch(() => {});
+        }
+        if (remoteAudioSourceNode) {
+            try { remoteAudioSourceNode.disconnect(); } catch {}
+        }
+        remoteAudioSourceNode = audioContext.createMediaStreamSource(stream);
+        biquadFilterNode = audioContext.createBiquadFilter();
+        gainNode = audioContext.createGain();
+
+        // Connect source -> telephony filter -> gain -> destination
+        remoteAudioSourceNode.connect(biquadFilterNode);
+        biquadFilterNode.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        applySpeakerEarpieceProfile();
+    } catch (e) {
+        console.warn('[WebAudio] Routing graph init fallback:', e);
+    }
+};
+
+const applySpeakerEarpieceProfile = () => {
+    if (remoteAudio.value) {
+        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.35;
+    }
+    if (!audioContext || !biquadFilterNode || !gainNode) return;
+    try {
+        if (isSpeakerOn.value) {
+            // Loudspeaker: Allpass flat filter + 100% gain
+            biquadFilterNode.type = 'allpass';
+            gainNode.gain.setValueAtTime(1.0, audioContext.currentTime);
+        } else {
+            // Earpiece: Bandpass filter 300Hz-3400Hz (telephony characteristic) + attenuated volume for ear comfort
+            biquadFilterNode.type = 'bandpass';
+            biquadFilterNode.frequency.setValueAtTime(1200, audioContext.currentTime);
+            biquadFilterNode.Q.setValueAtTime(0.8, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.35, audioContext.currentTime);
+        }
+    } catch {}
+};
+
 const toggleSpeaker = async () => {
     isSpeakerOn.value = !isSpeakerOn.value;
-    if (remoteAudio.value) {
-        if (typeof (remoteAudio.value as any).setSinkId === 'function') {
-            try {
-                if (audioOutputDevices.value.length === 0) {
-                    await enumerateAudioOutputs();
-                }
-                if (isSpeakerOn.value) {
-                    const speaker = audioOutputDevices.value.find(d => d.isSpeaker && d.deviceId !== 'default');
-                    await (remoteAudio.value as any).setSinkId(speaker ? speaker.deviceId : '');
-                } else {
-                    const earpiece = audioOutputDevices.value.find(d => !d.isSpeaker);
-                    await (remoteAudio.value as any).setSinkId(earpiece ? earpiece.deviceId : 'communications');
-                }
-            } catch (err) {
-                console.warn('[WebRTC-Audio] setSinkId audio routing failed, falling back to volume adjustment:', err);
+    applySpeakerEarpieceProfile();
+
+    if (remoteAudio.value && typeof (remoteAudio.value as any).setSinkId === 'function') {
+        try {
+            if (audioOutputDevices.value.length === 0) {
+                await enumerateAudioOutputs();
             }
+            if (isSpeakerOn.value) {
+                const speaker = audioOutputDevices.value.find(d => d.isSpeaker && d.deviceId);
+                await (remoteAudio.value as any).setSinkId(speaker ? speaker.deviceId : '');
+            } else {
+                const earpiece = audioOutputDevices.value.find(d => !d.isSpeaker && d.deviceId);
+                if (earpiece) {
+                    await (remoteAudio.value as any).setSinkId(earpiece.deviceId);
+                } else {
+                    await (remoteAudio.value as any).setSinkId('');
+                }
+            }
+        } catch (err) {
+            console.warn('[WebRTC-Audio] setSinkId audio routing note:', err);
         }
-        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.55;
     }
 };
 
@@ -645,36 +730,37 @@ const handlePageUnload = () => {
 
 // Live Camera Toggle During Call
 const toggleCamera = async () => {
-    if (!localMediaStream) return;
+    if (!localMediaStream) {
+        localMediaStream = new MediaStream();
+    }
 
     const currentVideoTracks = localMediaStream.getVideoTracks();
-    if (currentVideoTracks.length > 0) {
-        const track = currentVideoTracks[0];
-        const nextState = !track.enabled;
-        track.enabled = nextState;
-        isCameraOn.value = nextState;
-
-        if (!nextState) {
+    if (currentVideoTracks.length > 0 && isCameraOn.value) {
+        currentVideoTracks.forEach(track => {
             track.stop();
-            localMediaStream.removeTrack(track);
+            localMediaStream?.removeTrack(track);
+        });
+        isCameraOn.value = false;
 
-            if (peerConnection) {
-                const senders = peerConnection.getSenders();
-                const videoSender = senders.find(s => s.track?.kind === 'video');
-                if (videoSender) {
-                    videoSender.replaceTrack(null).catch(() => {});
-                }
+        if (peerConnection) {
+            let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+            if (!videoSender && videoTransceiverInstance) {
+                videoSender = videoTransceiverInstance.sender;
             }
-
-            await sendSignalingMessage('camera_status', { is_camera_on: false });
-
-            // If neither side is streaming video or sharing screen/whiteboard, collapse back to audio mode
-            if (!isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value && !isWhiteboardOpen.value && !isRemoteWhiteboardOpen.value) {
-                isVideoCall.value = false;
+            if (videoSender) {
+                videoSender.replaceTrack(null).catch(() => {});
             }
-        } else {
-            await sendSignalingMessage('camera_status', { is_camera_on: true });
-            isVideoCall.value = true;
+            if (videoTransceiverInstance) {
+                videoTransceiverInstance.direction = 'recvonly';
+            }
+        }
+
+        await syncAllVideoElements();
+        await sendSignalingMessage('camera_status', { is_camera_on: false });
+
+        // If neither side is streaming video or sharing screen/whiteboard, collapse back to audio mode
+        if (!isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value && !isWhiteboardOpen.value && !isRemoteWhiteboardOpen.value) {
+            isVideoCall.value = false;
         }
     } else {
         try {
@@ -686,14 +772,18 @@ const toggleCamera = async () => {
                 localMediaStream.addTrack(newTrack);
                 isCameraOn.value = true;
                 isVideoCall.value = true;
-                await attachLocalStreamToVideo();
                 await enumerateCameras();
 
                 if (peerConnection) {
-                    const senders = peerConnection.getSenders();
-                    const videoSender = senders.find(s => s.track?.kind === 'video');
+                    let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+                    if (!videoSender && videoTransceiverInstance) {
+                        videoSender = videoTransceiverInstance.sender;
+                    }
                     if (videoSender) {
                         await videoSender.replaceTrack(newTrack);
+                        if (videoTransceiverInstance) {
+                            videoTransceiverInstance.direction = 'sendrecv';
+                        }
                     } else {
                         peerConnection.addTrack(newTrack, localMediaStream);
                         const offer = await peerConnection.createOffer();
@@ -702,6 +792,7 @@ const toggleCamera = async () => {
                     }
                 }
 
+                await syncAllVideoElements();
                 await sendSignalingMessage('camera_status', { is_camera_on: true });
             }
         } catch (e) {
@@ -789,7 +880,7 @@ const switchCamera = async () => {
         const newTrack = newStream?.getVideoTracks()[0];
         if (newTrack) {
             localMediaStream.addTrack(newTrack);
-            await attachLocalStreamToVideo();
+            await syncAllVideoElements();
 
             // Sync track settings
             const settings = newTrack.getSettings?.();
@@ -802,10 +893,15 @@ const switchCamera = async () => {
 
             // Seamlessly swap track on WebRTC peer connection
             if (peerConnection) {
-                const senders = peerConnection.getSenders();
-                const videoSender = senders.find(s => s.track?.kind === 'video');
+                let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+                if (!videoSender && videoTransceiverInstance) {
+                    videoSender = videoTransceiverInstance.sender;
+                }
                 if (videoSender) {
                     await videoSender.replaceTrack(newTrack);
+                    if (videoTransceiverInstance) {
+                        videoTransceiverInstance.direction = 'sendrecv';
+                    }
                 } else {
                     peerConnection.addTrack(newTrack, localMediaStream);
                     const offer = await peerConnection.createOffer();
@@ -827,7 +923,7 @@ const switchCamera = async () => {
             const fallbackTrack = fallbackStream.getVideoTracks()[0];
             if (fallbackTrack && localMediaStream) {
                 localMediaStream.addTrack(fallbackTrack);
-                await attachLocalStreamToVideo();
+                await syncAllVideoElements();
             }
         } catch {}
     } finally {
@@ -852,6 +948,12 @@ const toggleScreenShare = async () => {
     }
 
     const isMobileDevice = typeof navigator !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
+
+    if (isIOS) {
+        callError.value = 'سیستم‌عامل iOS و سافاری اجازه اشتراک مستقیم صفحه در وب را نمی‌دهند. برای اشتراک یادداشت و ترسیمات از «وایت‌برد تعاملی» استفاده فرمایید.';
+        return;
+    }
 
     try {
         // Mobile-safe display media options: omit desktop-only parameters that cause TypeError / OverconstrainedError on mobile browsers
@@ -886,14 +988,19 @@ const toggleScreenShare = async () => {
             localMediaStream = new MediaStream([screenTrack]);
         }
 
-        await attachLocalStreamToVideo();
+        await syncAllVideoElements();
 
         // Swap on WebRTC peer connection
         if (peerConnection) {
-            const senders = peerConnection.getSenders();
-            const videoSender = senders.find(s => s.track?.kind === 'video');
+            let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+            if (!videoSender && videoTransceiverInstance) {
+                videoSender = videoTransceiverInstance.sender;
+            }
             if (videoSender) {
                 await videoSender.replaceTrack(screenTrack);
+                if (videoTransceiverInstance) {
+                    videoTransceiverInstance.direction = 'sendrecv';
+                }
             } else {
                 peerConnection.addTrack(screenTrack, localMediaStream!);
                 const offer = await peerConnection.createOffer();
@@ -951,13 +1058,18 @@ const stopScreenShare = async () => {
     }
 
     originalCameraTrack = null;
-    await attachLocalStreamToVideo();
+    await syncAllVideoElements();
 
     if (peerConnection) {
-        const senders = peerConnection.getSenders();
-        const videoSender = senders.find(s => s.track?.kind === 'video');
+        let videoSender = peerConnection.getSenders().find(s => s.track?.kind === 'video' || (s as any).kind === 'video');
+        if (!videoSender && videoTransceiverInstance) {
+            videoSender = videoTransceiverInstance.sender;
+        }
         if (videoSender) {
             await videoSender.replaceTrack(restoreTrack || null);
+        }
+        if (!restoreTrack && videoTransceiverInstance) {
+            videoTransceiverInstance.direction = 'recvonly';
         }
     }
 
@@ -1021,6 +1133,7 @@ const handleWhiteboardDataMessage = (data: any) => {
         }
     } else if (data.type === 'wb_close') {
         isRemoteWhiteboardOpen.value = false;
+        isWhiteboardOpen.value = false; // Also close recipient whiteboard synchronously
         if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value) {
             isVideoCall.value = false;
         }
@@ -1063,7 +1176,7 @@ const broadcastCursorLocation = (nx: number, ny: number) => {
             type: 'wb_cursor',
             x: nx,
             y: ny,
-            author: (props as any).auth?.user?.name || 'شما',
+            author: localUserName.value,
         });
     }
 };
@@ -1198,7 +1311,8 @@ const onCanvasMouseDown = (e: MouseEvent) => {
     const { nx, ny } = getNormalizedCoords(e, canvas);
     lastCanvasNx = nx;
     lastCanvasNy = ny;
-    const authorName = (props as any).auth?.user?.name || 'شما';
+    const authorTag = localUserName.value;
+    lastDrawingAuthor.value = `شما (${authorTag})`;
     drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1207,7 +1321,7 @@ const onCanvasMouseDown = (e: MouseEvent) => {
         width: whiteboardLineWidth.value,
         from: [nx, ny],
         to: [nx + 0.0001, ny + 0.0001],
-        author: authorName,
+        author: authorTag,
     });
 };
 
@@ -1218,7 +1332,8 @@ const onCanvasMouseMove = (e: MouseEvent) => {
     broadcastCursorLocation(nx, ny);
 
     if (!isDrawingOnCanvas) return;
-    const authorName = (props as any).auth?.user?.name || 'شما';
+    const authorTag = localUserName.value;
+    lastDrawingAuthor.value = `شما (${authorTag})`;
     drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1227,7 +1342,7 @@ const onCanvasMouseMove = (e: MouseEvent) => {
         width: whiteboardLineWidth.value,
         from: [lastCanvasNx, lastCanvasNy],
         to: [nx, ny],
-        author: authorName,
+        author: authorTag,
     });
     lastCanvasNx = nx;
     lastCanvasNy = ny;
@@ -1248,7 +1363,8 @@ const handleTouchStart = (e: TouchEvent) => {
     const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
     lastCanvasNx = nx;
     lastCanvasNy = ny;
-    const authorName = (props as any).auth?.user?.name || 'شما';
+    const authorTag = localUserName.value;
+    lastDrawingAuthor.value = `شما (${authorTag})`;
     drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1257,7 +1373,7 @@ const handleTouchStart = (e: TouchEvent) => {
         width: whiteboardLineWidth.value,
         from: [nx, ny],
         to: [nx + 0.0001, ny + 0.0001],
-        author: authorName,
+        author: authorTag,
     });
 };
 
@@ -1270,7 +1386,8 @@ const handleTouchMove = (e: TouchEvent) => {
     broadcastCursorLocation(nx, ny);
 
     if (!isDrawingOnCanvas) return;
-    const authorName = (props as any).auth?.user?.name || 'شما';
+    const authorTag = localUserName.value;
+    lastDrawingAuthor.value = `شما (${authorTag})`;
     drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1279,7 +1396,7 @@ const handleTouchMove = (e: TouchEvent) => {
         width: whiteboardLineWidth.value,
         from: [lastCanvasNx, lastCanvasNy],
         to: [nx, ny],
-        author: authorName,
+        author: authorTag,
     });
     lastCanvasNx = nx;
     lastCanvasNy = ny;
@@ -1298,7 +1415,7 @@ const setupCanvas = () => {
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) return;
-        const dpr = window.devicePixelRatio || 1;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
         const oldImage = canvas.toDataURL();
 
         canvas.width = Math.round(rect.width * dpr);
@@ -1327,10 +1444,7 @@ const setupCanvas = () => {
         canvas.addEventListener('touchmove', handleTouchMove as any, { passive: false });
         canvas.addEventListener('touchend', handleTouchEnd as any, { passive: false });
 
-        if (whiteboardPipVideo.value && localMediaStream && isWhiteboardCameraActive.value) {
-            whiteboardPipVideo.value.srcObject = localMediaStream;
-            whiteboardPipVideo.value.play().catch(() => {});
-        }
+        syncAllVideoElements();
     });
 };
 
@@ -1351,20 +1465,16 @@ const openWhiteboard = (fromRemote = false) => {
             sendWhiteboardMessage({ type: 'wb_sync_req' });
         }, 300);
     }
+    syncAllVideoElements();
 };
 
 const closeWhiteboard = () => {
     isWhiteboardOpen.value = false;
-    if (localMediaStream) {
-        localMediaStream.getVideoTracks().forEach(t => {
-            t.enabled = isCameraOn.value;
-        });
-    }
-    // If neither side is streaming video or sharing screen, collapse back to audio
-    if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value && !isRemoteWhiteboardOpen.value) {
+    isRemoteWhiteboardOpen.value = false;
+    sendWhiteboardMessage({ type: 'wb_close' });
+    if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value) {
         isVideoCall.value = false;
     }
-    sendWhiteboardMessage({ type: 'wb_close' });
 };
 
 const toggleWhiteboard = () => {
@@ -1375,22 +1485,10 @@ const toggleWhiteboard = () => {
     }
 };
 
-const toggleWhiteboardCamera = () => {
-    isWhiteboardCameraActive.value = !isWhiteboardCameraActive.value;
-    if (localMediaStream) {
-        const videoTracks = localMediaStream.getVideoTracks();
-        videoTracks.forEach(t => {
-            t.enabled = isWhiteboardCameraActive.value;
-        });
-    }
-    if (isWhiteboardCameraActive.value) {
-        nextTick(() => {
-            if (whiteboardPipVideo.value && localMediaStream) {
-                whiteboardPipVideo.value.srcObject = localMediaStream;
-                whiteboardPipVideo.value.play().catch(() => {});
-            }
-        });
-    }
+const toggleWhiteboardCamera = async () => {
+    await toggleCamera();
+    isWhiteboardCameraActive.value = isCameraOn.value;
+    syncAllVideoElements();
 };
 
 watch([isWhiteboardOpen, isWhiteboardCameraActive], async ([isOpen, isCamActive]) => {
@@ -1640,18 +1738,26 @@ const createPeerConnection = () => {
         } catch {}
     }
 
-    // Attach local video tracks if video call is active
+    // Attach local video tracks if video call is active, or add transceiver so mid-call camera activation is seamless
     const videoTracks = localMediaStream ? localMediaStream.getVideoTracks() : [];
-    if (videoTracks.length > 0 && localMediaStream) {
-        videoTracks.forEach(track => {
-            try {
-                pc.addTrack(track, localMediaStream!);
-            } catch {}
-        });
-    } else if (isVideoCall.value) {
-        try {
-            pc.addTransceiver('video', { direction: 'sendrecv' });
-        } catch {}
+    try {
+        if (videoTracks.length > 0 && localMediaStream) {
+            videoTransceiverInstance = pc.addTransceiver(videoTracks[0], {
+                direction: 'sendrecv',
+                streams: [localMediaStream],
+            });
+        } else {
+            videoTransceiverInstance = pc.addTransceiver('video', {
+                direction: (isVideoCall.value || isCameraOn.value) ? 'sendrecv' : 'recvonly',
+            });
+        }
+    } catch (e) {
+        console.warn('[WebRTC] Video transceiver setup fallback:', e);
+        if (videoTracks.length > 0 && localMediaStream) {
+            videoTracks.forEach(track => {
+                try { pc.addTrack(track, localMediaStream!); } catch {}
+            });
+        }
     }
 
     // Connect remote incoming audio and video streams
@@ -1670,16 +1776,10 @@ const createPeerConnection = () => {
         if (event.track.kind === 'video') {
             isRemoteVideoStreaming.value = true;
             isVideoCall.value = true;
-            await nextTick();
-            if (remoteVideo.value && stream) {
-                remoteVideo.value.srcObject = stream;
-                remoteVideo.value.play().catch(() => {});
-            }
+            syncAllVideoElements();
             event.track.onunmute = () => {
                 isRemoteVideoStreaming.value = true;
-                if (remoteVideo.value) {
-                    remoteVideo.value.play().catch(() => {});
-                }
+                syncAllVideoElements();
             };
             event.track.onended = () => {
                 isRemoteVideoStreaming.value = false;
@@ -1691,7 +1791,7 @@ const createPeerConnection = () => {
             if (remoteAudio.value && stream) {
                 remoteAudio.value.srcObject = stream;
                 remoteAudio.value.muted = false;
-                remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.55;
+                remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.35;
                 remoteAudio.value.play()
                     .then(() => {
                         isAudioPlaybackBlocked.value = false;
@@ -1700,6 +1800,9 @@ const createPeerConnection = () => {
                         console.warn('Audio autoplay blocked by browser:', e);
                         isAudioPlaybackBlocked.value = true;
                     });
+            }
+            if (stream) {
+                initWebAudioRouting(stream);
             }
             event.track.onunmute = () => {
                 if (remoteAudio.value) {
@@ -1763,8 +1866,9 @@ const handleSignalingPayload = async (type: string, payload: any) => {
     if (!peerConnection || !payload) return;
 
     try {
-        const sigKey = `${type}:${typeof payload === 'string' ? payload : JSON.stringify(payload)}`;
-        if (type !== 'end_call' && type !== 'call_ended') {
+        const stateEvents = ['camera_status', 'screen_share_status', 'whiteboard_event', 'end_call', 'call_ended'];
+        if (!stateEvents.includes(type)) {
+            const sigKey = `${type}:${typeof payload === 'string' ? payload : JSON.stringify(payload)}`;
             if (processedSignalHashes.has(sigKey)) {
                 return;
             }
@@ -1778,11 +1882,21 @@ const handleSignalingPayload = async (type: string, payload: any) => {
         } else if (type === 'screen_share_status') {
             isRemoteScreenSharing.value = Boolean(payload?.is_sharing);
         } else if (type === 'camera_status') {
-            isRemoteVideoStreaming.value = Boolean(payload?.is_camera_on);
-            if (isRemoteVideoStreaming.value) {
+            const isCam = Boolean(payload?.is_camera_on);
+            isRemoteVideoStreaming.value = isCam;
+            if (isCam) {
                 isVideoCall.value = true;
-            } else if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isWhiteboardOpen.value && !isRemoteWhiteboardOpen.value) {
-                isVideoCall.value = false;
+                syncAllVideoElements();
+            } else {
+                if (remoteVideo.value && !isRemoteScreenSharing.value) {
+                    remoteVideo.value.srcObject = null;
+                }
+                if (whiteboardRemoteVideo.value) {
+                    whiteboardRemoteVideo.value.srcObject = null;
+                }
+                if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isWhiteboardOpen.value && !isRemoteWhiteboardOpen.value) {
+                    isVideoCall.value = false;
+                }
             }
         } else if (type === 'whiteboard_event') {
             handleWhiteboardDataMessage(payload);
@@ -2820,12 +2934,12 @@ onUnmounted(() => {
                                     type="button"
                                     @click="toggleWhiteboardCamera"
                                     class="px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all"
-                                    :class="isWhiteboardCameraActive
-                                        ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-400 hover:bg-indigo-600/30'
+                                    :class="isCameraOn
+                                        ? 'bg-indigo-600/30 border-indigo-500/70 text-indigo-300 hover:bg-indigo-600/40 shadow-sm'
                                         : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'"
-                                    :title="isWhiteboardCameraActive ? 'خاموش کردن دوربین جهت تمرکز روی تخته' : 'فعال‌سازی تصویر دوربین شناور روی تخته'"
+                                    :title="isCameraOn ? 'خاموش کردن دوربین' : 'فعال‌سازی همزمان دوربین دوطرف روی وایت‌برد'"
                                 >
-                                    <span>{{ isWhiteboardCameraActive ? '📹 PiP: روشن' : '📷 دوربین: خاموش' }}</span>
+                                    <span>{{ isCameraOn ? '📹 دوربین: روشن' : '📷 دوربین: خاموش' }}</span>
                                 </button>
 
                                 <!-- Close Whiteboard Button -->
@@ -2843,8 +2957,7 @@ onUnmounted(() => {
 
                         <!-- Whiteboard Canvas Drawing Surface with Touch & Mouse support -->
                         <div
-                            class="relative w-full rounded-2xl bg-white overflow-hidden touch-none select-none border border-slate-700/60 shadow-inner"
-                            :class="isExpandedWorkspace ? 'h-[65vh] sm:h-[75vh]' : 'aspect-[16/10] sm:aspect-video min-h-[380px] sm:min-h-[480px]'"
+                            class="relative w-full rounded-2xl bg-white overflow-hidden touch-none select-none border border-slate-700/60 shadow-inner aspect-video mx-auto max-h-[75vh]"
                         >
                             <canvas
                                 ref="whiteboardCanvasRef"
@@ -2875,10 +2988,27 @@ onUnmounted(() => {
                                 <span>آخرین رسم: <strong class="text-indigo-300">{{ lastDrawingAuthor }}</strong></span>
                             </div>
 
-                            <!-- Floating PiP Camera on Whiteboard (when isWhiteboardCameraActive is true) -->
+                            <!-- Floating Remote Peer Video on Whiteboard -->
+                            <div
+                                v-if="isRemoteVideoStreaming || isRemoteScreenSharing"
+                                class="absolute top-3 left-3 w-32 sm:w-48 aspect-video rounded-2xl overflow-hidden border-2 border-indigo-500 shadow-2xl bg-slate-950 z-30 pointer-events-auto transition-all"
+                            >
+                                <video
+                                    ref="whiteboardRemoteVideo"
+                                    autoplay
+                                    playsinline
+                                    class="w-full h-full object-cover"
+                                ></video>
+                                <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                                    <span>تصویر طرف مقابل</span>
+                                </div>
+                            </div>
+
+                            <!-- Floating Local Camera PiP on Whiteboard -->
                             <div
                                 v-if="isWhiteboardCameraActive && (isVideoCall || isCameraOn)"
-                                class="absolute bottom-4 left-4 w-32 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-indigo-500/70 shadow-2xl bg-slate-950 z-30 pointer-events-auto transition-all"
+                                class="absolute bottom-3 left-3 w-28 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-emerald-500 shadow-2xl bg-slate-950 z-30 pointer-events-auto transition-all"
                             >
                                 <video
                                     ref="whiteboardPipVideo"
@@ -2892,6 +3022,18 @@ onUnmounted(() => {
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                     <span>تصویر شما</span>
                                 </div>
+                                <button
+                                    v-if="availableCameras.length > 1"
+                                    type="button"
+                                    @click.stop="switchCamera"
+                                    :disabled="isSwitchingCamera"
+                                    class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-black text-[9px] text-white flex items-center gap-1 transition-all"
+                                    :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
+                                >
+                                    <svg class="w-3 h-3 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                    </svg>
+                                </button>
                             </div>
 
                             <!-- Real-time sync badge indicator -->
@@ -3147,112 +3289,120 @@ onUnmounted(() => {
                         </div>
                     </div>
 
-                    <!-- Call Action Controls (Mute, Camera, Switch Camera, Hangup, Speaker) -->
-                    <div class="flex items-center justify-center gap-3 sm:gap-4 pt-3 flex-wrap">
-                        <!-- Mute / Unmute Mic -->
-                        <button
-                            type="button"
-                            @click="toggleMute"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
-                            :class="isMuted ? 'bg-amber-500/20 border-amber-500 text-amber-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'"
-                            :title="isMuted ? __('user.calls.mic_muted_title') : __('user.calls.mic_active_title')"
-                        >
-                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ isMuted ? __('user.calls.muted_label') : __('user.calls.unmuted_label') }}</span>
-                        </button>
+                    <!-- Call Action Controls: Studio Modern Floating Control Dock -->
+                    <div class="pt-3">
+                        <div class="inline-flex items-center justify-center gap-2 sm:gap-3 p-2 sm:p-2.5 rounded-3xl bg-slate-900/95 dark:bg-slate-950/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl max-w-full flex-wrap">
+                            <!-- Mute / Unmute Mic -->
+                            <button
+                                type="button"
+                                @click="toggleMute"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 group shadow-sm"
+                                :class="isMuted
+                                    ? 'bg-amber-500/20 border-amber-500/70 text-amber-500 ring-2 ring-amber-500/30'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white'"
+                                :title="isMuted ? __('user.calls.mic_muted_title') : __('user.calls.mic_active_title')"
+                            >
+                                <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ isMuted ? __('user.calls.muted_label') : __('user.calls.unmuted_label') }}</span>
+                            </button>
 
-                        <!-- Camera Toggle (Enable / Disable Video Track) -->
-                        <button
-                            type="button"
-                            @click="toggleCamera"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all"
-                            :class="isCameraOn ? 'bg-indigo-500/20 border-indigo-500 text-indigo-600 dark:text-indigo-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700'"
-                            :title="isCameraOn ? __('user.calls.toggle_camera_off') : __('user.calls.toggle_camera_on')"
-                        >
-                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ isCameraOn ? 'دوربین روشن' : 'دوربین خاموش' }}</span>
-                        </button>
+                            <!-- Camera Toggle -->
+                            <button
+                                type="button"
+                                @click="toggleCamera"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 group shadow-sm"
+                                :class="isCameraOn
+                                    ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300 ring-2 ring-indigo-500/40 shadow-indigo-500/20'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                                :title="isCameraOn ? __('user.calls.toggle_camera_off') : __('user.calls.toggle_camera_on')"
+                            >
+                                <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ isCameraOn ? 'دوربین: روشن' : 'دوربین' }}</span>
+                            </button>
 
-                        <!-- Camera Switch Button in Action Controls -->
-                        <button
-                            v-if="isCameraOn && !isScreenSharing"
-                            type="button"
-                            @click="switchCamera"
-                            :disabled="isSwitchingCamera"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-500 transition-all active:scale-95 disabled:opacity-50"
-                            :title="`سوییچ به دوربین بعدی (${activeCameraDisplayName})`"
-                        >
-                            <svg class="w-4 h-4 mb-0.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ activeCameraShortName }}</span>
-                        </button>
+                            <!-- Camera Switch Button -->
+                            <button
+                                v-if="isCameraOn && !isScreenSharing && availableCameras.length > 1"
+                                type="button"
+                                @click="switchCamera"
+                                :disabled="isSwitchingCamera"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50"
+                                :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
+                            >
+                                <svg class="w-5 h-5 mb-0.5 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ activeCameraShortName }}</span>
+                            </button>
 
-                        <!-- Screen Sharing Toggle Button -->
-                        <button
-                            type="button"
-                            @click="toggleScreenShare"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95"
-                            :class="isScreenSharing
-                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-emerald-500'"
-                            :title="isScreenSharing ? __('user.calls.screen_share_stop') : __('user.calls.screen_share_start')"
-                        >
-                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ isScreenSharing ? 'توقف اشتراک' : 'اشتراک صفحه' }}</span>
-                        </button>
+                            <!-- Screen Sharing Toggle Button -->
+                            <button
+                                type="button"
+                                @click="toggleScreenShare"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 shadow-sm"
+                                :class="isScreenSharing
+                                    ? 'bg-emerald-600/30 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/40'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                                :title="isScreenSharing ? __('user.calls.screen_share_stop') : __('user.calls.screen_share_start')"
+                            >
+                                <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ isScreenSharing ? 'توقف اشتراک' : 'اشتراک صفحه' }}</span>
+                            </button>
 
-                        <!-- Interactive Whiteboard Toggle Button -->
-                        <button
-                            type="button"
-                            @click="toggleWhiteboard"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 relative"
-                            :class="isWhiteboardOpen
-                                ? 'bg-purple-500/20 border-purple-500 text-purple-600 dark:text-purple-400'
-                                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:text-purple-500'"
-                            :title="isWhiteboardOpen ? __('user.calls.whiteboard_close') : __('user.calls.whiteboard_btn')"
-                        >
-                            <span v-if="isRemoteWhiteboardOpen && !isWhiteboardOpen" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-purple-500 animate-ping"></span>
-                            <svg class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? 'بستن تخته' : 'وایت‌برد' }}</span>
-                        </button>
+                            <!-- Interactive Whiteboard Toggle Button -->
+                            <button
+                                type="button"
+                                @click="toggleWhiteboard"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 relative shadow-sm"
+                                :class="isWhiteboardOpen
+                                    ? 'bg-purple-600/30 border-purple-500 text-purple-300 ring-2 ring-purple-500/40 shadow-purple-500/20'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                                :title="isWhiteboardOpen ? __('user.calls.whiteboard_close') : __('user.calls.whiteboard_btn')"
+                            >
+                                <span v-if="isRemoteWhiteboardOpen && !isWhiteboardOpen" class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-500 animate-ping"></span>
+                                <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? 'بستن تخته' : 'وایت‌برد' }}</span>
+                            </button>
 
-                        <!-- Hang up button -->
-                        <button
-                            type="button"
-                            @click="endCall"
-                            class="w-16 h-16 rounded-full bg-rose-600 hover:bg-rose-700 text-white flex items-center justify-center shadow-xl shadow-rose-600/40 transition-transform active:scale-95"
-                            :title="__('user.calls.hangup_title')"
-                        >
-                            <svg class="w-8 h-8 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                        </button>
+                            <!-- Speaker / Earpiece Audio Routing Button -->
+                            <button
+                                type="button"
+                                @click="toggleSpeaker"
+                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 shadow-sm"
+                                :class="isSpeakerOn
+                                    ? 'bg-sky-600/30 border-sky-500 text-sky-300 ring-2 ring-sky-500/40 shadow-sky-500/20'
+                                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                                :title="isSpeakerOn ? 'خروجی: بلندگو (اسپیکر)' : 'خروجی: گوشی تلفن (Earpiece)'"
+                            >
+                                <svg v-if="isSpeakerOn" class="w-5 h-5 mb-0.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                </svg>
+                                <svg v-else class="w-5 h-5 mb-0.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                                <span class="text-[9px] font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
+                            </button>
 
-                        <!-- Speaker / Earpiece -->
-                        <button
-                            type="button"
-                            @click="toggleSpeaker"
-                            class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 shadow-sm"
-                            :class="isSpeakerOn ? 'bg-blue-600/20 border-blue-500 text-blue-600 dark:text-blue-400 shadow-blue-500/10' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'"
-                            :title="isSpeakerOn ? 'خروجی: بلندگو (اسپیکر)' : 'خروجی: گوشی تلفن (Earpiece)'"
-                        >
-                            <svg v-if="isSpeakerOn" class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                            </svg>
-                            <svg v-else class="w-4 h-4 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                            </svg>
-                            <span class="text-[9px] font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
-                        </button>
+                            <!-- End Call / Hangup Button -->
+                            <button
+                                type="button"
+                                @click="endCall"
+                                class="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white flex items-center justify-center shadow-xl shadow-rose-600/50 transition-all active:scale-95 ml-1 ring-2 ring-rose-500/40"
+                                :title="__('user.calls.hangup_title')"
+                            >
+                                <svg class="w-7 h-7 sm:w-8 sm:h-8 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -3638,15 +3788,15 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Action Buttons: Decline, Voice Answer, Video Answer -->
-                <div class="grid grid-cols-3 gap-2.5 pt-2 relative z-10">
+                <div class="grid grid-cols-3 gap-2 sm:gap-3 pt-2 relative z-10">
                     <!-- Decline button -->
                     <button
                         type="button"
                         @click="declineIncomingCall"
-                        class="py-3.5 px-2 rounded-2xl bg-gradient-to-b from-rose-500 to-rose-700 hover:from-rose-600 hover:to-rose-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 group"
+                        class="py-3.5 sm:py-4 px-2 rounded-2xl bg-gradient-to-b from-rose-500 to-rose-700 hover:from-rose-600 hover:to-rose-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95 group"
                     >
-                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <svg class="w-4 h-4 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5 rotate-135" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                         </div>
@@ -3657,28 +3807,28 @@ onUnmounted(() => {
                     <button
                         type="button"
                         @click="answerIncomingCall(false)"
-                        class="py-3.5 px-2 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 group"
+                        class="py-3.5 sm:py-4 px-2 rounded-2xl bg-gradient-to-b from-emerald-500 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-emerald-600/30 transition-all active:scale-95 group"
                     >
-                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                         </div>
-                        <span>صوتی</span>
+                        <span>پاسخ صوتی</span>
                     </button>
 
                     <!-- Answer Video button -->
                     <button
                         type="button"
                         @click="answerIncomingCall(true)"
-                        class="py-3.5 px-2 rounded-2xl bg-gradient-to-b from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all active:scale-95 group"
+                        class="py-3.5 sm:py-4 px-2 rounded-2xl bg-gradient-to-b from-indigo-500 to-indigo-700 hover:from-indigo-600 hover:to-indigo-800 text-white font-bold text-xs flex flex-col items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/30 transition-all active:scale-95 group"
                     >
-                        <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <span>تصویری</span>
+                        <span>پاسخ تصویری</span>
                     </button>
                 </div>
             </div>
