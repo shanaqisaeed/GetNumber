@@ -124,7 +124,7 @@ const isVideoCall = ref(false);
 const isCameraOn = ref(false);
 const currentFacingMode = ref<'user' | 'environment'>('user');
 const isSwitchingCamera = ref(false);
-const availableCameras = ref<{ deviceId: string; label: string }[]>([]);
+const availableCameras = ref<{ deviceId: string; label: string; facingMode: 'user' | 'environment' }[]>([]);
 const selectedCameraId = ref<string>('');
 const videoQuality = ref<'hd' | 'sd' | 'low'>('hd');
 const localVideo = ref<HTMLVideoElement | null>(null);
@@ -137,6 +137,46 @@ const isPeerReconnecting = ref(false);
 let remoteMediaStream: MediaStream | null = null;
 let wsReconnectTimer: any = null;
 let iceRestartDebounceTimer: any = null;
+
+// Equipment & Hardware Testing Modal (Microphone, Camera, Speaker)
+const isDeviceTestModalOpen = ref(false);
+const isTestingDevices = ref(false);
+const testMediaStream = ref<MediaStream | null>(null);
+const testVideoRef = ref<HTMLVideoElement | null>(null);
+const testAudioLevel = ref<number>(0);
+const testErrorMessage = ref<string>('');
+let testAudioContext: AudioContext | null = null;
+let testAudioAnalyser: AnalyserNode | null = null;
+let testAudioAnimFrame: number | null = null;
+const isTestingSpeaker = ref<boolean>(false);
+
+const activeCameraDisplayName = computed(() => {
+    if (availableCameras.value.length === 0) {
+        return currentFacingMode.value === 'user' ? 'دوربین جلو (سلفی)' : 'دوربین عقب (اصلی)';
+    }
+    const current = availableCameras.value.find(c => c.deviceId === selectedCameraId.value);
+    if (current) return current.label;
+    return currentFacingMode.value === 'user' ? 'دوربین جلو (سلفی)' : 'دوربین عقب (اصلی)';
+});
+
+const activeCameraShortName = computed(() => {
+    if (availableCameras.value.length === 0) {
+        return currentFacingMode.value === 'user' ? 'دوربین جلو' : 'دوربین عقب';
+    }
+    const current = availableCameras.value.find(c => c.deviceId === selectedCameraId.value);
+    if (!current) return currentFacingMode.value === 'user' ? 'دوربین جلو' : 'دوربین عقب';
+    if (current.label.includes('سلفی') || current.label.includes('جلو')) return 'دوربین جلو';
+    if (current.label.includes('عریض') || current.label.includes('واید')) return 'دوربین واید';
+    if (current.label.includes('تله') || current.label.includes('زوم')) return 'دوربین زوم';
+    if (current.label.includes('پشت') || current.label.includes('عقب')) return 'دوربین عقب';
+    return current.label.slice(0, 14);
+});
+
+const currentCameraIndexDisplay = computed(() => {
+    if (availableCameras.value.length <= 1) return '';
+    const idx = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
+    return `${(idx >= 0 ? idx : 0) + 1} از ${availableCameras.value.length}`;
+});
 
 const toggleFullscreen = async () => {
     try {
@@ -249,27 +289,71 @@ watch(destinationInput, (val) => {
     }
 });
 
-// Camera Device Enumeration
+// Camera Device Enumeration with Intelligent Multi-Lens & Mobile Categorization
 const enumerateCameras = async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.enumerateDevices) return;
     try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
+
+        let frontIdx = 0;
+        let backIdx = 0;
+
         availableCameras.value = videoDevices.map((d, index) => {
-            let label = d.label;
-            if (!label) {
-                label = index === 0 ? 'دوربین جلو / سلفی' : `دوربین ${index + 1}`;
+            const raw = d.label || '';
+            const lower = raw.toLowerCase();
+            let facing: 'user' | 'environment' = 'user';
+
+            if (lower.includes('back') || lower.includes('rear') || lower.includes('environment')) {
+                facing = 'environment';
+                backIdx++;
+            } else if (lower.includes('front') || lower.includes('user') || lower.includes('selfie')) {
+                facing = 'user';
+                frontIdx++;
+            } else {
+                facing = index === 0 ? 'user' : 'environment';
+                if (facing === 'user') frontIdx++; else backIdx++;
             }
+
+            let label = raw;
+            if (!label) {
+                label = facing === 'user'
+                    ? (frontIdx > 1 ? `دوربین جلو (${frontIdx})` : 'دوربین جلو (سلفی)')
+                    : (backIdx > 1 ? `دوربین پشت (${backIdx})` : 'دوربین پشت (اصلی)');
+            } else {
+                if (lower.includes('back') || lower.includes('rear')) {
+                    if (lower.includes('wide') || lower.includes('ultra')) {
+                        label = 'دوربین پشت (فوق‌عریض / Ultra Wide)';
+                    } else if (lower.includes('tele') || lower.includes('zoom')) {
+                        label = 'دوربین پشت (تله‌فوتو / Zoom)';
+                    } else if (lower.includes('macro')) {
+                        label = 'دوربین پشت (ماکرو / Macro)';
+                    } else {
+                        label = backIdx > 1 ? `دوربین پشت شماره ${backIdx}` : 'دوربین پشت (اصلی)';
+                    }
+                } else if (lower.includes('front') || lower.includes('selfie') || lower.includes('user')) {
+                    label = frontIdx > 1 ? `دوربین جلو شماره ${frontIdx}` : 'دوربین جلو (سلفی)';
+                }
+            }
+
             return {
                 deviceId: d.deviceId,
                 label,
+                facingMode: facing,
             };
         });
-        if (videoDevices.length > 0 && !selectedCameraId.value) {
-            selectedCameraId.value = videoDevices[0].deviceId;
+
+        // Ensure active selectedCameraId is consistent
+        if (availableCameras.value.length > 0) {
+            const match = availableCameras.value.find(c => c.deviceId === selectedCameraId.value);
+            if (!match) {
+                selectedCameraId.value = availableCameras.value[0].deviceId;
+                currentFacingMode.value = availableCameras.value[0].facingMode;
+            }
         }
+        console.log('[WebRTC-Cameras] 📷 Available cameras detected:', availableCameras.value);
     } catch (e) {
-        console.warn('[WebRTC-Video] Could not enumerate cameras:', e);
+        console.warn('[WebRTC-Cameras] Could not enumerate cameras:', e);
     }
 };
 
@@ -286,10 +370,163 @@ const getVideoConstraints = (): MediaTrackConstraints => {
     const base: MediaTrackConstraints = { ...getVideoQualityResolution() };
     if (selectedCameraId.value && selectedCameraId.value.length > 5) {
         base.deviceId = { ideal: selectedCameraId.value };
-    } else {
-        base.facingMode = { ideal: currentFacingMode.value };
     }
+    base.facingMode = { ideal: currentFacingMode.value };
     return base;
+};
+
+// Device Hardware Testing Methods (Microphone, Camera, Speaker)
+const startTestAudioMeter = (stream: MediaStream) => {
+    try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        testAudioContext = new AudioCtx();
+        const source = testAudioContext.createMediaStreamSource(stream);
+        testAudioAnalyser = testAudioContext.createAnalyser();
+        testAudioAnalyser.fftSize = 64;
+        source.connect(testAudioAnalyser);
+
+        const dataArray = new Uint8Array(testAudioAnalyser.frequencyBinCount);
+        const updateMeter = () => {
+            if (!testAudioAnalyser) return;
+            testAudioAnalyser.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            const avg = sum / dataArray.length;
+            testAudioLevel.value = Math.min(100, Math.round((avg / 128) * 100));
+            testAudioAnimFrame = requestAnimationFrame(updateMeter);
+        };
+        updateMeter();
+    } catch (e) {
+        console.warn('[DeviceTest] Could not start audio meter:', e);
+    }
+};
+
+const stopTestAudioMeter = () => {
+    if (testAudioAnimFrame) {
+        cancelAnimationFrame(testAudioAnimFrame);
+        testAudioAnimFrame = null;
+    }
+    if (testAudioContext) {
+        testAudioContext.close().catch(() => {});
+        testAudioContext = null;
+    }
+    testAudioAnalyser = null;
+    testAudioLevel.value = 0;
+};
+
+const openDeviceTestModal = async () => {
+    isDeviceTestModalOpen.value = true;
+    isTestingDevices.value = true;
+    testErrorMessage.value = '';
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: isNoiseCancellationEnabled.value,
+                autoGainControl: true,
+            },
+            video: getVideoConstraints(),
+        });
+        testMediaStream.value = stream;
+        await nextTick();
+        if (testVideoRef.value && testMediaStream.value) {
+            testVideoRef.value.srcObject = testMediaStream.value;
+            testVideoRef.value.play().catch(() => {});
+        }
+        await enumerateCameras();
+        startTestAudioMeter(stream);
+    } catch (err: any) {
+        console.warn('[DeviceTest] Hardware access error:', err);
+        testErrorMessage.value = 'مرورگر اجازه دسترسی به میکروفون یا دوربین را نداد یا دستگاهی متصل نیست.';
+    } finally {
+        isTestingDevices.value = false;
+    }
+};
+
+const closeDeviceTestModal = () => {
+    isDeviceTestModalOpen.value = false;
+    stopTestAudioMeter();
+    if (testMediaStream.value) {
+        testMediaStream.value.getTracks().forEach(t => t.stop());
+        testMediaStream.value = null;
+    }
+    if (testVideoRef.value) {
+        testVideoRef.value.srcObject = null;
+    }
+    testErrorMessage.value = '';
+};
+
+const switchCameraInTest = async (camId: string) => {
+    selectedCameraId.value = camId;
+    const targetCam = availableCameras.value.find(c => c.deviceId === camId);
+    if (targetCam) {
+        currentFacingMode.value = targetCam.facingMode;
+    }
+
+    if (testMediaStream.value) {
+        testMediaStream.value.getVideoTracks().forEach(t => {
+            t.stop();
+            testMediaStream.value?.removeTrack(t);
+        });
+    }
+
+    try {
+        let newStream: MediaStream | null = null;
+        try {
+            newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    deviceId: { exact: camId },
+                    ...getVideoQualityResolution(),
+                },
+            });
+        } catch {
+            newStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: { ideal: currentFacingMode.value },
+                    ...getVideoQualityResolution(),
+                },
+            });
+        }
+
+        const newTrack = newStream?.getVideoTracks()[0];
+        if (newTrack && testMediaStream.value) {
+            testMediaStream.value.addTrack(newTrack);
+            if (testVideoRef.value) {
+                testVideoRef.value.srcObject = testMediaStream.value;
+            }
+        }
+    } catch (err) {
+        console.warn('[DeviceTest] Camera switch in test failed:', err);
+    }
+};
+
+const playTestSpeakerSound = () => {
+    try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        isTestingSpeaker.value = true;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+        setTimeout(() => {
+            isTestingSpeaker.value = false;
+        }, 550);
+    } catch {
+        isTestingSpeaker.value = false;
+    }
 };
 
 const attachLocalStreamToVideo = async () => {
@@ -469,6 +706,7 @@ const toggleCamera = async () => {
                 isCameraOn.value = true;
                 isVideoCall.value = true;
                 await attachLocalStreamToVideo();
+                await enumerateCameras();
 
                 if (peerConnection) {
                     const senders = peerConnection.getSenders();
@@ -490,36 +728,76 @@ const toggleCamera = async () => {
     }
 };
 
-// Switch Camera (Front / Rear) - Full Mobile and Desktop Support
+// Switch Camera (Front / Rear & Multi-Lens / USB Webcams)
 const switchCamera = async () => {
     if (!localMediaStream || isSwitchingCamera.value) return;
     isSwitchingCamera.value = true;
 
-    // Toggle facingMode (user <-> environment)
-    currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
-
-    // If multiple camera devices enumerated, advance deviceId selection
+    // 1. Advance to the next available camera
     if (availableCameras.value.length > 1) {
         const currentIndex = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
         const nextIndex = (currentIndex + 1) % availableCameras.value.length;
-        selectedCameraId.value = availableCameras.value[nextIndex]?.deviceId || '';
+        selectedCameraId.value = availableCameras.value[nextIndex].deviceId;
+        currentFacingMode.value = availableCameras.value[nextIndex].facingMode;
     } else {
-        selectedCameraId.value = '';
+        // Toggle facing mode if no deviceId list yet
+        currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
     }
 
+    // 2. CRITICAL: Stop previous tracks BEFORE requesting the new track so the hardware sensor lock is released!
     const currentVideoTracks = localMediaStream.getVideoTracks();
+    currentVideoTracks.forEach(t => {
+        t.stop();
+        localMediaStream?.removeTrack(t);
+    });
+
     try {
         let newStream: MediaStream | null = null;
-        try {
-            // First attempt exact facingMode (standard on iOS Safari and Android Chrome)
-            newStream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: { exact: currentFacingMode.value },
-                    ...getVideoQualityResolution(),
-                },
-            });
-        } catch {
-            // Fallback to general constraints
+
+        // Attempt 1: By exact deviceId (if available)
+        if (selectedCameraId.value && selectedCameraId.value.length > 5) {
+            try {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        deviceId: { exact: selectedCameraId.value },
+                        ...getVideoQualityResolution(),
+                    },
+                });
+            } catch (err1) {
+                console.log('[WebRTC-Video] Exact deviceId request failed, falling back:', err1);
+            }
+        }
+
+        // Attempt 2: By exact facingMode (standard iOS Safari & Android Chrome)
+        if (!newStream) {
+            try {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { exact: currentFacingMode.value },
+                        ...getVideoQualityResolution(),
+                    },
+                });
+            } catch (err2) {
+                console.log('[WebRTC-Video] Exact facingMode request failed, falling back:', err2);
+            }
+        }
+
+        // Attempt 3: By ideal facingMode
+        if (!newStream) {
+            try {
+                newStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: { ideal: currentFacingMode.value },
+                        ...getVideoQualityResolution(),
+                    },
+                });
+            } catch (err3) {
+                console.log('[WebRTC-Video] Ideal facingMode request failed:', err3);
+            }
+        }
+
+        // Attempt 4: General fallback constraints
+        if (!newStream) {
             newStream = await navigator.mediaDevices.getUserMedia({
                 video: getVideoConstraints(),
             });
@@ -527,14 +805,19 @@ const switchCamera = async () => {
 
         const newTrack = newStream?.getVideoTracks()[0];
         if (newTrack) {
-            currentVideoTracks.forEach(t => {
-                t.stop();
-                localMediaStream?.removeTrack(t);
-            });
             localMediaStream.addTrack(newTrack);
             await attachLocalStreamToVideo();
 
-            // Seamlessly swap the video track on the WebRTC peer connection sender
+            // Sync track settings
+            const settings = newTrack.getSettings?.();
+            if (settings?.deviceId) {
+                selectedCameraId.value = settings.deviceId;
+            }
+            if (settings?.facingMode) {
+                currentFacingMode.value = settings.facingMode as 'user' | 'environment';
+            }
+
+            // Seamlessly swap track on WebRTC peer connection
             if (peerConnection) {
                 const senders = peerConnection.getSenders();
                 const videoSender = senders.find(s => s.track?.kind === 'video');
@@ -547,12 +830,23 @@ const switchCamera = async () => {
                     await sendSignalingMessage('offer', offer);
                 }
             }
+
             await enumerateCameras();
         }
     } catch (e) {
-        console.warn('[WebRTC-Video] Could not switch camera:', e);
-        // Revert facing mode on failure
-        currentFacingMode.value = currentFacingMode.value === 'user' ? 'environment' : 'user';
+        console.error('[WebRTC-Video] Could not switch camera:', e);
+        callError.value = 'خطا در سوییچ به دوربین انتخابی سخت‌افزار.';
+        // Attempt fallback to user camera
+        try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'user' }, ...getVideoQualityResolution() }
+            });
+            const fallbackTrack = fallbackStream.getVideoTracks()[0];
+            if (fallbackTrack && localMediaStream) {
+                localMediaStream.addTrack(fallbackTrack);
+                await attachLocalStreamToVideo();
+            }
+        } catch {}
     } finally {
         isSwitchingCamera.value = false;
     }
@@ -1606,6 +1900,14 @@ onMounted(() => {
 
     checkIncomingCall();
     incomingPollTimer = setInterval(checkIncomingCall, 3500);
+
+    // Initial camera hardware discovery and devicechange listener
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices) {
+        enumerateCameras();
+        if (navigator.mediaDevices.addEventListener) {
+            navigator.mediaDevices.addEventListener('devicechange', enumerateCameras);
+        }
+    }
 });
 
 onUnmounted(() => {
@@ -1615,6 +1917,10 @@ onUnmounted(() => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
     }
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
+        navigator.mediaDevices.removeEventListener('devicechange', enumerateCameras);
+    }
+    closeDeviceTestModal();
     if (wsReconnectTimer) clearTimeout(wsReconnectTimer);
     if (iceRestartDebounceTimer) clearTimeout(iceRestartDebounceTimer);
     handlePageUnload();
@@ -1734,19 +2040,31 @@ onUnmounted(() => {
                     </button>
                 </div>
 
-                <Link
-                    :href="route('contacts.index')"
-                    class="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border glass-pill text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
-                    :title="__('user.calls.contacts_tooltip')"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    <span>{{ __('user.calls.contacts_link') }}</span>
-                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                </Link>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        @click="openDeviceTestModal"
+                        class="py-2.5 px-3.5 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border glass-pill text-slate-700 dark:text-slate-200 border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-95 shrink-0 shadow-xs"
+                        title="تست و تنظیم میکروفون، دوربین و بلندگو قبل از تماس"
+                    >
+                        <span class="flex items-center gap-0.5">🎙️📹</span>
+                        <span>تست تجهیزات</span>
+                    </button>
+
+                    <Link
+                        :href="route('contacts.index')"
+                        class="py-2.5 px-4 rounded-2xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 border glass-pill text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 shrink-0"
+                        :title="__('user.calls.contacts_tooltip')"
+                    >
+                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                        <span>{{ __('user.calls.contacts_link') }}</span>
+                        <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                        </svg>
+                    </Link>
+                </div>
             </div>
 
             <!-- ======================================================== -->
@@ -1803,12 +2121,14 @@ onUnmounted(() => {
                                 type="button"
                                 @click.stop="switchCamera"
                                 :disabled="isSwitchingCamera"
-                                class="absolute bottom-1 right-1 w-6 h-6 rounded-md bg-black/70 hover:bg-black/90 text-white flex items-center justify-center backdrop-blur-sm transition-all"
-                                :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
+                                class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 hover:bg-black/95 text-white flex items-center gap-1 backdrop-blur-sm transition-all text-[9px] font-bold"
+                                :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
                             >
-                                <svg class="w-3.5 h-3.5" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-3 h-3 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
+                                <span>{{ activeCameraShortName }}</span>
+                                <span v-if="currentCameraIndexDisplay" class="text-[8px] opacity-75 font-mono">({{ currentCameraIndexDisplay }})</span>
                             </button>
                         </div>
 
@@ -1936,12 +2256,15 @@ onUnmounted(() => {
                             @click="switchCamera"
                             :disabled="isSwitchingCamera"
                             class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1.5 hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-50"
-                            :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
+                            :title="`سوییچ به دوربین بعدی (${activeCameraDisplayName})`"
                         >
                             <svg class="w-3.5 h-3.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            <span class="text-[10px] font-bold">{{ currentFacingMode === 'user' ? 'دوربین: جلو (سلفی)' : 'دوربین: عقب' }}</span>
+                            <span class="text-[10px] font-bold">{{ activeCameraDisplayName }}</span>
+                            <span v-if="currentCameraIndexDisplay" class="text-[9px] px-1 rounded bg-indigo-500/10 text-indigo-500 font-mono">
+                                {{ currentCameraIndexDisplay }}
+                            </span>
                         </button>
 
                         <!-- Video Quality Selector -->
@@ -2011,12 +2334,12 @@ onUnmounted(() => {
                             @click="switchCamera"
                             :disabled="isSwitchingCamera"
                             class="w-12 h-12 rounded-2xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-indigo-500 transition-all active:scale-95 disabled:opacity-50"
-                            :title="currentFacingMode === 'user' ? 'تغییر به دوربین عقب' : 'تغییر به دوربین جلو'"
+                            :title="`سوییچ به دوربین بعدی (${activeCameraDisplayName})`"
                         >
                             <svg class="w-4 h-4 mb-0.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
-                            <span class="text-[9px] font-bold">{{ currentFacingMode === 'user' ? 'دوربین جلو' : 'دوربین عقب' }}</span>
+                            <span class="text-[9px] font-bold">{{ activeCameraShortName }}</span>
                         </button>
 
                         <!-- Hang up button -->
@@ -2492,6 +2815,147 @@ onUnmounted(() => {
                         class="w-full py-2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                         {{ __('user.calls.cancel') }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment & Hardware Testing Modal (Microphone, Multi-Camera, Speaker) -->
+        <div
+            v-if="isDeviceTestModalOpen"
+            class="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200"
+            @click.self="closeDeviceTestModal"
+        >
+            <div class="glass-card w-full max-w-lg p-5 sm:p-6 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl space-y-4 shadow-2xl text-right">
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-white/10">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-sm">
+                            🎙️
+                        </span>
+                        <div>
+                            <h3 class="text-sm font-black text-slate-900 dark:text-white">تست و تنظیم تجهیزات ارتباطی</h3>
+                            <p class="text-[11px] text-slate-500 dark:text-slate-400">بررسی سلامت دوربین، میکروفون و بلندگو قبل از تماس</p>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        @click="closeDeviceTestModal"
+                        class="w-8 h-8 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center transition-colors"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                <!-- Error Alert if permissions failed -->
+                <div v-if="testErrorMessage" class="p-3 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold text-center">
+                    {{ testErrorMessage }}
+                </div>
+
+                <!-- 1. Camera Test Section -->
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span class="flex items-center gap-1.5">
+                            <span>📷</span>
+                            <span>پیش‌نمایش زنده دوربین</span>
+                        </span>
+                        <span v-if="availableCameras.length > 0" class="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono">
+                            {{ availableCameras.length }} دوربین شناسایی شد
+                        </span>
+                    </div>
+
+                    <!-- Live Test Video Box -->
+                    <div class="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center shadow-inner">
+                        <video
+                            ref="testVideoRef"
+                            autoplay
+                            playsinline
+                            muted
+                            class="w-full h-full object-cover"
+                            :class="currentFacingMode === 'user' ? '-scale-x-100' : ''"
+                        ></video>
+                        <span v-if="isTestingDevices" class="absolute inset-0 flex items-center justify-center bg-slate-950/80 text-xs text-slate-300 font-bold">
+                            در حال فراخوانی وبکم...
+                        </span>
+                    </div>
+
+                    <!-- Multi-Camera Selector List -->
+                    <div v-if="availableCameras.length > 0" class="space-y-1 pt-1">
+                        <label class="text-[11px] text-slate-400 font-bold block">انتخاب یا سوییچ دوربین:</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+                            <button
+                                v-for="cam in availableCameras"
+                                :key="cam.deviceId"
+                                type="button"
+                                @click="switchCameraInTest(cam.deviceId)"
+                                class="p-2 rounded-xl text-xs font-bold text-right flex items-center justify-between border transition-all"
+                                :class="selectedCameraId === cam.deviceId
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : 'bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-white/5 hover:bg-slate-200/70'"
+                            >
+                                <span class="truncate">{{ cam.label }}</span>
+                                <span v-if="selectedCameraId === cam.deviceId" class="text-xs shrink-0">✓</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Microphone & Audio VU Meter Section -->
+                <div class="space-y-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span class="flex items-center gap-1.5">
+                            <span>🎙️</span>
+                            <span>تست صدای ورودی (میکروفون)</span>
+                        </span>
+                        <span class="text-[11px] font-mono text-emerald-600 dark:text-emerald-400">
+                            {{ testAudioLevel }}%
+                        </span>
+                    </div>
+
+                    <!-- VU Meter Progress Bar -->
+                    <div class="w-full h-3 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden p-0.5 border border-slate-300/50 dark:border-slate-700">
+                        <div
+                            class="h-full rounded-full transition-all duration-75"
+                            :class="testAudioLevel > 65 ? 'bg-amber-500' : 'bg-emerald-500'"
+                            :style="{ width: `${testAudioLevel}%` }"
+                        ></div>
+                    </div>
+                    <p class="text-[10px] text-slate-400">در میکروفون صحبت کنید؛ نوار سبز باید متناسب با صدای شما نوسان کند.</p>
+                </div>
+
+                <!-- 3. Speaker Test & Quality Controls -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                    <button
+                        type="button"
+                        @click="playTestSpeakerSound"
+                        :disabled="isTestingSpeaker"
+                        class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200/90 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-white/10 text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                        <span>🔊</span>
+                        <span>{{ isTestingSpeaker ? 'در حال پخش...' : 'تست صدای اسپیکر' }}</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="toggleNoiseCancellation"
+                        class="p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                        :class="isNoiseCancellationEnabled
+                            ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-white/10'"
+                    >
+                        <span>🎧</span>
+                        <span>حذف نویز: {{ isNoiseCancellationEnabled ? 'روشن' : 'خاموش' }}</span>
+                    </button>
+                </div>
+
+                <!-- Footer Done Button -->
+                <div class="pt-2">
+                    <button
+                        type="button"
+                        @click="closeDeviceTestModal"
+                        class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-colors shadow-md shadow-indigo-600/20"
+                    >
+                        تایید و ذخیره تنظیمات
                     </button>
                 </div>
             </div>
