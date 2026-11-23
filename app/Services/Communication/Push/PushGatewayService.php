@@ -61,7 +61,7 @@ class PushGatewayService
         $deliveredCount = 0;
 
         foreach ($devices as $device) {
-            $dedupKey = "getnumber:call_invite_sent:{$payload->callUuid}:{$device->device_uuid}";
+            $dedupKey = "ravy-no:call_invite_sent:{$payload->callUuid}:{$device->device_uuid}";
             if (Cache::has($dedupKey)) {
                 continue;
             }

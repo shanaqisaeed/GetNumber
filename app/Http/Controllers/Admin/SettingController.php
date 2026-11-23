@@ -76,8 +76,8 @@ class SettingController extends Controller
                 'mail_username' => SystemSetting::get('mail_username', ''),
                 'mail_password' => SystemSetting::get('mail_password', ''),
                 'mail_encryption' => SystemSetting::get('mail_encryption', 'tls'),
-                'mail_from_address' => SystemSetting::get('mail_from_address', 'noreply@getnumber.local'),
-                'mail_from_name' => SystemSetting::get('mail_from_name', 'GetNumber'),
+                'mail_from_address' => SystemSetting::get('mail_from_address', 'noreply@ravy-no.local'),
+                'mail_from_name' => SystemSetting::get('mail_from_name', 'RavyNo'),
                 'require_email_verification' => (bool) (int) SystemSetting::get('require_email_verification', '1'),
             ],
             'voiceBridgeSettings' => [
@@ -430,13 +430,13 @@ class SettingController extends Controller
             SystemSetting::set('voice_ice_transport_policy', (string) ($validated['ice_transport_policy'] ?? 'all'), __('controllers.admin.settings.desc_voice_ice_policy'));
         }
         if ($request->has('intranet_ssids')) {
-            SystemSetting::set('voice_intranet_ssids', trim((string) ($validated['intranet_ssids'] ?? '')), 'Allowed Intranet Wi-Fi SSIDs for iOS Local Push Connectivity');
+            SystemSetting::set('voice_intranet_ssids', trim((string) ($validated['intranet_ssids'] ?? '')), __('controllers.admin.settings.desc_voice_intranet_ssids'));
         }
         if ($request->has('local_push_ws_url')) {
-            SystemSetting::set('voice_local_push_ws_url', trim((string) ($validated['local_push_ws_url'] ?? '')), 'Local Push WebSocket endpoint');
+            SystemSetting::set('voice_local_push_ws_url', trim((string) ($validated['local_push_ws_url'] ?? '')), __('controllers.admin.settings.desc_voice_local_push_ws_url'));
         }
         if ($request->has('ring_timeout_seconds')) {
-            SystemSetting::set('voice_ring_timeout_seconds', (string) ($validated['ring_timeout_seconds'] ?? 45), 'Incoming call ring timeout in seconds');
+            SystemSetting::set('voice_ring_timeout_seconds', (string) ($validated['ring_timeout_seconds'] ?? 45), __('controllers.admin.settings.desc_voice_ring_timeout_seconds'));
         }
 
         $this->logSettingChange($request, __('controllers.admin.settings.audit_voice_bridge_updated'));

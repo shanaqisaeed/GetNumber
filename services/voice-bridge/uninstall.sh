@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  ✦ GETNUMBER VOICE BRIDGE • RUNTIME DECOMMISSIONER & PURGE ENGINE
+#  ✦ RAVYNO VOICE BRIDGE • RUNTIME DECOMMISSIONER & PURGE ENGINE
 #  Next-Gen WebRTC Audio Signaling & Telephony Daemon (2026 Edition)
 #  Safe shutdown, systemd deregistration, socket release, and file purging
 # ==============================================================================
@@ -35,13 +35,13 @@ fi
 clear 2>/dev/null || true
 
 echo -e "${RED}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
-echo -e "${RED}│${RESET}  ${RED}${BOLD}✦ GETNUMBER VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}RUNTIME DECOMMISSION & PURGE ENGINE${RESET}     ${RED}│${RESET}"
+echo -e "${RED}│${RESET}  ${RED}${BOLD}✦ RAVYNO VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}RUNTIME DECOMMISSION & PURGE ENGINE${RESET}     ${RED}│${RESET}"
 echo -e "${RED}│${RESET}  ${DIM}Complete Daemon Uninstallation, Socket Release & Environment Wiper${RESET}      ${RED}│${RESET}"
 echo -e "${RED}╰─────────────────────────────────────────────────────────────────────────╯${RESET}\n"
 
-SERVICE_NAME="getnumber-voice-bridge"
+SERVICE_NAME="ravy-no-voice-bridge"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
-INSTALL_DIR="/opt/getnumber-bridge"
+INSTALL_DIR="/opt/ravy-no-bridge"
 
 PURGE_ALL=false
 KEEP_CONFIG=false
@@ -158,7 +158,7 @@ echo -e "${GREEN}├────────────────────
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "System Service" "Removed (${SERVICE_NAME})"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "Port Sockets" "49000 & 49001 Released"
 if [ "$PURGE_ALL" = true ]; then
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "Filesystem State" "Completely Purged (/opt/getnumber-bridge)"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "Filesystem State" "Completely Purged (/opt/ravy-no-bridge)"
 else
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "Filesystem State" "Config Preserved for Future Installs"
 fi

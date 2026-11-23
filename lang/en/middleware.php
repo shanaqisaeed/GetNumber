@@ -16,5 +16,6 @@ return [
     ],
     'auth' => [
         'email_not_verified' => 'Your email address is not verified. Please verify your email to access platform services.',
+        'mobile_unauthenticated' => 'Authentication required (valid session or device token).',
     ],
 ];

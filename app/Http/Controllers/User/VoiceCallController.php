@@ -389,8 +389,8 @@ class VoiceCallController extends Controller
                 'success' => false,
                 'code' => $e->getMessage(),
                 'message' => $e->getMessage() === 'CALL_ALREADY_ACCEPTED_ON_ANOTHER_DEVICE'
-                    ? 'این تماس در دستگاه دیگری پاسخ داده شد.'
-                    : 'امکان پاسخ به این تماس وجود ندارد.',
+                    ? __('controllers.user.calls.answered_on_another_device')
+                    : __('controllers.user.calls.cannot_answer_call'),
                 'accepted_device_id' => $voiceCall->fresh()?->accepted_device_id,
             ], $code);
         }
@@ -437,7 +437,7 @@ class VoiceCallController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => $e->getMessage(),
-                'message' => 'امکان رد تماس فعال وجود ندارد.',
+                'message' => __('controllers.user.calls.cannot_reject_call'),
             ], 409);
         }
 
@@ -744,11 +744,11 @@ class VoiceCallController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'تاریخچه تماس با موفقیت حذف گردید.',
+                'message' => __('controllers.user.calls.history_deleted'),
             ]);
         }
 
-        return back()->with('success', 'تاریخچه تماس با موفقیت حذف گردید.');
+        return back()->with('success', __('controllers.user.calls.history_deleted'));
     }
 
     /**
@@ -776,11 +776,11 @@ class VoiceCallController extends Controller
             return response()->json([
                 'success' => true,
                 'deleted_count' => $count,
-                'message' => "{$count} تماس انتخابی از تاریخچه حذف شدند.",
+                'message' => __('controllers.user.calls.bulk_history_deleted', ['count' => $count]),
             ]);
         }
 
-        return back()->with('success', "{$count} تماس انتخابی از تاریخچه حذف شدند.");
+        return back()->with('success', __('controllers.user.calls.bulk_history_deleted', ['count' => $count]));
     }
 }
 

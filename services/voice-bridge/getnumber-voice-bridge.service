@@ -1,20 +1,20 @@
 [Unit]
-Description=GetNumber Voice Bridge & Audio Signaling Daemon
+Description=RavyNo Voice Bridge & Audio Signaling Daemon
 After=network.target network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/getnumber-bridge
-EnvironmentFile=-/opt/getnumber-bridge/.env
-ExecStart=/opt/getnumber-bridge/voice-bridge
+WorkingDirectory=/opt/ravy-no-bridge
+EnvironmentFile=-/opt/ravy-no-bridge/.env
+ExecStart=/opt/ravy-no-bridge/voice-bridge
 Restart=always
 RestartSec=3s
 LimitNOFILE=65535
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=getnumber-voice-bridge
+SyslogIdentifier=ravy-no-voice-bridge
 
 [Install]
 WantedBy=multi-user.target

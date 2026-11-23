@@ -13,13 +13,13 @@ use Illuminate\Support\Str;
  * Implements:
  * - Database source-of-truth persistence (`call_lifecycle_events`) with idempotent `event_id`
  * - Schema-versioned event envelope (`schema_version = 1`)
- * - Optional Redis Streams publishing (`XADD getnumber:stream:calls`) and Dead-Letter Queue (`getnumber:stream:calls:dlq`)
+ * - Optional Redis Streams publishing (`XADD ravy-no:stream:calls`) and Dead-Letter Queue (`ravy-no:stream:calls:dlq`)
  *   when Redis is configured in the LAN environment.
  */
 class CallEventStreamService
 {
-    public const STREAM_KEY = 'getnumber:stream:calls';
-    public const DLQ_STREAM_KEY = 'getnumber:stream:calls:dlq';
+    public const STREAM_KEY = 'ravy-no:stream:calls';
+    public const DLQ_STREAM_KEY = 'ravy-no:stream:calls:dlq';
     public const SCHEMA_VERSION = 1;
 
     /**

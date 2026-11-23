@@ -105,7 +105,7 @@ return new class extends Migration
             // Keycloak Dedicated Settings
             ['key' => 'keycloak_base_url', 'value' => 'https://keycloak.example.com', 'description' => 'آدرس پایه سرور Keycloak'],
             ['key' => 'keycloak_realm', 'value' => 'master', 'description' => 'نام قلمرو (Realm) در Keycloak'],
-            ['key' => 'keycloak_client_id', 'value' => 'getnumber-client', 'description' => 'شناسه کلاینت ثبت شده در Keycloak (Client ID)'],
+            ['key' => 'keycloak_client_id', 'value' => 'ravy-no-client', 'description' => 'شناسه کلاینت ثبت شده در Keycloak (Client ID)'],
             ['key' => 'keycloak_client_secret', 'value' => '', 'description' => 'کلید محرمانه کلاینت در Keycloak (Client Secret)'],
             ['key' => 'keycloak_auto_create_user', 'value' => '1', 'description' => 'ایجاد خودکار حساب کاربری در اولین ورود موفق Keycloak'],
         ];

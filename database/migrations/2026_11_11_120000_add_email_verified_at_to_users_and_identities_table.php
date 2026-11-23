@@ -43,8 +43,8 @@ return new class extends Migration
             ['key' => 'mail_username', 'value' => '', 'description' => 'نام کاربری یا ایمیل احراز هویت سرور SMTP'],
             ['key' => 'mail_password', 'value' => '', 'description' => 'رمز عبور احراز هویت سرور SMTP'],
             ['key' => 'mail_encryption', 'value' => 'tls', 'description' => 'نوع رمزنگاری ارتباط SMTP (tls, ssl, none)'],
-            ['key' => 'mail_from_address', 'value' => 'noreply@getnumber.local', 'description' => 'آدرس فرستنده ایمیل‌های ارسالی سامانه'],
-            ['key' => 'mail_from_name', 'value' => 'سامانه مدیریت شماره‌ها GetNumber', 'description' => 'نام نمایشی فرستنده در ایمیل‌های ارسالی'],
+            ['key' => 'mail_from_address', 'value' => 'noreply@ravy-no.local', 'description' => 'آدرس فرستنده ایمیل‌های ارسالی سامانه'],
+            ['key' => 'mail_from_name', 'value' => 'سامانه مدیریت شماره‌ها راوی نو', 'description' => 'نام نمایشی فرستنده در ایمیل‌های ارسالی'],
             ['key' => 'require_email_verification', 'value' => '1', 'description' => 'الزام تایید آدرس ایمیل برای دسترسی به بخش‌های سامانه'],
         ];
 

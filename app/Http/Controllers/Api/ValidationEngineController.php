@@ -171,7 +171,7 @@ class ValidationEngineController extends Controller
         }
 
         // Reserved identifiers check
-        $reserved = ['admin', 'administrator', 'system', 'root', 'support', 'security', 'getnumber', 'official', 'billing', 'wallet'];
+        $reserved = ['admin', 'administrator', 'system', 'root', 'support', 'security', 'ravyno', 'ravy-no', 'official', 'billing', 'wallet'];
         if (in_array($cleanHandle, $reserved, true)) {
             return response()->json([
                 'available' => false,
@@ -301,7 +301,7 @@ class ValidationEngineController extends Controller
         $fullDomain = "{$domainName}.{$cleanTld}";
 
         // Reserved Web3 names
-        $reserved = ['admin', 'system', 'root', 'support', 'tron', 'ethereum', 'foundation', 'getnumber'];
+        $reserved = ['admin', 'system', 'root', 'support', 'tron', 'ethereum', 'foundation', 'ravyno', 'ravy-no'];
         if (in_array($domainName, $reserved, true)) {
             return response()->json([
                 'available' => false,

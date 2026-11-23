@@ -50,7 +50,7 @@ self.addEventListener('activate', (event) => {
 // Push Event: Handle incoming voice call rings and SMS notifications
 self.addEventListener('push', (event) => {
     let payload = {
-        title: 'Ravyno',
+        title: 'RavyNo',
         body: 'رویداد جدید دریافت شد.',
         icon: '/icon-192.png',
         badge: '/icon-192.png',
@@ -70,7 +70,7 @@ self.addEventListener('push', (event) => {
         }
     }
 
-    const isCall = (payload.tag && (payload.tag.startsWith('ravyno-call-') || payload.tag.startsWith('getnumber-call-'))) || payload.data?.type === 'voice_call' || payload.data?.callId;
+    const isCall = (payload.tag && (payload.tag.startsWith('ravyno-call-') || payload.tag.startsWith('ravy-no-call-'))) || payload.data?.type === 'voice_call' || payload.data?.callId;
     const title = payload.title || (isCall ? '📞 تماس صوتی ورودی' : 'پیامک جدید دریافت شد');
     const tag = payload.tag || (isCall ? `ravyno-call-${payload.data?.callId || Date.now()}` : `ravyno-sms-${payload.data?.messageId || Date.now()}`);
 
@@ -141,7 +141,7 @@ self.addEventListener('notificationclick', (event) => {
     const callId = event.notification.data?.callId;
     const hasVideo = Boolean(event.notification.data?.hasVideo);
     const caller = event.notification.data?.caller || '';
-    const isCall = !!callId || (event.notification.tag && (event.notification.tag.startsWith('ravyno-call-') || event.notification.tag.startsWith('getnumber-call-')));
+    const isCall = !!callId || (event.notification.tag && (event.notification.tag.startsWith('ravyno-call-') || event.notification.tag.startsWith('ravy-no-call-')));
     const targetUrl = event.notification.data?.url || (isCall ? '/calls' : '/messages');
 
     // 1. User tapped "❌ رد تماس" (Decline) directly from notification / lockscreen
@@ -211,7 +211,7 @@ self.addEventListener('notificationclick', (event) => {
 
 // Background Sync: Ensures offline call state synchronization
 self.addEventListener('sync', (event) => {
-    if (event.tag === 'ravyno-call-sync' || event.tag === 'getnumber-call-sync') {
+    if (event.tag === 'ravyno-call-sync' || event.tag === 'ravy-no-call-sync') {
         event.waitUntil(
             self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
                 for (const client of clients) {

@@ -20,7 +20,7 @@ const micVolumeLevel = ref(0);
 const micError = ref<string | null>(null);
 const isNoiseCancellationEnabled = ref(
     typeof window !== 'undefined'
-        ? localStorage.getItem('getnumber_noise_cancellation') !== 'false'
+        ? localStorage.getItem('ravyno_noise_cancellation') !== 'false'
         : true
 );
 
@@ -83,26 +83,26 @@ async function enumerateVideoDevices() {
 
             let label = raw;
             if (!label) {
-                label = facing === 'user' ? 'دوربین جلو (سلفی)' : 'دوربین اصلی پشت';
+                label = facing === 'user' ? __('softphone.devices.cam_front_selfie') : __('softphone.devices.cam_rear_main');
             } else {
                 if (lower.includes('back') || lower.includes('rear')) {
                     if (lower.includes('wide') || lower.includes('ultra')) {
-                        label = 'دوربین پشت (فوق‌عریض / Ultra Wide)';
+                        label = __('softphone.devices.cam_rear_ultrawide');
                     } else if (lower.includes('tele') || lower.includes('zoom')) {
-                        label = 'دوربین پشت (تله‌فوتو / Zoom)';
+                        label = __('softphone.devices.cam_rear_telephoto');
                     } else if (lower.includes('macro')) {
-                        label = 'دوربین پشت (ماکرو / Macro)';
+                        label = __('softphone.devices.cam_rear_macro');
                     } else {
-                        label = 'دوربین اصلی پشت';
+                        label = __('softphone.devices.cam_rear_main');
                     }
                 } else if (lower.includes('front') || lower.includes('selfie') || lower.includes('user')) {
                     if (lower.includes('wide') || lower.includes('ultra')) {
-                        label = 'دوربین جلو (فوق‌عریض / Ultra Wide)';
+                        label = __('softphone.devices.cam_front_ultrawide');
                     } else {
-                        label = 'دوربین جلو (سلفی)';
+                        label = __('softphone.devices.cam_front_selfie');
                     }
                 } else {
-                    label = `وب‌کم (${raw.slice(0, 20)})`;
+                    label = __('softphone.devices.webcam_named', { name: raw.slice(0, 20) });
                 }
             }
 
@@ -126,12 +126,12 @@ async function enumerateAudioOutputs() {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const outputs = devices.filter(d => d.kind === 'audiooutput');
         audioOutputs.value = outputs.map((d, i) => {
-            const raw = d.label || `خروجی ${i + 1}`;
+            const raw = d.label || __('softphone.devices.output_indexed', { index: i + 1 });
             const lower = raw.toLowerCase();
             const isSpeaker = lower.includes('speaker') || lower.includes('loud') || lower.includes('بلندگو') || !lower.includes('earpiece');
             return {
                 deviceId: d.deviceId,
-                label: lower.includes('earpiece') ? 'گوشی (Earpiece)' : lower.includes('speaker') ? 'اسپیکر (بلندگو)' : raw,
+                label: lower.includes('earpiece') ? __('softphone.devices.output_earpiece') : lower.includes('speaker') ? __('softphone.devices.output_speaker') : raw,
                 isSpeaker,
             };
         });
@@ -141,7 +141,7 @@ async function enumerateAudioOutputs() {
 const toggleNoiseCancellation = () => {
     isNoiseCancellationEnabled.value = !isNoiseCancellationEnabled.value;
     if (typeof window !== 'undefined') {
-        localStorage.setItem('getnumber_noise_cancellation', String(isNoiseCancellationEnabled.value));
+        localStorage.setItem('ravyno_noise_cancellation', String(isNoiseCancellationEnabled.value));
     }
     if (isTestingMic.value) {
         stopMicTest();
@@ -346,7 +346,7 @@ onUnmounted(() => {
                             {{ __('softphone.devices.title') }}
                         </h3>
                         <p class="text-xs text-slate-400">
-                            بررسی سلامت، وضوح تصویر دوربین و تنظیم صدای ورودی و خروجی
+                            {{ __('softphone.devices.subtitle') }}
                         </p>
                     </div>
                 </div>
@@ -423,8 +423,8 @@ onUnmounted(() => {
                 <!-- Noise Cancellation Toggle -->
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between">
                     <div>
-                        <span class="text-xs font-bold text-slate-800 dark:text-white block">حذف نویز محیطی هوشمند (Noise Cancellation)</span>
-                        <span class="text-[11px] text-slate-400">کاهش صدای تایپ، باد و همهمه محیط در مکالمات</span>
+                        <span class="text-xs font-bold text-slate-800 dark:text-white block">{{ __('softphone.devices.nc_title') }}</span>
+                        <span class="text-[11px] text-slate-400">{{ __('softphone.devices.nc_desc') }}</span>
                     </div>
                     <button
                         type="button"
@@ -435,7 +435,7 @@ onUnmounted(() => {
                             : 'bg-slate-200 dark:bg-slate-700 text-slate-500 border-transparent'"
                     >
                         <span>🎧</span>
-                        <span>{{ isNoiseCancellationEnabled ? 'روشن' : 'خاموش' }}</span>
+                        <span>{{ isNoiseCancellationEnabled ? __('softphone.devices.on') : __('softphone.devices.off') }}</span>
                     </button>
                 </div>
 
@@ -514,7 +514,7 @@ onUnmounted(() => {
                 <!-- Camera Action Controls -->
                 <div class="flex items-center justify-between pt-1">
                     <span class="text-xs text-slate-400">
-                        {{ isTestingCamera ? 'تصویر زنده با موفقیت فعال است' : __('softphone.devices.camera') }}
+                        {{ isTestingCamera ? __('softphone.devices.cam_live_active') : __('softphone.devices.camera') }}
                     </span>
                     <button
                         type="button"

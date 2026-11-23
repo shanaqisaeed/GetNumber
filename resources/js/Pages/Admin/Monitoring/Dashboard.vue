@@ -175,7 +175,7 @@ onUnmounted(() => {
                         class="w-10 h-10 rounded-2xl flex items-center justify-center font-black text-sm"
                         :class="liveMetrics.health.status === 'READY' ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'"
                     >
-                        {{ liveMetrics.health.status === 'READY' ? 'UP' : 'ERR' }}
+                        {{ liveMetrics.health.status === 'READY' ? __('admin.monitoring.status_up') : __('admin.monitoring.status_err') }}
                     </div>
                     <div>
                         <span class="text-xs font-black block">
@@ -191,19 +191,19 @@ onUnmounted(() => {
                 <div class="flex flex-wrap items-center gap-2 text-xs font-mono">
                     <span class="px-2.5 py-1 rounded-xl bg-white/70 dark:bg-black/30 border flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full" :class="liveMetrics.health.checks.database?.status === 'UP' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                        <span>DB Latency: {{ liveMetrics.health.checks.database?.latency_ms ?? 0 }}ms</span>
+                        <span>{{ __('admin.monitoring.probe_db_latency', { ms: liveMetrics.health.checks.database?.latency_ms ?? 0 }) }}</span>
                     </span>
                     <span class="px-2.5 py-1 rounded-xl bg-white/70 dark:bg-black/30 border flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full" :class="liveMetrics.health.checks.cache?.status === 'UP' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                        <span>Cache: {{ liveMetrics.health.checks.cache?.latency_ms ?? 0 }}ms</span>
+                        <span>{{ __('admin.monitoring.probe_cache_latency', { ms: liveMetrics.health.checks.cache?.latency_ms ?? 0 }) }}</span>
                     </span>
                     <span class="px-2.5 py-1 rounded-xl bg-white/70 dark:bg-black/30 border flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full" :class="liveMetrics.health.checks.storage?.status === 'UP' ? 'bg-emerald-500' : 'bg-rose-500'"></span>
-                        <span>Disk: OK</span>
+                        <span>{{ __('admin.monitoring.probe_disk_ok') }}</span>
                     </span>
                     <span class="px-2.5 py-1 rounded-xl bg-white/70 dark:bg-black/30 border flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full" :class="liveMetrics.queue.status === 'HEALTHY' ? 'bg-emerald-500' : 'bg-amber-500'"></span>
-                        <span>Queue: {{ liveMetrics.queue.status }}</span>
+                        <span>{{ __('admin.monitoring.probe_queue_status', { status: liveMetrics.queue.status }) }}</span>
                     </span>
                 </div>
             </div>

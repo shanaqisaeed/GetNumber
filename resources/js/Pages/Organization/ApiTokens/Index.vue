@@ -320,8 +320,8 @@ onUnmounted(() => window.removeEventListener('keydown', handleEscape));
                             <span class="font-mono text-slate-700 dark:text-slate-300 mr-1">{{ token.created_at }}</span>
                         </div>
                         <div class="text-left" dir="ltr">
-                            <span class="font-mono text-slate-700 dark:text-slate-300 ml-1">{{ token.last_used_at || 'Never' }}</span>
-                            <span>:Last used</span>
+                            <span class="font-mono text-slate-700 dark:text-slate-300 ml-1">{{ token.last_used_at || __('user.tokens.never_used') }}</span>
+                            <span>:{{ __('user.tokens.last_used_at') }}</span>
                         </div>
                     </div>
 

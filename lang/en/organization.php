@@ -190,5 +190,6 @@ return [
         'filter_type_all' => 'All Transactions',
         'filter_type_credit' => 'Credits & Deposits',
         'filter_type_debit' => 'Debits & Consumption',
+        'user_fallback' => 'User #:id',
     ],
 ];

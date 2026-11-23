@@ -63,10 +63,10 @@ class TotpServiceTest extends TestCase
     public function test_qr_code_url_generation(): void
     {
         $secret = "JBSWY3DPEHPK3PXP";
-        $url = $this->totp->generateQrCodeUrl("GetNumber", "alice", $secret);
+        $url = $this->totp->generateQrCodeUrl("RavyNo", "alice", $secret);
 
-        $this->assertStringStartsWith("otpauth://totp/GetNumber:alice?secret=JBSWY3DPEHPK3PXP", $url);
-        $this->assertStringContainsString("issuer=GetNumber", $url);
+        $this->assertStringStartsWith("otpauth://totp/RavyNo:alice?secret=JBSWY3DPEHPK3PXP", $url);
+        $this->assertStringContainsString("issuer=RavyNo", $url);
     }
 }
 

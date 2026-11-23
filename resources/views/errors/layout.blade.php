@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow, noarchive">
-    <title>@yield('code') - @yield('title') | {{ config('app.name', 'GetNumber') }}</title>
+    <title>@yield('code') - @yield('title') | {{ config('app.name', 'RavyNo') }}</title>
 
     <style>
         :root {

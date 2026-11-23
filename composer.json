@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "shanaqisaeed/getnumber",
+    "name": "shanaqisaeed/ravy-no",
     "type": "project",
     "description": "سامانه مدیریت شماره‌های مجازی و ارتباطات سازمانی - Enterprise Virtual Number Management & Messaging Gateway",
     "keywords": ["laravel", "virtual-number", "sms-gateway", "vue3", "inertiajs", "messaging"],

@@ -77,7 +77,7 @@ return [
         ],
         'user' => [
             'nav' => [
-                'brand_name' => 'راوی‌نو',
+                'brand_name' => 'راوی نو',
                 'home' => 'خانه',
                 'contacts' => 'مخاطبین',
                 'sms' => 'پیامک',
@@ -113,6 +113,8 @@ return [
             'incoming_call_ringing' => 'در حال زنگ خوردن...',
             'decline_call' => 'رد تماس',
             'answer_call' => 'پاسخ',
+            'unknown_sender' => 'فرستنده ناشناس',
+            'new_message_from' => 'پیام جدید از :sender',
         ],
         'auth' => [
             'back_to_home' => 'بازگشت به صفحه اصلی',
@@ -182,7 +184,7 @@ return [
             'system' => 'سیستم',
         ],
         'notifications_modal' => [
-            'test_sender' => 'سامانه GetNumber',
+            'test_sender' => 'سامانه راوی نو',
             'not_allowed_warning' => 'هنوز مجوز اعلان در تنظیمات مرورگر روی Allow قرار نگرفته است.',
             'title' => 'دریافت اعلان پیامک‌های جدید',
             'recommended' => 'پیشنهادی',
@@ -196,6 +198,16 @@ return [
             'later_button' => 'خیر، بعداً',
             'recheck_button' => 'بررسی مجدد مجوز',
             'enable_button' => 'بله، فعال‌سازی اعلان',
+        ],
+        'pwa_banner' => [
+            'title_standalone' => 'فعال‌سازی زنگ تماس در صفحه قفل (Lock Screen)',
+            'title_install' => 'برنامه ما را نصب و زنگ تماس را فعال کنید',
+            'description' => 'برای دریافت زنگ تماس و اعلان فوری هنگامی که صفحه گوشی قفل است، اعلان پس‌زمینه را فعال کنید.',
+            'subscribing' => 'در حال فعال‌سازی...',
+            'enable_btn' => 'فعال‌سازی اعلان و زنگ',
+            'installing' => 'در حال نصب...',
+            'install_btn' => 'نصب نرم‌افزار',
+            'dismiss_title' => 'بستن اعلان',
         ],
         'allocate_number_modal' => [
             'pattern_regular' => 'عادی',
@@ -748,7 +760,8 @@ return [
         'system_error' => 'خطای سیستمی :status',
         'back_to_home' => 'بازگشت به صفحه اصلی',
         'login_to_account' => 'ورود به حساب کاربری',
-        'footer_notice' => 'سامانه امن ارتباطات سازمانی GetNumber • ارتباط محافظت‌شده',
+        'footer_notice' => 'سامانه امن ارتباطات سازمانی راوی نو • ارتباط محافظت‌شده',
         'retry' => 'تلاش مجدد',
+        'loading' => 'در حال ارسال...',
     ],
 ];

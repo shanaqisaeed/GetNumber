@@ -130,7 +130,7 @@ const isMuted = ref(false);
 const isSpeakerOn = ref(false);
 const isNoiseCancellationEnabled = ref(
     typeof window !== 'undefined'
-        ? localStorage.getItem('getnumber_noise_cancellation') !== 'false'
+        ? localStorage.getItem('ravyno_noise_cancellation') !== 'false'
         : true
 );
 const callError = ref('');
@@ -219,9 +219,9 @@ const currentUserId = computed(() => {
 
 const localUserLabel = computed(() => {
     if (currentUserId.value) {
-        return `کاربر #${currentUserId.value}`;
+        return __('user.calls.user_with_id', { id: currentUserId.value });
     }
-    return 'کاربر';
+    return __('user.calls.user_generic');
 });
 
 // Live Collaborative Indicators (Remote Cursor & Stroke Attribution)
@@ -229,57 +229,58 @@ const remotePeerCursor = ref<{ x: number; y: number; visible: boolean; name: str
     x: 0,
     y: 0,
     visible: false,
-    name: 'طرف مقابل',
+    name: __('user.calls.remote_peer_name'),
 });
 let remoteCursorHideTimer: any = null;
 const lastDrawingAuthor = ref<string>('');
 
 // 16 Vibrant Whiteboard Colors
-const whiteboardColors = [
-    { hex: '#0f172a', name: 'مشکی زغالی' },
-    { hex: '#ffffff', name: 'سفید' },
-    { hex: '#64748b', name: 'خاکستری' },
-    { hex: '#ef4444', name: 'قرمز مرجانی' },
-    { hex: '#f43f5e', name: 'سرخابی' },
-    { hex: '#f97316', name: 'نارنجی' },
-    { hex: '#f59e0b', name: 'کهربایی' },
-    { hex: '#eab308', name: 'زرد فسفری' },
-    { hex: '#10b981', name: 'سبز زمردی' },
-    { hex: '#059669', name: 'سبز تیره' },
-    { hex: '#06b6d4', name: 'فیروزه‌ای' },
-    { hex: '#0ea5e9', name: 'آبی آسمانی' },
-    { hex: '#3b82f6', name: 'آبی اصلی' },
-    { hex: '#1d4ed8', name: 'آبی کاربنی' },
-    { hex: '#8b5cf6', name: 'بنفش' },
-    { hex: '#ec4899', name: 'صورتی روشن' },
-];
+const whiteboardColors = computed(() => [
+    { hex: '#0f172a', name: __('user.calls.wb_color_charcoal') },
+    { hex: '#ffffff', name: __('user.calls.wb_color_white') },
+    { hex: '#64748b', name: __('user.calls.wb_color_gray') },
+    { hex: '#ef4444', name: __('user.calls.wb_color_coral_red') },
+    { hex: '#f43f5e', name: __('user.calls.wb_color_magenta') },
+    { hex: '#f97316', name: __('user.calls.wb_color_orange') },
+    { hex: '#f59e0b', name: __('user.calls.wb_color_amber') },
+    { hex: '#eab308', name: __('user.calls.wb_color_neon_yellow') },
+    { hex: '#10b981', name: __('user.calls.wb_color_emerald') },
+    { hex: '#059669', name: __('user.calls.wb_color_dark_green') },
+    { hex: '#06b6d4', name: __('user.calls.wb_color_cyan') },
+    { hex: '#0ea5e9', name: __('user.calls.wb_color_sky_blue') },
+    { hex: '#3b82f6', name: __('user.calls.wb_color_primary_blue') },
+    { hex: '#1d4ed8', name: __('user.calls.wb_color_royal_blue') },
+    { hex: '#8b5cf6', name: __('user.calls.wb_color_purple') },
+    { hex: '#ec4899', name: __('user.calls.wb_color_bright_pink') },
+]);
 
 const activeCameraDisplayName = computed(() => {
     if (availableCameras.value.length === 0) {
-        return currentFacingMode.value === 'user' ? 'دوربین جلو (سلفی)' : 'دوربین عقب (اصلی)';
+        return currentFacingMode.value === 'user' ? __('user.calls.cam_front_selfie') : __('user.calls.cam_rear_main');
     }
     const current = availableCameras.value.find(c => c.deviceId === selectedCameraId.value);
     if (current) return current.label;
-    return currentFacingMode.value === 'user' ? 'دوربین جلو (سلفی)' : 'دوربین عقب (اصلی)';
+    return currentFacingMode.value === 'user' ? __('user.calls.cam_front_selfie') : __('user.calls.cam_rear_main');
 });
 
 const activeCameraShortName = computed(() => {
     if (availableCameras.value.length === 0) {
-        return currentFacingMode.value === 'user' ? 'دوربین جلو' : 'دوربین عقب';
+        return currentFacingMode.value === 'user' ? __('user.calls.cam_front_short') : __('user.calls.cam_rear_short');
     }
     const current = availableCameras.value.find(c => c.deviceId === selectedCameraId.value);
-    if (!current) return currentFacingMode.value === 'user' ? 'دوربین جلو' : 'دوربین عقب';
-    if (current.label.includes('سلفی') || current.label.includes('جلو')) return 'دوربین جلو';
-    if (current.label.includes('عریض') || current.label.includes('واید')) return 'دوربین واید';
-    if (current.label.includes('تله') || current.label.includes('زوم')) return 'دوربین زوم';
-    if (current.label.includes('پشت') || current.label.includes('عقب')) return 'دوربین عقب';
+    if (!current) return currentFacingMode.value === 'user' ? __('user.calls.cam_front_short') : __('user.calls.cam_rear_short');
+    const lbl = current.label.toLowerCase();
+    if (lbl.includes('selfie') || lbl.includes('front') || lbl.includes('سلفی') || lbl.includes('جلو')) return __('user.calls.cam_front_short');
+    if (lbl.includes('wide') || lbl.includes('ultra') || lbl.includes('عریض') || lbl.includes('واید')) return __('user.calls.cam_wide_short');
+    if (lbl.includes('tele') || lbl.includes('zoom') || lbl.includes('تله') || lbl.includes('زوم')) return __('user.calls.cam_zoom_short');
+    if (lbl.includes('back') || lbl.includes('rear') || lbl.includes('پشت') || lbl.includes('عقب')) return __('user.calls.cam_rear_short');
     return current.label.slice(0, 14);
 });
 
 const currentCameraIndexDisplay = computed(() => {
     if (availableCameras.value.length <= 1) return '';
     const idx = availableCameras.value.findIndex(c => c.deviceId === selectedCameraId.value);
-    return `${(idx >= 0 ? idx : 0) + 1} از ${availableCameras.value.length}`;
+    return __('user.calls.cam_index_of_total', { current: (idx >= 0 ? idx : 0) + 1, total: availableCameras.value.length });
 });
 
 const toggleFullscreen = async () => {
@@ -429,27 +430,29 @@ const enumerateCameras = async () => {
 
             let label = raw;
             if (!label) {
-                label = facing === 'user' ? (frontIdx > 1 ? `دوربین جلو شماره ${frontIdx}` : 'دوربین جلو (سلفی)') : (backIdx > 1 ? `دوربین پشت (${backIdx})` : 'دوربین اصلی پشت');
+                label = facing === 'user'
+                    ? (frontIdx > 1 ? __('user.calls.cam_front_numbered', { index: frontIdx }) : __('user.calls.cam_front_selfie'))
+                    : (backIdx > 1 ? __('user.calls.cam_rear_numbered', { index: backIdx }) : __('user.calls.cam_rear_main'));
             } else {
                 if (lower.includes('back') || lower.includes('rear')) {
                     if (lower.includes('wide') || lower.includes('ultra')) {
-                        label = 'دوربین پشت (فوق‌عریض / Ultra Wide)';
+                        label = __('user.calls.cam_rear_ultrawide');
                     } else if (lower.includes('tele') || lower.includes('zoom')) {
-                        label = 'دوربین پشت (تله‌فوتو / Zoom)';
+                        label = __('user.calls.cam_rear_telephoto');
                     } else if (lower.includes('macro')) {
-                        label = 'دوربین پشت (ماکرو / Macro)';
+                        label = __('user.calls.cam_rear_macro');
                     } else {
-                        label = backIdx > 1 ? `دوربین پشت شماره ${backIdx}` : 'دوربین اصلی پشت';
+                        label = backIdx > 1 ? __('user.calls.cam_rear_numbered', { index: backIdx }) : __('user.calls.cam_rear_main');
                     }
                 } else if (lower.includes('front') || lower.includes('selfie') || lower.includes('user')) {
                     if (lower.includes('wide') || lower.includes('ultra')) {
-                        label = 'دوربین جلو (فوق‌عریض / Ultra Wide)';
+                        label = __('user.calls.cam_front_ultrawide');
                     } else {
-                        label = frontIdx > 1 ? `دوربین جلو (${frontIdx})` : 'دوربین جلو (سلفی)';
+                        label = frontIdx > 1 ? __('user.calls.cam_front_numbered', { index: frontIdx }) : __('user.calls.cam_front_selfie');
                     }
                 } else {
-                    const cleanName = raw.replace(/integrated webcam/i, 'وب‌کم پیش‌فرض').trim();
-                    label = `وب‌کم (${cleanName.slice(0, 24)})`;
+                    const cleanName = raw.replace(/integrated webcam/i, __('user.calls.webcam_default')).trim();
+                    label = __('user.calls.webcam_named', { name: cleanName.slice(0, 24) });
                 }
             }
 
@@ -484,12 +487,12 @@ const enumerateAudioOutputs = async () => {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const outputs = devices.filter(d => d.kind === 'audiooutput');
         audioOutputDevices.value = outputs.map((d, i) => {
-            const raw = d.label || `خروجی ${i + 1}`;
+            const raw = d.label || __('softphone.devices.output_indexed', { index: i + 1 });
             const lower = raw.toLowerCase();
             const isSpeaker = lower.includes('speaker') || lower.includes('loud') || lower.includes('بلندگو') || !lower.includes('earpiece');
             return {
                 deviceId: d.deviceId,
-                label: lower.includes('earpiece') ? 'گوشی (Earpiece)' : lower.includes('speaker') ? 'اسپیکر (بلندگو)' : raw,
+                label: lower.includes('earpiece') ? __('softphone.devices.output_earpiece') : lower.includes('speaker') ? __('softphone.devices.output_speaker') : raw,
                 isSpeaker,
             };
         });
@@ -1039,7 +1042,7 @@ const selectCamera = async (targetDeviceId: string) => {
         }
     } catch (e) {
         console.error('[WebRTC-Video] Could not switch to camera:', targetDeviceId, e);
-        callError.value = 'خطا در سوییچ به دوربین انتخابی.';
+        callError.value = __('user.calls.cam_switch_error');
     } finally {
         isSwitchingCamera.value = false;
     }
@@ -1105,7 +1108,7 @@ const toggleScreenShare = async () => {
     }
 
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getDisplayMedia) {
-        callError.value = 'مرورگر یا دستگاه شما از اشتراک‌گذاری صفحه نمایش پشتیبانی نمی‌کند. در موبایل از وایت‌برد تعاملی استفاده فرمایید.';
+        callError.value = __('user.calls.screen_share_unsupported_mobile');
         return;
     }
 
@@ -1113,7 +1116,7 @@ const toggleScreenShare = async () => {
     const isIOS = typeof navigator !== 'undefined' && (/iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
 
     if (isIOS) {
-        callError.value = 'سیستم‌عامل iOS و سافاری اجازه اشتراک مستقیم صفحه در وب را نمی‌دهند. برای اشتراک یادداشت و ترسیمات از «وایت‌برد تعاملی» استفاده فرمایید.';
+        callError.value = __('user.calls.screen_share_ios_unsupported');
         return;
     }
 
@@ -1174,9 +1177,9 @@ const toggleScreenShare = async () => {
         if (err.name !== 'NotAllowedError') {
             console.error('[ScreenShare] Error:', err);
             if (isMobileDevice) {
-                callError.value = 'اشتراک صفحه در این دستگاه موبایل توسط سیستم‌عامل محدود شده است. می‌توانید به جای آن از وایت‌برد تعاملی استفاده فرمایید.';
+                callError.value = __('user.calls.screen_share_mobile_restricted');
             } else {
-                callError.value = 'امکان اشتراک‌گذاری صفحه نمایش مقدور نشد.';
+                callError.value = __('user.calls.screen_share_failed');
             }
         }
         isScreenSharing.value = false;
@@ -1301,14 +1304,14 @@ const handleWhiteboardDataMessage = (data: any) => {
         if (data.author) {
             lastDrawingAuthor.value = data.author;
         } else if (data.userId) {
-            lastDrawingAuthor.value = `کاربر #${data.userId}`;
+            lastDrawingAuthor.value = __('user.calls.user_with_id', { id: data.userId });
         }
     } else if (data.type === 'wb_cursor') {
         remotePeerCursor.value = {
             x: data.x,
             y: data.y,
             visible: true,
-            name: data.author || (data.userId ? `کاربر #${data.userId}` : 'کاربر'),
+            name: data.author || (data.userId ? __('user.calls.user_with_id', { id: data.userId }) : __('user.calls.user_generic')),
         };
         if (remoteCursorHideTimer) clearTimeout(remoteCursorHideTimer);
         remoteCursorHideTimer = setTimeout(() => {
@@ -1700,7 +1703,7 @@ const setVideoQuality = async (q: 'hd' | 'sd' | 'low') => {
 const toggleNoiseCancellation = async () => {
     isNoiseCancellationEnabled.value = !isNoiseCancellationEnabled.value;
     if (typeof window !== 'undefined') {
-        localStorage.setItem('getnumber_noise_cancellation', String(isNoiseCancellationEnabled.value));
+        localStorage.setItem('ravyno_noise_cancellation', String(isNoiseCancellationEnabled.value));
     }
     if (localMediaStream) {
         const audioTracks = localMediaStream.getAudioTracks();
@@ -1813,11 +1816,11 @@ let pendingCandidates: RTCIceCandidateInit[] = [];
 const detectOptimalRoute = (candidate: RTCIceCandidate) => {
     let routeDesc = '';
     if (candidate.type === 'relay') {
-        routeDesc = 'سرور رله امن';
+        routeDesc = __('user.calls.route_turn_relay');
     } else if (candidate.type === 'srflx') {
-        routeDesc = 'ارتباط اینترنتی مستقیم';
+        routeDesc = __('user.calls.route_direct_internet');
     } else if (candidate.type === 'host') {
-        routeDesc = 'اتصال مستقیم همتا‌به‌همتا';
+        routeDesc = __('user.calls.route_p2p_local');
     }
     if (routeDesc && (!optimalRouteInfo.value || candidate.type === 'relay')) {
         optimalRouteInfo.value = routeDesc;
@@ -2765,7 +2768,7 @@ const toggleSelectCall = (id: number) => {
 };
 
 const deleteSingleCall = async (id: number) => {
-    if (!confirm('آیا از حذف این تماس از تاریخچه اطمینان دارید؟')) return;
+    if (!confirm(__('user.calls.confirm_delete_call'))) return;
     try {
         await router.delete(route('calls.destroy', id), {
             preserveScroll: true,
@@ -2780,7 +2783,7 @@ const deleteSingleCall = async (id: number) => {
 
 const deleteBulkCalls = async () => {
     if (selectedCallIds.value.length === 0) return;
-    if (!confirm(`آیا از حذف ${selectedCallIds.value.length} تماس انتخابی اطمینان دارید؟`)) return;
+    if (!confirm(__('user.calls.confirm_delete_bulk_calls', { count: selectedCallIds.value.length }))) return;
     isDeletingCalls.value = true;
     try {
         await router.post(route('calls.destroy_bulk'), {
@@ -2939,7 +2942,7 @@ onMounted(() => {
                 } else if (data.callId) {
                     incomingCall.value = {
                         id: parseInt(data.callId, 10),
-                        source: data.caller || 'تماس ورودی',
+                        source: data.caller || __('user.calls.incoming_call_fallback'),
                         has_video: Boolean(data.hasVideo),
                     };
                     answerIncomingCall(false);
@@ -2955,7 +2958,7 @@ onMounted(() => {
             incomingCall.value = {
                 id: data.callId || 0,
                 call_uuid: data.callUuid || null,
-                source: data.callerHandle || data.callerName || 'تماس ورودی',
+                source: data.callerHandle || data.callerName || __('user.calls.incoming_call_fallback'),
                 destination: data.destinationLine || '',
                 has_video: Boolean(data.hasVideo),
             };
@@ -2970,7 +2973,7 @@ onMounted(() => {
                 incomingCall.value = {
                     id: snap.callId,
                     call_uuid: snap.callUuid,
-                    source: snap.callerHandle || snap.callerName || 'تماس ورودی',
+                    source: snap.callerHandle || snap.callerName || __('user.calls.incoming_call_fallback'),
                     bridge_session_id: snap.bridgeSessionId,
                     bridge_ws_endpoint: snap.bridgeWsEndpoint,
                 };
@@ -3023,7 +3026,7 @@ onMounted(() => {
                 incomingCall.value = {
                     id: snap.callId,
                     call_uuid: snap.callUuid,
-                    source: snap.callerHandle || snap.callerName || 'تماس ورودی',
+                    source: snap.callerHandle || snap.callerName || __('user.calls.incoming_call_fallback'),
                     bridge_session_id: snap.bridgeSessionId,
                     bridge_ws_endpoint: snap.bridgeWsEndpoint,
                 };
@@ -3116,10 +3119,8 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2.5">
                     <span class="text-lg shrink-0">📱</span>
                     <div>
-                        <strong class="font-black block">فعال‌سازی زنگ تماس در صفحه قفل آیفون (iOS):</strong>
-                        <span class="text-[11px] opacity-90">
-                            در iOS برای دریافت زنگ و نوتیفیکیشن هنگام قفل بودن صفحه، از منوی پایین سافاری دکمه <strong>Share</strong> و سپس <strong>Add to Home Screen</strong> را بزنید و برنامه را از صفحه اصلی باز کنید.
-                        </span>
+                        <strong class="font-black block">{{ __('user.calls.ios_lockscreen_title') }}</strong>
+                        <span class="text-[11px] opacity-90" v-html="__('user.calls.ios_lockscreen_desc_html')"></span>
                     </div>
                 </div>
             </div>
@@ -3130,9 +3131,9 @@ onUnmounted(() => {
                 <div class="flex items-center gap-2.5">
                     <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-base shrink-0">🔔</span>
                     <div>
-                        <strong class="font-black block text-slate-900 dark:text-white">دریافت زنگ تماس در حالت قفل صفحه (Lock Screen) غیرفعال است</strong>
+                        <strong class="font-black block text-slate-900 dark:text-white">{{ __('user.calls.lockscreen_disabled_title') }}</strong>
                         <span class="text-[11px] text-slate-600 dark:text-slate-300">
-                            برای دریافت تماس‌های ورودی هنگامی که صفحه گوشی قفل یا برنامه در پس‌زمینه است، اعلان تماس را فعال کنید.
+                            {{ __('user.calls.lockscreen_disabled_desc') }}
                         </span>
                     </div>
                 </div>
@@ -3142,7 +3143,7 @@ onUnmounted(() => {
                     @click="activateLockScreenPush"
                     class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition-all shrink-0 cursor-pointer disabled:opacity-60"
                 >
-                    {{ isWebPushSubscribing ? 'در حال فعال‌سازی...' : '🔔 فعال‌سازی زنگ قفل صفحه' }}
+                    {{ isWebPushSubscribing ? __('user.calls.activating') : __('user.calls.activate_lockscreen_btn') }}
                 </button>
             </div>
 
@@ -3268,8 +3269,8 @@ onUnmounted(() => {
                         </svg>
                         <span>
                             {{ isNetworkDisconnected 
-                                ? 'اتصال اینترنت شما قطع شد. در حال تلاش برای اتصال مجدد و همگام‌سازی دوباره تصویر و صدا...' 
-                                : 'ارتباط طرف مقابل موقتاً قطع شده است. در حال انتظار برای بازیابی اتصال همتا...' }}
+                                ? __('user.calls.network_disconnected_reconnecting') 
+                                : __('user.calls.peer_disconnected_waiting') }}
                         </span>
                     </div>
 
@@ -3280,14 +3281,14 @@ onUnmounted(() => {
                     >
                         <div class="flex items-center gap-2">
                             <span class="text-base">🎨</span>
-                            <span>طرف مقابل وایت‌برد تعاملی را باز کرده است.</span>
+                            <span>{{ __('user.calls.whiteboard_peer_opened') }}</span>
                         </div>
                         <button
                             type="button"
                             @click="openWhiteboard(true)"
                             class="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs shadow-md transition-colors"
                         >
-                            پیوستن به تخته
+                            {{ __('user.calls.whiteboard_join_btn') }}
                         </button>
                     </div>
 
@@ -3305,30 +3306,30 @@ onUnmounted(() => {
                                     @click="whiteboardTool = 'pen'"
                                     class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                                     :class="whiteboardTool === 'pen' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'"
-                                    title="قلم معمولی"
+                                    :title="__('user.calls.whiteboard_tool_pen_title')"
                                 >
                                     <span>✏️</span>
-                                    <span class="hidden sm:inline">قلم</span>
+                                    <span class="hidden sm:inline">{{ __('user.calls.whiteboard_tool_pen') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="whiteboardTool = 'highlighter'"
                                     class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                                     :class="whiteboardTool === 'highlighter' ? 'bg-amber-600 text-white shadow' : 'text-slate-400 hover:text-white'"
-                                    title="ماژیک هایلایتر نیمه‌شفاف"
+                                    :title="__('user.calls.whiteboard_tool_highlighter_title')"
                                 >
                                     <span>🖍️</span>
-                                    <span class="hidden sm:inline">هایلایتر</span>
+                                    <span class="hidden sm:inline">{{ __('user.calls.whiteboard_tool_highlighter') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="whiteboardTool = 'eraser'"
                                     class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
                                     :class="whiteboardTool === 'eraser' ? 'bg-rose-600 text-white shadow' : 'text-slate-400 hover:text-white'"
-                                    title="پاک‌کن"
+                                    :title="__('user.calls.whiteboard_tool_eraser')"
                                 >
                                     <span>🧹</span>
-                                    <span class="hidden sm:inline">پاک‌کن</span>
+                                    <span class="hidden sm:inline">{{ __('user.calls.whiteboard_tool_eraser') }}</span>
                                 </button>
                             </div>
 
@@ -3345,7 +3346,7 @@ onUnmounted(() => {
                                     :title="c.name"
                                 ></button>
                                 <!-- Custom Color Picker -->
-                                <label class="relative w-5 h-5 rounded-full border border-slate-600 overflow-hidden cursor-pointer flex items-center justify-center bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shrink-0 active:scale-90" title="انتخاب رنگ دلخواه">
+                                <label class="relative w-5 h-5 rounded-full border border-slate-600 overflow-hidden cursor-pointer flex items-center justify-center bg-gradient-to-tr from-amber-400 via-rose-500 to-indigo-500 shrink-0 active:scale-90" :title="__('user.calls.whiteboard_custom_color_title')">
                                     <input type="color" v-model="whiteboardColor" class="opacity-0 absolute inset-0 cursor-pointer w-full h-full" />
                                 </label>
                             </div>
@@ -3360,7 +3361,7 @@ onUnmounted(() => {
                                     class="w-7 h-7 rounded-lg text-[10px] font-mono font-bold flex items-center justify-center transition-all"
                                     :class="whiteboardLineWidth === w ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'"
                                 >
-                                    {{ w === 2 ? 'نازک' : w === 5 ? 'عادی' : 'ضخیم' }}
+                                    {{ w === 2 ? __('user.calls.wb_stroke_thin') : w === 5 ? __('user.calls.wb_stroke_normal') : __('user.calls.wb_stroke_thick') }}
                                 </button>
                             </div>
 
@@ -3370,28 +3371,28 @@ onUnmounted(() => {
                                     type="button"
                                     @click="undoWhiteboard"
                                     class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all"
-                                    title="لغو آخرین رسم"
+                                    :title="__('user.calls.whiteboard_undo')"
                                 >
                                     <span>↩️</span>
-                                    <span class="hidden md:inline">لغو</span>
+                                    <span class="hidden md:inline">{{ __('user.calls.wb_undo_short') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="clearWhiteboard"
                                     class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-bold flex items-center gap-1 transition-all"
-                                    title="پاک‌کردن کل تخته"
+                                    :title="__('user.calls.whiteboard_clear')"
                                 >
                                     <span>🗑️</span>
-                                    <span class="hidden md:inline">پاک‌سازی</span>
+                                    <span class="hidden md:inline">{{ __('user.calls.wb_clear_short') }}</span>
                                 </button>
                                 <button
                                     type="button"
                                     @click="saveWhiteboardImage"
                                     class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-400 text-xs font-bold flex items-center gap-1 transition-all"
-                                    title="دانلود تصویر وایت‌برد"
+                                    :title="__('user.calls.whiteboard_save_title')"
                                 >
                                     <span>💾</span>
-                                    <span class="hidden md:inline">ذخیره</span>
+                                    <span class="hidden md:inline">{{ __('user.calls.wb_save_short') }}</span>
                                 </button>
 
                                 <!-- Expanded Theater Workspace Toggle -->
@@ -3399,10 +3400,10 @@ onUnmounted(() => {
                                     type="button"
                                     @click="toggleExpandedWorkspace"
                                     class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1 transition-all"
-                                    :title="isExpandedWorkspace ? 'خروج از فضای عریض' : 'فضای عریض کارگاهی (Theater Mode)'"
+                                    :title="isExpandedWorkspace ? __('user.calls.exit_theater_mode') : __('user.calls.enter_theater_mode')"
                                 >
                                     <span>{{ isExpandedWorkspace ? '🗗' : '🗖' }}</span>
-                                    <span class="hidden sm:inline">{{ isExpandedWorkspace ? 'عادی' : 'تمام‌عرض' }}</span>
+                                    <span class="hidden sm:inline">{{ isExpandedWorkspace ? __('user.calls.workspace_normal') : __('user.calls.workspace_expanded') }}</span>
                                 </button>
                                 
                                 <!-- User Choice: Toggle Camera PiP on Whiteboard -->
@@ -3413,9 +3414,9 @@ onUnmounted(() => {
                                     :class="isCameraOn
                                         ? 'bg-indigo-600/30 border-indigo-500/70 text-indigo-300 hover:bg-indigo-600/40 shadow-sm'
                                         : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-200'"
-                                    :title="isCameraOn ? 'خاموش کردن دوربین' : 'فعال‌سازی همزمان دوربین دوطرف روی وایت‌برد'"
+                                    :title="isCameraOn ? __('user.calls.toggle_camera_off') : __('user.calls.wb_enable_dual_cam_title')"
                                 >
-                                    <span>{{ isCameraOn ? '📹 دوربین: روشن' : '📷 دوربین: خاموش' }}</span>
+                                    <span>{{ isCameraOn ? __('user.calls.wb_cam_on_badge') : __('user.calls.wb_cam_off_badge') }}</span>
                                 </button>
 
                                 <!-- Close Whiteboard Button -->
@@ -3423,10 +3424,10 @@ onUnmounted(() => {
                                     type="button"
                                     @click="closeWhiteboard"
                                     class="px-2.5 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 text-xs font-bold flex items-center gap-1 transition-all"
-                                    title="بستن وایت‌برد و بازگشت به تماس"
+                                    :title="__('user.calls.wb_close_title')"
                                 >
                                     <span>✖️</span>
-                                    <span>بستن تخته</span>
+                                    <span>{{ __('user.calls.whiteboard_close') }}</span>
                                 </button>
                             </div>
                         </div>
@@ -3461,7 +3462,7 @@ onUnmounted(() => {
                             <!-- Last Drawing Author Tag -->
                             <div v-if="lastDrawingAuthor" class="absolute top-2 right-2 px-2.5 py-1 rounded-xl bg-slate-950/85 border border-slate-700/80 text-white text-[11px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-lg pointer-events-none z-30">
                                 <span class="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                                <span>آخرین رسم: <strong class="text-indigo-300">{{ lastDrawingAuthor }}</strong></span>
+                                <span>{{ __('user.calls.wb_last_author_label') }} <strong class="text-indigo-300">{{ lastDrawingAuthor }}</strong></span>
                             </div>
 
                             <!-- Floating Remote Peer Video on Whiteboard -->
@@ -3478,7 +3479,7 @@ onUnmounted(() => {
                                 ></video>
                                 <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></span>
-                                    <span>تصویر طرف مقابل</span>
+                                    <span>{{ __('user.calls.peer_video_label') }}</span>
                                 </div>
                             </div>
 
@@ -3497,7 +3498,7 @@ onUnmounted(() => {
                                 ></video>
                                 <div class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-black/70 text-[9px] text-white font-mono flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                    <span>تصویر شما</span>
+                                    <span>{{ __('user.calls.your_video_label') }}</span>
                                 </div>
                                 <button
                                     v-if="availableCameras.length > 1"
@@ -3505,7 +3506,7 @@ onUnmounted(() => {
                                     @click.stop="switchCamera"
                                     :disabled="isSwitchingCamera"
                                     class="absolute top-1 right-1 px-1.5 py-0.5 rounded bg-black/80 hover:bg-black text-[9px] text-white flex items-center gap-1 transition-all"
-                                    :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
+                                    :title="__('user.calls.switch_camera_named', { name: activeCameraDisplayName })"
                                 >
                                     <svg class="w-3 h-3 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3516,7 +3517,7 @@ onUnmounted(() => {
                             <!-- Real-time sync badge indicator -->
                             <div class="absolute bottom-2 right-2 px-2.5 py-0.5 rounded-full bg-black/60 text-white text-[10px] font-mono flex items-center gap-1.5 backdrop-blur-sm pointer-events-none">
                                 <span class="w-1.5 h-1.5 rounded-full" :class="isDataChannelReady ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'"></span>
-                                <span>{{ isDataChannelReady ? 'کانال داده همتا (WebRTC DataChannel)' : 'همگام‌سازی ابری' }}</span>
+                                <span>{{ isDataChannelReady ? __('user.calls.sync_p2p_datachannel') : __('user.calls.sync_cloud') }}</span>
                             </div>
                         </div>
                     </div>
@@ -3543,13 +3544,13 @@ onUnmounted(() => {
                             class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-emerald-600/90 backdrop-blur-md px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
                         >
                             <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                            <span>صفحه نمایش شما در حال اشتراک است</span>
+                            <span>{{ __('user.calls.screen_share_active') }}</span>
                             <button
                                 type="button"
                                 @click="stopScreenShare"
                                 class="px-2 py-0.5 rounded-md bg-white/20 hover:bg-white/30 text-white text-[10px] transition-colors"
                             >
-                                توقف
+                                {{ __('user.calls.stop_short') }}
                             </button>
                         </div>
                         <div
@@ -3557,7 +3558,7 @@ onUnmounted(() => {
                             class="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-indigo-600/90 backdrop-blur-md px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg"
                         >
                             <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-                            <span>در حال مشاهده صفحه نمایش طرف مقابل</span>
+                            <span>{{ __('user.calls.viewing_peer_screen') }}</span>
                         </div>
 
                         <!-- Local Video Picture-in-Picture Preview -->
@@ -3574,7 +3575,7 @@ onUnmounted(() => {
                                 {{ __('user.calls.toggle_camera_off') }}
                             </span>
                             <span v-else-if="isScreenSharing" class="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600/80 text-[9px] text-white font-mono">
-                                صفحه نمایش
+                                {{ __('user.calls.screen_badge') }}
                             </span>
                             <!-- Quick Switch Camera Button on PiP -->
                             <button
@@ -3583,7 +3584,7 @@ onUnmounted(() => {
                                 @click.stop="switchCamera"
                                 :disabled="isSwitchingCamera"
                                 class="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/75 hover:bg-black/95 text-white flex items-center gap-1 backdrop-blur-sm transition-all text-[9px] font-bold"
-                                :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
+                                :title="__('user.calls.switch_camera_named', { name: activeCameraDisplayName })"
                             >
                                 <svg class="w-3 h-3 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3604,7 +3605,7 @@ onUnmounted(() => {
                                 type="button"
                                 @click="toggleExpandedWorkspace"
                                 class="p-1 rounded-md bg-white/10 hover:bg-white/20 text-white text-[10px] transition-colors mr-1"
-                                :title="isExpandedWorkspace ? 'خروج از فضای عریض' : 'فضای عریض'"
+                                :title="isExpandedWorkspace ? __('user.calls.exit_theater_mode') : __('user.calls.workspace_expanded')"
                             >
                                 {{ isExpandedWorkspace ? '🗗' : '🗖' }}
                             </button>
@@ -3653,7 +3654,7 @@ onUnmounted(() => {
                                 class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-bold"
                             >
                                 <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                                <span>{{ isVideoCall ? 'اتصال صوتی و تصویری برقرار است' : __('user.calls.audio_connected') }}</span>
+                                <span>{{ isVideoCall ? __('user.calls.audio_video_connected') : __('user.calls.audio_connected') }}</span>
                                 <span class="text-slate-400">|</span>
                                 <span>{{ __('user.calls.ping_ms', { ms: pingMs }) }}</span>
                             </div>
@@ -3686,7 +3687,7 @@ onUnmounted(() => {
                             <!-- Optimal Route Display -->
                             <div v-if="optimalRouteInfo" class="text-[11px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200 dark:border-white/5 flex items-center gap-1.5">
                                 <span>🌐</span>
-                                <span>مسیر ارتباطی: <strong>{{ optimalRouteInfo }}</strong></span>
+                                <span>{{ __('user.calls.connection_route_label') }} <strong>{{ optimalRouteInfo }}</strong></span>
                             </div>
 
                             <!-- Browser Autoplay Unblock Prompt -->
@@ -3726,7 +3727,7 @@ onUnmounted(() => {
                                 @change="selectCamera(($event.target as HTMLSelectElement).value)"
                                 :disabled="isSwitchingCamera"
                                 class="text-[11px] font-bold py-1 px-2 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 focus:ring-1 focus:ring-indigo-500 outline-none max-w-[140px] truncate"
-                                title="انتخاب مستقیم دوربین"
+                                :title="__('user.calls.select_camera_direct_title')"
                             >
                                 <option v-for="cam in availableCameras" :key="cam.deviceId" :value="cam.deviceId">
                                     {{ cam.label }}
@@ -3738,12 +3739,12 @@ onUnmounted(() => {
                                 @click="switchCamera"
                                 :disabled="isSwitchingCamera"
                                 class="px-2 py-1 rounded-xl bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-white/10 font-bold flex items-center gap-1 hover:bg-slate-50 active:scale-95 transition-all shadow-sm disabled:opacity-50"
-                                :title="`سوییچ سریع به دوربین بعدی`"
+                                :title="__('user.calls.switch_next_camera_title')"
                             >
                                 <svg class="w-3.5 h-3.5 text-indigo-500" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
-                                <span class="text-[10px]">بعدی</span>
+                                <span class="text-[10px]">{{ __('user.calls.next_short') }}</span>
                                 <span v-if="currentCameraIndexDisplay" class="text-[9px] px-1 rounded bg-indigo-500/10 text-indigo-500 font-mono">
                                     {{ currentCameraIndexDisplay }}
                                 </span>
@@ -3816,7 +3817,7 @@ onUnmounted(() => {
                                 <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                                 </svg>
-                                <span class="text-[9px] font-bold">{{ isCameraOn ? 'دوربین: روشن' : 'دوربین' }}</span>
+                                <span class="text-[9px] font-bold">{{ isCameraOn ? __('user.calls.camera_on_short') : __('user.calls.camera_short') }}</span>
                             </button>
 
                             <!-- Camera Switch Button -->
@@ -3826,7 +3827,7 @@ onUnmounted(() => {
                                 @click="switchCamera"
                                 :disabled="isSwitchingCamera"
                                 class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white hover:bg-slate-700 transition-all active:scale-95 disabled:opacity-50"
-                                :title="`سوییچ دوربین: ${activeCameraDisplayName}`"
+                                :title="__('user.calls.switch_camera_named', { name: activeCameraDisplayName })"
                             >
                                 <svg class="w-5 h-5 mb-0.5 text-indigo-400" :class="isSwitchingCamera ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -3847,7 +3848,7 @@ onUnmounted(() => {
                                 <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                <span class="text-[9px] font-bold">{{ isScreenSharing ? 'توقف اشتراک' : 'اشتراک صفحه' }}</span>
+                                <span class="text-[9px] font-bold">{{ isScreenSharing ? __('user.calls.screen_share_stop') : __('user.calls.screen_share_start') }}</span>
                             </button>
 
                             <!-- Interactive Whiteboard Toggle Button -->
@@ -3864,7 +3865,7 @@ onUnmounted(() => {
                                 <svg class="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                 </svg>
-                                <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? 'بستن تخته' : 'وایت‌برد' }}</span>
+                                <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? __('user.calls.whiteboard_close') : __('user.calls.whiteboard_btn') }}</span>
                             </button>
 
                             <!-- Speaker / Earpiece Audio Routing Button -->
@@ -3875,7 +3876,7 @@ onUnmounted(() => {
                                 :class="isSpeakerOn
                                     ? 'bg-sky-600/30 border-sky-500 text-sky-300 ring-2 ring-sky-500/40 shadow-sky-500/20'
                                     : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
-                                :title="isSpeakerOn ? 'خروجی: بلندگو (اسپیکر)' : 'خروجی: گوشی تلفن (Earpiece)'"
+                                :title="isSpeakerOn ? __('user.calls.output_speaker_title') : __('user.calls.output_earpiece_title')"
                             >
                                 <svg v-if="isSpeakerOn" class="w-5 h-5 mb-0.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
@@ -3883,7 +3884,7 @@ onUnmounted(() => {
                                 <svg v-else class="w-5 h-5 mb-0.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                                 </svg>
-                                <span class="text-[9px] font-bold">{{ isSpeakerOn ? 'اسپیکر' : 'گوشی' }}</span>
+                                <span class="text-[9px] font-bold">{{ isSpeakerOn ? __('user.calls.speaker_on_label') : __('user.calls.speaker_off_label') }}</span>
                             </button>
 
                             <!-- End Call / Hangup Button -->
@@ -3974,7 +3975,7 @@ onUnmounted(() => {
                                     type="button"
                                     @click="backspace"
                                     class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 active:scale-95 transition-all"
-                                    :title="__('user.calls.clear_number') || 'حذف رقم'"
+                                    :title="__('user.calls.clear_number')"
                                 >
                                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2M3 12l6.414-6.414a2 2 0 011.414-.586H19a2 2 0 012 2v10a2 2 0 01-2 2h-7.172a2 2 0 01-1.414-.586L3 12z" />
@@ -4118,7 +4119,7 @@ onUnmounted(() => {
                                 @change="toggleSelectAllCalls"
                                 class="rounded border-slate-300 dark:border-slate-700 text-indigo-600 focus:ring-indigo-500"
                             />
-                            <span class="text-[11px] text-slate-600 dark:text-slate-300 font-bold">انتخاب همه</span>
+                            <span class="text-[11px] text-slate-600 dark:text-slate-300 font-bold">{{ __('user.calls.select_all') }}</span>
                         </label>
                         <span class="text-slate-500 dark:text-slate-400">{{ __('user.calls.history_for_line') }}</span>
                         <span class="font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-lg" dir="ltr">
@@ -4139,7 +4140,7 @@ onUnmounted(() => {
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
-                            <span>حذف موارد انتخابی ({{ selectedCallIds.length }})</span>
+                            <span>{{ __('user.calls.delete_selected_count', { count: selectedCallIds.length }) }}</span>
                         </button>
                         <span class="text-[11px] text-slate-500">
                             {{ __('user.calls.calls_count', { count: calls.total }) }}
@@ -4204,7 +4205,7 @@ onUnmounted(() => {
                                 type="button"
                                 @click="deleteSingleCall(call.id)"
                                 class="w-8 h-8 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 flex items-center justify-center transition-colors"
-                                title="حذف این تماس از تاریخچه"
+                                :title="__('user.calls.delete_call_history_title')"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -4309,7 +4310,7 @@ onUnmounted(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                             </svg>
                         </div>
-                        <span>پاسخ صوتی</span>
+                        <span>{{ __('user.calls.answer_voice_btn') }}</span>
                     </button>
 
                     <!-- Answer Video button -->
@@ -4323,7 +4324,7 @@ onUnmounted(() => {
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                             </svg>
                         </div>
-                        <span>پاسخ تصویری</span>
+                        <span>{{ __('user.calls.answer_video_btn') }}</span>
                     </button>
                 </div>
             </div>

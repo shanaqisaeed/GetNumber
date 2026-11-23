@@ -59,6 +59,10 @@ return [
         'recent_calls' => 'Recent Calls',
         'clear_input' => 'Clear',
         'backspace' => 'Backspace',
+        'screen_share' => 'Screen Share',
+        'stop_screen_share' => 'Stop Sharing',
+        'whiteboard' => 'Interactive Whiteboard',
+        'close_whiteboard' => 'Close Board',
     ],
 
     'call_waiting' => [
@@ -108,6 +112,22 @@ return [
         'cam_active_badge' => 'Camera is active',
         'switch_camera' => 'Select Video Input:',
         'no_camera_found' => 'No camera was detected on this device.',
+        'subtitle' => 'Verify camera clarity and configure input/output audio settings',
+        'nc_title' => 'Smart Ambient Noise Cancellation',
+        'nc_desc' => 'Reduces typing noise, wind, and background chatter during calls',
+        'on' => 'On',
+        'off' => 'Off',
+        'cam_live_active' => 'Live video feed is active',
+        'cam_front_selfie' => 'Front Camera (Selfie)',
+        'cam_rear_main' => 'Main Rear Camera',
+        'cam_rear_ultrawide' => 'Rear Camera (Ultra Wide)',
+        'cam_rear_telephoto' => 'Rear Camera (Telephoto / Zoom)',
+        'cam_rear_macro' => 'Rear Camera (Macro)',
+        'cam_front_ultrawide' => 'Front Camera (Ultra Wide)',
+        'webcam_named' => 'Webcam (:name)',
+        'output_indexed' => 'Output :index',
+        'output_earpiece' => 'Earpiece',
+        'output_speaker' => 'Speaker',
     ],
 
     'multi_tab' => [

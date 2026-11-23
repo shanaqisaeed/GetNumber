@@ -132,6 +132,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \App\Services\Communication\Push\PushGatewayService::class
         );
+
+        $this->app->singleton(
+            \App\Contracts\ConferenceServiceInterface::class,
+            \App\Services\ConferenceService::class
+        );
     }
 
     /**

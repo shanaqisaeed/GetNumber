@@ -21,7 +21,7 @@ class KeycloakAuthService
         return [
             'base_url' => $baseUrl,
             'realm' => $realm,
-            'client_id' => (string) SystemSetting::get('keycloak_client_id', 'getnumber-client'),
+            'client_id' => (string) SystemSetting::get('keycloak_client_id', 'ravy-no-client'),
             'client_secret' => (string) SystemSetting::get('keycloak_client_secret', ''),
             'auto_create_user' => (bool) (int) SystemSetting::get('keycloak_auto_create_user', '1'),
             'redirect_uri' => route('auth.keycloak.callback'),

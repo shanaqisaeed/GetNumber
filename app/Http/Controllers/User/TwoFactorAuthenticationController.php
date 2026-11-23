@@ -46,7 +46,7 @@ class TwoFactorAuthenticationController extends Controller
 
         $secret = $this->totp->generateSecret(20);
         $recoveryCodes = $this->totp->generateRecoveryCodes(8);
-        $qrCodeUrl = $this->totp->generateQrCodeUrl('GetNumber', $user->username, $secret);
+        $qrCodeUrl = $this->totp->generateQrCodeUrl('RavyNo', $user->username, $secret);
 
         // Save unconfirmed secret
         $user->forceFill([

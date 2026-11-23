@@ -190,5 +190,6 @@ return [
         'filter_type_all' => 'همه تراکنش‌ها',
         'filter_type_credit' => 'شارژ و واریزی‌ها',
         'filter_type_debit' => 'مصرف و برداشت‌ها',
+        'user_fallback' => 'کاربر #:id',
     ],
 ];

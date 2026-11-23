@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Ravyno",
-  "short_name": "Ravyno",
-  "description": "سامانه ارتباطی یکپارچه صوتی، تصویری و پیامکی Ravyno",
+  "name": "RavyNo",
+  "short_name": "RavyNo",
+  "description": "سامانه ارتباطی یکپارچه صوتی، تصویری و پیامکی راوی نو (RavyNo)",
   "lang": "fa",
   "dir": "rtl",
   "start_url": "/calls",

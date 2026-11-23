@@ -381,7 +381,7 @@ class DeviceRegistryService
     {
         $secret = trim((string) SystemSetting::get('voice_bridge_secret', ''));
         if ($secret === '') {
-            $secret = (string) config('app.key', 'getnumber_default_secret');
+            $secret = (string) config('app.key', 'ravyno_default_secret');
         }
 
         return $secret;

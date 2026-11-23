@@ -45,7 +45,7 @@ class AuthenticateMobileOrWeb
 
         return new JsonResponse([
             'success' => false,
-            'message' => 'Authentication required (valid session or device token).',
+            'message' => __('middleware.auth.mobile_unauthenticated'),
             'code' => 'UNAUTHENTICATED_MOBILE_DEVICE',
         ], Response::HTTP_UNAUTHORIZED);
     }

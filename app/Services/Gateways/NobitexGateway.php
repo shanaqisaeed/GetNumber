@@ -142,14 +142,14 @@ class NobitexGateway implements PaymentGatewayInterface
                 'Nobitex-Key' => $key,
                 'Nobitex-Timestamp' => $timestamp,
                 'Nobitex-Signature' => $signature,
-                'User-Agent' => 'TraderBot/GetNumber-1.0',
+                'User-Agent' => 'TraderBot/RavyNo-1.0',
                 'Accept' => 'application/json',
             ];
         }
 
         return [
             'Authorization' => 'Token ' . $key,
-            'User-Agent' => 'TraderBot/GetNumber-1.0',
+            'User-Agent' => 'TraderBot/RavyNo-1.0',
             'Accept' => 'application/json',
         ];
     }
@@ -189,7 +189,7 @@ class NobitexGateway implements PaymentGatewayInterface
 
         $headers = [
             'Accept' => 'application/json',
-            'User-Agent' => 'TraderBot/GetNumber-1.0',
+            'User-Agent' => 'TraderBot/RavyNo-1.0',
         ];
 
         if ($bodyString !== '') {
@@ -260,7 +260,7 @@ class NobitexGateway implements PaymentGatewayInterface
             if (! $isEd25519 && in_array($response->status(), [401, 403])) {
                 $bearerResponse = Http::withHeaders([
                     'Authorization' => 'Bearer ' . $apiKey,
-                    'User-Agent' => 'TraderBot/GetNumber-1.0',
+                    'User-Agent' => 'TraderBot/RavyNo-1.0',
                     'Accept' => 'application/json',
                 ])->timeout(10)->get("{$baseUrl}/users/profile");
 

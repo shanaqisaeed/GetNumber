@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  ✦ GETNUMBER VOICE BRIDGE • HIGH-PORT RUNTIME DEPLOYMENT ENGINE
+#  ✦ RAVYNO VOICE BRIDGE • HIGH-PORT RUNTIME DEPLOYMENT ENGINE
 #  Next-Gen WebRTC Audio Signaling & Telephony Daemon (2026 Edition)
 #  Target OS: Ubuntu 20.04 / 22.04 / 24.04 / Debian 11+ (x86_64)
 # ==============================================================================
@@ -38,7 +38,7 @@ fi
 clear 2>/dev/null || true
 
 echo -e "${PURPLE}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
-echo -e "${PURPLE}│${RESET}  ${CYAN}${BOLD}✦ GETNUMBER VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}HIGH-PORT RUNTIME DEPLOYMENT${RESET}            ${PURPLE}│${RESET}"
+echo -e "${PURPLE}│${RESET}  ${CYAN}${BOLD}✦ RAVYNO VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}HIGH-PORT RUNTIME DEPLOYMENT${RESET}            ${PURPLE}│${RESET}"
 echo -e "${PURPLE}│${RESET}  ${DIM}Next-Gen WebRTC Signaling & Audio Daemon • Production Engine (2026)${RESET}    ${PURPLE}│${RESET}"
 echo -e "${PURPLE}╰─────────────────────────────────────────────────────────────────────────╯${RESET}\n"
 
@@ -51,7 +51,7 @@ CALLBACK_URL="${BRIDGE_CALLBACK_URL:-}"
 TURN_ENABLED="${TURN_ENABLED:-true}"
 TURN_PORT="${TURN_PORT:-3479}"
 TURNS_PORT="${TURNS_PORT:-5350}"
-TURN_REALM="${TURN_REALM:-getnumber}"
+TURN_REALM="${TURN_REALM:-ravy-no}"
 TURN_PUBLIC_IP="${TURN_PUBLIC_IP:-}"
 TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
 TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
@@ -137,7 +137,7 @@ while [[ $# -gt 0 ]]; do
             echo -e "  ${CYAN}--turn-port <port>${RESET}              STUN/TURN UDP/TCP port ${DIM}(default: 3479)${RESET}"
             echo -e "  ${CYAN}--turns-port <port>${RESET}             TURNS TLS port ${DIM}(default: 5350)${RESET}"
             echo -e "  ${CYAN}--turn-public-ip <ip>${RESET}           Explicit public IP for media relay"
-            echo -e "  ${CYAN}--turn-realm <realm>${RESET}            TURN auth realm ${DIM}(default: getnumber)${RESET}"
+            echo -e "  ${CYAN}--turn-realm <realm>${RESET}            TURN auth realm ${DIM}(default: ravy-no)${RESET}"
             echo -e "  ${CYAN}--turn-min-port <port>${RESET}          Media relay min UDP port ${DIM}(default: 49152)${RESET}"
             echo -e "  ${CYAN}--turn-max-port <port>${RESET}          Media relay max UDP port ${DIM}(default: 49250)${RESET}"
             echo -e "${WHITE}System Options:${RESET}"
@@ -164,8 +164,8 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-INSTALL_DIR="/opt/getnumber-bridge"
-SERVICE_NAME="getnumber-voice-bridge"
+INSTALL_DIR="/opt/ravy-no-bridge"
+SERVICE_NAME="ravy-no-voice-bridge"
 SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -376,8 +376,8 @@ printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/5] Cryptographic tokens sealed into
 printf "    ${CYAN}➜${RESET} ${GRAY}[4/5] Synthesizing systemd daemon unit...${RESET}"
 cat > "${SERVICE_FILE}" << EOF
 [Unit]
-Description=GetNumber Voice Bridge & High-Port Signaling Daemon
-Documentation=https://github.com/getnumber
+Description=RavyNo Voice Bridge & High-Port Signaling Daemon
+Documentation=https://github.com/ravy-no
 After=network.target network-online.target
 Wants=network-online.target
 

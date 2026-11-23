@@ -35,7 +35,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
 (window as any).__ = __;
 (window as any).$t = __;
 
-const appName = import.meta.env.VITE_APP_NAME || 'GetNumber';
+const appName = import.meta.env.VITE_APP_NAME || 'RavyNo';
 
 // Global Client-Side Error Reporting to Backend
 const reportClientError = (err: any, info?: string) => {

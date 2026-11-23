@@ -168,7 +168,7 @@ class WebPushNotificationService
             'body' => __('services.web_push.new_message_body', ['sender' => $sender]),
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
-            'tag' => 'getnumber-sms-' . $message->id,
+            'tag' => 'ravy-no-sms-' . $message->id,
             'data' => [
                 'url' => '/messages',
                 'messageId' => $message->id,
@@ -273,7 +273,7 @@ class WebPushNotificationService
             'body' => $body,
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
-            'tag' => 'getnumber-call-' . $call->id,
+            'tag' => 'ravy-no-call-' . $call->id,
             'renotify' => true,
             'requireInteraction' => true,
             'vibrate' => [500, 250, 500, 250, 500, 250, 500, 250, 500, 250, 500],
@@ -377,7 +377,7 @@ class WebPushNotificationService
             'body' => __('services.web_push.test_body'),
             'icon' => '/icon-192.png',
             'badge' => '/icon-192.png',
-            'tag' => 'getnumber-test-' . time(),
+            'tag' => 'ravy-no-test-' . time(),
             'data' => [
                 'url' => '/dashboard',
                 'sender' => __('services.web_push.test_sender'),

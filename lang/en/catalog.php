@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'service' => 'Service',
     'module_title' => 'Services Catalog & Management',
     'module_subtitle' => 'Unified multi-service platform for communication lines, custom handles, and Web3 organizational email packages',
     'enterprise_hub_title' => 'Enterprise Services',

@@ -30,7 +30,7 @@ class SimulateLoadAndBenchmarkCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Execute a real concurrency and load benchmark on the GetNumber platform measuring P95/P99 latency, throughput and memory';
+    protected $description = 'Execute a real concurrency and load benchmark on the RavyNo platform measuring P95/P99 latency, throughput and memory';
 
     public function handle(
         MessageService $messageService,
@@ -40,7 +40,7 @@ class SimulateLoadAndBenchmarkCommand extends Command
         $userCount = (int) $this->option('users');
         $messageCount = (int) $this->option('messages');
 
-        $this->info("🚀 Starting GetNumber Load Benchmark Simulation (Users: {$userCount}, Messages: {$messageCount})...");
+        $this->info("🚀 Starting RavyNo Load Benchmark Simulation (Users: {$userCount}, Messages: {$messageCount})...");
 
         $initialMemory = memory_get_usage(true) / (1024 * 1024);
         $totalStartTime = microtime(true);

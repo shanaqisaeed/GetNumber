@@ -273,8 +273,8 @@ const smtpForm = useForm({
     mail_encryption: props.smtpSettings?.mail_encryption || 'tls',
     mail_username: props.smtpSettings?.mail_username || '',
     mail_password: '',
-    mail_from_address: props.smtpSettings?.mail_from_address || 'noreply@getnumber.local',
-    mail_from_name: props.smtpSettings?.mail_from_name || 'GetNumber',
+    mail_from_address: props.smtpSettings?.mail_from_address || 'noreply@ravy-no.local',
+    mail_from_name: props.smtpSettings?.mail_from_name || 'RavyNo',
     require_email_verification: props.smtpSettings?.require_email_verification ?? true,
 });
 
@@ -1257,7 +1257,7 @@ const testBridgeConnection = async () => {
                                             class="px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition shadow-xs flex items-center gap-1"
                                         >
                                             <span>🌐</span>
-                                            <span>استخر جامع STUN های جهانی</span>
+                                            <span>{{ __('admin.settings.general.preset_global_stun_pool') }}</span>
                                         </button>
                                         <button
                                             type="button"
@@ -1265,7 +1265,7 @@ const testBridgeConnection = async () => {
                                             class="px-3 py-1.5 text-xs font-bold rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 transition shadow-xs flex items-center gap-1"
                                         >
                                             <span>🔄</span>
-                                            <span>رله رایگان OpenRelay (TURN)</span>
+                                            <span>{{ __('admin.settings.general.preset_openrelay') }}</span>
                                         </button>
                                         <button
                                             type="button"
@@ -1285,18 +1285,12 @@ const testBridgeConnection = async () => {
                                         <span class="shrink-0 text-sm">💡</span>
                                         <div class="space-y-1">
                                             <div>
-                                                <strong>راهنمای گزینه‌ها و رله‌ها:</strong>
-                                                سرورهای گوگل، کلادفلر و استخر جامع جهانی صرفاً پروتکل STUN (یافتن آی‌پی عمومی) را ارائه می‌دهند. برای عبور از فایروال‌های متقارن و بسته‌های بسته (Symmetric NAT)، نیاز به سرور TURN است.
+                                                <strong>{{ __('admin.settings.general.relay_guide_title') }}</strong>
+                                                {{ __('admin.settings.general.relay_guide_intro') }}
                                             </div>
-                                            <div>
-                                                • <strong>OpenRelay:</strong> سرویس رایگان اشتراکی برای تست و رله عمومی TURN بدون نیاز به سرور اختصاصی.
-                                            </div>
-                                            <div>
-                                                • <strong>Xirsys TURN:</strong> در صورت استفاده از اکانت Xirsys (مطابق <a href="https://docs.xirsys.com/api/turn" target="_blank" class="underline font-bold">مستندات Xirsys API</a>)، می‌توانید آدرس رله و کلیدهای آن را در کادرهای TURN زیر وارد نمایید.
-                                            </div>
-                                            <div>
-                                                • <strong>سرور شخصی Coturn:</strong> بالاترین پایداری، کیفیت و امنیت اختصاصی با رمزنگاری TLS (TURNS).
-                                            </div>
+                                            <div v-html="__('admin.settings.general.relay_guide_openrelay_html')"></div>
+                                            <div v-html="__('admin.settings.general.relay_guide_xirsys_html')"></div>
+                                            <div v-html="__('admin.settings.general.relay_guide_coturn_html')"></div>
                                         </div>
                                     </div>
                                 </div>
@@ -1496,7 +1490,7 @@ const testBridgeConnection = async () => {
                                 <p class="text-xs text-slate-600 dark:text-slate-400 leading-relaxed" v-html="__('admin.settings.general.linux_setup_desc_html')"></p>
                                 
                                 <div class="space-y-2">
-                                    <div class="font-bold text-slate-700 dark:text-slate-300">۱. اجرای اسکریپت نصب خودکار لینوکس:</div>
+                                    <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_1_title') }}</div>
                                     <div class="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-xs select-all flex items-center justify-between" dir="ltr">
                                         <code>cd /var/www/html/services/voice-bridge && sudo bash install.sh</code>
                                         <span class="text-[10px] text-gray-400">{{ __('admin.settings.general.linux_setup_path_badge') }}</span>
@@ -1504,7 +1498,7 @@ const testBridgeConnection = async () => {
                                 </div>
 
                                 <div class="space-y-2 pt-2">
-                                    <div class="font-bold text-slate-700 dark:text-slate-300">۲. بازگشایی پورت‌های فایروال سرور (UFW / iptables):</div>
+                                    <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_2_title') }}</div>
                                     <div class="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-xs select-all" dir="ltr">
                                         <div>sudo ufw allow 587/tcp comment "Voice Bridge REST API"</div>
                                         <div>sudo ufw allow 993/tcp comment "Voice Bridge WebSocket"</div>
@@ -1516,7 +1510,7 @@ const testBridgeConnection = async () => {
                                 </div>
 
                                 <div class="space-y-2 pt-2">
-                                    <div class="font-bold text-slate-700 dark:text-slate-300">۳. نمونه پیکربندی Nginx برای WebSocket ایمن (wss://):</div>
+                                    <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_3_title') }}</div>
                                     <pre class="p-3 rounded-xl bg-gray-900 text-slate-300 font-mono text-[11px] overflow-x-auto select-all" dir="ltr">
 location /ws/signaling {
     proxy_pass http://127.0.0.1:993;

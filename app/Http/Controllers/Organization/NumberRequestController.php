@@ -66,7 +66,7 @@ class NumberRequestController extends Controller
                 'service_title' => $req->service_title,
                 'description' => $req->description,
                 'preferred_number' => $req->preferred_number,
-                'requested_identifier' => $req->preferred_number ?: ($req->requested_length ? $req->requested_length . ' رقمی' : null),
+                'requested_identifier' => $req->preferred_number ?: ($req->requested_length ? __('controllers.user.number_requests.digits_suffix', ['length' => $req->requested_length]) : null),
                 'is_rond' => (bool) $req->is_rond,
                 'rond_tier' => $req->rond_tier ?? 'regular',
                 'held_amount' => (string) ($req->held_amount ?? '0.0000'),

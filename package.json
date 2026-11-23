@@ -1,10 +1,10 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
-    "name": "@shanaqisaeed/getnumber",
+    "name": "@shanaqisaeed/ravy-no",
     "version": "1.0.0",
     "private": true,
     "license": "GPL-3.0-or-later",
-    "author": "Saeed Shanaqi (https://github.com/shanaqisaeed/GetNumber)",
+    "author": "Saeed Shanaqi (https://github.com/shanaqisaeed/RavyNo)",
     "type": "module",
     "scripts": {
         "build": "vue-tsc && vite build",

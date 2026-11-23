@@ -368,7 +368,7 @@ const handleLoadOlder = async () => {
 
 const handleDeleteConversation = async () => {
     if (!currentActivePeer.value) return;
-    if (!confirm('آیا از حذف کل این گفتگو اطمینان دارید؟')) return;
+    if (!confirm(__('user.messages.confirm_delete_conversation'))) return;
 
     try {
         await axios.post(route('messages.destroy_conversation'), {
@@ -384,7 +384,7 @@ const handleDeleteConversation = async () => {
 
 const handleDeleteConversationFromList = async (conv: any) => {
     if (!conv?.peer_number) return;
-    if (!confirm(`آیا از حذف کل پیام‌های گفتگوی ${conv.peer_title || conv.peer_number} اطمینان دارید؟`)) return;
+    if (!confirm(__('user.messages.confirm_delete_peer_conversation', { peer: conv.peer_title || conv.peer_number }))) return;
 
     try {
         await axios.post(route('messages.destroy_conversation'), {
@@ -399,7 +399,7 @@ const handleDeleteConversationFromList = async (conv: any) => {
 
 const handleDeleteMessage = async (msg: any) => {
     if (!msg?.id) return;
-    if (!confirm('آیا از حذف این پیام اطمینان دارید؟')) return;
+    if (!confirm(__('user.messages.confirm_delete_message'))) return;
 
     try {
         await axios.delete(route('messages.destroy', msg.id));
@@ -450,7 +450,7 @@ onMounted(() => {
                     formatted_number: cleanTo,
                     title: cleanTo,
                     type: cleanTo.startsWith('@') ? 'custom_id' : 'contact',
-                    type_label: cleanTo.startsWith('@') ? 'Custom ID' : 'Contact',
+                    type_label: cleanTo.startsWith('@') ? __('controllers.user.messages.type_label_custom_id') : __('controllers.user.messages.peer_type_contact'),
                     accepts_incoming_sms: true,
                     can_reply: true,
                 };

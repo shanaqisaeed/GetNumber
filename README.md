@@ -1,4 +1,4 @@
-# 📞 GetNumber — Self-Hosted WebRTC Softphone, Resilient Voice/Video Calling & Unified Messaging Platform
+# 📞 RavyNo — Self-Hosted WebRTC Softphone, Resilient Voice/Video Calling & Unified Messaging Platform
 ### سافت‌فون اختصاصی، سامانه ارتباط زنده صوتی و تصویری WebRTC و درگاه ارتباطی مقاوم در شرایط اینترانت
 
 <p align="center">
@@ -35,7 +35,7 @@
 
 ## 📑 Table of Contents
 1. [Project Reality & Purpose](#1-project-reality--purpose)
-2. [Why Softphone & Why GetNumber? (Intranet Survival)](#2-why-softphone--why-getnumber-intranet-survival)
+2. [Why Softphone & Why RavyNo? (Intranet Survival)](#2-why-softphone--why-ravy-no-intranet-survival)
 3. [Architecture & System Design](#3-architecture--system-design)
 4. [Core Features Breakdown](#4-core-features-breakdown)
    - [WebRTC Audio & Video Calling Engine](#41-webrtc-audio--video-calling-engine)
@@ -54,20 +54,20 @@
 
 ### 1. Project Reality & Purpose
 
-**GetNumber** is an enterprise-grade, browser-native **Softphone** and real-time communication platform. It allows users to initiate and receive high-definition peer-to-peer (P2P) and relayed voice and video calls, exchange two-way threaded messages, manage virtual line identities, and handle usage billing via an internal coin ledger.
+**RavyNo** is an enterprise-grade, browser-native **Softphone** and real-time communication platform. It allows users to initiate and receive high-definition peer-to-peer (P2P) and relayed voice and video calls, exchange two-way threaded messages, manage virtual line identities, and handle usage billing via an internal coin ledger.
 
-Unlike traditional commercial communication suites that depend on external SaaS platforms (Twilio, Zoom, Google Meet, WhatsApp) or centralized foreign cloud infrastructure, GetNumber is **100% self-hosted and on-premise ready**. It runs autonomously inside private corporate clouds, air-gapped banking networks, and national intranet infrastructures (e.g., Iran's National Information Network).
+Unlike traditional commercial communication suites that depend on external SaaS platforms (Twilio, Zoom, Google Meet, WhatsApp) or centralized foreign cloud infrastructure, RavyNo is **100% self-hosted and on-premise ready**. It runs autonomously inside private corporate clouds, air-gapped banking networks, and national intranet infrastructures (e.g., Iran's National Information Network).
 
 ---
 
-### 2. Why Softphone & Why GetNumber? (Intranet Survival)
+### 2. Why Softphone & Why RavyNo? (Intranet Survival)
 
 In restricted network environments, international internet outages, or heavy protocol throttling:
 - **Foreign SaaS & Cloud Services Fail:** Foreign VoIP providers, STUN/TURN resolvers (Google, Cloudflare), and push notification services become completely unreachable due to firewall blocks, DNS poisoning, or border packet filtering.
 - **Port Throttling & Deep Packet Inspection (DPI):** Standard SIP ports (`5060/udp`) and common WebRTC relay ports are frequently inspected and throttled by ISPs.
 - **Privacy & Compliance Constraints:** Financial institutions and sensitive organizations cannot route voice data or employee messages through third-party foreign servers.
 
-**GetNumber serves as an independent lifeline:**
+**RavyNo serves as an independent lifeline:**
 1. **Zero External CDN Dependencies:** All frontend assets, fonts (Vazirmatn), stylesheets, and scripts are bundled locally.
 2. **Dedicated Go Voice Bridge:** Runs on low, stealthy, firewall-friendly ports (e.g., HTTP on `587`, WebSocket on `993`, or internal custom ports) to bypass port filtering and DPI.
 3. **In-House Media Relay:** Embeds RFC 5389 (STUN) and RFC 5766/8656 (TURN) servers within the Go binary, allowing media relays to operate entirely inside the national network with ephemeral HMAC-SHA1 credentials.
@@ -169,11 +169,11 @@ flowchart TD
 
 ### 5. Developer Future Roadmap
 
-To expand GetNumber from an enterprise softphone into a comprehensive telecommunications suite, developers can introduce the following high-value architectural extensions:
+To expand RavyNo from an enterprise softphone into a comprehensive telecommunications suite, developers can introduce the following high-value architectural extensions:
 
 ```mermaid
 flowchart LR
-    A["GetNumber Core Softphone"] --> B["1. SIP Trunking & PBX Gateway"]
+    A["RavyNo Core Softphone"] --> B["1. SIP Trunking & PBX Gateway"]
     A --> C["2. SFU Multi-Party Conferencing"]
     A --> D["3. Mobile PWA & Push / CallKit"]
     A --> E["4. End-to-End Encryption (E2EE)"]
@@ -183,7 +183,7 @@ flowchart LR
 ```
 
 #### 1. SIP Trunking & PBX Gateway Integration (Asterisk / FreePBX / Kamailio)
-- **Goal:** Enable the GetNumber softphone to place and receive calls to and from traditional telecommunications networks (PSTN, mobile operators, and corporate SIP extensions).
+- **Goal:** Enable the RavyNo softphone to place and receive calls to and from traditional telecommunications networks (PSTN, mobile operators, and corporate SIP extensions).
 - **Architecture:** Deploy a SIP-to-WebRTC gateway using **Kamailio** or an **Asterisk / FreePBX** instance with `chan_pjsip` and WSS (WebSocket Secure) transport.
 - **Value:** Users can call physical landlines or mobile numbers directly from the browser softphone.
 
@@ -230,8 +230,8 @@ flowchart LR
 #### Quickstart Installation
 ```bash
 # 1. Clone repository
-git clone https://github.com/shanaqisaeed/GetNumber.git
-cd GetNumber
+git clone https://github.com/shanaqisaeed/RavyNo.git
+cd RavyNo
 
 # 2. Install PHP backend dependencies
 composer install --optimize-autoloader
@@ -282,7 +282,7 @@ sudo bash install.sh
 
 ### 8. Automated Testing & Quality Assurance
 
-GetNumber includes an extensive automated test suite covering all softphone signaling, tariff calculations, wallet debits, and permissions:
+RavyNo includes an extensive automated test suite covering all softphone signaling, tariff calculations, wallet debits, and permissions:
 
 ```bash
 # Run all automated tests
@@ -299,7 +299,7 @@ php artisan test tests/Feature/SoftDeleteAndTariffTest.php tests/Feature/VoiceCa
 This software is released under the **[GNU General Public License v3.0 (GPL-3.0)](LICENSE)**.
 
 ```text
-Copyright (C) 2026 Saeed Shanaqi (https://github.com/shanaqisaeed/GetNumber)
+Copyright (C) 2026 Saeed Shanaqi (https://github.com/shanaqisaeed/RavyNo)
 All Rights Reserved under GNU General Public License v3.0.
 ```
 
@@ -312,7 +312,7 @@ All Rights Reserved under GNU General Public License v3.0.
 
 ## 📑 فهرست مطالب
 ۱. [ماهیت و واقعیت پروژه](#۱-ماهیت-و-واقعیت-پروژه)
-۲. [چرا سافت‌فون و چرا GetNumber؟ (بقا و پایداری در شرایط اینترانت)](#۲-چرا-سافتفون-و-چرا-getnumber-بقا-و-پایداری-در-شرایط-اینترانت)
+۲. [چرا سافت‌فون و چرا راوی نو (RavyNo)؟ (بقا و پایداری در شرایط اینترانت)](#۲-چرا-سافتفون-و-چرا-ravy-no-بقا-و-پایداری-در-شرایط-اینترانت)
 ۳. [معماری سیستم و جریان داده‌ها](#۳-معماری-سیستم-و-جریان-دادهها)
 ۴. [امکانات و قابلیت‌های فنی](#۴-امکانات-و-قابلیتهای-فنی)
    - [موتور تماس صوتی و تصویری WebRTC](#۴۱-موتور-تماس-صوتی-و-تصویری-webrtc)
@@ -331,20 +331,20 @@ All Rights Reserved under GNU General Public License v3.0.
 
 ### ۱. ماهیت و واقعیت پروژه
 
-سامانه **GetNumber** یک **سافت‌فون سازمانی مبتنی بر وب (WebRTC Softphone)** و پلتفرم ارتباطی بلادرنگ است. این سیستم به کاربران اجازه می‌دهد بدون نیاز به نصب هرگونه نرم‌افزار جانبی یا پلاگین، مستقیماً از طریق مرورگر اقدام به برقراری **تماس‌های صوتی و تصویری دوطرفه (P2P و Relayed)**، تبادل پیام‌های متنی، مدیریت خطوط و آیدی‌های ارتباطی، و شارژ کیف پول اعتباری نمایند.
+سامانه **راوی نو (RavyNo)** یک **سافت‌فون سازمانی مبتنی بر وب (WebRTC Softphone)** و پلتفرم ارتباطی بلادرنگ است. این سیستم به کاربران اجازه می‌دهد بدون نیاز به نصب هرگونه نرم‌افزار جانبی یا پلاگین، مستقیماً از طریق مرورگر اقدام به برقراری **تماس‌های صوتی و تصویری دوطرفه (P2P و Relayed)**، تبادل پیام‌های متنی، مدیریت خطوط و آیدی‌های ارتباطی، و شارژ کیف پول اعتباری نمایند.
 
-برخلاف سامانه‌های تجاری متداول که به شدت به سرویس‌های ابری خارجی (نظیر Twilio، Google Meet، WhatsApp و Zoom) وابسته‌اند، GetNumber به صورت **۱۰۰٪ مستقل، بدون وابستگی به CDN خارجی و آماده برای استقرار محلی (Self-Hosted)** توسعه یافته است و می‌تواند در شبکه‌های ایزوله بانکی، سازمان‌ها و شبکه ملی اطلاعات (اینترانت ایران) با حداکثر کارایی عمل کند.
+برخلاف سامانه‌های تجاری متداول که به شدت به سرویس‌های ابری خارجی (نظیر Twilio، Google Meet، WhatsApp و Zoom) وابسته‌اند، RavyNo به صورت **۱۰۰٪ مستقل، بدون وابستگی به CDN خارجی و آماده برای استقرار محلی (Self-Hosted)** توسعه یافته است و می‌تواند در شبکه‌های ایزوله بانکی، سازمان‌ها و شبکه ملی اطلاعات (اینترانت ایران) با حداکثر کارایی عمل کند.
 
 ---
 
-### ۲. چرا سافت‌فون و چرا GetNumber؟ (بقا و پایداری در شرایط اینترانت)
+### ۲. چرا سافت‌فون و چرا راوی نو (RavyNo)؟ (بقا و پایداری در شرایط اینترانت)
 
 در شرایط اختلال، فیلترینگ شدید پروتکل‌ها یا قطعی کامل اینترنت بین‌الملل:
 - **از کار افتادن نرم‌افزارهای خارجی:** تمامی پیام‌رسان‌ها و سرویس‌های تماس تجاری خارجی از دسترس خارج می‌شوند و حتی سرورهای عمومی STUN (مانند گوگل و کلادفلر) دچار وقفه زمانی و اختلال در رزولوشن DNS می‌گردند.
 - **مسدودسازی پورت‌های استاندارد VoIP:** پروتکل‌های سنتی SIP روی پورت‌های معمول (`5060`) یا بسته‌های مشکوک اغلب توسط فایروال‌ها یا سیستم‌های بازرسی عمیق بسته (DPI) مسدود یا محدود می‌شوند.
 - **الزامات امنیت داده:** شرکت‌ها و بانک‌ها اجازه عبور صدای مکالمات و پیام‌های داخلی از سرورهای خارج از کشور را ندارند.
 
-**پلتفرم GetNumber به عنوان یک نجات‌بخش ارتباطی عمل می‌کند:**
+**پلتفرم راوی نو (RavyNo) به عنوان یک نجات‌بخش ارتباطی عمل می‌کند:**
 ۱. **استقلال ۱۰۰٪ از CDNهای خارجی:** فونت وزیرمتن، استایل‌ها، اسکریپت‌ها و کیوآرکدها همگی به شکل آفلاین در داخل پروژه باندل شده‌اند.
 ۲. **دیمن اختصاصی به زبان Go روی پورت‌های خاص:** دیمن صوتی بر روی پورت‌های فایروال‌گریز (مانند پورت وب‌سوکت `993` و وب `587` یا پورت‌های سفارشی) فعال می‌شود تا بدون ایجاد حساسیت در شبکه عمل کند.
 ۳. **سرور رله داخلی (STUN/TURN) در داخل سرور ملی:** با تعبیه سرورهای RFC 5389 و RFC 5766/8656 در دل سورس Go و تولید توکن‌های پویای امنیتی HMAC-SHA1، رله رسانه حتی در شرایط فیلترینگ کامل شبکه جهانی در بستر ملی با پینگ میلی‌ثانیه‌ای برقرار می‌ماند.
@@ -437,11 +437,11 @@ flowchart TD
 
 ### ۵. مسیر توسعه و فیچرهای تکمیلی آینده (نقشه راه برنامه‌نویسان)
 
-برای ارتقای GetNumber از یک سافت‌فون سازمانی به یک اکوسیستم مخابراتی تمام‌عیار، توسعه‌دهندگان می‌توانند ماژول‌های کاربردی زیر را به سیستم الحاق نمایند:
+برای ارتقای RavyNo از یک سافت‌فون سازمانی به یک اکوسیستم مخابراتی تمام‌عیار، توسعه‌دهندگان می‌توانند ماژول‌های کاربردی زیر را به سیستم الحاق نمایند:
 
 ```mermaid
 flowchart LR
-    A["هسته سافت‌فون GetNumber"] --> B["۱. اتصال به شبکه تلفن ثابت و ترانک SIP"]
+    A["هسته سافت‌فون راوی نو (RavyNo)"] --> B["۱. اتصال به شبکه تلفن ثابت و ترانک SIP"]
     A --> C["۲. ویدیوکنفرانس گروهی با سرور SFU"]
     A --> D["۳. وب‌اپلیکیشن پیش‌رونده PWA و CallKit"]
     A --> E["۴. رمزنگاری سرتاسری پیشرفته (E2EE)"]
@@ -498,8 +498,8 @@ flowchart LR
 #### دستورات راه‌اندازی اولیه
 ```bash
 # ۱. کلون پروژه
-git clone https://github.com/shanaqisaeed/GetNumber.git
-cd GetNumber
+git clone https://github.com/shanaqisaeed/RavyNo.git
+cd RavyNo
 
 # ۲. نصب وابستگی‌های PHP
 composer install --optimize-autoloader

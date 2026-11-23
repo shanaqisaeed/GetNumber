@@ -77,7 +77,7 @@ return [
         ],
         'user' => [
             'nav' => [
-                'brand_name' => 'Ravi No',
+                'brand_name' => 'RavyNo',
                 'home' => 'Home',
                 'contacts' => 'Contacts',
                 'sms' => 'Messages',
@@ -113,6 +113,8 @@ return [
             'incoming_call_ringing' => 'Ringing...',
             'decline_call' => 'Decline Call',
             'answer_call' => 'Answer',
+            'unknown_sender' => 'Unknown Sender',
+            'new_message_from' => 'New message from :sender',
         ],
         'auth' => [
             'back_to_home' => 'Back to Home',
@@ -182,7 +184,7 @@ return [
             'system' => 'System',
         ],
         'notifications_modal' => [
-            'test_sender' => 'GetNumber System',
+            'test_sender' => 'RavyNo System',
             'not_allowed_warning' => 'Notification permission is not yet set to Allow in your browser settings.',
             'title' => 'Receive New SMS Notifications',
             'recommended' => 'Recommended',
@@ -196,6 +198,16 @@ return [
             'later_button' => 'No, Later',
             'recheck_button' => 'Recheck Permission',
             'enable_button' => 'Yes, Enable Notifications',
+        ],
+        'pwa_banner' => [
+            'title_standalone' => 'Enable Incoming Call Ringtone on Lock Screen',
+            'title_install' => 'Install Our App & Enable Call Ringtone',
+            'description' => 'Enable background notifications to receive incoming call ringtones and instant alerts while your phone screen is locked.',
+            'subscribing' => 'Activating...',
+            'enable_btn' => 'Enable Alerts & Ringtone',
+            'installing' => 'Installing...',
+            'install_btn' => 'Install App',
+            'dismiss_title' => 'Dismiss notification',
         ],
         'allocate_number_modal' => [
             'pattern_regular' => 'Regular',
@@ -748,7 +760,8 @@ return [
         'system_error' => 'System Error :status',
         'back_to_home' => 'Back to Home',
         'login_to_account' => 'Sign In to Account',
-        'footer_notice' => 'GetNumber Secure Enterprise Messaging Platform • Protected Connection',
+        'footer_notice' => 'RavyNo Secure Enterprise Messaging Platform • Protected Connection',
         'retry' => 'Retry',
+        'loading' => 'Sending...',
     ],
 ];

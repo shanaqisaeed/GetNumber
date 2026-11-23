@@ -79,7 +79,7 @@ func loadConfig() Config {
 	flagTurnEnabled := flag.Bool("turn-enabled", true, "Enable embedded STUN and TURN relay (default true or TURN_ENABLED)")
 	flagTurnPort := flag.Int("turn-port", 0, "STUN/TURN UDP/TCP port (default 3478 or TURN_PORT)")
 	flagTurnsPort := flag.Int("turns-port", 0, "TURNS TLS port (default 5349 or TURNS_PORT)")
-	flagTurnRealm := flag.String("turn-realm", "", "TURN authentication realm (default getnumber or TURN_REALM)")
+	flagTurnRealm := flag.String("turn-realm", "", "TURN authentication realm (default ravy-no or TURN_REALM)")
 	flagTurnPublicIP := flag.String("turn-public-ip", "", "Explicit public or routable IP for TURN relay (default auto-detected or TURN_PUBLIC_IP)")
 	flagTurnMinPort := flag.Int("turn-min-port", 0, "TURN media relay min UDP port (default 49152 or TURN_MIN_PORT)")
 	flagTurnMaxPort := flag.Int("turn-max-port", 0, "TURN media relay max UDP port (default 49250 or TURN_MAX_PORT)")
@@ -220,7 +220,7 @@ func loadConfig() Config {
 		turnRealm = cleanEnvStr(os.Getenv("TURN_REALM"))
 	}
 	if turnRealm == "" {
-		turnRealm = "getnumber"
+		turnRealm = "ravy-no"
 	}
 
 	turnPublicIP := cleanEnvStr(*flagTurnPublicIP)
@@ -1477,7 +1477,7 @@ func verifyLocalPushTicket(ticket string, secret string) (string, int64, bool) {
 
 	effectiveSecret := secret
 	if effectiveSecret == "" {
-		effectiveSecret = "getnumber_default_secret"
+		effectiveSecret = "ravyno_default_secret"
 	}
 
 	mac := hmac.New(sha256.New, []byte(effectiveSecret))
@@ -1881,7 +1881,7 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":          "ok",
-			"service":         "GetNumber Voice Bridge Daemon",
+			"service":         "RavyNo Voice Bridge Daemon",
 			"version":         "2.2.0",
 			"uptime_seconds":  uptime,
 			"active_sessions": store.TotalActive(),
@@ -2207,7 +2207,7 @@ func main() {
 	}
 
 	fmt.Println("==================================================================")
-	fmt.Println("🚀 GetNumber Voice Bridge, Local Push & STUN/TURN Media Relay 2.2")
+	fmt.Println("🚀 RavyNo Voice Bridge, Local Push & STUN/TURN Media Relay 2.2")
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)

@@ -38,7 +38,7 @@ export interface NativeBridgeEventCallbacks {
 const currentNetworkMode = ref<NetworkMode>('HYBRID');
 const isLocalPushConnected = ref<boolean>(false);
 const registeredDeviceUuid = ref<string | null>(
-    typeof window !== 'undefined' ? localStorage.getItem('getnumber_device_uuid') : null
+    typeof window !== 'undefined' ? localStorage.getItem('ravyno_device_uuid') : null
 );
 const isNativePlatform = ref<boolean>(false);
 let isInitialized = false;
@@ -60,7 +60,7 @@ function getOrCreateBrowserDeviceUuid(): string {
     }
     const rand = 'web-' + Math.random().toString(36).substring(2, 10) + '-' + Date.now().toString(36);
     if (typeof window !== 'undefined') {
-        localStorage.setItem('getnumber_device_uuid', rand);
+        localStorage.setItem('ravyno_device_uuid', rand);
     }
     registeredDeviceUuid.value = rand;
     return rand;
@@ -189,7 +189,7 @@ export function useNativeCallingBridge() {
                 if (initialNative?.deviceUuid) {
                     deviceUuid = initialNative.deviceUuid;
                     registeredDeviceUuid.value = deviceUuid;
-                    localStorage.setItem('getnumber_device_uuid', deviceUuid);
+                    localStorage.setItem('ravyno_device_uuid', deviceUuid);
                 }
                 if (initialNative?.platform === 'ios' || initialNative?.platform === 'android') {
                     platform = initialNative.platform;

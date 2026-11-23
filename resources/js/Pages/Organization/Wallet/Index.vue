@@ -140,7 +140,7 @@ function submitDeposit() {
                         class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-slate-700/60 space-y-2"
                     >
                         <div class="flex items-center justify-between">
-                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">{{ usage.user_name || 'User #' + usage.user_id }}</span>
+                            <span class="text-xs font-bold text-slate-800 dark:text-slate-200">{{ usage.user_name || __('organization.wallet.user_fallback', { id: usage.user_id }) }}</span>
                             <span class="text-[10px] text-slate-400 font-mono">{{ usage.total_tx }} {{ __('organization.wallet.total_tx') }}</span>
                         </div>
                         <div class="text-base font-black font-mono text-purple-600 dark:text-purple-400" dir="ltr">

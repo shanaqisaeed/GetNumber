@@ -22,7 +22,7 @@ export function useSoftphoneSync() {
         }
 
         if (!channel) {
-            channel = new BroadcastChannel('getnumber_softphone_channel');
+            channel = new BroadcastChannel('ravyno_softphone_channel');
 
             channel.onmessage = (event: MessageEvent<SoftphoneSyncMessage>) => {
                 const data = event.data;

@@ -8,18 +8,18 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Ravyno">
+<meta name="apple-mobile-web-app-title" content="RavyNo">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
-<meta name="application-name" content="Ravyno">
+<meta name="application-name" content="RavyNo">
 <meta name="msapplication-TileColor" content="#0f172a">
 
 <!-- Instant Theme Preload (Prevents Flash of Wrong Theme) -->
 <script>
     (function() {
         try {
-            var saved = localStorage.getItem('getnumber_theme');
+            var saved = localStorage.getItem('ravyno_theme');
             var isDark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
             var root = document.documentElement;
             if (isDark) {
@@ -50,13 +50,13 @@
 <meta property="og:type" content="website">
 <meta property="og:locale" content="{{ app()->getLocale() === 'fa' ? 'fa_IR' : 'en_US' }}">
 <meta property="og:url" content="{{ url()->current() }}">
-<meta property="og:site_name" content="{{ config('app.name', 'GetNumber') }}">
-<meta property="og:title" content="{{ config('app.name', 'GetNumber') }} - {{ __('views.head.og_title') }}">
+<meta property="og:site_name" content="{{ config('app.name', 'RavyNo') }}">
+<meta property="og:title" content="{{ config('app.name', 'RavyNo') }} - {{ __('views.head.og_title') }}">
 <meta property="og:description" content="{{ __('views.head.og_description') }}">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ config('app.name', 'GetNumber') }} - {{ __('views.head.twitter_title') }}">
+<meta name="twitter:title" content="{{ config('app.name', 'RavyNo') }} - {{ __('views.head.twitter_title') }}">
 <meta name="twitter:description" content="{{ __('views.head.twitter_description') }}">
 
 <!-- Structured Data (JSON-LD) for Public Pages -->
@@ -65,7 +65,7 @@
 {!! json_encode([
     '@context' => 'https://schema.org',
     '@type' => 'SoftwareApplication',
-    'name' => config('app.name', 'GetNumber'),
+    'name' => config('app.name', 'RavyNo'),
     'applicationCategory' => 'BusinessApplication',
     'operatingSystem' => 'All',
     'description' => __('views.head.jsonld_description'),
@@ -78,7 +78,7 @@
 </script>
 @endif
 
-<title inertia>{{ config('app.name', 'GetNumber') }}</title>
+<title inertia>{{ config('app.name', 'RavyNo') }}</title>
 
 <!-- Scripts and Styles handled entirely via Vite -->
 @routes

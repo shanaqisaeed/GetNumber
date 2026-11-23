@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue';
 import { usePwaInstall } from '@/Composables/usePwaInstall';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
+import { __ } from '@/Composables/useTrans';
 
 const { isInstallable, isStandalone, installApp } = usePwaInstall();
 const { isPermissionGranted, isSubscribed, isSubscribing, subscribeToPush, checkSubscriptionStatus } = useWebNotifications();
@@ -54,10 +55,10 @@ const handleEnableNotifications = async () => {
                 </div>
                 <div>
                     <h4 class="text-sm font-bold text-white">
-                        {{ isStandalone ? 'فعال‌سازی زنگ تماس در صفحه قفل (Lock Screen)' : 'برنامه ما را نصب و زنگ تماس را فعال کنید' }}
+                        {{ isStandalone ? __('ui.components.pwa_banner.title_standalone') : __('ui.components.pwa_banner.title_install') }}
                     </h4>
                     <p class="text-xs text-slate-300 mt-0.5">
-                        برای دریافت زنگ تماس و اعلان فوری هنگامی که صفحه گوشی قفل است، اعلان پس‌زمینه را فعال کنید.
+                        {{ __('ui.components.pwa_banner.description') }}
                     </p>
                 </div>
             </div>
@@ -73,7 +74,7 @@ const handleEnableNotifications = async () => {
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <span>{{ isSubscribing ? 'در حال فعال‌سازی...' : 'فعال‌سازی اعلان و زنگ' }}</span>
+                    <span>{{ isSubscribing ? __('ui.components.pwa_banner.subscribing') : __('ui.components.pwa_banner.enable_btn') }}</span>
                 </button>
 
                 <button
@@ -86,14 +87,14 @@ const handleEnableNotifications = async () => {
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
-                    <span>{{ isInstalling ? 'در حال نصب...' : 'نصب نرم‌افزار' }}</span>
+                    <span>{{ isInstalling ? __('ui.components.pwa_banner.installing') : __('ui.components.pwa_banner.install_btn') }}</span>
                 </button>
 
                 <button
                     type="button"
                     @click="handleDismiss"
                     class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-                    title="بستن اعلان"
+                    :title="__('ui.components.pwa_banner.dismiss_title')"
                 >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />

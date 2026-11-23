@@ -118,7 +118,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'DEVICE_NOT_REGISTERED',
-                'message' => 'Device is not registered or has been revoked.',
+                'message' => __('controllers.api.v1_mobile.device_not_registered'),
             ], 404);
         }
 
@@ -154,7 +154,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'CALL_NOT_FOUND',
-                'message' => 'Call not found or access denied.',
+                'message' => __('controllers.api.v1_mobile.call_not_found_or_denied'),
             ], 404);
         }
 
@@ -180,7 +180,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'CALL_NOT_FOUND',
-                'message' => 'Call not found.',
+                'message' => __('controllers.api.v1_mobile.call_not_found'),
             ], 404);
         }
 
@@ -217,7 +217,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'CALL_NOT_FOUND',
-                'message' => 'Call not found.',
+                'message' => __('controllers.api.v1_mobile.call_not_found'),
             ], 404);
         }
 
@@ -238,8 +238,8 @@ class MobileCallingApiController extends Controller
                 'success' => false,
                 'code' => $e->getMessage(),
                 'message' => $e->getMessage() === 'CALL_ALREADY_ACCEPTED_ON_ANOTHER_DEVICE'
-                    ? 'این تماس در دستگاه دیگری پاسخ داده شد.'
-                    : 'تماس دیگر در وضعیت زنگ قرار ندارد.',
+                    ? __('controllers.api.v1_mobile.call_answered_elsewhere')
+                    : __('controllers.api.v1_mobile.call_not_ringing'),
                 'accepted_device_id' => $call->fresh()?->accepted_device_id,
             ], $httpCode);
         }
@@ -261,7 +261,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'CALL_NOT_FOUND',
-                'message' => 'Call not found.',
+                'message' => __('controllers.api.v1_mobile.call_not_found'),
             ], 404);
         }
 
@@ -281,7 +281,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => $e->getMessage(),
-                'message' => 'امکان رد تماس فعال وجود ندارد.',
+                'message' => __('controllers.api.v1_mobile.cannot_reject_call'),
             ], 409);
         }
     }
@@ -303,7 +303,7 @@ class MobileCallingApiController extends Controller
             return response()->json([
                 'success' => false,
                 'code' => 'CALL_NOT_FOUND',
-                'message' => 'Call not found.',
+                'message' => __('controllers.api.v1_mobile.call_not_found'),
             ], 404);
         }
 

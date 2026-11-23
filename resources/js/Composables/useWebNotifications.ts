@@ -258,7 +258,7 @@ export function useWebNotifications() {
         const body = sender
             ? __('ui.composables.web_notifications.new_sms_from_sender', { sender })
             : __('ui.composables.web_notifications.new_sms_generic');
-        const tag = messageId ? `getnumber-sms-${messageId}` : `getnumber-sms-${Date.now()}`;
+        const tag = messageId ? `ravy-no-sms-${messageId}` : `ravy-no-sms-${Date.now()}`;
         const options: NotificationOptions = {
             body,
             icon: '/icon-192.png',

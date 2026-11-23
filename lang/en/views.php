@@ -64,12 +64,12 @@ return [
     'layout' => [
         'system_error' => 'System Error',
         'back_to_home' => 'Back to Home',
-        'footer_security' => 'GetNumber Secure Enterprise Communications • Protected Connection',
+        'footer_security' => 'RavyNo Secure Enterprise Communications • Protected Connection',
     ],
     'head' => [
-        'meta_description' => 'Comprehensive Enterprise Virtual Numbers Management, Dedicated Business Lines, Secure Messaging Hub, and API Gateway - GetNumber',
+        'meta_description' => 'Comprehensive Enterprise Virtual Numbers Management, Dedicated Business Lines, Secure Messaging Hub, and API Gateway - RavyNo',
         'og_title' => 'Enterprise Virtual Numbers & Communications Platform',
-        'og_description' => 'Comprehensive Enterprise Virtual Numbers Management, Dedicated Business Lines, Secure Messaging Hub, and API Gateway - GetNumber',
+        'og_description' => 'Comprehensive Enterprise Virtual Numbers Management, Dedicated Business Lines, Secure Messaging Hub, and API Gateway - RavyNo',
         'twitter_title' => 'Virtual Numbers Management Platform',
         'twitter_description' => 'Comprehensive Virtual Numbers Management, Dedicated Business Lines, and Secure Messaging',
         'jsonld_description' => 'Enterprise Virtual Number Management & Internal Messaging Gateway',

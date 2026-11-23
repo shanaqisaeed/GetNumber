@@ -2,7 +2,7 @@ import { ref, readonly } from 'vue';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'getnumber_theme';
+const STORAGE_KEY = 'ravyno_theme';
 
 const currentTheme = ref<ThemeMode>('system');
 const isDarkMode = ref<boolean>(false);

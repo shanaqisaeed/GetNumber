@@ -309,7 +309,7 @@ function submitCampaign() {
                                 :disabled="form.processing || (estimateResult !== null && !estimateResult.has_sufficient_balance)"
                                 class="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black shadow-lg shadow-purple-600/30 transition-all disabled:opacity-50 active:scale-95"
                             >
-                                <span v-if="form.processing">{{ __('ui.general.loading') || 'در حال ارسال...' }}</span>
+                                <span v-if="form.processing">{{ __('ui.general.loading') }}</span>
                                 <span v-else>{{ __('organization.bulk_sms.send_campaign') }}</span>
                             </button>
                         </div>

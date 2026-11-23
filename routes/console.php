@@ -78,3 +78,15 @@ Schedule::command('messages:archive --days=90')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Video Conference Lifecycle Schedulers (7-Day Expiry Cleanup)
+|--------------------------------------------------------------------------
+*/
+Schedule::command('conference:cleanup-expired')
+    ->daily()
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+

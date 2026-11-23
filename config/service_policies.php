@@ -29,7 +29,7 @@ return [
         'root',
         'support',
         'security',
-        'getnumber',
+        'ravyno', 'ravy-no',
         'official',
         'postmaster',
         'hostmaster',
@@ -224,7 +224,7 @@ return [
                     'fulfillment_mode' => 'instant',
                     'reserved_words' => [
                         'admin', 'system', 'support', 'root', 'security', 'official',
-                        'getnumber', 'wallet', 'billing', 'enterprise', 'gov', 'bank',
+                        'ravyno', 'ravy-no', 'wallet', 'billing', 'enterprise', 'gov', 'bank',
                     ],
                 ],
                 'enterprise' => [
@@ -237,7 +237,7 @@ return [
                     'discount_percent' => 20,
                     'fulfillment_mode' => 'instant',
                     'reserved_words' => [
-                        'admin', 'system', 'root', 'getnumber',
+                        'admin', 'system', 'root', 'ravyno', 'ravy-no',
                     ],
                 ],
             ],
@@ -354,7 +354,7 @@ return [
                     'fulfillment_mode' => 'instant',
                     'reserved_words' => [
                         'admin', 'system', 'support', 'root', 'security', 'official',
-                        'getnumber', 'tron', 'ethereum', 'foundation',
+                        'ravyno', 'ravy-no', 'tron', 'ethereum', 'foundation',
                     ],
                 ],
                 'enterprise' => [
@@ -372,7 +372,7 @@ return [
                     'discount_percent' => 25,
                     'fulfillment_mode' => 'instant',
                     'reserved_words' => [
-                        'admin', 'system', 'root', 'getnumber',
+                        'admin', 'system', 'root', 'ravyno', 'ravy-no',
                     ],
                 ],
             ],

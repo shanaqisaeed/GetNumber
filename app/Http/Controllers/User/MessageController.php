@@ -733,11 +733,11 @@ class MessageController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'پیام با موفقیت حذف گردید.',
+                'message' => __('controllers.user.messages.message_deleted'),
             ]);
         }
 
-        return back()->with('success', 'پیام با موفقیت حذف گردید.');
+        return back()->with('success', __('controllers.user.messages.message_deleted'));
     }
 
     /**
@@ -770,11 +770,11 @@ class MessageController extends Controller
             return response()->json([
                 'success' => true,
                 'deleted_count' => $count,
-                'message' => "{$count} پیام انتخابی با موفقیت حذف شدند.",
+                'message' => __('controllers.user.messages.bulk_messages_deleted', ['count' => $count]),
             ]);
         }
 
-        return back()->with('success', "{$count} پیام انتخابی با موفقیت حذف شدند.");
+        return back()->with('success', __('controllers.user.messages.bulk_messages_deleted', ['count' => $count]));
     }
 
     /**
@@ -828,10 +828,10 @@ class MessageController extends Controller
             return response()->json([
                 'success' => true,
                 'deleted_count' => $count ?? 0,
-                'message' => 'گفتگو با موفقیت حذف گردید.',
+                'message' => __('controllers.user.messages.conversation_deleted'),
             ]);
         }
 
-        return back()->with('success', 'گفتگو با موفقیت حذف گردید.');
+        return back()->with('success', __('controllers.user.messages.conversation_deleted'));
     }
 }

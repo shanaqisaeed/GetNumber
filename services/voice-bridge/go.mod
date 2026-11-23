@@ -1,4 +1,4 @@
-module getnumber/voice-bridge
+module ravy-no/voice-bridge
 
 go 1.27.3
 

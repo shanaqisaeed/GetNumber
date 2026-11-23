@@ -25,7 +25,7 @@ class SystemPagesAndSeoTest extends TestCase
             $rendered = View::make($viewName)->render();
 
             $this->assertStringContainsString((string) $code, $rendered, "View {$viewName} does not display status code.");
-            $this->assertStringContainsString('GetNumber', $rendered);
+            $this->assertStringContainsString('راوی نو', $rendered);
             $this->assertStringContainsString('noindex', $rendered);
             $this->assertStringNotContainsString('Stack trace', $rendered);
             $this->assertStringNotContainsString('/vendor/', $rendered);

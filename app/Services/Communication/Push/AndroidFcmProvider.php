@@ -202,7 +202,7 @@ class AndroidFcmProvider implements CallPushProviderInterface
             return $staticToken;
         }
 
-        return Cache::remember('getnumber:fcm_oauth_access_token', 3000, function () {
+        return Cache::remember('ravy-no:fcm_oauth_access_token', 3000, function () {
             $sa = $this->resolveServiceAccountArray();
             if (empty($sa['client_email']) || empty($sa['private_key'])) {
                 return null;

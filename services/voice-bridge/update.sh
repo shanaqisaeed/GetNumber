@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ==============================================================================
-#  ✦ GETNUMBER VOICE BRIDGE • IN-PLACE RUNTIME UPDATER
+#  ✦ RAVYNO VOICE BRIDGE • IN-PLACE RUNTIME UPDATER
 #  Next-Gen WebRTC Audio Signaling & Telephony Daemon (2026 Edition)
 #  Fast binary swap, config preservation, zero downtime socket reset
 # ==============================================================================
@@ -35,12 +35,12 @@ fi
 clear 2>/dev/null || true
 
 echo -e "${PURPLE}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
-echo -e "${PURPLE}│${RESET}  ${CYAN}${BOLD}✦ GETNUMBER VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}IN-PLACE RUNTIME UPDATER${RESET}                ${PURPLE}│${RESET}"
+echo -e "${PURPLE}│${RESET}  ${CYAN}${BOLD}✦ RAVYNO VOICE BRIDGE${RESET} ${DIM}•${RESET} ${WHITE}${BOLD}IN-PLACE RUNTIME UPDATER${RESET}                ${PURPLE}│${RESET}"
 echo -e "${PURPLE}│${RESET}  ${DIM}Seamless Binary Upgrade • Config & Secret Preservation (2026 Engine)${RESET}  ${PURPLE}│${RESET}"
 echo -e "${PURPLE}╰─────────────────────────────────────────────────────────────────────────╯${RESET}\n"
 
-INSTALL_DIR="/opt/getnumber-bridge"
-SERVICE_NAME="getnumber-voice-bridge"
+INSTALL_DIR="/opt/ravy-no-bridge"
+SERVICE_NAME="ravy-no-voice-bridge"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CALLBACK_URL=""
 CLI_TURN_PORT=""
@@ -196,7 +196,7 @@ if ! grep -q "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
     echo "TURNS_PORT=5350" >> "${INSTALL_DIR}/.env"
 fi
 if ! grep -q "^TURN_REALM=" "${INSTALL_DIR}/.env" 2>/dev/null; then
-    echo "TURN_REALM=getnumber" >> "${INSTALL_DIR}/.env"
+    echo "TURN_REALM=ravy-no" >> "${INSTALL_DIR}/.env"
 fi
 
 if [ -n "$CLI_TURN_PUBLIC_IP" ]; then
