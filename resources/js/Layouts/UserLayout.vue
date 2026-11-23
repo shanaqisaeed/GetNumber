@@ -16,6 +16,12 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { computed, ref, watch, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 
+const props = withDefaults(defineProps<{
+    fullWidth?: boolean;
+}>(), {
+    fullWidth: false,
+});
+
 const page = usePage<PageProps & {
     active_line?: LineOption | null;
     lines?: LineOption[];
@@ -556,7 +562,7 @@ const navItems = computed(() => [
             </header>
 
             <!-- Main Content Area with Adaptive Padding -->
-            <main class="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+            <main :class="['flex-1 p-2 sm:p-4 lg:p-6 w-full mx-auto transition-all duration-300', props.fullWidth ? 'max-w-full' : 'max-w-7xl']">
                 <!-- PWA Install & Offline Intranet Banner -->
                 <PwaInstallBanner />
 

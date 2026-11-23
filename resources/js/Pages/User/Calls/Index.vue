@@ -151,7 +151,6 @@ let originalCameraTrack: MediaStreamTrack | null = null;
 
 // Remote Video Streaming Indicator (To avoid sticking in video view when neither side is streaming)
 const isRemoteVideoStreaming = ref(false);
-const isExpandedWorkspace = ref(false); // Theater / Full Width Mode
 
 // Audio Output Routing State (Loudspeaker vs Earpiece)
 const audioOutputDevices = ref<{ deviceId: string; label: string; isSpeaker: boolean }[]>([]);
@@ -160,6 +159,7 @@ const selectedAudioOutputId = ref<string>('default');
 // Interactive Whiteboard State & WebRTC DataChannel
 const isWhiteboardOpen = ref(false);
 const isRemoteWhiteboardOpen = ref(false);
+const isExpandedWorkspace = ref(true); // Theater / Full Width Mode by default for seamless cross-device parity
 const isWhiteboardCameraActive = ref(true); // User preference: camera PiP during whiteboard session
 const whiteboardCanvasRef = ref<HTMLCanvasElement | null>(null);
 const whiteboardPipVideo = ref<HTMLVideoElement | null>(null);
@@ -1342,23 +1342,27 @@ const drawSegment = (
     const toX = toNx * rect.width;
     const toY = toNy * rect.height;
 
+    // Proportional stroke scale factor so stroke thickness is 100% identical relative to canvas width across mobile & desktop
+    const scaleFactor = Math.max(0.6, rect.width / 1000);
+    const effectiveWidth = width * scaleFactor;
+
     ctx.save();
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
     if (tool === 'eraser') {
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = width * 4;
+        ctx.lineWidth = effectiveWidth * 4;
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
     } else if (tool === 'highlighter') {
         ctx.strokeStyle = color;
-        ctx.lineWidth = width * 3;
+        ctx.lineWidth = effectiveWidth * 3;
         ctx.globalAlpha = 0.35;
         ctx.globalCompositeOperation = 'source-over';
     } else {
         ctx.strokeStyle = color;
-        ctx.lineWidth = width;
+        ctx.lineWidth = effectiveWidth;
         ctx.globalAlpha = 1.0;
         ctx.globalCompositeOperation = 'source-over';
     }
@@ -1591,7 +1595,18 @@ const toggleExpandedWorkspace = () => {
     }
 };
 
+let whiteboardResizeTimer: any = null;
+const handleWhiteboardResize = () => {
+    if (isWhiteboardOpen.value) {
+        if (whiteboardResizeTimer) clearTimeout(whiteboardResizeTimer);
+        whiteboardResizeTimer = setTimeout(() => {
+            setupCanvas();
+        }, 150);
+    }
+};
+
 const openWhiteboard = (fromRemote = false) => {
+    isExpandedWorkspace.value = true;
     isWhiteboardOpen.value = true;
     setupCanvas();
     if (!fromRemote) {
@@ -2792,6 +2807,10 @@ onMounted(() => {
         checkIncomingCall();
     }
 
+    if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleWhiteboardResize);
+    }
+
     incomingPollTimer = setInterval(checkIncomingCall, 3500);
 
     // Initial hardware discovery and devicechange listener
@@ -2832,11 +2851,13 @@ const handleDeviceChange = () => {
 
 onUnmounted(() => {
     if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleWhiteboardResize);
         window.removeEventListener('beforeunload', handlePageUnload);
         window.removeEventListener('pagehide', handlePageUnload);
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
     }
+    if (whiteboardResizeTimer) clearTimeout(whiteboardResizeTimer);
     if (typeof navigator !== 'undefined' && navigator.mediaDevices?.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     }
@@ -2888,7 +2909,7 @@ onUnmounted(() => {
 <template>
     <Head :title="__('user.calls.page_title')" />
 
-    <UserLayout>
+    <UserLayout :full-width="isCalling && isWhiteboardOpen">
         <div class="space-y-4">
             <!-- Header Command Card -->
             <div class="dash-wallet-card">
@@ -2989,7 +3010,17 @@ onUnmounted(() => {
             <!-- ======================================================== -->
             <!-- TAB 1: PHONE DIALER & ACTIVE CALL (VOICE & VIDEO)        -->
             <!-- ======================================================== -->
-            <div v-if="activeTab === 'dialer'" :class="['glass-card mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300', isCalling && (isVideoCall || isWhiteboardOpen) ? (isExpandedWorkspace ? 'max-w-full w-full !p-2 sm:!p-4' : 'max-w-6xl xl:max-w-7xl w-full !p-3 sm:!p-6') : 'max-w-lg !p-5']">
+            <div
+                v-if="activeTab === 'dialer'"
+                :class="[
+                    'glass-card mx-auto space-y-5 bg-white/95 dark:bg-slate-900/80 border border-slate-200/90 dark:border-white/10 shadow-xl transition-all duration-300',
+                    isCalling && isWhiteboardOpen
+                        ? 'max-w-full w-full !p-1 sm:!p-3'
+                        : (isCalling && isVideoCall
+                            ? (isExpandedWorkspace ? 'max-w-full w-full !p-2 sm:!p-4' : 'max-w-6xl xl:max-w-7xl w-full !p-3 sm:!p-6')
+                            : 'max-w-lg !p-5')
+                ]"
+            >
                 <!-- If currently in active call session -->
                 <div v-if="isCalling" class="text-center py-4 space-y-4 animate-in fade-in zoom-in-95 duration-200">
                     <!-- Network Status Alert Banner -->
@@ -3167,7 +3198,7 @@ onUnmounted(() => {
 
                         <!-- Whiteboard Canvas Drawing Surface with Touch & Mouse support -->
                         <div
-                            class="relative w-full rounded-2xl bg-white overflow-hidden touch-none select-none border border-slate-700/60 shadow-inner aspect-video mx-auto max-h-[75vh]"
+                            class="relative w-full max-w-[calc(78vh*16/9)] rounded-2xl bg-white overflow-hidden touch-none select-none border border-slate-700/60 shadow-inner aspect-video mx-auto"
                         >
                             <canvas
                                 ref="whiteboardCanvasRef"
