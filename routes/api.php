@@ -30,3 +30,29 @@ Route::post('/telemetry/errors', [\App\Http\Controllers\HealthCheckController::c
 
 Route::post('/voice/bridge-event', [\App\Http\Controllers\User\VoiceCallController::class, 'bridgeWebhook'])
     ->name('api.voice.bridge_event');
+
+// Network Mode Health Probe (Public/Intranet non-blocking probe)
+Route::get('/v1/network/probe', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'networkProbe'])
+    ->middleware('throttle:120,1')
+    ->name('api.v1.network.probe');
+
+// Native Mobile Calling & Device Registry API Contracts (Authenticated via Web Session OR Device Bearer Token)
+Route::prefix('v1/mobile')->middleware(['web', 'auth.mobile', 'throttle:120,1'])->group(function () {
+    Route::post('/devices/register', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'registerDevice'])
+        ->name('api.v1.mobile.devices.register');
+    Route::delete('/devices/{deviceUuid}', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'revokeDevice'])
+        ->name('api.v1.mobile.devices.revoke');
+    Route::post('/devices/heartbeat', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'heartbeat'])
+        ->name('api.v1.mobile.devices.heartbeat');
+
+    Route::get('/calls/{callUuid}', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'showCall'])
+        ->name('api.v1.mobile.calls.show');
+    Route::post('/calls/{callUuid}/ringing-ack', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'ringingAck'])
+        ->name('api.v1.mobile.calls.ringing_ack');
+    Route::post('/calls/{callUuid}/answer', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'answerCall'])
+        ->name('api.v1.mobile.calls.answer');
+    Route::post('/calls/{callUuid}/reject', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'rejectCall'])
+        ->name('api.v1.mobile.calls.reject');
+    Route::post('/calls/{callUuid}/end', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'endCall'])
+        ->name('api.v1.mobile.calls.end');
+});

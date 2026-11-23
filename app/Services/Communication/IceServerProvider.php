@@ -6,11 +6,11 @@ use App\Models\SystemSetting;
 use App\Models\User;
 
 /**
- * Builds the WebRTC ICE server list (STUN + TURN) handed to browsers.
+ * Builds the WebRTC ICE server list (STUN + TURN) handed to browsers and native WebViews.
  *
  * Supports:
  *  - Self-hosted embedded STUN & TURN relay (in Go Voice Bridge daemon)
- *  - Offline / Intranet Mode (100% independent of external cloud providers / internet)
+ *  - Strict Offline / Intranet Mode (100% independent of external cloud providers / internet)
  *  - Domain & SSL/TLS (TURNS / WSS) deployment
  *  - Ephemeral REST HMAC credentials (draft-uberti-behave-turn-rest-00)
  *  - Static long-term TURN credentials fallback
@@ -23,11 +23,49 @@ class IceServerProvider
     private const TURN_CREDENTIAL_TTL = 6 * 3600;
 
     /**
+     * Known public internet STUN/TURN domains that MUST be purged in Intranet / Offline Mode.
+     *
+     * @var array<int, string>
+     */
+    private const PUBLIC_CLOUD_ICE_DOMAINS = [
+        'google.com',
+        'cloudflare.com',
+        'sipgate.net',
+        'blackberry.com',
+        'wire.com',
+        'schlund.de',
+        'metered.ca',
+        'openrelay.metered.ca',
+        'ekiga.net',
+        'viagenie.ca',
+        '3cx.com',
+        'xirsys.com',
+        'twilio.com',
+        'stunprotocol.org',
+        'nextcloud.com',
+    ];
+
+    /**
      * Determine if offline / intranet mode is active.
      */
     public function isOfflineMode(): bool
     {
         return (bool) (int) SystemSetting::get('voice_offline_mode', '0');
+    }
+
+    /**
+     * Check if an ICE URL points to an external public cloud provider.
+     */
+    public static function isPublicCloudIceUrl(string $url): bool
+    {
+        $lower = strtolower($url);
+        foreach (self::PUBLIC_CLOUD_ICE_DOMAINS as $domain) {
+            if (str_contains($lower, $domain)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -49,10 +87,10 @@ class IceServerProvider
         }
 
         if ($this->isOfflineMode()) {
-            // In offline/intranet mode, strictly purge any external internet STUN hosts
+            // In offline/intranet mode, strictly purge ALL external public internet STUN hosts
             $configuredStun = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', ''));
             $localStun = array_filter($configuredStun, function (string $url) {
-                return ! str_contains($url, 'google.com') && ! str_contains($url, 'cloudflare.com');
+                return ! self::isPublicCloudIceUrl($url);
             });
 
             $merged = array_merge($selfStun, $localStun);
@@ -74,6 +112,10 @@ class IceServerProvider
     public function resolveTurnUrls(): array
     {
         $explicitUrls = self::parseUrlList((string) SystemSetting::get('voice_turn_urls', ''));
+        if ($this->isOfflineMode() && $explicitUrls !== []) {
+            $explicitUrls = array_values(array_filter($explicitUrls, fn (string $u) => ! self::isPublicCloudIceUrl($u)));
+        }
+
         if ($explicitUrls !== []) {
             return $explicitUrls;
         }
@@ -164,17 +206,19 @@ class IceServerProvider
     }
 
     /**
-     * Full RTCConfiguration-compatible payload for the browser.
+     * Full RTCConfiguration-compatible payload for the browser/WebView.
      *
-     * @return array{iceServers: array, iceTransportPolicy: string, hasTurn: bool, isOfflineMode: bool}
+     * @return array{iceServers: array, iceTransportPolicy: string, hasTurn: bool, isOfflineMode: bool, networkMode: string}
      */
     public function rtcConfigFor(?User $user = null): array
     {
+        $offline = $this->isOfflineMode();
         return [
             'iceServers' => $this->iceServersFor($user),
             'iceTransportPolicy' => $this->transportPolicy(),
             'hasTurn' => $this->hasTurn(),
-            'isOfflineMode' => $this->isOfflineMode(),
+            'isOfflineMode' => $offline,
+            'networkMode' => $offline ? NetworkModeManager::MODE_INTRANET : NetworkModeManager::MODE_HYBRID,
         ];
     }
 
@@ -194,5 +238,3 @@ class IceServerProvider
         return array_values(array_unique($urls));
     }
 }
-
-

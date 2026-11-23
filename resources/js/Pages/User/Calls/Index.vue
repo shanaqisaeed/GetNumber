@@ -7,6 +7,7 @@ import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Com
 import { CalmRingtone } from '@/Utils/ringtone';
 import { __ } from '@/Composables/useTrans';
 import { usePwaInstall } from '@/Composables/usePwaInstall';
+import { useNativeCallingBridge } from '@/Composables/useNativeCallingBridge';
 
 interface LineItem {
     id: number;
@@ -106,6 +107,19 @@ const keypadMode = ref<'numeric' | 'alphanumeric'>(
 const isContactPickerOpen = ref(false);
 const isCalling = ref(false);
 const activeCallId = ref<number | null>(null);
+const activeCallUuid = ref<string | null>(null);
+const {
+    currentNetworkMode,
+    isLocalPushConnected,
+    registeredDeviceUuid,
+    initNativeBridge,
+    getCallState,
+    notifyCallAnswered,
+    notifyCallRejected,
+    notifyCallEnded,
+    setNativeMute,
+    setNativeAudioRoute,
+} = useNativeCallingBridge();
 const callDuration = ref(0);
 let callTimer: ReturnType<typeof setInterval> | null = null;
 let pulseTimer: ReturnType<typeof setInterval> | null = null;
@@ -711,6 +725,7 @@ const toggleMute = () => {
             track.enabled = !isMuted.value;
         });
     }
+    setNativeMute(activeCallUuid.value, isMuted.value);
 };
 
 const initWebAudioRouting = (stream: MediaStream) => {
@@ -764,6 +779,7 @@ const applySpeakerEarpieceProfile = () => {
 const toggleSpeaker = async () => {
     isSpeakerOn.value = !isSpeakerOn.value;
     applySpeakerEarpieceProfile();
+    setNativeAudioRoute(isSpeakerOn.value ? 'speaker' : 'earpiece');
 
     if (remoteAudio.value && typeof (remoteAudio.value as any).setSinkId === 'function') {
         try {
@@ -2342,6 +2358,7 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
 
         if (res.data?.success && res.data.call) {
             activeCallId.value = res.data.call.id;
+            activeCallUuid.value = res.data.call.call_uuid || null;
             bridgeSessionId.value = res.data.call.bridge_session_id || null;
             bridgeWsEndpoint.value = res.data.call.bridge_ws_endpoint || null;
             isInternalCall.value = Boolean(res.data.call.is_internal);
@@ -2478,12 +2495,15 @@ const endCall = async () => {
     optimalRouteInfo.value = '';
 
     const terminatingCallId = activeCallId.value;
+    const terminatingCallUuid = activeCallUuid.value;
     activeCallId.value = null;
+    activeCallUuid.value = null;
     isCalling.value = false;
     const finalDuration = callDuration.value;
     callDuration.value = 0;
     resetMediaControlStates();
     releaseWakeLock();
+    notifyCallEnded(terminatingCallUuid, finalDuration);
 
     if (!terminatingCallId) return;
 
@@ -2543,12 +2563,17 @@ const answerIncomingCall = async (withVideo = false) => {
         remoteAudio.value.play().catch(() => {});
     }
     const callId = incomingCall.value.id;
+    const callUuid = incomingCall.value.call_uuid || null;
     try {
-        const res = await axios.post(route('voice.answer', callId));
+        const res = await axios.post(route('voice.answer', callId), {
+            device_uuid: registeredDeviceUuid.value || undefined,
+        });
         if (res.data?.success) {
             const answeredCall = res.data.call || {};
             isIncomingCallModalOpen.value = false;
             activeCallId.value = callId;
+            activeCallUuid.value = answeredCall.call_uuid || callUuid || null;
+            notifyCallAnswered(activeCallUuid.value, withVideo);
             destinationInput.value = answeredCall.source || incomingCall.value.source || '';
             isCalling.value = true;
             callDuration.value = 0;
@@ -2593,10 +2618,14 @@ const declineIncomingCall = async () => {
     if (!incomingCall.value) return;
     stopRingtone();
     const callId = incomingCall.value.id;
+    const callUuid = incomingCall.value.call_uuid || null;
     isIncomingCallModalOpen.value = false;
     incomingCall.value = null;
+    notifyCallRejected(callUuid, 'rejected_by_callee');
     try {
-        await axios.post(route('voice.decline', callId));
+        await axios.post(route('voice.decline', callId), {
+            device_uuid: registeredDeviceUuid.value || undefined,
+        });
         router.reload({ only: ['calls'] });
     } catch {}
 };
@@ -2836,6 +2865,98 @@ onMounted(() => {
             }
         });
     }
+
+    // Native Calling Bridge (iOS CallKit / PushKit / Local Push & Android Core-Telecom / Local Push)
+    initNativeBridge({
+        onIncomingCall: (data) => {
+            if (isCalling.value) return;
+            incomingCall.value = {
+                id: data.callId || 0,
+                call_uuid: data.callUuid || null,
+                source: data.callerHandle || data.callerName || 'تماس ورودی',
+                destination: data.destinationLine || '',
+                has_video: Boolean(data.hasVideo),
+            };
+            isIncomingCallModalOpen.value = true;
+            playRingtone();
+        },
+        onCallAnswered: async (snap) => {
+            if (isCalling.value) return;
+            stopRingtone();
+            isIncomingCallModalOpen.value = false;
+            if (snap.callId) {
+                incomingCall.value = {
+                    id: snap.callId,
+                    call_uuid: snap.callUuid,
+                    source: snap.callerHandle || snap.callerName || 'تماس ورودی',
+                    bridge_session_id: snap.bridgeSessionId,
+                    bridge_ws_endpoint: snap.bridgeWsEndpoint,
+                };
+                await answerIncomingCall(Boolean(snap.hasVideo));
+            } else if (snap.callUuid) {
+                try {
+                    const res = await axios.get(`/api/v1/mobile/calls/${snap.callUuid}`);
+                    if (res.data?.success && res.data.call) {
+                        incomingCall.value = res.data.call;
+                        await answerIncomingCall(Boolean(res.data.call.has_video));
+                    }
+                } catch {}
+            }
+        },
+        onCallRejected: () => {
+            stopRingtone();
+            isIncomingCallModalOpen.value = false;
+            incomingCall.value = null;
+        },
+        onCallEnded: () => {
+            if (isCalling.value) {
+                endCall();
+            } else {
+                stopRingtone();
+                isIncomingCallModalOpen.value = false;
+                incomingCall.value = null;
+            }
+        },
+        onCallStateChanged: (st) => {
+            if (typeof st.isMuted === 'boolean' && st.isMuted !== isMuted.value) {
+                isMuted.value = st.isMuted;
+                if (localMediaStream) {
+                    localMediaStream.getAudioTracks().forEach(track => {
+                        track.enabled = !isMuted.value;
+                    });
+                }
+            }
+        },
+        onAudioRouteChanged: (rt) => {
+            if (rt.route) {
+                isSpeakerOn.value = rt.route === 'speaker';
+                applySpeakerEarpieceProfile();
+            }
+        },
+    }).then(async () => {
+        // Check if app cold-launched from a Lock Screen Answer in CallKit / Android Telecom
+        const snap = await getCallState();
+        if (snap && snap.hasActiveOrPendingCall && snap.answeredFromLockScreen && !isCalling.value) {
+            if (snap.callId) {
+                incomingCall.value = {
+                    id: snap.callId,
+                    call_uuid: snap.callUuid,
+                    source: snap.callerHandle || snap.callerName || 'تماس ورودی',
+                    bridge_session_id: snap.bridgeSessionId,
+                    bridge_ws_endpoint: snap.bridgeWsEndpoint,
+                };
+                await answerIncomingCall(Boolean(snap.hasVideo));
+            } else if (snap.callUuid) {
+                try {
+                    const res = await axios.get(`/api/v1/mobile/calls/${snap.callUuid}`);
+                    if (res.data?.success && res.data.call) {
+                        incomingCall.value = res.data.call;
+                        await answerIncomingCall(Boolean(res.data.call.has_video));
+                    }
+                } catch {}
+            }
+        }
+    });
 });
 
 const handleDeviceChange = () => {

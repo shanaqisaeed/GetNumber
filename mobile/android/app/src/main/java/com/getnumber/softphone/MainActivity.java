@@ -8,12 +8,15 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.WindowManager;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(NativeCallingPlugin.class);
         super.onCreate(savedInstanceState);
 
         // 1. Configure Window Flags to Turn Screen On and Display Over Keyguard / Lock Screen
@@ -29,18 +32,21 @@ public class MainActivity extends BridgeActivity {
             );
         }
 
-        // 2. Start Sticky Background Service for Permanent Intranet Call & SMS Reception
-        Intent serviceIntent = new Intent(this, GetNumberForegroundService.class);
+        // 2. Register Self-Managed Telecom PhoneAccount
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent);
-        } else {
-            startService(serviceIntent);
+            GetNumberCallConnectionService.ensurePhoneAccountRegistered(this);
         }
 
-        // 3. Request Battery Optimization Exemption so Android never kills the background daemon
+        // 3. Configure WebView WebRTC Audio/Video Permission Delegation
+        configureWebViewMediaPermissions();
+
+        // 4. Start Intranet Local Push Service safely
+        startLocalPushServiceSafely();
+
+        // 5. Request Battery Optimization Exemption for reliable Intranet Local Push keepalive
         requestBatteryOptimizationExemption();
 
-        // 4. Handle incoming call extras from notification / native dialer intent
+        // 6. Handle incoming call extras from Lock Screen Notification / Telecom intent
         handleIntent(getIntent());
     }
 
@@ -51,19 +57,57 @@ public class MainActivity extends BridgeActivity {
         handleIntent(intent);
     }
 
+    private void configureWebViewMediaPermissions() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+        final WebChromeClient existingClient = getBridge().getWebView().getWebChromeClient();
+        getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onPermissionRequest(final PermissionRequest request) {
+                runOnUiThread(() -> {
+                    try {
+                        request.grant(request.getResources());
+                    } catch (Exception e) {
+                        if (existingClient != null) {
+                            existingClient.onPermissionRequest(request);
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    private void startLocalPushServiceSafely() {
+        try {
+            Intent serviceIntent = new Intent(this, GetNumberForegroundService.class);
+            serviceIntent.setAction(GetNumberForegroundService.ACTION_START_LOCAL_PUSH);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void handleIntent(Intent intent) {
         if (intent == null) return;
 
+        String callUuid = intent.getStringExtra("call_uuid");
         String callId = intent.getStringExtra("call_id");
         boolean autoAnswer = intent.getBooleanExtra("auto_answer", false);
+        boolean hasVideo = intent.getBooleanExtra("has_video", false);
 
-        if (callId != null && !callId.isEmpty()) {
+        if ((callUuid != null && !callUuid.isEmpty()) || (callId != null && !callId.isEmpty())) {
+            String safeCallId = (callId != null && !callId.isEmpty()) ? callId : "";
+            String safeCallUuid = (callUuid != null && !callUuid.isEmpty()) ? callUuid : "";
             String js = String.format(
-                "window.dispatchEvent(new CustomEvent('native_call_action', { detail: { callId: '%s', autoAnswer: %b } }));",
-                callId, autoAnswer
+                "window.dispatchEvent(new CustomEvent('native_call_action', { detail: { callId: '%s', callUuid: '%s', autoAnswer: %b, hasVideo: %b } }));",
+                safeCallId, safeCallUuid, autoAnswer, hasVideo
             );
             if (getBridge() != null && getBridge().getWebView() != null) {
-                getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript(js, null));
+                getBridge().getWebView().postDelayed(
+                    () -> getBridge().getWebView().evaluateJavascript(js, null),
+                    350
+                );
             }
         }
     }
@@ -76,8 +120,7 @@ public class MainActivity extends BridgeActivity {
                     Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                     intent.setData(Uri.parse("package:" + getPackageName()));
                     startActivity(intent);
-                } catch (Exception e) {
-                    // Fallback to general settings
+                } catch (Exception ignored) {
                 }
             }
         }

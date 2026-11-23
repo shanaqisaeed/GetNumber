@@ -221,6 +221,8 @@ class VoiceCallController extends Controller
             'phone_number_id' => ['nullable', 'integer'],
             'line_key' => ['nullable', 'string', 'max:64'],
             'destination' => ['required', 'string', 'max:64'],
+            'has_video' => ['nullable', 'boolean'],
+            'device_uuid' => ['nullable', 'string', 'max:64'],
         ], [
             'destination.required' => __('controllers.user.calls.val_destination_required'),
         ]);
@@ -288,7 +290,12 @@ class VoiceCallController extends Controller
         }
 
         try {
-            $call = $this->voiceCallService->initiateCall($user, $fromNumber, $validated['destination']);
+            $call = $this->voiceCallService->initiateCall(
+                $user,
+                $fromNumber,
+                $validated['destination'],
+                (bool) ($validated['has_video'] ?? false)
+            );
             if ($customCallerHandle) {
                 $call->source_identifier = $customCallerHandle;
                 $call->save();
@@ -298,9 +305,12 @@ class VoiceCallController extends Controller
                 'success' => true,
                 'call' => [
                     'id' => $call->id,
+                    'call_uuid' => $call->call_uuid,
                     'source' => $call->source_identifier,
                     'destination' => $call->destination,
                     'status' => $call->status,
+                    'canonical_status' => $call->canonicalStatus(),
+                    'has_video' => (bool) $call->has_video,
                     'started_at' => $call->started_at?->toIso8601String(),
                     'rate_per_minute' => (float) $call->rate_per_minute,
                     'bridge_session_id' => $call->metadata['bridge_session_id'] ?? null,
@@ -335,6 +345,8 @@ class VoiceCallController extends Controller
     public function activeIncoming(Request $request): JsonResponse
     {
         $user = $request->user();
+        $this->voiceCallService->expireTimedOutRingingCalls();
+
         $incoming = VoiceCall::where('user_id', $user->id)
             ->where('direction', 'inbound')
             ->where('status', 'ringing')
@@ -346,9 +358,12 @@ class VoiceCallController extends Controller
             'has_incoming' => $incoming !== null,
             'call' => $incoming ? [
                 'id' => $incoming->id,
+                'call_uuid' => $incoming->call_uuid,
                 'source' => $incoming->source_identifier,
                 'destination' => $incoming->destination,
                 'status' => $incoming->status,
+                'canonical_status' => $incoming->canonicalStatus(),
+                'has_video' => (bool) $incoming->has_video,
                 'created_at' => $incoming->created_at->toIso8601String(),
                 'bridge_session_id' => $incoming->metadata['bridge_session_id'] ?? null,
                 'bridge_ws_endpoint' => $incoming->metadata['bridge_ws_endpoint'] ?? null,
@@ -358,7 +373,7 @@ class VoiceCallController extends Controller
     }
 
     /**
-     * Answer an incoming call.
+     * Answer an incoming call (Atomic & Idempotent).
      */
     public function answer(Request $request, VoiceCall $voiceCall): JsonResponse
     {
@@ -367,17 +382,22 @@ class VoiceCallController extends Controller
             abort(403);
         }
 
-        $voiceCall->update([
-            'status' => 'in_call',
-            'answered_at' => now(),
-        ]);
-
-        $peerId = $voiceCall->metadata['peer_call_id'] ?? null;
-        if ($peerId) {
-            VoiceCall::where('id', $peerId)->update([
-                'status' => 'in_call',
-                'answered_at' => now(),
-            ]);
+        try {
+            $voiceCall = $this->voiceCallService->acceptCallAtomically(
+                voiceCall: $voiceCall,
+                user: $user,
+                deviceUuid: $request->input('device_uuid')
+            );
+        } catch (\RuntimeException $e) {
+            $code = in_array($e->getCode(), [409, 410], true) ? $e->getCode() : 409;
+            return response()->json([
+                'success' => false,
+                'code' => $e->getMessage(),
+                'message' => $e->getMessage() === 'CALL_ALREADY_ACCEPTED_ON_ANOTHER_DEVICE'
+                    ? 'این تماس در دستگاه دیگری پاسخ داده شد.'
+                    : 'امکان پاسخ به این تماس وجود ندارد.',
+                'accepted_device_id' => $voiceCall->fresh()?->accepted_device_id,
+            ], $code);
         }
 
         return response()->json([
@@ -385,9 +405,13 @@ class VoiceCallController extends Controller
             'message' => __('controllers.user.calls.answered'),
             'call' => [
                 'id' => $voiceCall->id,
+                'call_uuid' => $voiceCall->call_uuid,
                 'source' => $voiceCall->source_identifier,
                 'destination' => $voiceCall->destination,
                 'status' => $voiceCall->status,
+                'canonical_status' => $voiceCall->canonicalStatus(),
+                'has_video' => (bool) $voiceCall->has_video,
+                'accepted_device_id' => $voiceCall->accepted_device_id,
                 'answered_at' => $voiceCall->answered_at?->toIso8601String(),
                 'bridge_session_id' => $voiceCall->metadata['bridge_session_id'] ?? null,
                 'bridge_ws_endpoint' => $voiceCall->metadata['bridge_ws_endpoint'] ?? null,
@@ -399,7 +423,7 @@ class VoiceCallController extends Controller
     }
 
     /**
-     * Decline an incoming call.
+     * Decline an incoming call (Atomic & Idempotent).
      */
     public function decline(Request $request, VoiceCall $voiceCall): JsonResponse
     {
@@ -408,17 +432,18 @@ class VoiceCallController extends Controller
             abort(403);
         }
 
-        $voiceCall->update([
-            'status' => 'declined',
-            'ended_at' => now(),
-        ]);
-
-        $peerId = $voiceCall->metadata['peer_call_id'] ?? null;
-        if ($peerId) {
-            VoiceCall::where('id', $peerId)->update([
-                'status' => 'declined',
-                'ended_at' => now(),
-            ]);
+        try {
+            $this->voiceCallService->rejectCallAtomically(
+                voiceCall: $voiceCall,
+                user: $user,
+                deviceUuid: $request->input('device_uuid')
+            );
+        } catch (\RuntimeException $e) {
+            return response()->json([
+                'success' => false,
+                'code' => $e->getMessage(),
+                'message' => 'امکان رد تماس فعال وجود ندارد.',
+            ], 409);
         }
 
         return response()->json([
@@ -687,6 +712,16 @@ class VoiceCallController extends Controller
 
             if ($call) {
                 $this->voiceCallService->endCall($call, $durationSeconds);
+            }
+        } elseif (in_array($event, ['local_push_connected', 'local_push_disconnected'], true)) {
+            $deviceUuid = (string) $request->input('device_uuid', '');
+            if ($deviceUuid !== '') {
+                app(\App\Services\Communication\DeviceRegistryService::class)->updateLocalConnectionState(
+                    deviceUuid: $deviceUuid,
+                    connected: $event === 'local_push_connected',
+                    connectionId: $request->input('connection_id'),
+                    ip: $request->input('client_ip')
+                );
             }
         }
 

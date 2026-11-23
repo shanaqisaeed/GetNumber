@@ -42,6 +42,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'active' => EnsureAccountIsActive::class,
             'verified' => \App\Http\Middleware\EnsureUserEmailIsVerified::class,
             'auth.api_token' => \App\Http\Middleware\AuthenticateApiToken::class,
+            'auth.mobile' => \App\Http\Middleware\AuthenticateMobileOrWeb::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

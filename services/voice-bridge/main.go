@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha1"
+	"crypto/sha256"
 	"crypto/subtle"
 	"crypto/tls"
 	"encoding/base64"
@@ -1405,9 +1406,412 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 	}, nil
 }
 
+// --- LOCAL PUSH CONNECTIVITY SERVER (iOS NEAppPushProvider & Android Local Client) ---
+
+type LocalPushClient struct {
+	DeviceUUID   string    `json:"device_uuid"`
+	UserID       int64     `json:"user_id"`
+	Platform     string    `json:"platform"`
+	ConnectionID string    `json:"connection_id"`
+	RemoteAddr   string    `json:"remote_addr"`
+	ConnectedAt  time.Time `json:"connected_at"`
+	LastSeenAt   time.Time `json:"last_seen_at"`
+	conn         net.Conn
+	writer       *bufio.Writer
+	writeMu      sync.Mutex
+}
+
+type LocalPushHub struct {
+	sync.RWMutex
+	clients            map[string]*LocalPushClient // deviceUUID -> client
+	ackWaiters         map[string]chan bool        // msgID -> ack channel
+	secret             string
+	defaultCallbackURL string
+}
+
+func NewLocalPushHub(secret string, defaultCallbackURL string) *LocalPushHub {
+	return &LocalPushHub{
+		clients:            make(map[string]*LocalPushClient),
+		ackWaiters:         make(map[string]chan bool),
+		secret:             secret,
+		defaultCallbackURL: defaultCallbackURL,
+	}
+}
+
+func verifyLocalPushTicket(ticket string, secret string) (string, int64, bool) {
+	ticket = strings.TrimSpace(ticket)
+	if ticket == "" {
+		return "", 0, false
+	}
+
+	padded := strings.ReplaceAll(strings.ReplaceAll(ticket, "-", "+"), "_", "/")
+	if mod := len(padded) % 4; mod > 0 {
+		padded += strings.Repeat("=", 4-mod)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(padded)
+	if err != nil || len(decoded) == 0 {
+		return "", 0, false
+	}
+
+	parts := strings.Split(string(decoded), "|")
+	if len(parts) != 4 {
+		return "", 0, false
+	}
+
+	deviceUUID := strings.TrimSpace(parts[0])
+	userIDStr := strings.TrimSpace(parts[1])
+	expiresAtStr := strings.TrimSpace(parts[2])
+	providedSig := strings.TrimSpace(parts[3])
+
+	if deviceUUID == "" {
+		return "", 0, false
+	}
+
+	expiresAt, err := strconv.ParseInt(expiresAtStr, 10, 64)
+	if err != nil || expiresAt < time.Now().Unix() {
+		return "", 0, false
+	}
+
+	userID, _ := strconv.ParseInt(userIDStr, 10, 64)
+
+	effectiveSecret := secret
+	if effectiveSecret == "" {
+		effectiveSecret = "getnumber_default_secret"
+	}
+
+	mac := hmac.New(sha256.New, []byte(effectiveSecret))
+	mac.Write([]byte(fmt.Sprintf("%s|%s|%s", deviceUUID, userIDStr, expiresAtStr)))
+	expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+	if subtle.ConstantTimeCompare([]byte(strings.ToLower(providedSig)), []byte(strings.ToLower(expectedSig))) != 1 {
+		return "", 0, false
+	}
+
+	return deviceUUID, userID, true
+}
+
+func (lph *LocalPushHub) authenticateRequest(r *http.Request) (string, int64, string, bool) {
+	platform := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("platform")))
+	if platform == "" {
+		platform = strings.ToLower(strings.TrimSpace(r.Header.Get("X-Device-Platform")))
+	}
+	if platform == "" {
+		platform = "mobile"
+	}
+
+	// 1. Verify signed Local Push Ticket (?ticket=... or X-Local-Push-Ticket)
+	ticket := strings.TrimSpace(r.URL.Query().Get("ticket"))
+	if ticket == "" {
+		ticket = strings.TrimSpace(r.Header.Get("X-Local-Push-Ticket"))
+	}
+	if ticket != "" {
+		if devUUID, uid, ok := verifyLocalPushTicket(ticket, lph.secret); ok {
+			return devUUID, uid, platform, true
+		}
+	}
+
+	// 2. Fallback: Master bridge secret + explicit device_uuid
+	providedSecret := extractSecret(r)
+	if validateSecret(providedSecret, lph.secret) {
+		devUUID := strings.TrimSpace(r.URL.Query().Get("device_uuid"))
+		if devUUID == "" {
+			devUUID = strings.TrimSpace(r.Header.Get("X-Device-UUID"))
+		}
+		if devUUID != "" {
+			uid, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("user_id")), 10, 64)
+			return devUUID, uid, platform, true
+		}
+	}
+
+	return "", 0, "", false
+}
+
+func notifyLaravelLocalPushWebhook(callbackURL, secret, event, deviceUUID, connID, clientIP string) {
+	callbackURL = normalizeCallbackURL(callbackURL)
+	if callbackURL == "" {
+		return
+	}
+	go func() {
+		payload := map[string]interface{}{
+			"event":         event,
+			"device_uuid":   deviceUUID,
+			"connection_id": connID,
+			"client_ip":     clientIP,
+		}
+		data, _ := json.Marshal(payload)
+		req, err := http.NewRequest("POST", callbackURL, strings.NewReader(string(data)))
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		if secret != "" {
+			req.Header.Set("X-Bridge-Secret", secret)
+		}
+		client := &http.Client{Timeout: 3 * time.Second}
+		resp, err := client.Do(req)
+		if err == nil && resp != nil {
+			_ = resp.Body.Close()
+		}
+	}()
+}
+
+func (lph *LocalPushHub) HandleWS(w http.ResponseWriter, r *http.Request) {
+	deviceUUID, userID, platform, ok := lph.authenticateRequest(r)
+	if !ok {
+		http.Error(w, "Unauthorized: invalid local push ticket or device credentials", http.StatusUnauthorized)
+		return
+	}
+
+	if !strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+		http.Error(w, "Expected WebSocket Upgrade", http.StatusBadRequest)
+		return
+	}
+
+	key := r.Header.Get("Sec-WebSocket-Key")
+	if key == "" {
+		http.Error(w, "Missing Sec-WebSocket-Key", http.StatusBadRequest)
+		return
+	}
+
+	h := sha1.New()
+	h.Write([]byte(key + wsGUID))
+	acceptKey := base64.StdEncoding.EncodeToString(h.Sum(nil))
+
+	hijacker, ok := w.(http.Hijacker)
+	if !ok {
+		http.Error(w, "Webserver doesn't support hijacking", http.StatusInternalServerError)
+		return
+	}
+
+	conn, bufrw, err := hijacker.Hijack()
+	if err != nil {
+		log.Printf("[LOCAL-PUSH] Hijack error: %v", err)
+		return
+	}
+	defer conn.Close()
+
+	response := fmt.Sprintf(
+		"HTTP/1.1 101 Switching Protocols\r\n"+
+			"Upgrade: websocket\r\n"+
+			"Connection: Upgrade\r\n"+
+			"Sec-WebSocket-Accept: %s\r\n\r\n",
+		acceptKey,
+	)
+	if _, err := bufrw.WriteString(response); err != nil {
+		return
+	}
+	if err := bufrw.Flush(); err != nil {
+		return
+	}
+
+	connID := generateID()
+	client := &LocalPushClient{
+		DeviceUUID:   deviceUUID,
+		UserID:       userID,
+		Platform:     platform,
+		ConnectionID: connID,
+		RemoteAddr:   r.RemoteAddr,
+		ConnectedAt:  time.Now(),
+		LastSeenAt:   time.Now(),
+		conn:         conn,
+		writer:       bufrw.Writer,
+	}
+
+	lph.Lock()
+	if old, exists := lph.clients[deviceUUID]; exists && old.conn != nil {
+		_ = old.conn.Close()
+	}
+	lph.clients[deviceUUID] = client
+	lph.Unlock()
+
+	log.Printf("[LOCAL-PUSH] 📱 Device connected: %s (user_id: %d | platform: %s | conn: %s | from: %s)",
+		deviceUUID, userID, platform, connID, r.RemoteAddr)
+
+	if lph.defaultCallbackURL != "" {
+		notifyLaravelLocalPushWebhook(lph.defaultCallbackURL, lph.secret, "local_push_connected", deviceUUID, connID, r.RemoteAddr)
+	}
+
+	// Send initial ready handshake frame
+	readyPayload, _ := json.Marshal(map[string]interface{}{
+		"type":          "local_push_ready",
+		"device_uuid":   deviceUUID,
+		"connection_id": connID,
+		"server_time":   time.Now().UnixMilli(),
+	})
+	client.writeMu.Lock()
+	_ = writeWSFrame(client.writer, 0x01, readyPayload)
+	client.writeMu.Unlock()
+
+	defer func() {
+		lph.Lock()
+		current, exists := lph.clients[deviceUUID]
+		if exists && current.ConnectionID == connID {
+			delete(lph.clients, deviceUUID)
+		}
+		lph.Unlock()
+
+		log.Printf("[LOCAL-PUSH] 🔌 Device disconnected: %s (conn: %s)", deviceUUID, connID)
+		if lph.defaultCallbackURL != "" {
+			notifyLaravelLocalPushWebhook(lph.defaultCallbackURL, lph.secret, "local_push_disconnected", deviceUUID, connID, r.RemoteAddr)
+		}
+	}()
+
+	for {
+		frame, err := readWSFrame(bufrw.Reader)
+		if err != nil {
+			break
+		}
+
+		lph.Lock()
+		client.LastSeenAt = time.Now()
+		lph.Unlock()
+
+		if frame.Opcode == 0x01 { // Text JSON frame
+			var msg struct {
+				Type       string `json:"type"`
+				MsgID      string `json:"msg_id"`
+				CallUUID   string `json:"call_uuid"`
+				ClientTime int64  `json:"client_time"`
+			}
+			if err := json.Unmarshal(frame.Payload, &msg); err == nil {
+				switch msg.Type {
+				case "ping", "heartbeat":
+					pongData, _ := json.Marshal(map[string]interface{}{
+						"type":        "pong",
+						"client_time": msg.ClientTime,
+						"server_time": time.Now().UnixMilli(),
+					})
+					client.writeMu.Lock()
+					_ = writeWSFrame(client.writer, 0x01, pongData)
+					client.writeMu.Unlock()
+
+				case "ack":
+					if msg.MsgID != "" {
+						lph.RLock()
+						ch, waiting := lph.ackWaiters[msg.MsgID]
+						lph.RUnlock()
+						if waiting {
+							select {
+							case ch <- true:
+							default:
+							}
+						}
+						log.Printf("[LOCAL-PUSH] ✅ Delivery ACK received from device %s (msg_id: %s | call_uuid: %s)",
+							deviceUUID, msg.MsgID, msg.CallUUID)
+					}
+				}
+			}
+		} else if frame.Opcode == 0x08 { // Close frame
+			break
+		} else if frame.Opcode == 0x09 { // Ping frame
+			client.writeMu.Lock()
+			_ = writeWSFrame(client.writer, 0x0A, frame.Payload)
+			client.writeMu.Unlock()
+		}
+	}
+}
+
+func (lph *LocalPushHub) Dispatch(deviceUUID string, msgID string, payload interface{}, requireAck bool, ackTimeoutMs int) (bool, bool, error) {
+	lph.RLock()
+	client, exists := lph.clients[deviceUUID]
+	lph.RUnlock()
+
+	if !exists || client == nil || client.conn == nil {
+		return false, false, fmt.Errorf("local_socket_not_connected")
+	}
+
+	if msgID == "" {
+		msgID = generateID()
+	}
+
+	var ackCh chan bool
+	if requireAck {
+		ackCh = make(chan bool, 1)
+		lph.Lock()
+		lph.ackWaiters[msgID] = ackCh
+		lph.Unlock()
+		defer func() {
+			lph.Lock()
+			delete(lph.ackWaiters, msgID)
+			lph.Unlock()
+		}()
+	}
+
+	envelope := map[string]interface{}{
+		"type":        "push_event",
+		"msg_id":      msgID,
+		"device_uuid": deviceUUID,
+		"server_time": time.Now().UnixMilli(),
+		"payload":     payload,
+	}
+	data, err := json.Marshal(envelope)
+	if err != nil {
+		return false, false, err
+	}
+
+	client.writeMu.Lock()
+	writeErr := writeWSFrame(client.writer, 0x01, data)
+	client.writeMu.Unlock()
+
+	if writeErr != nil {
+		_ = client.conn.Close()
+		lph.Lock()
+		delete(lph.clients, deviceUUID)
+		lph.Unlock()
+		return false, false, writeErr
+	}
+
+	if !requireAck {
+		return true, true, nil
+	}
+
+	if ackTimeoutMs <= 0 || ackTimeoutMs > 5000 {
+		ackTimeoutMs = 1400
+	}
+
+	select {
+	case <-ackCh:
+		return true, true, nil
+	case <-time.After(time.Duration(ackTimeoutMs) * time.Millisecond):
+		return true, false, nil
+	}
+}
+
+func (lph *LocalPushHub) DisconnectDevice(deviceUUID string) bool {
+	lph.Lock()
+	client, exists := lph.clients[deviceUUID]
+	if exists {
+		delete(lph.clients, deviceUUID)
+	}
+	lph.Unlock()
+
+	if exists && client != nil && client.conn != nil {
+		_ = client.conn.Close()
+		return true
+	}
+	return false
+}
+
+func (lph *LocalPushHub) ListClients() []*LocalPushClient {
+	lph.RLock()
+	defer lph.RUnlock()
+	list := make([]*LocalPushClient, 0, len(lph.clients))
+	for _, c := range lph.clients {
+		list = append(list, c)
+	}
+	return list
+}
+
+func (lph *LocalPushHub) Count() int {
+	lph.RLock()
+	defer lph.RUnlock()
+	return len(lph.clients)
+}
+
 // --- REST API SERVER ---
 
-func startAPIServer(cfg Config, store *SessionStore, turnSrv *TurnServer, startTime time.Time) *http.Server {
+func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub, turnSrv *TurnServer, startTime time.Time) *http.Server {
 	mux := http.NewServeMux()
 
 	// CORS & Auth Middleware Helper
@@ -1470,20 +1874,30 @@ func startAPIServer(cfg Config, store *SessionStore, turnSrv *TurnServer, startT
 			turnInfo["active"] = false
 		}
 
+		localPushCount := 0
+		if localPushHub != nil {
+			localPushCount = localPushHub.Count()
+		}
+
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"status":            "ok",
-			"service":           "GetNumber Voice Bridge Daemon",
-			"version":           "2.1.0",
-			"uptime_seconds":    uptime,
-			"active_sessions":   store.TotalActive(),
-			"bridge_host":       cfg.Host,
-			"api_port":          cfg.APIPort,
-			"ws_port":           cfg.WSPort,
-			"callback_url":      cfg.CallbackURL,
-			"auth_required":     cfg.Secret != "",
-			"auth_valid":        authValid,
-			"stun_turn":         turnInfo,
-			"timestamp":         time.Now().Format(time.RFC3339),
+			"status":          "ok",
+			"service":         "GetNumber Voice Bridge Daemon",
+			"version":         "2.2.0",
+			"uptime_seconds":  uptime,
+			"active_sessions": store.TotalActive(),
+			"bridge_host":     cfg.Host,
+			"api_port":        cfg.APIPort,
+			"ws_port":         cfg.WSPort,
+			"callback_url":    cfg.CallbackURL,
+			"auth_required":   cfg.Secret != "",
+			"auth_valid":      authValid,
+			"stun_turn":       turnInfo,
+			"local_push": map[string]interface{}{
+				"enabled":           true,
+				"ws_path":           "/ws/local-push",
+				"connected_devices": localPushCount,
+			},
+			"timestamp": time.Now().Format(time.RFC3339),
 		})
 	}))
 
@@ -1650,6 +2064,95 @@ func startAPIServer(cfg Config, store *SessionStore, turnSrv *TurnServer, startT
 		})
 	}))
 
+	// 7. Dispatch Incoming Call / Control Event to Connected Local Push Device (Protected by Secret)
+	mux.HandleFunc("/api/local-push/dispatch", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			DeviceUUID   string      `json:"device_uuid"`
+			UserID       int64       `json:"user_id"`
+			Platform     string      `json:"platform"`
+			MsgID        string      `json:"msg_id"`
+			RequireAck   bool        `json:"require_ack"`
+			AckTimeoutMs int         `json:"ack_timeout_ms"`
+			Payload      interface{} `json:"payload"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if localPushHub == nil || req.DeviceUUID == "" {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"success":      false,
+				"delivered":    false,
+				"acknowledged": false,
+				"error":        "missing_device_uuid",
+			})
+			return
+		}
+
+		delivered, acked, err := localPushHub.Dispatch(req.DeviceUUID, req.MsgID, req.Payload, req.RequireAck, req.AckTimeoutMs)
+		errMsg := ""
+		if err != nil {
+			errMsg = err.Error()
+		}
+
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":      delivered,
+			"delivered":    delivered,
+			"acknowledged": acked,
+			"device_uuid":  req.DeviceUUID,
+			"msg_id":       req.MsgID,
+			"error":        errMsg,
+		})
+	}))
+
+	// 8. List Connected Local Push Devices (Protected by Secret)
+	mux.HandleFunc("/api/local-push/devices", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		var devices []*LocalPushClient
+		if localPushHub != nil {
+			devices = localPushHub.ListClients()
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"count":   len(devices),
+			"devices": devices,
+		})
+	}))
+
+	// 9. Force Disconnect Revoked Local Push Device (Protected by Secret)
+	mux.HandleFunc("/api/local-push/disconnect", requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req struct {
+			DeviceUUID string `json:"device_uuid"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		disconnected := false
+		if localPushHub != nil && req.DeviceUUID != "" {
+			disconnected = localPushHub.DisconnectDevice(req.DeviceUUID)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success":      true,
+			"disconnected": disconnected,
+			"device_uuid":  req.DeviceUUID,
+		})
+	}))
+
+	if localPushHub != nil {
+		mux.HandleFunc("/ws/local-push", localPushHub.HandleWS)
+	}
+
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.APIPort),
 		Handler: mux,
@@ -1667,9 +2170,12 @@ func startAPIServer(cfg Config, store *SessionStore, turnSrv *TurnServer, startT
 
 // --- WEBSOCKET SERVER ---
 
-func startWSServer(cfg Config, hub *SignalingHub) *http.Server {
+func startWSServer(cfg Config, hub *SignalingHub, localPushHub *LocalPushHub) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/signaling", hub.HandleWS)
+	if localPushHub != nil {
+		mux.HandleFunc("/ws/local-push", localPushHub.HandleWS)
+	}
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", cfg.Host, cfg.WSPort),
@@ -1677,7 +2183,7 @@ func startWSServer(cfg Config, hub *SignalingHub) *http.Server {
 	}
 
 	go func() {
-		log.Printf("[Voice Bridge WebSocket] Listening on ws://%s:%d/ws/signaling", cfg.Host, cfg.WSPort)
+		log.Printf("[Voice Bridge WebSocket] Listening on ws://%s:%d/ws/signaling & /ws/local-push", cfg.Host, cfg.WSPort)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("[Voice Bridge WS] Error: %v", err)
 		}
@@ -1693,6 +2199,7 @@ func main() {
 	startTime := time.Now()
 	store := NewSessionStore()
 	hub := NewSignalingHub(store, cfg.Secret, cfg.CallbackURL)
+	localPushHub := NewLocalPushHub(cfg.Secret, cfg.CallbackURL)
 
 	turnSrv, err := startTurnServer(cfg)
 	if err != nil {
@@ -1700,10 +2207,11 @@ func main() {
 	}
 
 	fmt.Println("==================================================================")
-	fmt.Println("🚀 GetNumber Voice Bridge & Embedded STUN/TURN Media Relay 2.1")
+	fmt.Println("🚀 GetNumber Voice Bridge, Local Push & STUN/TURN Media Relay 2.2")
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)
+	fmt.Printf("📲 Local Push Server:     ws://%s:%d/ws/local-push\n", cfg.Host, cfg.WSPort)
 	if cfg.TurnEnabled {
 		fmt.Printf("🔄 STUN Server:           stun:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
 		fmt.Printf("🛡️  TURN Relay Server:     turn:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
@@ -1723,8 +2231,8 @@ func main() {
 	fmt.Println("👉 Set this secret in Admin: Settings > Voice Bridge > Secret")
 	fmt.Println("==================================================================")
 
-	apiServer := startAPIServer(cfg, store, turnSrv, startTime)
-	wsServer := startWSServer(cfg, hub)
+	apiServer := startAPIServer(cfg, store, localPushHub, turnSrv, startTime)
+	wsServer := startWSServer(cfg, hub, localPushHub)
 
 	// Graceful shutdown handling
 	stop := make(chan os.Signal, 1)

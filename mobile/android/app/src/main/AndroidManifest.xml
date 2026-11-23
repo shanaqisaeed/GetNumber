@@ -2,16 +2,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.getnumber.softphone">
 
-    <!-- Network & Hardware Permissions -->
+    <!-- Network & Wi-Fi Intranet Binding Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- Media & Bluetooth Audio Routing Permissions -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
-    <!-- Permanent Background & Device Wakeup Permissions -->
+    <!-- Background Execution, Foreground Service & Wakeup Permissions (Android 14 / API 34 compliant) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_REMOTE_MESSAGING" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -19,15 +27,16 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- System Incoming Call Screen & Lock Screen Overlay Permissions -->
+    <!-- System Incoming Call Screen, Telecom & Lock Screen Permissions -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:label="Ravyno"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar"
@@ -50,24 +59,53 @@
             </intent-filter>
         </activity>
 
-        <!-- Permanent Sticky Background Service for Incoming Calls and SMS -->
+        <!-- Intranet Local Push & Incoming Call Notification Service (Android 14 Compliant) -->
         <service
             android:name=".GetNumberForegroundService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone" />
+            android:foregroundServiceType="remoteMessaging|specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Intranet local push socket connectivity for enterprise VoIP call reception when WAN/FCM is unavailable." />
+        </service>
 
-        <!-- Native Telecom Framework ConnectionService (Real Native Ringing on Lock Screen) -->
+        <!-- Native Telecom Framework ConnectionService (Real Native Ringing & Audio Routing) -->
         <service
             android:name=".GetNumberCallConnectionService"
             android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE"
-            android:exported="true">
+            android:exported="true"
+            android:foregroundServiceType="phoneCall|microphone">
             <intent-filter>
                 <action android:name="android.telecom.ConnectionService" />
             </intent-filter>
         </service>
 
-        <!-- Auto-Start on Device Boot -->
+        <!-- Lock Screen Call Action Receiver (Answer / Reject / End directly from Notification) -->
+        <receiver
+            android:name=".CallActionReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.getnumber.softphone.ACTION_CALL_ANSWER" />
+                <action android:name="com.getnumber.softphone.ACTION_CALL_REJECT" />
+                <action android:name="com.getnumber.softphone.ACTION_CALL_END" />
+            </intent-filter>
+        </receiver>
+
+        <!-- FCM High-Priority Data Push & Call Control Receiver (Public Mode) -->
+        <receiver
+            android:name=".RavynoPushReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="com.google.android.c2dm.permission.SEND">
+            <intent-filter>
+                <action android:name="com.google.android.c2dm.intent.RECEIVE" />
+                <action android:name="com.getnumber.softphone.ACTION_PUSH_EVENT" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Auto-Start on Device Boot (within Android OS allowed bounds) -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"

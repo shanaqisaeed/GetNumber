@@ -116,6 +116,22 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             \App\Services\Communication\CommunicationManager::class
         );
+
+        $this->app->singleton(
+            \App\Services\Communication\DeviceRegistryService::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Communication\NetworkModeManager::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Communication\CallEventStreamService::class
+        );
+
+        $this->app->singleton(
+            \App\Services\Communication\Push\PushGatewayService::class
+        );
     }
 
     /**

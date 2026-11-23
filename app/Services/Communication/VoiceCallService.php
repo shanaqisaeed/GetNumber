@@ -4,29 +4,35 @@ namespace App\Services\Communication;
 
 use App\Contracts\Communication\VoiceCallServiceInterface;
 use App\Contracts\WalletServiceInterface;
+use App\DTOs\CallPushPayload;
 use App\Enums\PhoneNumberStatus;
 use App\Enums\WalletTransactionType;
 use App\Exceptions\InsufficientWalletBalanceException;
+use App\Models\AuditLog;
 use App\Models\PhoneNumber;
 use App\Models\PhonePrefix;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\VoiceCall;
 use App\Models\VoiceCallSignal;
+use App\Services\Communication\Push\PushGatewayService;
 use App\Services\PhoneNumberNormalizer;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 class VoiceCallService implements VoiceCallServiceInterface
 {
+    public const DEFAULT_RING_TIMEOUT_SECONDS = 45;
+
     public function __construct(
         protected WalletServiceInterface $walletService
     ) {}
 
-    public function initiateCall(User $user, PhoneNumber $fromNumber, string $destinationNumber): VoiceCall
+    public function initiateCall(User $user, PhoneNumber $fromNumber, string $destinationNumber, bool $hasVideo = false): VoiceCall
     {
-        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id) {
+        if (! $user->isAdmin() && $fromNumber->user_id !== $user->id && $fromNumber->assigned_user_id !== $user->id) {
             throw new AccessDeniedHttpException(__('services.communication.voice.not_owner'));
         }
 
@@ -99,33 +105,25 @@ class VoiceCallService implements VoiceCallServiceInterface
             }
         }
 
-        // 2. Determine tariff rate per minute based on communication type from system tariffs:
+        // 2. Determine tariff rate per minute based on communication type from system tariffs
         $isInternal = ($resolvedDestRecord !== null);
-        $isIdCall = str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination) || ($customCallerHandle ?? null);
+        $isIdCall = str_starts_with($cleanDestination, '@') || ! preg_match('/^\+?[0-9]+$/', $cleanDestination);
 
         if ($isIdCall) {
-            // ID-to-ID or Custom ID communication tariff (configured in global admin tariffs)
             $ratePerMinute = (float) SystemSetting::get('id_voice_rate_per_minute', '0.0500');
-            $callType = 'id_to_id';
         } else {
             $cleanDestDigits = PhoneNumberNormalizer::clean($cleanDestination);
-            // Check if call is intra-prefix (internal extension, same prefix, or short extension)
             $isIntra = $isInternal || ($cleanFromPrefix !== '' && (str_starts_with($cleanDestDigits, $cleanFromPrefix) || strlen($cleanDestDigits) <= 7));
             if ($isIntra) {
-                // Intra-prefix voice call rate (configured per prefix or global intra rate)
                 $ratePerMinute = (float) ($fromPrefix?->getIntraVoiceRate() ?? SystemSetting::get('voice_intra_prefix_rate', '0.1000'));
-                $callType = 'intra_prefix';
             } else {
-                // Inter-prefix / external voice call rate
                 $ratePerMinute = (float) ($fromPrefix?->getInterVoiceRate() ?? SystemSetting::get('voice_inter_prefix_rate', '0.2500'));
-                $callType = 'inter_prefix';
             }
         }
 
         if ($ratePerMinute <= 0.0) {
             $ratePerMinute = 0.0000;
         }
-        $isFree = ($ratePerMinute <= 0.0);
 
         // 3. Pre-check wallet has at least 1 minute of credit (only if rate > 0)
         if ($ratePerMinute > 0) {
@@ -142,7 +140,12 @@ class VoiceCallService implements VoiceCallServiceInterface
             }
         }
 
-        // Bridge & Signaling Orchestration (Go Voice Bridge Daemon)
+        $callUuid = (string) Str::uuid();
+        $correlationId = 'corr-' . $callUuid;
+        $ringTimeoutSec = max(15, (int) SystemSetting::get('voice_ring_timeout_seconds', self::DEFAULT_RING_TIMEOUT_SECONDS));
+        $ringTimeoutAt = now()->addSeconds($ringTimeoutSec);
+
+        // 4. Bridge & Signaling Orchestration (Go Voice Bridge Daemon)
         $bridgeHost = SystemSetting::get('voice_bridge_host', '127.0.0.1');
         $bridgeApiPort = (int) SystemSetting::get('voice_bridge_api_port', 49000);
         $bridgeWsPort = (int) SystemSetting::get('voice_bridge_ws_port', 49001);
@@ -161,6 +164,7 @@ class VoiceCallService implements VoiceCallServiceInterface
                 $startUrl = self::buildBridgeUrl($bridgeHost, $bridgeApiPort, '/api/sessions/start');
                 $bridgeRes = $client->post($startUrl, [
                     'call_id' => 0,
+                    'call_uuid' => $callUuid,
                     'user_id' => $user->id,
                     'source' => $fromNumber->number,
                     'destination' => $cleanDestination,
@@ -183,9 +187,6 @@ class VoiceCallService implements VoiceCallServiceInterface
             }
         }
 
-        // Browser-facing signaling endpoint. SECURITY: never hand the master bridge
-        // secret to browsers; the bridge authorizes WS clients by the (random,
-        // unguessable) session id it just provisioned.
         $wsEndpoint = null;
         if ($bridgeSessionId) {
             $publicWsUrl = trim((string) SystemSetting::get('voice_bridge_ws_public_url', ''));
@@ -195,90 +196,324 @@ class VoiceCallService implements VoiceCallServiceInterface
             $wsEndpoint .= (str_contains($wsEndpoint, '?') ? '&' : '?') . 'session=' . urlencode($bridgeSessionId);
         }
 
+        $callerSourceIdent = $fromNumber->formatted_number ?: $fromNumber->number;
+
         $outboundCall = VoiceCall::create([
+            'call_uuid' => $callUuid,
             'user_id' => $user->id,
             'phone_number_id' => $fromNumber->id,
-            'source_identifier' => $fromNumber->formatted_number ?: $fromNumber->number,
+            'source_identifier' => $callerSourceIdent,
             'destination' => $cleanDestination,
             'direction' => 'outbound',
             'status' => 'in_call',
+            'has_video' => $hasVideo,
             'started_at' => now(),
+            'ring_timeout_at' => $ringTimeoutAt,
             'answered_at' => now(),
+            'last_pulse_at' => now(),
             'duration_seconds' => 0,
             'billed_minutes' => 0,
             'rate_per_minute' => $ratePerMinute,
             'cost' => 0.0000,
+            'correlation_id' => $correlationId,
             'metadata' => [
+                'call_uuid' => $callUuid,
                 'codec' => 'Opus/48000',
                 'ping_ms' => $pingMs,
                 'bridge_session_id' => $bridgeSessionId,
                 'bridge_ws_endpoint' => $wsEndpoint,
-                'mock_engine' => $bridgeSessionId ? 'Go-VoiceBridge-v1' : 'WebRTC-SIP-Stub-v1',
+                'mock_engine' => $bridgeSessionId ? 'Go-VoiceBridge-v2' : 'WebRTC-SIP-Stub-v1',
                 'is_internal' => $isInternal,
+                'has_video' => $hasVideo,
             ],
         ]);
 
         // If destination belongs to an internal user, create the Inbound Call record in 'ringing' status
         if ($destUser) {
             $calleeCall = VoiceCall::create([
+                'call_uuid' => $callUuid,
                 'user_id' => $destUser->id,
                 'phone_number_id' => ($resolvedDestRecord instanceof PhoneNumber) ? $resolvedDestRecord->id : null,
-                'source_identifier' => $fromNumber->formatted_number ?: $fromNumber->number,
+                'source_identifier' => $callerSourceIdent,
                 'destination' => $cleanDestination,
                 'direction' => 'inbound',
-                'status' => 'ringing',
+                'status' => VoiceCall::STATE_RINGING,
+                'has_video' => $hasVideo,
                 'started_at' => now(),
+                'ring_timeout_at' => $ringTimeoutAt,
                 'answered_at' => null,
                 'duration_seconds' => 0,
                 'billed_minutes' => 0,
                 'rate_per_minute' => 0.0000,
                 'cost' => 0.0000,
+                'correlation_id' => $correlationId,
                 'metadata' => [
+                    'call_uuid' => $callUuid,
                     'peer_call_id' => $outboundCall->id,
+                    'caller_user_id' => $user->id,
                     'codec' => 'Opus/48000',
                     'ping_ms' => $pingMs,
                     'bridge_session_id' => $bridgeSessionId,
                     'bridge_ws_endpoint' => $wsEndpoint,
                     'is_internal' => true,
+                    'has_video' => $hasVideo,
                 ],
             ]);
 
             $outMeta = $outboundCall->metadata;
             $outMeta['callee_call_id'] = $calleeCall->id;
+            $outMeta['callee_user_id'] = $destUser->id;
             $outboundCall->metadata = $outMeta;
-            $outboundCall->status = 'ringing';
+            $outboundCall->status = VoiceCall::STATE_RINGING;
             $outboundCall->answered_at = null;
             $outboundCall->save();
 
-            // Notify callee via WebSocket broadcast & Web Push Notification
+            // Record lifecycle event in stream
+            try {
+                app(CallEventStreamService::class)->publishStateTransition(
+                    call: $calleeCall,
+                    previousState: VoiceCall::STATE_INITIATED,
+                    currentState: VoiceCall::STATE_RINGING,
+                    eventType: 'call.initiated'
+                );
+            } catch (\Throwable) {
+            }
+
+            // Notify callee via Reverb WebSocket broadcast
             try {
                 broadcast(new \App\Events\CallReceived($calleeCall));
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
 
+            // Route push invitation via unified PushGatewayService (Local Push first, then APNs/FCM/WebPush if WAN is active)
             try {
-                app(\App\Services\WebPushNotificationService::class)->sendVoiceCallNotification($calleeCall);
-            } catch (\Throwable) {}
+                $pushPayload = new CallPushPayload(
+                    callUuid: $callUuid,
+                    callId: $calleeCall->id,
+                    callerHandle: $callerSourceIdent,
+                    callerDisplayName: $user->name ?: $callerSourceIdent,
+                    destinationLine: $cleanDestination,
+                    hasVideo: $hasVideo,
+                    issuedAt: time(),
+                    expiresAt: $ringTimeoutAt->getTimestamp(),
+                    correlationId: $correlationId,
+                );
+                app(PushGatewayService::class)->dispatchIncomingCall($destUser->id, $pushPayload, $calleeCall);
+            } catch (\Throwable) {
+            }
         }
 
         return $outboundCall;
     }
 
-    public function endCall(VoiceCall|int $call, ?int $durationSeconds = null): VoiceCall
+    /**
+     * Atomically accept an incoming call on a specific device (Stage 2.2 Multi-device Atomic Accept).
+     *
+     * - Idempotent if called again from the same device_uuid.
+     * - Throws 409 RuntimeException if another device of the same user already accepted the call.
+     * - Dispatches `call.answered_elsewhere` to all other devices of the user to stop ringing immediately.
+     */
+    public function acceptCallAtomically(VoiceCall $voiceCall, User $user, ?string $deviceUuid = null): VoiceCall
+    {
+        $cleanDeviceUuid = $deviceUuid ? trim($deviceUuid) : null;
+
+        $expiredByTimeout = false;
+
+        $acceptedCall = DB::transaction(function () use ($voiceCall, $user, $cleanDeviceUuid, &$expiredByTimeout) {
+            /** @var VoiceCall $locked */
+            $locked = VoiceCall::where('id', $voiceCall->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->user_id !== $user->id) {
+                throw new AccessDeniedHttpException(__('controllers.user.calls.access_denied'));
+            }
+
+            // Check ring timeout expiration before accepting (commit state change before throwing 410)
+            if ($locked->isRinging() && $locked->ring_timeout_at && $locked->ring_timeout_at->isPast()) {
+                $locked->update([
+                    'status' => VoiceCall::STATE_MISSED,
+                    'end_reason' => 'ring_timeout',
+                    'ended_at' => now(),
+                ]);
+
+                $peerId = $locked->metadata['peer_call_id'] ?? $locked->metadata['callee_call_id'] ?? null;
+                if ($peerId) {
+                    VoiceCall::where('id', $peerId)->where('status', VoiceCall::STATE_RINGING)->update([
+                        'status' => VoiceCall::STATE_MISSED,
+                        'end_reason' => 'ring_timeout',
+                        'ended_at' => now(),
+                    ]);
+                }
+
+                $expiredByTimeout = true;
+                return $locked->fresh();
+            }
+
+            // Check if already accepted
+            if ($locked->isAcceptedOrActive()) {
+                if ($cleanDeviceUuid !== null && $locked->accepted_device_id !== null && $locked->accepted_device_id !== $cleanDeviceUuid) {
+                    throw new \RuntimeException('CALL_ALREADY_ACCEPTED_ON_ANOTHER_DEVICE', 409);
+                }
+                return $locked; // Idempotent retry from the same device
+            }
+
+            if ($locked->isTerminal()) {
+                throw new \RuntimeException('CALL_ALREADY_TERMINATED_' . strtoupper($locked->status), 409);
+            }
+
+            $now = now();
+            $locked->update([
+                'status' => 'in_call',
+                'accepted_device_id' => $cleanDeviceUuid,
+                'answered_at' => $now,
+                'last_pulse_at' => $now,
+            ]);
+
+            $peerId = $locked->metadata['peer_call_id'] ?? $locked->metadata['callee_call_id'] ?? null;
+            if ($peerId) {
+                VoiceCall::where('id', $peerId)->update([
+                    'status' => 'in_call',
+                    'accepted_device_id' => $cleanDeviceUuid,
+                    'answered_at' => $now,
+                    'last_pulse_at' => $now,
+                ]);
+            }
+
+            return $locked->fresh();
+        });
+
+        if ($expiredByTimeout) {
+            throw new \RuntimeException('CALL_RING_TIMEOUT_EXPIRED', 410);
+        }
+
+        try {
+            app(CallEventStreamService::class)->publishStateTransition(
+                call: $acceptedCall,
+                previousState: VoiceCall::STATE_RINGING,
+                currentState: VoiceCall::STATE_ACCEPTED,
+                eventType: 'call.accepted',
+                actorDeviceUuid: $cleanDeviceUuid
+            );
+        } catch (\Throwable) {
+        }
+
+        // Notify all other devices of this user that the call was answered elsewhere so they stop ringing
+        if ($acceptedCall->call_uuid) {
+            try {
+                app(PushGatewayService::class)->dispatchCallControlToUserDevices(
+                    userId: $user->id,
+                    callUuid: $acceptedCall->call_uuid,
+                    eventType: 'call.answered_elsewhere',
+                    excludeDeviceUuid: $cleanDeviceUuid,
+                    extra: ['accepted_device_id' => $cleanDeviceUuid ?? 'web']
+                );
+            } catch (\Throwable) {
+            }
+        }
+
+        return $acceptedCall;
+    }
+
+    /**
+     * Atomically reject/decline an incoming ringing call (idempotent).
+     */
+    public function rejectCallAtomically(VoiceCall $voiceCall, User $user, ?string $deviceUuid = null, string $reason = 'rejected_by_callee'): VoiceCall
+    {
+        $cleanDeviceUuid = $deviceUuid ? trim($deviceUuid) : null;
+
+        $rejectedCall = DB::transaction(function () use ($voiceCall, $user, $reason) {
+            /** @var VoiceCall $locked */
+            $locked = VoiceCall::where('id', $voiceCall->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($locked->user_id !== $user->id) {
+                throw new AccessDeniedHttpException(__('controllers.user.calls.access_denied'));
+            }
+
+            if (in_array($locked->status, [VoiceCall::STATE_DECLINED, VoiceCall::STATE_REJECTED], true)) {
+                return $locked; // Idempotent
+            }
+
+            if ($locked->isAcceptedOrActive()) {
+                throw new \RuntimeException('CALL_ALREADY_ACTIVE_CANNOT_REJECT', 409);
+            }
+
+            if ($locked->isTerminal()) {
+                return $locked;
+            }
+
+            $now = now();
+            $locked->update([
+                'status' => 'declined',
+                'end_reason' => $reason,
+                'ended_at' => $now,
+            ]);
+
+            $peerId = $locked->metadata['peer_call_id'] ?? $locked->metadata['callee_call_id'] ?? null;
+            if ($peerId) {
+                VoiceCall::where('id', $peerId)->update([
+                    'status' => 'declined',
+                    'end_reason' => $reason,
+                    'ended_at' => $now,
+                ]);
+            }
+
+            return $locked->fresh();
+        });
+
+        try {
+            app(CallEventStreamService::class)->publishStateTransition(
+                call: $rejectedCall,
+                previousState: VoiceCall::STATE_RINGING,
+                currentState: VoiceCall::STATE_REJECTED,
+                eventType: 'call.rejected',
+                actorDeviceUuid: $cleanDeviceUuid
+            );
+        } catch (\Throwable) {
+        }
+
+        if ($rejectedCall->call_uuid) {
+            try {
+                app(PushGatewayService::class)->dispatchCallControlToUserDevices(
+                    userId: $user->id,
+                    callUuid: $rejectedCall->call_uuid,
+                    eventType: 'call.rejected',
+                    excludeDeviceUuid: $cleanDeviceUuid
+                );
+            } catch (\Throwable) {
+            }
+        }
+
+        return $rejectedCall;
+    }
+
+    public function endCall(VoiceCall|int $call, ?int $durationSeconds = null, ?string $endReason = null): VoiceCall
     {
         $voiceCall = is_int($call) ? VoiceCall::findOrFail($call) : $call;
 
-        if ($voiceCall->status === 'completed') {
+        if ($voiceCall->status === 'completed' || $voiceCall->status === VoiceCall::STATE_CANCELLED) {
             return $voiceCall;
         }
 
+        $wasRingingUnanswered = ($voiceCall->status === VoiceCall::STATE_RINGING && $voiceCall->answered_at === null);
+        $previousState = $voiceCall->canonicalStatus();
         $now = now();
-        $startTime = $voiceCall->answered_at ?: $voiceCall->started_at ?: $now;
-        $calculatedDuration = $durationSeconds !== null
-            ? max(1, $durationSeconds)
-            : max(1, $now->diffInSeconds($startTime));
+
+        if ($wasRingingUnanswered) {
+            $calculatedDuration = 0;
+            $effectiveEndReason = $endReason ?: 'cancelled_by_caller';
+        } else {
+            $startTime = $voiceCall->answered_at ?: $voiceCall->started_at ?: $now;
+            $calculatedDuration = $durationSeconds !== null
+                ? max(1, $durationSeconds)
+                : max(1, $now->diffInSeconds($startTime));
+            $effectiveEndReason = $endReason ?: 'normal_hangup';
+        }
 
         $rate = (float) ($voiceCall->rate_per_minute !== null ? $voiceCall->rate_per_minute : SystemSetting::get('voice_call_rate_per_minute', 0.1000));
-        if ($rate <= 0) {
+        if ($rate <= 0 || $wasRingingUnanswered) {
             $rate = 0.0000;
         }
         $costData = $this->calculateCallCost($calculatedDuration, $rate);
@@ -286,8 +521,8 @@ class VoiceCallService implements VoiceCallServiceInterface
         $totalCostStr = number_format($costData['cost'], 4, '.', '');
         $user = $voiceCall->user;
 
-        // Atomically debit user or organization wallet ONLY IF rate > 0 and cost > 0
-        if ($rate > 0 && bccomp($totalCostStr, '0.0000', 4) > 0) {
+        // Atomically debit user or organization wallet ONLY IF call was answered, rate > 0 and cost > 0
+        if (! $wasRingingUnanswered && $rate > 0 && bccomp($totalCostStr, '0.0000', 4) > 0) {
             $refId = 'CALL-' . Str::upper(Str::random(12));
             $phone = $voiceCall->phoneNumber;
             $isOrgLine = $phone && ($phone->is_organization || $phone->organization_id);
@@ -318,6 +553,7 @@ class VoiceCallService implements VoiceCallServiceInterface
                         ]),
                         metadata: [
                             'call_id' => $voiceCall->id,
+                            'call_uuid' => $voiceCall->call_uuid,
                             'source' => $voiceCall->source_identifier,
                             'destination' => $voiceCall->destination,
                             'duration_seconds' => $costData['duration_seconds'],
@@ -327,7 +563,6 @@ class VoiceCallService implements VoiceCallServiceInterface
                     );
                 }
             } catch (\Throwable $e) {
-                // If wallet deduction fails (e.g. balance exhausted mid-call), record in metadata
                 $meta = $voiceCall->metadata ?? [];
                 $meta['billing_error'] = $e->getMessage();
                 $voiceCall->metadata = $meta;
@@ -357,13 +592,14 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         $voiceCall->update([
             'status' => 'completed',
+            'end_reason' => $effectiveEndReason,
             'ended_at' => $now,
             'duration_seconds' => $costData['duration_seconds'],
             'billed_minutes' => $costData['billed_minutes'],
             'cost' => $totalCostStr,
         ]);
 
-        // Drop the signaling mailbox of both legs; the peer detects the hangup via call status.
+        // Drop the signaling mailbox of both legs
         $legIds = array_filter([
             $voiceCall->id,
             $meta['callee_call_id'] ?? null,
@@ -372,33 +608,88 @@ class VoiceCallService implements VoiceCallServiceInterface
         try {
             VoiceCallSignal::whereIn('voice_call_id', $legIds)->delete();
         } catch (\Throwable) {
-            // Signaling cleanup must never block billing / call termination.
         }
 
-        // Also update matching callee call in their history
+        // Update matching callee/peer call in their history and notify ringing devices if cancelled
+        $peerCall = null;
         if (! empty($meta['callee_call_id'])) {
-            $calleeCall = VoiceCall::find($meta['callee_call_id']);
-            if ($calleeCall && $calleeCall->status !== 'completed') {
-                $calleeCall->update([
-                    'status' => 'completed',
-                    'ended_at' => $now,
-                    'duration_seconds' => $costData['duration_seconds'],
-                    'billed_minutes' => $costData['billed_minutes'],
-                ]);
-            }
+            $peerCall = VoiceCall::find($meta['callee_call_id']);
         } elseif (! empty($meta['peer_call_id'])) {
             $peerCall = VoiceCall::find($meta['peer_call_id']);
-            if ($peerCall && $peerCall->status !== 'completed') {
-                $peerCall->update([
-                    'status' => 'completed',
-                    'ended_at' => $now,
-                    'duration_seconds' => $costData['duration_seconds'],
-                    'billed_minutes' => $costData['billed_minutes'],
-                ]);
+        }
+
+        if ($peerCall && $peerCall->status !== 'completed') {
+            $peerCall->update([
+                'status' => 'completed',
+                'end_reason' => $effectiveEndReason,
+                'ended_at' => $now,
+                'duration_seconds' => $costData['duration_seconds'],
+                'billed_minutes' => $costData['billed_minutes'],
+            ]);
+
+            if ($wasRingingUnanswered && $peerCall->call_uuid) {
+                try {
+                    app(PushGatewayService::class)->dispatchCallControlToUserDevices(
+                        userId: $peerCall->user_id,
+                        callUuid: $peerCall->call_uuid,
+                        eventType: 'call.cancelled',
+                        extra: ['reason' => $effectiveEndReason]
+                    );
+                } catch (\Throwable) {
+                }
             }
+        }
+
+        try {
+            app(CallEventStreamService::class)->publishStateTransition(
+                call: $voiceCall,
+                previousState: $previousState,
+                currentState: $wasRingingUnanswered ? VoiceCall::STATE_CANCELLED : VoiceCall::STATE_ENDED,
+                eventType: $wasRingingUnanswered ? 'call.cancelled' : 'call.ended',
+                extraPayload: [
+                    'duration_seconds' => $costData['duration_seconds'],
+                    'end_reason' => $effectiveEndReason,
+                ]
+            );
+        } catch (\Throwable) {
         }
 
         return $voiceCall->fresh();
+    }
+
+    /**
+     * Expire ringing calls that have exceeded their ring_timeout_at and notify devices.
+     */
+    public function expireTimedOutRingingCalls(): int
+    {
+        $expiredCalls = VoiceCall::where('status', VoiceCall::STATE_RINGING)
+            ->whereNotNull('ring_timeout_at')
+            ->where('ring_timeout_at', '<=', now())
+            ->get();
+
+        $count = 0;
+        foreach ($expiredCalls as $call) {
+            $call->update([
+                'status' => VoiceCall::STATE_MISSED,
+                'end_reason' => 'ring_timeout',
+                'ended_at' => now(),
+            ]);
+            $count++;
+
+            if ($call->direction === 'inbound' && $call->call_uuid) {
+                try {
+                    app(PushGatewayService::class)->dispatchCallControlToUserDevices(
+                        userId: $call->user_id,
+                        callUuid: $call->call_uuid,
+                        eventType: 'call.missed',
+                        extra: ['reason' => 'ring_timeout']
+                    );
+                } catch (\Throwable) {
+                }
+            }
+        }
+
+        return $count;
     }
 
     public function getCallStatus(VoiceCall|int $call): array
@@ -415,7 +706,11 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         return [
             'call_id' => $voiceCall->id,
+            'call_uuid' => $voiceCall->call_uuid,
             'status' => $voiceCall->status,
+            'canonical_status' => $voiceCall->canonicalStatus(),
+            'accepted_device_id' => $voiceCall->accepted_device_id,
+            'end_reason' => $voiceCall->end_reason,
             'started_at' => $voiceCall->started_at?->toIso8601String(),
             'duration_seconds' => $duration,
             'rate_per_minute' => $rate,
@@ -434,7 +729,6 @@ class VoiceCallService implements VoiceCallServiceInterface
             $rate = 0.0000;
         }
 
-        // Every commenced minute is billed (ceil)
         $billedMinutes = $durationSeconds > 0 ? (int) ceil($durationSeconds / 60) : 0;
         $cost = $rate > 0 ? (float) bcmul((string) $billedMinutes, (string) $rate, 4) : 0.0000;
 
@@ -446,10 +740,6 @@ class VoiceCallService implements VoiceCallServiceInterface
         ];
     }
 
-    /**
-     * Build an RFC-compliant HTTP/HTTPS endpoint for the Voice Bridge daemon.
-     * Supports standard ports 80/443 and domain names with SSL termination.
-     */
     public static function buildBridgeUrl(string $host, int $port, string $path): string
     {
         $path = '/' . ltrim($path, '/');
@@ -469,4 +759,3 @@ class VoiceCallService implements VoiceCallServiceInterface
         return "{$scheme}://{$cleanHost}{$portSuffix}{$path}";
     }
 }
-

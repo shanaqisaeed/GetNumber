@@ -16,6 +16,11 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9582B6822FE993A50072D4E8 /* SceneDelegate.swift */; };
+		A10000022FE993A70072D4E8 /* NativeCallStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000012FE993A70072D4E8 /* NativeCallStateStore.swift */; };
+		A10000042FE993A70072D4E8 /* CallKitProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000032FE993A70072D4E8 /* CallKitProvider.swift */; };
+		A10000062FE993A70072D4E8 /* PushKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000052FE993A70072D4E8 /* PushKitManager.swift */; };
+		A10000082FE993A70072D4E8 /* LocalPushManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000072FE993A70072D4E8 /* LocalPushManager.swift */; };
+		A10000102FE993A70072D4E8 /* NativeCallingPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000092FE993A70072D4E8 /* NativeCallingPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,6 +35,12 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		9582B6822FE993A50072D4E8 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
+		A10000012FE993A70072D4E8 /* NativeCallStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallStateStore.swift; sourceTree = "<group>"; };
+		A10000032FE993A70072D4E8 /* CallKitProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CallKitProvider.swift; sourceTree = "<group>"; };
+		A10000052FE993A70072D4E8 /* PushKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PushKitManager.swift; sourceTree = "<group>"; };
+		A10000072FE993A70072D4E8 /* LocalPushManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalPushManager.swift; sourceTree = "<group>"; };
+		A10000092FE993A70072D4E8 /* NativeCallingPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeCallingPlugin.swift; sourceTree = "<group>"; };
+		A10000112FE993A70072D4E8 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -160,6 +171,11 @@
 			files = (
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				9582B6832FE993A70072D4E8 /* SceneDelegate.swift in Sources */,
+				A10000022FE993A70072D4E8 /* NativeCallStateStore.swift in Sources */,
+				A10000042FE993A70072D4E8 /* CallKitProvider.swift in Sources */,
+				A10000062FE993A70072D4E8 /* PushKitManager.swift in Sources */,
+				A10000082FE993A70072D4E8 /* LocalPushManager.swift in Sources */,
+				A10000102FE993A70072D4E8 /* NativeCallingPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

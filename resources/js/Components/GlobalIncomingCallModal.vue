@@ -5,9 +5,11 @@ import axios from 'axios';
 import { CalmRingtone } from '@/Utils/ringtone';
 import { __ } from '@/Composables/useTrans';
 import { useSoftphoneSync } from '@/Composables/useSoftphoneSync';
+import { useNativeCallingBridge } from '@/Composables/useNativeCallingBridge';
 
 interface IncomingCallPayload {
     id: number;
+    call_uuid?: string | null;
     source: string;
     destination?: string;
     status?: string;
@@ -19,6 +21,7 @@ const incomingCall = ref<IncomingCallPayload | null>(null);
 const ringtone = new CalmRingtone();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 const { broadcastCallAnswered, broadcastCallEnded } = useSoftphoneSync();
+const { initNativeBridge, notifyCallRejected, registeredDeviceUuid } = useNativeCallingBridge();
 
 const checkActiveIncomingCall = async () => {
     // When the user is already on the dedicated Calls page, Calls/Index.vue handles calls directly
@@ -95,9 +98,13 @@ const declineIncoming = async () => {
     if (!incomingCall.value) return;
     ringtone.stop();
     const callId = incomingCall.value.id;
+    const callUuid = incomingCall.value.call_uuid || null;
     incomingCall.value = null;
+    notifyCallRejected(callUuid, 'rejected_by_callee');
     try {
-        await axios.post(route('voice.decline', { voiceCall: callId }));
+        await axios.post(route('voice.decline', { voiceCall: callId }), {
+            device_uuid: registeredDeviceUuid.value || undefined,
+        });
         broadcastCallEnded();
     } catch {}
 };
@@ -105,6 +112,29 @@ const declineIncoming = async () => {
 onMounted(() => {
     checkActiveIncomingCall();
     pollTimer = setInterval(checkActiveIncomingCall, 3500);
+
+    initNativeBridge({
+        onIncomingCall: () => {
+            checkActiveIncomingCall();
+        },
+        onCallAnswered: (snap) => {
+            ringtone.stop();
+            const cId = snap.callId || incomingCall.value?.id;
+            incomingCall.value = null;
+            if (cId && typeof window !== 'undefined' && !window.location.pathname.startsWith('/calls')) {
+                router.visit(route('calls.index', {
+                    incoming_call_id: cId,
+                    active_call_id: cId,
+                    auto_answer: 1,
+                    with_video: snap.hasVideo ? 1 : 0,
+                }));
+            }
+        },
+        onCallRejected: () => {
+            ringtone.stop();
+            incomingCall.value = null;
+        },
+    });
 
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (event) => {
