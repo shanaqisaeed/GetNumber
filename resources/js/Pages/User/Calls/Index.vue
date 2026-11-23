@@ -1906,19 +1906,13 @@ const createPeerConnection = (isCaller = false) => {
                 remoteMediaStream.addTrack(event.track);
             }
 
-            // Only mark as active video call if the track is not muted (receiving real frames)
-            if (!event.track.muted) {
-                isRemoteVideoStreaming.value = true;
+            // Note: Safari/WebKit on iOS initializes event.track.muted = false on empty transceiver tracks.
+            // Do NOT blindly activate video mode here unless remote has explicitly signaled active video or call was initiated with video.
+            if (isRemoteVideoStreaming.value || isRemoteScreenSharing.value) {
                 isVideoCall.value = true;
                 await syncAllVideoElements();
             }
 
-            event.track.onunmute = () => {
-                console.log('[WebRTC] 📹 Remote video track unmuted (media flow active):', event.track.id);
-                isRemoteVideoStreaming.value = true;
-                isVideoCall.value = true;
-                syncAllVideoElements();
-            };
             event.track.onended = () => {
                 console.log('[WebRTC] 📹 Remote video track ended:', event.track.id);
                 isRemoteVideoStreaming.value = false;
@@ -3249,7 +3243,7 @@ onUnmounted(() => {
 
                             <!-- Floating Local Camera PiP on Whiteboard -->
                             <div
-                                v-if="isWhiteboardCameraActive && (isVideoCall || isCameraOn)"
+                                v-if="isWhiteboardCameraActive && isCameraOn"
                                 class="absolute bottom-3 left-3 w-28 sm:w-44 aspect-video rounded-2xl overflow-hidden border-2 border-emerald-500 shadow-2xl bg-slate-950 z-30 pointer-events-auto transition-all"
                             >
                                 <video
@@ -3288,7 +3282,7 @@ onUnmounted(() => {
 
                     <!-- 2. VIDEO CALL CONTAINER (When Video is enabled and Whiteboard is closed) -->
                     <div
-                        v-else-if="isVideoCall"
+                        v-else-if="isVideoCall && (isCameraOn || isRemoteVideoStreaming || isScreenSharing || isRemoteScreenSharing)"
                         ref="videoContainerRef"
                         class="relative w-full rounded-3xl overflow-hidden bg-slate-950 border border-slate-800 shadow-2xl flex items-center justify-center group"
                         :class="isExpandedWorkspace ? 'h-[65vh] sm:h-[75vh]' : 'aspect-video min-h-[340px] sm:min-h-[460px]'"
