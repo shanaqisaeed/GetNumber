@@ -28,17 +28,34 @@ class WebPushNotificationService
     }
 
     /**
-     * Resolve valid VAPID subject claim (automatically from config/env APP_URL)
+     * Resolve valid VAPID subject claim (RFC 8292 mandates mailto: or public https:// domain;
+     * Apple web.push.apple.com and Google FCM reject http://, localhost, and raw IP subjects).
      */
     public function resolveSubject(): string
     {
-        $subject = config('webpush.vapid.subject');
-        if (empty($subject) || str_ends_with($subject, '.local')) {
-            $subject = config('app.url');
+        $subject = trim((string) config('webpush.vapid.subject', ''));
+        if ($subject === '') {
+            $subject = trim((string) config('app.url', ''));
         }
 
-        if (!str_starts_with($subject, 'http://') && !str_starts_with($subject, 'https://') && !str_starts_with($subject, 'mailto:')) {
-            $subject = 'https://' . ltrim($subject, '/');
+        if (str_starts_with($subject, 'mailto:')) {
+            return $subject;
+        }
+
+        if (
+            $subject === '' ||
+            str_starts_with($subject, 'http://') ||
+            str_contains($subject, 'localhost') ||
+            str_contains($subject, '127.0.0.1') ||
+            str_ends_with($subject, '.local') ||
+            str_ends_with($subject, '.test') ||
+            preg_match('/^https?:\/\/\d+\.\d+\.\d+\.\d+/', $subject)
+        ) {
+            return 'mailto:support@ravyno.com';
+        }
+
+        if (!str_starts_with($subject, 'https://')) {
+            return 'mailto:support@ravyno.com';
         }
 
         return $subject;
@@ -250,6 +267,7 @@ class WebPushNotificationService
         $destLine = $call->destination ? __('services.web_push.incoming_call_on_line', ['destination' => $call->destination]) : '';
         $body = trim(__('services.web_push.incoming_call_body', ['caller' => $caller, 'line' => $destLine]));
 
+        $hasVideoFlag = $call->has_video ? '&caller_has_video=1' : '';
         $payload = json_encode([
             'title' => __('services.web_push.incoming_call_title'),
             'body' => $body,
@@ -273,8 +291,10 @@ class WebPushNotificationService
             ],
             'data' => [
                 'type' => 'voice_call',
-                'url' => "/calls?incoming_call_id={$call->id}&auto_answer=1",
+                'url' => "/calls?incoming_call_id={$call->id}&auto_answer=1{$hasVideoFlag}",
                 'callId' => $call->id,
+                'callUuid' => $call->call_uuid,
+                'hasVideo' => (bool) $call->has_video,
                 'caller' => $caller,
             ],
         ], JSON_UNESCAPED_UNICODE);
@@ -288,9 +308,11 @@ class WebPushNotificationService
                 ],
             ];
 
+            // RFC 8030 Section 5.3 valid urgency levels: very-low | low | normal | high
             $defaultOptions = [
                 'TTL' => 60,
-                'urgency' => 'very-high',
+                'urgency' => 'high',
+                'topic' => 'call-' . $call->id,
             ];
 
             $webPush = new WebPush($auth, $defaultOptions);
@@ -314,8 +336,11 @@ class WebPushNotificationService
                 $endpoint = $report->getRequest()->getUri()->__toString();
                 if ($report->isSuccess()) {
                     Log::info("[WebPush] Incoming call push delivered to: " . substr($endpoint, 0, 45) . '...');
-                } elseif ($report->isSubscriptionExpired()) {
-                    PushSubscription::where('endpoint_hash', PushSubscription::hashEndpoint($endpoint))->delete();
+                } else {
+                    Log::warning("[WebPush] Incoming call push failed for endpoint: " . substr($endpoint, 0, 45) . "... Reason: " . $report->getReason());
+                    if ($report->isSubscriptionExpired()) {
+                        PushSubscription::where('endpoint_hash', PushSubscription::hashEndpoint($endpoint))->delete();
+                    }
                 }
             }
         } catch (\Throwable $e) {

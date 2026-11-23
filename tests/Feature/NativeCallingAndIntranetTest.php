@@ -368,6 +368,45 @@ class NativeCallingAndIntranetTest extends TestCase
         ]);
     }
 
+    public function test_opening_pwa_calls_page_during_ringing_does_not_disconnect_call_and_preserves_video_flag(): void
+    {
+        [$caller, $callee, $lineA, $lineB] = $this->seedCallerAndCallee();
+
+        // 1. Caller initiates a video call (has_video = true)
+        $initRes = $this->actingAs($caller)->postJson(route('voice.initiate'), [
+            'phone_number_id' => $lineA->id,
+            'destination' => $lineB->number,
+            'has_video' => true,
+        ])->assertOk();
+
+        $initRes->assertJsonPath('call.has_video', true);
+        $callUuid = $initRes->json('call.call_uuid');
+        $callerCallId = $initRes->json('call.id');
+
+        // 2. Callee enters the PWA (GET /calls) while the call is ringing
+        $this->actingAs($callee)->get(route('calls.index'))->assertOk();
+
+        // 3. Call must NOT be terminated! Both legs must still be active/ringing
+        $callerSignals = $this->actingAs($caller)->getJson(route('voice.signals', $callerCallId))->assertOk();
+        $callerSignals->assertJsonPath('is_active', true);
+
+        // 4. Callee checks active incoming call and sees has_video = true
+        $activeIncoming = $this->actingAs($callee)->getJson(route('voice.active_incoming'))->assertOk();
+        $activeIncoming->assertJsonPath('has_incoming', true);
+        $activeIncoming->assertJsonPath('call.call_uuid', $callUuid);
+        $activeIncoming->assertJsonPath('call.has_video', true);
+        $inboundCallId = $activeIncoming->json('call.id');
+
+        // 5. Callee answers the call; response preserves has_video = true so callee can view caller's video even if answering audio-only
+        $ansRes = $this->actingAs($callee)->postJson(route('voice.answer', $inboundCallId))->assertOk();
+        $ansRes->assertJsonPath('call.has_video', true);
+
+        // 6. Verify WebPushNotificationService::resolveSubject() never returns http://localhost
+        $subject = app(\App\Services\WebPushNotificationService::class)->resolveSubject();
+        $this->assertTrue(str_starts_with($subject, 'mailto:') || str_starts_with($subject, 'https://'));
+        $this->assertStringNotContainsString('localhost', $subject);
+    }
+
     /**
      * @return array{0: User, 1: User, 2: PhoneNumber, 3: PhoneNumber}
      */

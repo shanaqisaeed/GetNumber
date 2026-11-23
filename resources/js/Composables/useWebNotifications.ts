@@ -63,6 +63,63 @@ export function useWebNotifications() {
         }
     };
 
+    const ensurePushSubscriptionSynced = async (registration: ServiceWorkerRegistration): Promise<boolean> => {
+        try {
+            const { data } = await axios.get('/webpush/vapid-public-key');
+            if (!data?.publicKey) return false;
+
+            let appServerKey: any;
+            try {
+                appServerKey = urlBase64ToUint8Array(data.publicKey);
+            } catch {
+                appServerKey = data.publicKey;
+            }
+
+            let subscription = await registration.pushManager.getSubscription();
+
+            // Verify existing browser subscription matches current server VAPID public key
+            if (subscription && subscription.options?.applicationServerKey && appServerKey instanceof Uint8Array) {
+                const existingKey = new Uint8Array(subscription.options.applicationServerKey);
+                if (existingKey.length !== appServerKey.length || !existingKey.every((v, idx) => v === appServerKey[idx])) {
+                    await subscription.unsubscribe().catch(() => {});
+                    subscription = null;
+                }
+            }
+
+            if (!subscription) {
+                try {
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: appServerKey,
+                    });
+                } catch (subErr) {
+                    console.warn('[WebPush] Initial subscribe failed, resetting existing subscription:', subErr);
+                    const oldSub = await registration.pushManager.getSubscription();
+                    if (oldSub) {
+                        await oldSub.unsubscribe().catch(() => {});
+                    }
+                    subscription = await registration.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: appServerKey,
+                    });
+                }
+            }
+
+            if (subscription) {
+                const subData = subscription.toJSON();
+                await axios.post('/webpush/subscribe', {
+                    endpoint: subData.endpoint,
+                    keys: subData.keys,
+                });
+                isSubscribed.value = true;
+                return true;
+            }
+        } catch (err) {
+            console.warn('[WebPush] Push subscription sync warning:', err);
+        }
+        return false;
+    };
+
     const checkSubscriptionStatus = async () => {
         if (typeof window === 'undefined') return;
 
@@ -72,19 +129,17 @@ export function useWebNotifications() {
 
         if (isPushApiSupported.value) {
             try {
-                // Must use getRegistration() instead of ready, which hangs indefinitely if SW is not yet active
-                const registration = await navigator.serviceWorker.getRegistration();
+                let registration: ServiceWorkerRegistration | undefined | null = await navigator.serviceWorker.getRegistration();
+                if (!registration) {
+                    registration = await registerServiceWorker();
+                }
                 if (registration) {
                     const subscription = await registration.pushManager.getSubscription();
                     isSubscribed.value = !!subscription;
 
-                    // Automatically ensure backend has the latest subscription registered for this user session
-                    if (subscription && Notification.permission === 'granted') {
-                        const subData = subscription.toJSON();
-                        axios.post('/webpush/subscribe', {
-                            endpoint: subData.endpoint,
-                            keys: subData.keys,
-                        }).catch(() => {});
+                    // Automatically ensure backend has the latest subscription registered when permission is already granted
+                    if (Notification.permission === 'granted') {
+                        await ensurePushSubscriptionSynced(registration);
                     }
                 } else {
                     isSubscribed.value = false;
@@ -113,8 +168,10 @@ export function useWebNotifications() {
         error.value = null;
 
         try {
-            // Step 1: Request user permission directly from browser
-            const perm = await Notification.requestPermission();
+            // Step 1: Request user permission if not already granted (avoids re-calling requestPermission outside user gesture)
+            const perm = Notification.permission === 'granted'
+                ? 'granted'
+                : await Notification.requestPermission();
             permission.value = perm;
 
             if (perm !== 'granted') {
@@ -126,54 +183,14 @@ export function useWebNotifications() {
                 };
             }
 
-            // At this point, permission IS GRANTED. User is guaranteed to receive notifications!
-            // Step 2: Attempt PushManager subscription for offline background delivery
+            // Step 2: Subscribe via Service Worker PushManager for lock-screen & background delivery
             let pushSubscribedSuccessfully = false;
 
             if (isPushApiSupported.value) {
                 try {
                     const registration = await registerServiceWorker();
                     if (registration) {
-                        // Fetch VAPID Public Key from backend
-                        const { data } = await axios.get('/webpush/vapid-public-key');
-                        if (data?.publicKey) {
-                            let subscription = await registration.pushManager.getSubscription();
-                            let appServerKey: any;
-                            try {
-                                appServerKey = urlBase64ToUint8Array(data.publicKey);
-                            } catch {
-                                appServerKey = data.publicKey;
-                            }
-
-                            if (!subscription) {
-                                try {
-                                    subscription = await registration.pushManager.subscribe({
-                                        userVisibleOnly: true,
-                                        applicationServerKey: appServerKey,
-                                    });
-                                } catch (subErr) {
-                                    console.warn('[WebPush] Initial subscribe failed, resetting existing subscription:', subErr);
-                                    const oldSub = await registration.pushManager.getSubscription();
-                                    if (oldSub) {
-                                        await oldSub.unsubscribe().catch(() => {});
-                                    }
-                                    subscription = await registration.pushManager.subscribe({
-                                        userVisibleOnly: true,
-                                        applicationServerKey: appServerKey,
-                                    });
-                                }
-                            }
-
-                            if (subscription) {
-                                const subData = subscription.toJSON();
-                                await axios.post('/webpush/subscribe', {
-                                    endpoint: subData.endpoint,
-                                    keys: subData.keys,
-                                });
-                                isSubscribed.value = true;
-                                pushSubscribedSuccessfully = true;
-                            }
-                        }
+                        pushSubscribedSuccessfully = await ensurePushSubscriptionSynced(registration);
                     }
                 } catch (pushErr: any) {
                     console.error('[WebPush] Background PushManager registration error:', pushErr);

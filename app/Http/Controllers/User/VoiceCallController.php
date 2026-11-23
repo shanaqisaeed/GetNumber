@@ -31,14 +31,9 @@ class VoiceCallController extends Controller
     {
         $user = $request->user();
 
-        // Auto-terminate any orphaned active calls initiated by this user (e.g., from page reload or abrupt disconnect)
-        $staleCalls = VoiceCall::where('user_id', $user->id)
-            ->whereIn('status', ['in_progress', 'initiating', 'ringing'])
-            ->get();
-
-        foreach ($staleCalls as $stale) {
-            $this->voiceCallService->endCall($stale);
-        }
+        // Only expire ringing calls that have actually exceeded their ring_timeout_at.
+        // NEVER terminate active or currently-ringing calls when the user opens the PWA /calls page!
+        $this->voiceCallService->expireTimedOutRingingCalls();
 
         $allLines = \App\Http\Controllers\User\SoftphoneDashboardController::resolveOperableLines($user);
 

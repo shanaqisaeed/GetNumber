@@ -6,7 +6,7 @@
  * - Offline Shell & Resilient Asset Caching
  */
 
-const CACHE_NAME = 'ravyno-shell-v3';
+const CACHE_NAME = 'ravyno-shell-v4';
 const STATIC_ASSETS = [
     '/manifest.json',
     '/icon-192.png',
@@ -107,10 +107,21 @@ self.addEventListener('push', (event) => {
         data: payload.data || { url: isCall ? '/calls' : '/messages' },
     };
 
-    // Broadcast incoming call signal directly to all open browser tabs
+    // Broadcast incoming call signal directly to all open browser tabs & display OS lock-screen notification
+    // With iOS Safari / WebKit resilient fallback if extended options (actions/vibrate) are rejected
+    const showNotifPromise = self.registration.showNotification(title, options).catch(() => {
+        return self.registration.showNotification(title, {
+            body: options.body,
+            icon: options.icon,
+            badge: options.badge,
+            tag: options.tag,
+            data: options.data,
+        });
+    });
+
     event.waitUntil(
         Promise.all([
-            self.registration.showNotification(title, options),
+            showNotifPromise,
             self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
                 for (const client of clients) {
                     client.postMessage({
@@ -128,6 +139,8 @@ self.addEventListener('notificationclick', (event) => {
     event.notification.close();
 
     const callId = event.notification.data?.callId;
+    const hasVideo = Boolean(event.notification.data?.hasVideo);
+    const caller = event.notification.data?.caller || '';
     const isCall = !!callId || (event.notification.tag && (event.notification.tag.startsWith('ravyno-call-') || event.notification.tag.startsWith('getnumber-call-')));
     const targetUrl = event.notification.data?.url || (isCall ? '/calls' : '/messages');
 
@@ -165,21 +178,24 @@ self.addEventListener('notificationclick', (event) => {
                     client.postMessage({
                         type: 'answer_incoming_call',
                         callId: callId,
+                        hasVideo: hasVideo,
+                        caller: caller,
                         autoAnswer: event.action === 'answer' || targetUrl.includes('auto_answer=1')
                     });
                     return client.focus();
                 }
             }
 
-            // If another page of our origin is open, navigate it to the call page
+            // If another page of our origin is open, message GlobalIncomingCallModal to navigate via Inertia (no double reload!)
             for (const client of clientList) {
-                if (client.url && 'navigate' in client && 'focus' in client) {
+                if (client.url && 'focus' in client) {
                     client.postMessage({
                         type: 'answer_incoming_call',
                         callId: callId,
+                        hasVideo: hasVideo,
+                        caller: caller,
                         autoAnswer: event.action === 'answer' || targetUrl.includes('auto_answer=1')
                     });
-                    client.navigate(targetUrl);
                     return client.focus();
                 }
             }

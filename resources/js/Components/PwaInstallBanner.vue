@@ -4,7 +4,7 @@ import { usePwaInstall } from '@/Composables/usePwaInstall';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 
 const { isInstallable, isStandalone, installApp } = usePwaInstall();
-const { isPermissionDefault, subscribeToPush } = useWebNotifications();
+const { isPermissionGranted, isSubscribed, isSubscribing, subscribeToPush, checkSubscriptionStatus } = useWebNotifications();
 
 const isDismissed = ref(false);
 const isInstalling = ref(false);
@@ -12,6 +12,7 @@ const isInstalling = ref(false);
 onMounted(() => {
     if (typeof window !== 'undefined') {
         isDismissed.value = localStorage.getItem('ravyno_pwa_dismissed') === 'true';
+        checkSubscriptionStatus();
     }
 });
 
@@ -41,7 +42,7 @@ const handleEnableNotifications = async () => {
 
 <template>
     <div
-        v-if="!isDismissed && !isStandalone && (isInstallable || isPermissionDefault)"
+        v-if="!isDismissed && ((!isStandalone && isInstallable) || !isPermissionGranted || !isSubscribed)"
         class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/30 p-3 sm:p-4 shadow-xl backdrop-blur-md text-white transition-all my-3"
     >
         <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -53,33 +54,34 @@ const handleEnableNotifications = async () => {
                 </div>
                 <div>
                     <h4 class="text-sm font-bold text-white">
-                        برنامه ما را نصب کنید
+                        {{ isStandalone ? 'فعال‌سازی زنگ تماس در صفحه قفل (Lock Screen)' : 'برنامه ما را نصب و زنگ تماس را فعال کنید' }}
                     </h4>
                     <p class="text-xs text-slate-300 mt-0.5">
-                        برای دسترسی سریع‌تر، دریافت اعلان‌ها و زنگ تماس مستقیم روی گوشی، برنامه را نصب کنید.
+                        برای دریافت زنگ تماس و اعلان فوری هنگامی که صفحه گوشی قفل است، اعلان پس‌زمینه را فعال کنید.
                     </p>
                 </div>
             </div>
 
             <div class="flex items-center gap-2 self-end sm:self-auto shrink-0">
                 <button
-                    v-if="isPermissionDefault"
+                    v-if="!isPermissionGranted || !isSubscribed"
                     type="button"
+                    :disabled="isSubscribing"
                     @click="handleEnableNotifications"
-                    class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                    class="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
                 >
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
-                    <span>فعال‌سازی اعلان و زنگ</span>
+                    <span>{{ isSubscribing ? 'در حال فعال‌سازی...' : 'فعال‌سازی اعلان و زنگ' }}</span>
                 </button>
 
                 <button
-                    v-if="isInstallable"
+                    v-if="isInstallable && !isStandalone"
                     type="button"
                     @click="handleInstall"
                     :disabled="isInstalling"
-                    class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                    class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
                 >
                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

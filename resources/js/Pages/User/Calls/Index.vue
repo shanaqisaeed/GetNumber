@@ -7,6 +7,7 @@ import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Com
 import { CalmRingtone } from '@/Utils/ringtone';
 import { __ } from '@/Composables/useTrans';
 import { usePwaInstall } from '@/Composables/usePwaInstall';
+import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { useNativeCallingBridge } from '@/Composables/useNativeCallingBridge';
 
 interface LineItem {
@@ -133,7 +134,20 @@ const isNoiseCancellationEnabled = ref(
         : true
 );
 const callError = ref('');
-const { acquireWakeLock, releaseWakeLock } = usePwaInstall();
+const { isStandalone, acquireWakeLock, releaseWakeLock } = usePwaInstall();
+const {
+    isSupported: isPushNotifSupported,
+    isPermissionGranted: isPushPermissionGranted,
+    isSubscribed: isWebPushSubscribed,
+    isSubscribing: isWebPushSubscribing,
+    checkSubscriptionStatus: checkWebPushStatus,
+    subscribeToPush: activateLockScreenPush,
+} = useWebNotifications();
+const isIosSafariNonStandalone = computed(() => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    const isIos = /iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    return isIos && !isStandalone.value;
+});
 
 // WebRTC Video Calling & Multi-Camera Management
 const isVideoCall = ref(false);
@@ -1922,12 +1936,40 @@ const createPeerConnection = (isCaller = false) => {
                 remoteMediaStream.addTrack(event.track);
             }
 
+            // Always attach remote video stream to video elements so frames are ready
+            await syncAllVideoElements();
+
             // Note: Safari/WebKit on iOS initializes event.track.muted = false on empty transceiver tracks.
-            // Do NOT blindly activate video mode here unless remote has explicitly signaled active video or call was initiated with video.
+            // Activate video UI immediately if remote has signaled active video OR as soon as real video frames (videoWidth > 2) arrive.
             if (isRemoteVideoStreaming.value || isRemoteScreenSharing.value) {
                 isVideoCall.value = true;
                 await syncAllVideoElements();
+            } else {
+                const probeVideo = document.createElement('video');
+                probeVideo.muted = true;
+                probeVideo.playsInline = true;
+                probeVideo.srcObject = remoteVideoStream;
+                const onFrameDetected = () => {
+                    if (probeVideo.videoWidth > 2 && probeVideo.videoHeight > 2 && isCalling.value) {
+                        isRemoteVideoStreaming.value = true;
+                        isVideoCall.value = true;
+                        syncAllVideoElements();
+                        probeVideo.srcObject = null;
+                    }
+                };
+                probeVideo.onloadedmetadata = onFrameDetected;
+                probeVideo.onloadeddata = onFrameDetected;
+                probeVideo.onresize = onFrameDetected;
+                probeVideo.play().catch(() => {});
             }
+
+            event.track.onunmute = () => {
+                if (remoteVideo.value && remoteVideo.value.videoWidth > 2) {
+                    isRemoteVideoStreaming.value = true;
+                    isVideoCall.value = true;
+                    syncAllVideoElements();
+                }
+            };
 
             event.track.onended = () => {
                 console.log('[WebRTC] 📹 Remote video track ended:', event.track.id);
@@ -2092,6 +2134,9 @@ const handleSignalingPayload = async (type: string, payload: any) => {
             }
             await peerConnection.setLocalDescription(answer);
             await sendSignalingMessage('answer', answer);
+            if (isCameraOn.value) {
+                await sendSignalingMessage('camera_status', { is_camera_on: true });
+            }
             syncAllVideoElements();
         } else if (type === 'answer') {
             const answerData = typeof payload === 'string' ? JSON.parse(payload) : payload;
@@ -2103,6 +2148,9 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                     } catch {}
                 }
                 pendingCandidates = [];
+                if (isCameraOn.value) {
+                    await sendSignalingMessage('camera_status', { is_camera_on: true });
+                }
                 syncAllVideoElements();
                 if (renegotiationQueued) {
                     renegotiationQueued = false;
@@ -2354,6 +2402,8 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
             line_key: selectedLineKey.value || undefined,
             phone_number_id: selectedLine.value?.id,
             destination: cleanDest,
+            has_video: withVideo,
+            device_uuid: registeredDeviceUuid.value || undefined,
         });
 
         if (res.data?.success && res.data.call) {
@@ -2379,6 +2429,9 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
             }
             await pc.setLocalDescription(offer);
             await sendSignalingMessage('offer', offer);
+            if (isCameraOn.value) {
+                await sendSignalingMessage('camera_status', { is_camera_on: true });
+            }
 
             // Periodic Balance & Active Status Heartbeat
             pulseTimer = setInterval(async () => {
@@ -2547,7 +2600,8 @@ const checkIncomingCall = async () => {
 };
 
 const answerIncomingCall = async (withVideo = false) => {
-    if (!incomingCall.value) return;
+    if (!incomingCall.value || isCalling.value) return;
+    const callerInitiatedWithVideo = Boolean(incomingCall.value.has_video);
     stopRingtone();
     resetMediaControlStates();
     lastSignalId = 0;
@@ -2556,7 +2610,10 @@ const answerIncomingCall = async (withVideo = false) => {
     isAudioPlaybackBlocked.value = false;
     mediaConnectionState.value = 'new';
     optimalRouteInfo.value = '';
-    isVideoCall.value = withVideo;
+    if (callerInitiatedWithVideo) {
+        isRemoteVideoStreaming.value = true;
+    }
+    isVideoCall.value = withVideo || callerInitiatedWithVideo;
 
     if (remoteAudio.value) {
         remoteAudio.value.muted = false;
@@ -2570,6 +2627,11 @@ const answerIncomingCall = async (withVideo = false) => {
         });
         if (res.data?.success) {
             const answeredCall = res.data.call || {};
+            const remoteHasVideo = Boolean(answeredCall.has_video || callerInitiatedWithVideo);
+            if (remoteHasVideo) {
+                isRemoteVideoStreaming.value = true;
+                isVideoCall.value = true;
+            }
             isIncomingCallModalOpen.value = false;
             activeCallId.value = callId;
             activeCallUuid.value = answeredCall.call_uuid || callUuid || null;
@@ -2588,11 +2650,19 @@ const answerIncomingCall = async (withVideo = false) => {
             }
 
             await requestMediaAccess(withVideo);
+            if (remoteHasVideo) {
+                isRemoteVideoStreaming.value = true;
+                isVideoCall.value = true;
+            }
 
             createPeerConnection(false);
 
             if (bridgeWsEndpoint.value) {
                 connectBridgeWebSocket(bridgeWsEndpoint.value);
+            }
+
+            if (isCameraOn.value) {
+                await sendSignalingMessage('camera_status', { is_camera_on: true });
             }
 
             pulseTimer = setInterval(async () => {
@@ -2794,16 +2864,19 @@ onMounted(() => {
 
     // Auto-answer or open incoming call if redirected from global call modal or notification
     if (typeof window !== 'undefined') {
+        checkWebPushStatus();
         const urlParams = new URLSearchParams(window.location.search);
         const autoAnswer = urlParams.get('auto_answer') || (urlParams.has('active_call_id') ? '1' : null);
         const incomingCallId = urlParams.get('incoming_call_id') || urlParams.get('active_call_id');
         const withVideo = urlParams.get('with_video') === '1';
+        const callerHasVideo = urlParams.get('caller_has_video') === '1' || withVideo;
 
         if (incomingCallId) {
             incomingCall.value = {
                 id: parseInt(incomingCallId, 10),
                 source: urlParams.get('caller') || __('user.calls.incoming_call_fallback'),
                 destination: urlParams.get('line') || '',
+                has_video: callerHasVideo,
             };
 
             // Clean query parameters from URL so browser refresh does not re-answer
@@ -2812,6 +2885,7 @@ onMounted(() => {
             cleanUrl.searchParams.delete('incoming_call_id');
             cleanUrl.searchParams.delete('active_call_id');
             cleanUrl.searchParams.delete('with_video');
+            cleanUrl.searchParams.delete('caller_has_video');
             cleanUrl.searchParams.delete('caller');
             cleanUrl.searchParams.delete('line');
             window.history.replaceState({}, '', cleanUrl.toString());
@@ -2856,10 +2930,18 @@ onMounted(() => {
                 isIncomingCallModalOpen.value = false;
                 incomingCall.value = null;
             } else if (data?.type === 'answer_incoming_call') {
+                if (isCalling.value) return;
                 if (incomingCall.value && String(incomingCall.value.id) === String(data.callId)) {
+                    if (data.hasVideo !== undefined) {
+                        incomingCall.value.has_video = Boolean(data.hasVideo);
+                    }
                     answerIncomingCall(false);
                 } else if (data.callId) {
-                    incomingCall.value = { id: parseInt(data.callId, 10), source: 'تماس ورودی' };
+                    incomingCall.value = {
+                        id: parseInt(data.callId, 10),
+                        source: data.caller || 'تماس ورودی',
+                        has_video: Boolean(data.hasVideo),
+                    };
                     answerIncomingCall(false);
                 }
             }
@@ -3026,6 +3108,44 @@ onUnmounted(() => {
 
     <UserLayout :full-width="isCalling && isWhiteboardOpen">
         <div class="space-y-4">
+            <!-- Lock-Screen Call Notification Activation Banner (iOS & Android PWA / Browser) -->
+            <div
+                v-if="isIosSafariNonStandalone"
+                class="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 shadow-sm"
+            >
+                <div class="flex items-center gap-2.5">
+                    <span class="text-lg shrink-0">📱</span>
+                    <div>
+                        <strong class="font-black block">فعال‌سازی زنگ تماس در صفحه قفل آیفون (iOS):</strong>
+                        <span class="text-[11px] opacity-90">
+                            در iOS برای دریافت زنگ و نوتیفیکیشن هنگام قفل بودن صفحه، از منوی پایین سافاری دکمه <strong>Share</strong> و سپس <strong>Add to Home Screen</strong> را بزنید و برنامه را از صفحه اصلی باز کنید.
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div
+                v-else-if="isPushNotifSupported && (!isPushPermissionGranted || !isWebPushSubscribed)"
+                class="p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-slate-800 dark:text-slate-100 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm"
+            >
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-base shrink-0">🔔</span>
+                    <div>
+                        <strong class="font-black block text-slate-900 dark:text-white">دریافت زنگ تماس در حالت قفل صفحه (Lock Screen) غیرفعال است</strong>
+                        <span class="text-[11px] text-slate-600 dark:text-slate-300">
+                            برای دریافت تماس‌های ورودی هنگامی که صفحه گوشی قفل یا برنامه در پس‌زمینه است، اعلان تماس را فعال کنید.
+                        </span>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    :disabled="isWebPushSubscribing"
+                    @click="activateLockScreenPush"
+                    class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs shadow-md transition-all shrink-0 cursor-pointer disabled:opacity-60"
+                >
+                    {{ isWebPushSubscribing ? 'در حال فعال‌سازی...' : '🔔 فعال‌سازی زنگ قفل صفحه' }}
+                </button>
+            </div>
+
             <!-- Header Command Card -->
             <div class="dash-wallet-card">
                 <div class="wallet-top-row">

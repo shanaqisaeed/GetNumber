@@ -13,6 +13,7 @@ interface IncomingCallPayload {
     source: string;
     destination?: string;
     status?: string;
+    has_video?: boolean;
 }
 
 const page = usePage();
@@ -42,9 +43,11 @@ const checkActiveIncomingCall = async () => {
             if (!incomingCall.value || incomingCall.value.id !== call.id) {
                 incomingCall.value = {
                     id: call.id,
+                    call_uuid: call.call_uuid || null,
                     source: call.source || __('user.calls.incoming_call_fallback'),
                     destination: call.destination || '',
                     status: call.status,
+                    has_video: Boolean(call.has_video),
                 };
                 ringtone.play();
 
@@ -82,6 +85,7 @@ const answerIncoming = (withVideo = false) => {
     const callId = call.id;
     const caller = call.source || '';
     const line = call.destination || '';
+    const callerHasVideo = Boolean(call.has_video);
     incomingCall.value = null;
 
     router.visit(route('calls.index', {
@@ -89,6 +93,7 @@ const answerIncoming = (withVideo = false) => {
         active_call_id: callId,
         auto_answer: 1,
         with_video: withVideo ? 1 : 0,
+        caller_has_video: callerHasVideo ? 1 : 0,
         caller: caller,
         line: line,
     }));
@@ -145,7 +150,17 @@ onMounted(() => {
                 ringtone.stop();
                 incomingCall.value = null;
             } else if (data?.type === 'answer_incoming_call') {
+                if (typeof window !== 'undefined' && window.location.pathname.startsWith('/calls')) {
+                    return;
+                }
                 if (data.callId) {
+                    if (!incomingCall.value) {
+                        incomingCall.value = {
+                            id: Number(data.callId),
+                            source: data.caller || __('user.calls.incoming_call_fallback'),
+                            has_video: Boolean(data.hasVideo),
+                        };
+                    }
                     answerIncoming(false);
                 }
             }

@@ -25,6 +25,13 @@ router.on('navigate', (event) => {
 // Initialize theme immediately to prevent any flash of unstyled theme
 initTheme();
 
+// Proactively register PWA Service Worker on boot so background Web Push works reliably on Android & iOS
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+    });
+}
+
 (window as any).__ = __;
 (window as any).$t = __;
 
