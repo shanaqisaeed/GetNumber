@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import UserLayout from '@/Layouts/UserLayout.vue';
 import ContactPickerModal, { type ContactItem as PickerContactItem } from '@/Components/ContactPickerModal.vue';
@@ -181,10 +181,19 @@ let remoteAudioSourceNode: MediaStreamAudioSourceNode | null = null;
 let biquadFilterNode: BiquadFilterNode | null = null;
 let gainNode: GainNode | null = null;
 
-// User Identity for Whiteboard Attribution
-const localUserName = computed(() => {
-    const u = (props as any).auth?.user;
-    return u?.name || u?.phone || 'شما';
+// User Identity for Whiteboard Attribution (Numeric user.id, e.g. "کاربر #1")
+const page = usePage();
+const currentUserId = computed(() => {
+    const pageUser = (page?.props as any)?.auth?.user;
+    const propUser = (props as any)?.auth?.user;
+    return pageUser?.id || propUser?.id || null;
+});
+
+const localUserLabel = computed(() => {
+    if (currentUserId.value) {
+        return `کاربر #${currentUserId.value}`;
+    }
+    return 'کاربر';
 });
 
 // Live Collaborative Indicators (Remote Cursor & Stroke Attribution)
@@ -1261,13 +1270,15 @@ const handleWhiteboardDataMessage = (data: any) => {
         drawSegment(data.from[0], data.from[1], data.to[0], data.to[1], data.tool, data.color, data.width);
         if (data.author) {
             lastDrawingAuthor.value = data.author;
+        } else if (data.userId) {
+            lastDrawingAuthor.value = `کاربر #${data.userId}`;
         }
     } else if (data.type === 'wb_cursor') {
         remotePeerCursor.value = {
             x: data.x,
             y: data.y,
             visible: true,
-            name: data.author || 'طرف مقابل',
+            name: data.author || (data.userId ? `کاربر #${data.userId}` : 'کاربر'),
         };
         if (remoteCursorHideTimer) clearTimeout(remoteCursorHideTimer);
         remoteCursorHideTimer = setTimeout(() => {
@@ -1296,7 +1307,8 @@ const broadcastCursorLocation = (nx: number, ny: number) => {
             type: 'wb_cursor',
             x: nx,
             y: ny,
-            author: localUserName.value,
+            author: localUserLabel.value,
+            userId: currentUserId.value,
         });
     }
 };
@@ -1431,8 +1443,8 @@ const onCanvasMouseDown = (e: MouseEvent) => {
     const { nx, ny } = getNormalizedCoords(e, canvas);
     lastCanvasNx = nx;
     lastCanvasNy = ny;
-    const authorTag = localUserName.value;
-    lastDrawingAuthor.value = `شما (${authorTag})`;
+    const authorTag = localUserLabel.value;
+    lastDrawingAuthor.value = authorTag;
     drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1442,6 +1454,7 @@ const onCanvasMouseDown = (e: MouseEvent) => {
         from: [nx, ny],
         to: [nx + 0.0001, ny + 0.0001],
         author: authorTag,
+        userId: currentUserId.value,
     });
 };
 
@@ -1452,8 +1465,8 @@ const onCanvasMouseMove = (e: MouseEvent) => {
     broadcastCursorLocation(nx, ny);
 
     if (!isDrawingOnCanvas) return;
-    const authorTag = localUserName.value;
-    lastDrawingAuthor.value = `شما (${authorTag})`;
+    const authorTag = localUserLabel.value;
+    lastDrawingAuthor.value = authorTag;
     drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1463,6 +1476,7 @@ const onCanvasMouseMove = (e: MouseEvent) => {
         from: [lastCanvasNx, lastCanvasNy],
         to: [nx, ny],
         author: authorTag,
+        userId: currentUserId.value,
     });
     lastCanvasNx = nx;
     lastCanvasNy = ny;
@@ -1483,8 +1497,8 @@ const handleTouchStart = (e: TouchEvent) => {
     const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
     lastCanvasNx = nx;
     lastCanvasNy = ny;
-    const authorTag = localUserName.value;
-    lastDrawingAuthor.value = `شما (${authorTag})`;
+    const authorTag = localUserLabel.value;
+    lastDrawingAuthor.value = authorTag;
     drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1494,6 +1508,7 @@ const handleTouchStart = (e: TouchEvent) => {
         from: [nx, ny],
         to: [nx + 0.0001, ny + 0.0001],
         author: authorTag,
+        userId: currentUserId.value,
     });
 };
 
@@ -1506,8 +1521,8 @@ const handleTouchMove = (e: TouchEvent) => {
     broadcastCursorLocation(nx, ny);
 
     if (!isDrawingOnCanvas) return;
-    const authorTag = localUserName.value;
-    lastDrawingAuthor.value = `شما (${authorTag})`;
+    const authorTag = localUserLabel.value;
+    lastDrawingAuthor.value = authorTag;
     drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
     sendWhiteboardMessage({
         type: 'wb_draw',
@@ -1517,6 +1532,7 @@ const handleTouchMove = (e: TouchEvent) => {
         from: [lastCanvasNx, lastCanvasNy],
         to: [nx, ny],
         author: authorTag,
+        userId: currentUserId.value,
     });
     lastCanvasNx = nx;
     lastCanvasNy = ny;
