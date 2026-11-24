@@ -106,7 +106,7 @@ return [
         'recipients' => 'Recipients (one per line or comma-separated)',
         'recipients_placeholder' => "+1234567890\n+1987654321",
         'message_placeholder' => 'Write your promotional or notification message here...',
-        'upload_file' => 'Upload Numbers File (CSV or TXT)',
+        'upload_file' => 'Upload Numbers File',
         'upload_file_button' => 'Import from File',
         'file_numbers_extracted' => 'Extracted :count valid phone numbers from file.',
         'message_body' => 'Bulk Message Content',
@@ -137,7 +137,7 @@ return [
 
     'contacts' => [
         'title' => 'Shared Organization Directory',
-        'desc' => 'Contacts registered here will be shared and visible across all company staff softphones.',
+        'desc' => 'Contacts registered here will be shared and visible across all organization team members.',
         'add_contact' => 'Add Contact',
         'contact_type' => 'Contact Type',
         'type_phone' => 'Phone Number',
@@ -154,8 +154,8 @@ return [
         'search_placeholder' => 'Search by contact name or phone...',
         'no_contacts' => 'No shared contacts found yet.',
         'delete_confirm' => 'Are you sure you want to remove this corporate contact?',
-        'open_in_softphone_chat' => 'Send SMS in Softphone',
-        'call_in_softphone' => 'Call in Softphone',
+        'open_in_softphone_chat' => 'Send Message in Communication Panel',
+        'call_in_softphone' => 'Call in Communication Panel',
     ],
 
     'wallet' => [

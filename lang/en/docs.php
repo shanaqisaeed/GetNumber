@@ -28,7 +28,7 @@ return [
         'cost_free' => 'Cost: Free (no coin deduction)',
         'rate_store' => 'Rate Limit: 60/min',
         'desc_store' => 'Unified API endpoint to send outbound SMS (single or bulk) from your numbers, or ingest inbound webhook messages into the platform with full idempotency support.',
-        'params_title' => 'Request Body Parameters (JSON Body)',
+        'params_title' => 'Request Body Parameters',
         'col_name' => 'Field Name',
         'col_type' => 'Type',
         'col_status' => 'Status',

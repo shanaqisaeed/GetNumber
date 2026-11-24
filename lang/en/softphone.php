@@ -121,7 +121,7 @@ return [
         'cam_front_selfie' => 'Front Camera (Selfie)',
         'cam_rear_main' => 'Main Rear Camera',
         'cam_rear_ultrawide' => 'Rear Camera (Ultra Wide)',
-        'cam_rear_telephoto' => 'Rear Camera (Telephoto / Zoom)',
+        'cam_rear_telephoto' => 'Rear Camera (Telephoto)',
         'cam_rear_macro' => 'Rear Camera (Macro)',
         'cam_front_ultrawide' => 'Front Camera (Ultra Wide)',
         'webcam_named' => 'Webcam (:name)',

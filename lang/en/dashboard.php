@@ -116,7 +116,7 @@ return [
             'btn2' => 'Account Ledger',
         ],
         'api' => [
-            'title' => 'Developer Web Services (REST API)',
+            'title' => 'Developer Web Services',
             'subtitle' => 'SHA-256 security tokens & technical documentation',
             'desc' => 'Issuance and management of API access tokens for external software integration.',
             'badge' => ':count active keys',
@@ -211,7 +211,7 @@ return [
     'action_ticket_desc' => 'Direct communication with dedicated support engineers',
     'security_health_heading' => 'Account Security & Health',
     'settings_btn' => 'Settings',
-    'two_factor_auth' => 'Two-Factor Authentication (2FA)',
+    'two_factor_auth' => 'Two-Factor Authentication',
     'two_factor_active' => 'Enabled & Secure',
     'two_factor_inactive' => 'Disabled (Recommended)',
     'connected_identities' => 'Connected Identities',

@@ -65,7 +65,7 @@ return [
         'no_deposit_address' => 'The selected gateway did not provide a deposit wallet address.',
         'address_generation_failed' => 'Could not generate a valid address: :error',
         'address_generation_error' => 'Failed to generate deposit wallet address: :error',
-        'tx_hash_empty' => 'Transaction tracking hash (TX Hash) cannot be empty.',
+        'tx_hash_empty' => 'Transaction tracking hash cannot be empty.',
         'tx_hash_invalid' => 'Invalid transaction hash format (must contain alphanumeric characters only).',
         'status_not_eligible_tx' => 'Cannot register transaction hash for a request in status ":status".',
         'tx_hash_duplicate' => 'This transaction hash (TX Hash) has already been registered in the system.',

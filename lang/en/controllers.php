@@ -581,7 +581,7 @@ return [
             'voice_bridge_secret_ok' => 'Security token (Secret) was also verified and authenticated.',
             'voice_bridge_secret_invalid' => '⚠️ Warning: Bridge server is active, but the provided security token is invalid!',
             'voice_bridge_bad_status' => 'Unsuccessful response from Bridge server: status :status',
-            'voice_bridge_unreachable' => 'Cannot reach voice bridge server: :error',
+            'voice_bridge_unreachable' => 'Cannot reach voice service server: :error',
         ],
         'tickets' => [
             'val_message_required' => 'Agent reply message is required.',

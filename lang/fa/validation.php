@@ -83,7 +83,7 @@ return [
     'ipv4' => 'فیلد :attribute باید یک نشانی IPv4 معتبر باشد.',
     'ipv6' => 'فیلد :attribute باید یک نشانی IPv6 معتبر باشد.',
     'json' => 'فیلد :attribute باید یک رشته JSON معتبر باشد.',
-    'list' => 'فیلد :attribute باید به صورت فهرست (List) باشد.',
+    'list' => 'فیلد :attribute باید به صورت فهرست باشد.',
     'lowercase' => 'فیلد :attribute باید با حروف کوچک باشد.',
     'lt' => [
         'array' => 'فیلد :attribute باید کمتر از :value آیتم داشته باشد.',

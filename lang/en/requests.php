@@ -54,8 +54,8 @@ return [
             'display_title_max' => 'Display title cannot exceed 100 characters.',
         ],
         'store_sub_resource' => [
-            'sub_identifier_required' => 'Sub-account identifier is required.',
-            'sub_identifier_min' => 'Sub-account identifier must be at least 2 characters.',
+            'sub_identifier_required' => 'Account identifier is required.',
+            'sub_identifier_min' => 'Account identifier must be at least 2 characters.',
             'sub_identifier_max' => 'Sub-account identifier cannot exceed 48 characters.',
             'display_name_max' => 'Display label cannot exceed 120 characters.',
         ],
