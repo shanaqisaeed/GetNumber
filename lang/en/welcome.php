@@ -42,7 +42,7 @@ return [
         'step_3_desc' => 'Acquire dedicated token for software integration and message ingestion.',
         'step_4_num' => '04',
         'step_4_title' => 'Monitor & View Live',
-        'step_4_desc' => 'View conversations categorized by numbers and senders in a responsive UI.',
+        'step_4_desc' => 'View messages and communication events categorized by lines in the system console.',
     ],
     'stats' => [
         'stat_1_val' => '< 50 ms',

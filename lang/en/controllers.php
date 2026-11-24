@@ -253,7 +253,7 @@ return [
             'pattern_smart_random' => 'Smart Random Allocation',
             'short_line_length_valid' => 'Shortcode length is valid. You may optionally enter a preferred number.',
             'id_required' => 'Please enter your desired custom ID.',
-            'id_length_individual' => 'Minimum custom ID length for individual users is 6 characters (4 and 5 character IDs are offered in the Enterprise section).',
+            'id_length_individual' => 'Minimum custom ID length for individual users is 6 characters.',
             'id_length_enterprise' => 'Enterprise custom ID length must be between 4 and 32 characters.',
             'id_invalid_format' => 'Custom ID must start with an English letter and contain only letters, digits, and underscores.',
             'id_consecutive_underscores' => 'Consecutive underscores are not allowed.',
@@ -581,7 +581,7 @@ return [
             'voice_bridge_secret_ok' => 'Security token (Secret) was also verified and authenticated.',
             'voice_bridge_secret_invalid' => '⚠️ Warning: Bridge server is active, but the provided security token is invalid!',
             'voice_bridge_bad_status' => 'Unsuccessful response from Bridge server: status :status',
-            'voice_bridge_unreachable' => 'Cannot reach Bridge server: :error (Please ensure the voice-bridge daemon is running on the specified port).',
+            'voice_bridge_unreachable' => 'Cannot reach voice bridge server: :error',
         ],
         'tickets' => [
             'val_message_required' => 'Agent reply message is required.',

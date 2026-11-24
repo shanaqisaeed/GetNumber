@@ -304,7 +304,7 @@ return [
             'wallet_synced' => 'Wallex TRX wallet synchronized successfully.',
             'wallet_not_found' => 'Tron wallet was not found in Wallex response.',
             'sync_error' => 'Error communicating with Wallex: :error',
-            'no_rx_address_configured' => 'Receive wallet address is not configured in Wallex settings. Mock addresses are disabled.',
+            'no_rx_address_configured' => 'Receive wallet address is not configured in Wallex settings.',
             'verification_no_api_key' => 'Wallex API key is not configured.',
             'amount_less' => 'Deposited amount (:amount TRX) is less than requested amount (:requested TRX).',
             'pending_status' => 'Transaction on Wallex is in status :status.',

@@ -75,7 +75,7 @@ return [
         'numbers' => [
             'title' => 'Standard & Rond 9-Digit Numbers',
             'subtitle' => 'Instant & atomic allocation from pool',
-            'desc' => 'Instant reservation of 9-digit numbers in 3 tiers: regular, semi-rond, and golden-rond with country prefix choices.',
+            'desc' => 'Allocation and management of enterprise communication lines across standard and premium tiers.',
             'badge' => ':count active lines',
             'h1' => 'Instant Allocation',
             'h2' => 'Golden Rond Detection',
@@ -85,7 +85,7 @@ return [
         'requests' => [
             'title' => 'Commercial & Service Prefixes',
             'subtitle' => 'Short dedicated lines (4 to 8 digits)',
-            'desc' => 'Official request submission for short enterprise prefixes (4, 5, 6, 7 and 8 digits) in one-way or two-way modes.',
+            'desc' => 'Submission and tracking of official enterprise shortcode requests (4 to 8 digits).',
             'pending_badge' => ':count pending review',
             'active_badge' => ':count active prefixes',
             'h1' => '4 to 8 Digits',
@@ -96,7 +96,7 @@ return [
         'messages' => [
             'title' => 'Real-time Messenger & Bulk Campaigns',
             'subtitle' => 'Live two-way chat & group campaigns',
-            'desc' => 'Real-time chat environment (WebSocket) with multi-SIM switcher, single and bulk SMS, segment calculator, and contact book.',
+            'desc' => 'Comprehensive real-time messaging, single/bulk transmissions, and enterprise contact directory.',
             'unread_badge' => ':count unread messages',
             'total_badge' => ':count registered messages',
             'h1' => 'Live WebSocket',
@@ -107,7 +107,7 @@ return [
         'wallet' => [
             'title' => 'Crypto Wallet & Financial Ledger',
             'subtitle' => 'Instant blockchain top-up & transparent ledger',
-            'desc' => 'Automatic balance top-up via Tron network (TRX) with smart blockchain verification and itemized ledger statements.',
+            'desc' => 'Account credit management, billing statements, and financial ledger history.',
             'badge' => ':count credit units',
             'h1' => 'Direct TRX Gateway',
             'h2' => 'Automated Verification',
@@ -118,7 +118,7 @@ return [
         'api' => [
             'title' => 'Developer Web Services (REST API)',
             'subtitle' => 'SHA-256 security tokens & technical documentation',
-            'desc' => 'Dedicated token issuance with instant rotation and revocation for sending and receiving messages, with code samples in 11 languages.',
+            'desc' => 'Issuance and management of API access tokens for external software integration.',
             'badge' => ':count active keys',
             'h1' => 'REST API v1',
             'h2' => 'SHA-256 Hashing',
@@ -129,7 +129,7 @@ return [
         'tickets' => [
             'title' => '24/7 Service Desk & Support Ticketing',
             'subtitle' => 'Direct communication with technical & finance experts',
-            'desc' => 'Support ticketing with line binding, department selection, priority levels, up to 5MB file attachments, and expert replies.',
+            'desc' => 'Creation and tracking of enterprise support tickets and communication with specialists.',
             'answered_badge' => ':count new replies',
             'open_badge' => ':count open tickets',
             'h1' => 'Ticket Bound to Line',
@@ -141,7 +141,7 @@ return [
         'security' => [
             'title' => 'Security Center & Two-Factor Authentication',
             'subtitle' => 'TOTP protection & emergency recovery codes',
-            'desc' => 'Protect your account with password changes, Two-Factor Authentication (Google Authenticator), and backup recovery codes.',
+            'desc' => 'Configuration of account security settings, passwords, and two-factor authentication (2FA).',
             'badge_active' => '2FA Active & Safe',
             'badge_inactive' => '2FA Disabled',
             'h1' => 'TOTP Authentication',
@@ -152,7 +152,7 @@ return [
         'identities' => [
             'title' => 'Sign-In Methods (SSO/LDAP) & Sessions',
             'subtitle' => 'Manage connected identities & active devices',
-            'desc' => 'Link account to enterprise directories, monitor active devices and browsers in real-time with one-click remote session revocation.',
+            'desc' => 'Management of organizational identity providers and active account sessions.',
             'badge' => ':count connected identities',
             'h1' => 'Keycloak & LDAP',
             'h2' => 'IP & Browser Tracking',
