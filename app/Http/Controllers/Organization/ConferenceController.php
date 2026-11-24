@@ -45,7 +45,7 @@ class ConferenceController extends Controller
                           $pq->where('user_id', $user->id);
                       });
             })
-            ->with(['creator:id,name,username', 'activeParticipants'])
+            ->with(['creator:id,name,account_id', 'activeParticipants'])
             ->latest()
             ->get()
             ->map(function (ConferenceRoom $room) use ($user) {
@@ -54,11 +54,12 @@ class ConferenceController extends Controller
                     'room_uuid' => $room->room_uuid,
                     'title' => $room->title,
                     'is_host' => (int) $room->created_by_user_id === (int) $user->id,
-                    'creator_name' => $room->creator?->name ?: ($room->creator?->username ?: __('conference.common.user')),
+                    'creator_name' => $room->creator?->name ?: ($room->creator?->account_id ?: __('conference.common.user')),
                     'has_pin' => ! empty($room->pin_code),
                     'admission_policy' => $room->admission_policy,
                     'webinar_mode' => $room->webinar_mode,
                     'screen_share_policy' => $room->screen_share_policy,
+                    'watermark_enabled' => (bool) $room->watermark_enabled,
                     'is_locked' => $room->is_locked,
                     'scheduled_start_at' => $room->scheduled_start_at?->toIso8601String(),
                     'scheduled_end_at' => $room->scheduled_end_at?->toIso8601String(),
@@ -92,15 +93,15 @@ class ConferenceController extends Controller
         $org = $user->getOrCreatePersonalOrganization();
 
         $validated = $request->validate([
-            'title' => 'required|string|max:120',
+            'title' => 'nullable|string|max:120',
             'pin_code' => 'nullable|string|max:16',
-            'admission_policy' => 'required|in:open,approval',
-            'initial_audio_state' => 'required|in:open,muted',
-            'webinar_mode' => 'boolean',
-            'screen_share_policy' => 'required|in:everyone,host_only,by_permission',
-            'mute_others_on_share' => 'boolean',
-            'allow_whiteboard' => 'boolean',
-            'max_participants' => 'nullable|integer|min:2|max:100',
+            'admission_policy' => 'nullable|in:open,approval',
+            'initial_audio_state' => 'nullable|in:open,muted',
+            'webinar_mode' => 'nullable|boolean',
+            'screen_share_policy' => 'nullable|in:everyone,host_only,by_permission',
+            'mute_others_on_share' => 'nullable|boolean',
+            'allow_whiteboard' => 'nullable|boolean',
+            'watermark_enabled' => 'nullable|boolean',
             'scheduled_start_at' => 'nullable|date',
             'scheduled_end_at' => 'nullable|date|after:scheduled_start_at',
         ]);
@@ -247,7 +248,7 @@ class ConferenceController extends Controller
         if ($isHost && (! $participant || $participant->status !== 'admitted')) {
             // Auto-admit host if entering room directly
             $operableLines = SoftphoneDashboardController::resolveOperableLines($user);
-            $defaultPhone = $operableLines->first()['number'] ?? ($user->username ?: ('USER-' . $user->id));
+            $defaultPhone = $operableLines->first()['number'] ?? ($user->account_id ?: ('USER-' . $user->id));
             $joinRes = $this->conferenceService->joinRoom(
                 $room,
                 $user,
@@ -255,7 +256,7 @@ class ConferenceController extends Controller
                 null,
                 [
                     'ip' => $request->ip(),
-                    'is_camera_on' => true,
+                    'is_camera_on' => false,
                     'is_muted' => false,
                 ]
             );
@@ -319,10 +320,12 @@ class ConferenceController extends Controller
                 'is_host' => $isHost,
                 'host_user_id' => $room->created_by_user_id,
                 'admission_policy' => $room->admission_policy,
+                'initial_audio_state' => $room->initial_audio_state,
                 'webinar_mode' => $room->webinar_mode,
                 'screen_share_policy' => $room->screen_share_policy,
                 'mute_others_on_share' => $room->mute_others_on_share,
                 'allow_whiteboard' => $room->allow_whiteboard,
+                'watermark_enabled' => (bool) $room->watermark_enabled,
                 'is_locked' => $room->is_locked,
                 'max_participants' => $room->max_participants,
             ],
@@ -364,24 +367,26 @@ class ConferenceController extends Controller
 
         $participants = ConferenceParticipant::where('conference_room_id', $room->id)
             ->whereIn('status', ['waiting_approval', 'admitted'])
-            ->with('user:id,name,username')
+            ->with('user:id,name,account_id')
             ->orderByRaw("CASE WHEN status = 'waiting_approval' THEN 0 ELSE 1 END")
             ->orderByDesc('hand_raised')
             ->orderBy('hand_raised_at')
             ->orderBy('joined_at')
             ->get()
             ->map(function (ConferenceParticipant $p) use ($user, $room) {
+                $isHost = ((int) $p->user_id === (int) $room->created_by_user_id || $p->role === 'host');
+                $displayName = $p->display_name ?: ($p->user?->name ?: ($p->user?->account_id ?: ('USER-' . $p->user_id)));
                 return [
                     'id' => $p->id,
                     'user_id' => $p->user_id,
                     'is_self' => (int) $p->user_id === (int) $user->id,
                     'phone_number' => $p->phone_number,
-                    'display_name' => $p->display_name,
+                    'display_name' => $displayName,
                     'status' => $p->status,
-                    'role' => $p->role,
+                    'role' => $isHost ? 'host' : $p->role,
                     'is_muted' => $p->is_muted,
                     'is_camera_on' => $p->is_camera_on,
-                    'can_share_screen' => $p->isHost() || $p->can_share_screen || $room->screen_share_policy === 'everyone',
+                    'can_share_screen' => $isHost || $p->can_share_screen || $room->screen_share_policy === 'everyone',
                     'is_sharing_screen' => $p->is_sharing_screen,
                     'hand_raised' => $p->hand_raised,
                     'hand_raised_at' => $p->hand_raised_at?->toIso8601String(),
@@ -390,7 +395,7 @@ class ConferenceController extends Controller
 
         $messages = ConferenceMessage::where('conference_room_id', $room->id)
             ->visibleFor($user->id)
-            ->with(['sender:id,name,username', 'recipient:id,name,username'])
+            ->with(['sender:id,name,account_id', 'recipient:id,name,account_id'])
             ->latest()
             ->take(80)
             ->get()
@@ -400,10 +405,10 @@ class ConferenceController extends Controller
                 return [
                     'id' => $msg->id,
                     'sender_id' => $msg->user_id,
-                    'sender_name' => $msg->sender?->name ?: ($msg->sender?->username ?: __('conference.common.user')),
+                    'sender_name' => $msg->sender?->name ?: ($msg->sender?->account_id ?: __('conference.common.user')),
                     'is_self' => (int) $msg->user_id === (int) $user->id,
                     'is_private' => $msg->isPrivate(),
-                    'recipient_name' => $msg->recipient?->name ?: $msg->recipient?->username,
+                    'recipient_name' => $msg->recipient?->name ?: $msg->recipient?->account_id,
                     'message' => $msg->message,
                     'created_at' => $msg->created_at->format('H:i'),
                 ];
@@ -454,9 +459,13 @@ class ConferenceController extends Controller
             'room' => [
                 'is_active' => $room->is_active && ! $room->isExpired(),
                 'is_locked' => $room->is_locked,
+                'admission_policy' => $room->admission_policy,
+                'initial_audio_state' => $room->initial_audio_state,
                 'webinar_mode' => $room->webinar_mode,
                 'screen_share_policy' => $room->screen_share_policy,
                 'mute_others_on_share' => $room->mute_others_on_share,
+                'allow_whiteboard' => $room->allow_whiteboard,
+                'watermark_enabled' => (bool) $room->watermark_enabled,
             ],
             'selfStatus' => $selfParticipant?->status ?? 'left',
             'participants' => $participants,
@@ -714,7 +723,7 @@ class ConferenceController extends Controller
         }
 
         $participants = ConferenceParticipant::where('conference_room_id', $room->id)
-            ->with('user:id,name,username')
+            ->with('user:id,name,account_id')
             ->orderBy('joined_at')
             ->get();
 
@@ -753,5 +762,47 @@ class ConferenceController extends Controller
 
             fclose($handle);
         }, 200, $headers);
+    }
+
+    /**
+     * Unified room settings update by meeting host.
+     */
+    public function updateSettings(Request $request, string $uuid): JsonResponse
+    {
+        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+
+        $validated = $request->validate([
+            'admission_policy' => 'nullable|in:open,approval',
+            'initial_audio_state' => 'nullable|in:open,muted',
+            'screen_share_policy' => 'nullable|in:everyone,host_only,by_permission',
+            'mute_others_on_share' => 'nullable|boolean',
+            'webinar_mode' => 'nullable|boolean',
+            'allow_whiteboard' => 'nullable|boolean',
+            'watermark_enabled' => 'nullable|boolean',
+            'is_locked' => 'nullable|boolean',
+        ]);
+
+        try {
+            $updatedRoom = $this->conferenceService->updateRoomSettings($room, $request->user(), $validated);
+
+            return response()->json([
+                'success' => true,
+                'room' => [
+                    'admission_policy' => $updatedRoom->admission_policy,
+                    'initial_audio_state' => $updatedRoom->initial_audio_state,
+                    'screen_share_policy' => $updatedRoom->screen_share_policy,
+                    'mute_others_on_share' => $updatedRoom->mute_others_on_share,
+                    'webinar_mode' => $updatedRoom->webinar_mode,
+                    'allow_whiteboard' => $updatedRoom->allow_whiteboard,
+                    'watermark_enabled' => $updatedRoom->watermark_enabled,
+                    'is_locked' => $updatedRoom->is_locked,
+                ],
+            ]);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 403);
+        }
     }
 }

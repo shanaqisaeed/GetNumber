@@ -41,6 +41,7 @@ return [
                 'requests' => 'Number Requests Review',
                 'messages' => 'Messages Monitoring',
                 'calls' => 'Voice Call Logs',
+                'conferences' => 'Video Conferences',
                 'payments' => 'Gateways & Payment Transactions',
                 'api_tokens' => 'API Tokens & Web Services',
                 'tickets' => 'Service Desk & Tickets',

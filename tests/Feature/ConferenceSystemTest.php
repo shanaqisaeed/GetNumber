@@ -74,13 +74,13 @@ class ConferenceSystemTest extends TestCase
 
         $response->assertRedirect(route('org.conference.lobby', ['uuid' => $room->room_uuid]));
 
-        // Host can render room page without errors and camera defaults to true
+        // Host can render room page without errors and camera defaults to false (dormant until requested)
         $this->actingAs($user)
             ->get(route('org.conference.room', ['uuid' => $room->room_uuid]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('Organization/Conference/Room')
-                ->where('currentParticipant.is_camera_on', true)
+                ->where('currentParticipant.is_camera_on', false)
             );
 
         // Host can delete room
@@ -343,5 +343,95 @@ class ConferenceSystemTest extends TestCase
                 ->where('sfuConfig.minPort', 49152)
                 ->where('sfuConfig.maxPort', 49250)
             );
+    }
+
+    public function test_conference_index_loads_successfully_without_sql_username_column_error(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::User]);
+
+        // Create room without explicit title and check auto-generated title and open defaults
+        $response = $this->actingAs($user)->post(route('org.conference.store'), [
+            'admission_policy' => 'open',
+            'initial_audio_state' => 'open',
+            'screen_share_policy' => 'everyone',
+            'watermark_enabled' => false,
+        ]);
+
+        $room = ConferenceRoom::latest('id')->first();
+        $this->assertNotNull($room);
+        $this->assertStringContainsString('گفتگوی سازمانی', $room->title);
+        $this->assertFalse($room->watermark_enabled);
+
+        // Index page loads with eager loaded creator:id,name,account_id without 1054 error
+        $this->actingAs($user)
+            ->get(route('org.conference.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Organization/Conference/Index')
+                ->has('rooms', 1)
+            );
+    }
+
+    public function test_host_can_update_room_settings_and_watermark_is_broadcasted(): void
+    {
+        $host = User::factory()->create(['role' => UserRole::User]);
+        $room = $this->conferenceService->createRoom($host, [
+            'title' => 'جلسه راهبردی',
+            'watermark_enabled' => false,
+        ]);
+
+        // Host updates room settings
+        $response = $this->actingAs($host)->postJson(route('org.conference.settings', ['uuid' => $room->room_uuid]), [
+            'admission_policy' => 'approval',
+            'initial_audio_state' => 'muted',
+            'screen_share_policy' => 'host_only',
+            'watermark_enabled' => true,
+            'is_locked' => true,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('room.watermark_enabled', true)
+            ->assertJsonPath('room.admission_policy', 'approval')
+            ->assertJsonPath('room.is_locked', true);
+
+        $room->refresh();
+        $this->assertTrue($room->watermark_enabled);
+        $this->assertTrue($room->is_locked);
+        $this->assertEquals('approval', $room->admission_policy);
+
+        // Polling state returns updated watermark and policies
+        $stateResp = $this->actingAs($host)->getJson(route('org.conference.state', ['uuid' => $room->room_uuid]));
+        $stateResp->assertOk()
+            ->assertJsonPath('room.watermark_enabled', true)
+            ->assertJsonPath('room.is_locked', true);
+    }
+
+    public function test_admin_can_view_conferences_and_terminate_conference_room(): void
+    {
+        $admin = User::factory()->create(['role' => UserRole::Admin]);
+        $user = User::factory()->create(['role' => UserRole::User]);
+        $room = $this->conferenceService->createRoom($user, [
+            'title' => 'جلسه کاربران عادی',
+        ]);
+
+        // Admin index loads conferences
+        $this->actingAs($admin)
+            ->get(route('admin.conferences.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Admin/Conferences/Index')
+                ->has('rooms.data', 1)
+                ->where('stats.active_rooms', 1)
+            );
+
+        // Admin terminates room
+        $this->actingAs($admin)
+            ->delete(route('admin.conferences.destroy', ['uuid' => $room->room_uuid]))
+            ->assertRedirect();
+
+        $room->refresh();
+        $this->assertFalse($room->is_active);
+        $this->assertTrue($room->trashed());
     }
 }

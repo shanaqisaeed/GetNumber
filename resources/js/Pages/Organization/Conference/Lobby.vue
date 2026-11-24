@@ -149,40 +149,39 @@ async function startMediaPreview() {
 
     let combinedStream: MediaStream | null = null;
 
-    // 1. Try requesting both video & audio together first
-    try {
-        combinedStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 360 } },
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-            },
-        });
-    } catch {
-        // 2. Fallback: try acquiring video and audio independently so one missing device doesn't disable both
-        const tracks: MediaStreamTrack[] = [];
+    // Only request video if user explicitly enabled camera
+    if (isCameraEnabled.value) {
         try {
-            const vStream = await navigator.mediaDevices.getUserMedia({
+            combinedStream = await navigator.mediaDevices.getUserMedia({
                 video: { width: { ideal: 640 }, height: { ideal: 360 } },
-            });
-            vStream.getVideoTracks().forEach((t) => tracks.push(t));
-        } catch {}
-
-        try {
-            const aStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
                 },
             });
-            aStream.getAudioTracks().forEach((t) => tracks.push(t));
-        } catch {}
-
-        if (tracks.length > 0) {
-            combinedStream = new MediaStream(tracks);
+        } catch {
+            try {
+                combinedStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                });
+            } catch {}
         }
+    } else {
+        // Only request audio preview by default, camera hardware stays completely off
+        try {
+            combinedStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
+            });
+        } catch {}
     }
 
     if (combinedStream) {
@@ -193,6 +192,7 @@ async function startMediaPreview() {
         if (vTrack) {
             vTrack.enabled = true;
             isCameraEnabled.value = true;
+            await attachStreamToVideo(combinedStream);
         } else {
             isCameraEnabled.value = false;
         }
@@ -200,12 +200,10 @@ async function startMediaPreview() {
         if (aTrack) {
             aTrack.enabled = true;
             isMicEnabled.value = true;
+            attachAudioMeter(combinedStream);
         } else {
             isMicEnabled.value = false;
         }
-
-        await attachStreamToVideo(combinedStream);
-        attachAudioMeter(combinedStream);
     } else {
         isCameraEnabled.value = false;
         isMicEnabled.value = false;
@@ -215,19 +213,22 @@ async function startMediaPreview() {
 }
 
 async function toggleCamera() {
-    if (localStream.value) {
-        const track = localStream.value.getVideoTracks()[0];
-        if (track && track.readyState === 'live') {
-            track.enabled = !track.enabled;
-            isCameraEnabled.value = track.enabled;
-            if (track.enabled) {
-                await attachStreamToVideo(localStream.value);
-            }
-            return;
+    if (isCameraEnabled.value) {
+        // Turn OFF camera and physically release hardware device
+        isCameraEnabled.value = false;
+        if (localStream.value) {
+            localStream.value.getVideoTracks().forEach((t) => {
+                t.stop();
+                localStream.value?.removeTrack(t);
+            });
         }
+        if (videoPreviewRef.value) {
+            videoPreviewRef.value.srcObject = null;
+        }
+        return;
     }
 
-    // No live video track yet — attempt to acquire camera now
+    // Turn ON camera
     try {
         const vStream = await navigator.mediaDevices.getUserMedia({
             video: { width: { ideal: 640 }, height: { ideal: 360 } },

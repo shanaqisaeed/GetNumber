@@ -33,20 +33,26 @@ class ConferenceService implements ConferenceServiceInterface
         // Default 7-day room lifecycle
         $expiresAt = Carbon::now()->addDays(7);
 
+        $rawTitle = trim((string) ($data['title'] ?? ''));
+        $title = $rawTitle !== ''
+            ? $rawTitle
+            : ('گفتگوی سازمانی ' . str_pad((string) mt_rand(100, 999), 3, '0', STR_PAD_LEFT));
+
         return ConferenceRoom::create([
             'organization_id' => $data['organization_id'] ?? null,
             'created_by_user_id' => $user->id,
             'room_uuid' => $roomUuid,
-            'title' => $data['title'] ?? __('conference.room.room_name_placeholder'),
+            'title' => $title,
             'pin_code' => ! empty($data['pin_code']) ? (string) $data['pin_code'] : null,
-            'admission_policy' => $data['admission_policy'] ?? 'approval',
-            'initial_audio_state' => $data['initial_audio_state'] ?? 'muted',
+            'admission_policy' => $data['admission_policy'] ?? 'open',
+            'initial_audio_state' => $data['initial_audio_state'] ?? 'open',
             'webinar_mode' => (bool) ($data['webinar_mode'] ?? false),
-            'screen_share_policy' => $data['screen_share_policy'] ?? 'by_permission',
-            'mute_others_on_share' => (bool) ($data['mute_others_on_share'] ?? true),
+            'screen_share_policy' => $data['screen_share_policy'] ?? 'everyone',
+            'mute_others_on_share' => (bool) ($data['mute_others_on_share'] ?? false),
             'allow_whiteboard' => (bool) ($data['allow_whiteboard'] ?? true),
+            'watermark_enabled' => (bool) ($data['watermark_enabled'] ?? false),
             'is_locked' => false,
-            'max_participants' => (int) ($data['max_participants'] ?? 50),
+            'max_participants' => (int) ($data['max_participants'] ?? 9999),
             'is_active' => true,
             'scheduled_start_at' => $scheduledStartAt,
             'scheduled_end_at' => $scheduledEndAt,
@@ -130,10 +136,10 @@ class ConferenceService implements ConferenceServiceInterface
             ? (($room->webinar_mode && ! $isHost && ! $canShareScreen) ? true : (bool) $clientMeta['is_muted'])
             : $defaultMuted;
 
-        $defaultCameraOn = ! ($room->webinar_mode && ! $isHost && ! $canShareScreen);
+        // Camera MUST NOT turn on automatically under any circumstances unless user explicitly turned it on
         $initialCameraOn = array_key_exists('is_camera_on', $clientMeta) && $clientMeta['is_camera_on'] !== null
-            ? (($room->webinar_mode && ! $isHost && ! $canShareScreen) ? false : (bool) $clientMeta['is_camera_on'])
-            : $defaultCameraOn;
+            ? (bool) $clientMeta['is_camera_on']
+            : false;
 
         $participant = ConferenceParticipant::updateOrCreate(
             [
@@ -142,7 +148,7 @@ class ConferenceService implements ConferenceServiceInterface
             ],
             [
                 'phone_number' => $phoneNumber,
-                'display_name' => $user->name ?: ($user->username ?: __('conference.common.user') . ' #' . $user->id),
+                'display_name' => $user->name ?: ($user->account_id ?: __('conference.common.user') . ' #' . $user->id),
                 'status' => $initialStatus,
                 'role' => $isHost ? 'host' : 'participant',
                 'is_muted' => $initialMuted,
@@ -303,6 +309,86 @@ class ConferenceService implements ConferenceServiceInterface
                     'is_camera_on' => false,
                 ]);
         }
+
+        return $room;
+    }
+
+    public function updateRoomSettings(ConferenceRoom $room, User $hostUser, array $settings): ConferenceRoom
+    {
+        $this->ensureHost($room, $hostUser);
+
+        $updates = ['last_active_at' => Carbon::now()];
+
+        if (array_key_exists('admission_policy', $settings)) {
+            $updates['admission_policy'] = $settings['admission_policy'];
+        }
+        if (array_key_exists('initial_audio_state', $settings)) {
+            $updates['initial_audio_state'] = $settings['initial_audio_state'];
+        }
+        if (array_key_exists('screen_share_policy', $settings)) {
+            $updates['screen_share_policy'] = $settings['screen_share_policy'];
+        }
+        if (array_key_exists('mute_others_on_share', $settings)) {
+            $updates['mute_others_on_share'] = (bool) $settings['mute_others_on_share'];
+        }
+        if (array_key_exists('webinar_mode', $settings)) {
+            $updates['webinar_mode'] = (bool) $settings['webinar_mode'];
+        }
+        if (array_key_exists('allow_whiteboard', $settings)) {
+            $updates['allow_whiteboard'] = (bool) $settings['allow_whiteboard'];
+        }
+        if (array_key_exists('watermark_enabled', $settings)) {
+            $updates['watermark_enabled'] = (bool) $settings['watermark_enabled'];
+        }
+        if (array_key_exists('is_locked', $settings)) {
+            $updates['is_locked'] = (bool) $settings['is_locked'];
+        }
+
+        $room->update($updates);
+
+        if (! empty($updates['webinar_mode'])) {
+            ConferenceParticipant::where('conference_room_id', $room->id)
+                ->where('status', 'admitted')
+                ->where('role', '!=', 'host')
+                ->where('can_share_screen', false)
+                ->update([
+                    'is_muted' => true,
+                    'is_camera_on' => false,
+                ]);
+        }
+
+        // Buffer signaling broadcast for all attendees
+        $cacheKey = "conf_signals:{$room->id}";
+        $signals = Cache::get($cacheKey, []);
+        $lastSeq = empty($signals) ? 0 : (int) (end($signals)['seq'] ?? 0);
+        $nextSeq = $lastSeq + 1;
+
+        $signals[] = [
+            'seq' => $nextSeq,
+            'type' => 'room_settings_updated',
+            'sender_participant_id' => 0,
+            'sender_user_id' => $hostUser->id,
+            'sender_phone' => 'SYSTEM',
+            'sender_name' => 'SYSTEM',
+            'target_participant_id' => null,
+            'payload' => [
+                'admission_policy' => $room->admission_policy,
+                'initial_audio_state' => $room->initial_audio_state,
+                'screen_share_policy' => $room->screen_share_policy,
+                'mute_others_on_share' => $room->mute_others_on_share,
+                'webinar_mode' => $room->webinar_mode,
+                'allow_whiteboard' => $room->allow_whiteboard,
+                'watermark_enabled' => $room->watermark_enabled,
+                'is_locked' => $room->is_locked,
+            ],
+            'timestamp' => now()->getTimestampMs(),
+        ];
+
+        if (count($signals) > 250) {
+            $signals = array_slice($signals, -250);
+        }
+
+        Cache::put($cacheKey, $signals, now()->addHours(2));
 
         return $room;
     }

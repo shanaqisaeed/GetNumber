@@ -78,10 +78,12 @@ const props = defineProps<{
         is_host: boolean;
         host_user_id: number;
         admission_policy: string;
+        initial_audio_state?: string;
         webinar_mode: boolean;
         screen_share_policy: string;
         mute_others_on_share: boolean;
         allow_whiteboard: boolean;
+        watermark_enabled?: boolean;
         is_locked: boolean;
         max_participants: number;
     };
@@ -112,6 +114,18 @@ const props = defineProps<{
 }>();
 
 // Room reactive policies
+const roomState = ref({
+    admission_policy: props.room.admission_policy,
+    initial_audio_state: props.room.initial_audio_state || 'open',
+    screen_share_policy: props.room.screen_share_policy,
+    mute_others_on_share: props.room.mute_others_on_share,
+    webinar_mode: props.room.webinar_mode,
+    allow_whiteboard: props.room.allow_whiteboard,
+    watermark_enabled: Boolean(props.room.watermark_enabled),
+    is_locked: props.room.is_locked,
+});
+const isSettingsModalOpen = ref(false);
+const settingsForm = ref({ ...roomState.value });
 const isRoomLocked = ref(props.room.is_locked);
 const isWebinarMode = ref(props.room.webinar_mode);
 const canShareScreen = ref(props.currentParticipant.can_share_screen);
@@ -123,7 +137,7 @@ const localVideoRef = ref<HTMLVideoElement | null>(null);
 const screenStream = ref<MediaStream | null>(null);
 const localScreenVideoRef = ref<HTMLVideoElement | null>(null);
 const isMuted = ref(props.currentParticipant.is_muted);
-const isCameraOn = ref(props.currentParticipant.is_camera_on);
+const isCameraOn = ref(props.currentParticipant.is_camera_on === true);
 const isSharingScreen = ref(props.currentParticipant.is_sharing_screen);
 const handRaised = ref(props.currentParticipant.hand_raised);
 
@@ -215,22 +229,22 @@ function showToast(msg: string) {
 
 async function bindLocalVideoStream() {
     await nextTick();
-    if (localVideoRef.value && localStream.value) {
-        if (localVideoRef.value.srcObject !== localStream.value) {
-            localVideoRef.value.srcObject = localStream.value;
-        }
-        try {
-            await localVideoRef.value.play();
-        } catch {
-            // Autoplay fallback handled by muted + playsinline
+    if (localVideoRef.value) {
+        if (isCameraOn.value && localStream.value && localStream.value.getVideoTracks().length > 0) {
+            if (localVideoRef.value.srcObject !== localStream.value) {
+                localVideoRef.value.srcObject = localStream.value;
+            }
+            try {
+                await localVideoRef.value.play();
+            } catch {}
+        } else {
+            localVideoRef.value.srcObject = null;
         }
     }
 }
 
 watch(isCameraOn, async (on) => {
-    if (on) {
-        await bindLocalVideoStream();
-    }
+    await bindLocalVideoStream();
 });
 
 // 1. Initialize Local Media with Independent Audio/Video Fallbacks & Immediate Video Playback
@@ -242,42 +256,41 @@ async function initLocalMedia() {
     }
 
     const canBroadcastVideo = !(isWebinarMode.value && !props.room.is_host && !canShareScreen.value);
+    const shouldStartWithVideo = isCameraOn.value && canBroadcastVideo;
     let stream: MediaStream | null = null;
 
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: canBroadcastVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: true,
-            },
-        });
-    } catch {
-        // Fallback: try video and audio separately so one missing device doesn't block the other
-        const tracks: MediaStreamTrack[] = [];
-        if (canBroadcastVideo) {
-            try {
-                const vStream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: { ideal: 1280 }, height: { ideal: 720 } },
-                });
-                vStream.getVideoTracks().forEach((t) => tracks.push(t));
-            } catch {}
-        }
+    if (shouldStartWithVideo) {
         try {
-            const aStream = await navigator.mediaDevices.getUserMedia({
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
                 audio: {
                     echoCancellation: true,
                     noiseSuppression: true,
                     autoGainControl: true,
                 },
             });
-            aStream.getAudioTracks().forEach((t) => tracks.push(t));
-        } catch {}
-
-        if (tracks.length > 0) {
-            stream = new MediaStream(tracks);
+        } catch {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                    },
+                });
+            } catch {}
         }
+    } else {
+        // DO NOT request camera video at all! Hardware webcam and LED will NOT turn on!
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                },
+            });
+        } catch {}
     }
 
     if (!stream) {
@@ -296,15 +309,9 @@ async function initLocalMedia() {
     }
 
     const videoTrack = stream.getVideoTracks()[0];
-    if (videoTrack && canBroadcastVideo) {
-        // If camera track is physically active, ensure isCameraOn reflects it so user sees their video
-        if (!props.currentParticipant.is_camera_on) {
-            // Respect lobby toggle if explicitly turned off, otherwise default on
-            videoTrack.enabled = isCameraOn.value;
-        } else {
-            isCameraOn.value = true;
-            videoTrack.enabled = true;
-        }
+    if (videoTrack && shouldStartWithVideo) {
+        videoTrack.enabled = true;
+        isCameraOn.value = true;
     } else {
         isCameraOn.value = false;
     }
@@ -664,14 +671,16 @@ async function toggleVideo() {
     } else {
         isCameraOn.value = false;
         if (localStream.value) {
-            const videoTrack = localStream.value.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.enabled = false;
-            }
+            const videoTracks = localStream.value.getVideoTracks();
+            videoTracks.forEach((t) => {
+                t.stop();
+                localStream.value?.removeTrack(t);
+            });
             if (!isSharingScreen.value) {
                 await replaceOutgoingVideoTrack(null);
             }
         }
+        await bindLocalVideoStream();
     }
 
     await axios.post(route('org.conference.media_state', { uuid: props.room.uuid }), {
@@ -906,6 +915,19 @@ async function sendChatMessage() {
 
         if (resp.data.success) {
             chatInput.value = '';
+            if (resp.data.message) {
+                const m = resp.data.message;
+                messages.value.push({
+                    id: m.id,
+                    sender_id: props.currentParticipant.user_id,
+                    sender_name: props.currentParticipant.display_name,
+                    is_self: true,
+                    is_private: Boolean(toUserId),
+                    recipient_name: toUserId ? (chatRecipientMode.value === 'host' ? __('conference.common.host') : '') : undefined,
+                    message: text,
+                    created_at: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                });
+            }
             fetchState();
             sendSFUMessage('chat_message', {
                 target_user_id: toUserId,
@@ -1190,6 +1212,13 @@ function handleSFUMessage(msg: any) {
         case 'screen_share_stopped':
         case 'screen_share_permission_updated':
         case 'room_policy_updated':
+        case 'room_settings_updated':
+            if (msg.payload) {
+                Object.assign(roomState.value, msg.payload);
+                roomState.value.watermark_enabled = Boolean(msg.payload.watermark_enabled);
+                isRoomLocked.value = Boolean(msg.payload.is_locked);
+                isWebinarMode.value = Boolean(msg.payload.webinar_mode);
+            }
             fetchState();
             break;
         case 'offer':
@@ -1276,8 +1305,12 @@ async function fetchState() {
             return;
         }
 
-        isRoomLocked.value = Boolean(resp.data.room.is_locked);
-        isWebinarMode.value = Boolean(resp.data.room.webinar_mode);
+        if (resp.data.room) {
+            isRoomLocked.value = Boolean(resp.data.room.is_locked);
+            isWebinarMode.value = Boolean(resp.data.room.webinar_mode);
+            Object.assign(roomState.value, resp.data.room);
+            roomState.value.watermark_enabled = Boolean(resp.data.room.watermark_enabled);
+        }
 
         participants.value = resp.data.participants || [];
         messages.value = resp.data.messages || [];
@@ -1304,13 +1337,17 @@ async function fetchState() {
             if (isWebinarMode.value && !props.room.is_host && !canShareScreen.value && isCameraOn.value) {
                 isCameraOn.value = false;
                 if (localStream.value) {
-                    const videoTrack = localStream.value.getVideoTracks()[0];
-                    if (videoTrack) videoTrack.enabled = false;
+                    const videoTracks = localStream.value.getVideoTracks();
+                    videoTracks.forEach((t) => {
+                        t.stop();
+                        localStream.value?.removeTrack(t);
+                    });
                 }
+                bindLocalVideoStream();
             }
         }
 
-        // Process buffered fallback signals (WebRTC SDP + Whiteboard)
+        // Process buffered fallback signals (WebRTC SDP + Whiteboard + Settings)
         if (typeof resp.data.latest_seq === 'number' && resp.data.latest_seq > latestSignalSeq.value) {
             latestSignalSeq.value = resp.data.latest_seq;
         }
@@ -1318,6 +1355,11 @@ async function fetchState() {
             for (const sig of resp.data.signals) {
                 if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate') {
                     await handleIncomingRtcSignal(sig.type, Number(sig.sender_participant_id), sig.payload);
+                } else if (sig.type === 'room_settings_updated' && sig.payload) {
+                    Object.assign(roomState.value, sig.payload);
+                    roomState.value.watermark_enabled = Boolean(sig.payload.watermark_enabled);
+                    isRoomLocked.value = Boolean(sig.payload.is_locked);
+                    isWebinarMode.value = Boolean(sig.payload.webinar_mode);
                 } else if (sig.type === 'whiteboard_draw' && sig.payload) {
                     handleSFUMessage({
                         type: 'whiteboard_draw',
@@ -1337,7 +1379,30 @@ async function fetchState() {
     }
 }
 
-// 16. Exit / Leave / End room
+// 16. Host Room Settings Management
+function openSettingsModal() {
+    settingsForm.value = { ...roomState.value };
+    isSettingsModalOpen.value = true;
+}
+
+async function saveRoomSettings() {
+    try {
+        const resp = await axios.post(route('org.conference.settings', { uuid: props.room.uuid }), settingsForm.value);
+        if (resp.data.success) {
+            Object.assign(roomState.value, resp.data.room);
+            roomState.value.watermark_enabled = Boolean(resp.data.room.watermark_enabled);
+            isRoomLocked.value = Boolean(resp.data.room.is_locked);
+            isWebinarMode.value = Boolean(resp.data.room.webinar_mode);
+            isSettingsModalOpen.value = false;
+            showToast(__('conference.room.settings_saved'));
+            sendSFUMessage('room_settings_updated', roomState.value);
+        }
+    } catch (e: any) {
+        showToast(e.response?.data?.message || __('conference.controls.media_permission_error'));
+    }
+}
+
+// 17. Exit / Leave / End room
 async function leaveRoom() {
     if (confirm(__('conference.controls.leave_confirm'))) {
         await axios.post(route('org.conference.leave', { uuid: props.room.uuid }));
@@ -1399,7 +1464,7 @@ onUnmounted(() => {
 
     <div class="h-screen w-screen bg-slate-950 text-white flex flex-col overflow-hidden select-none font-sans relative">
         <!-- Dynamic Anti-Leak Floating Watermark Overlay -->
-        <div class="pointer-events-none fixed inset-0 z-40 overflow-hidden opacity-20 mix-blend-screen flex items-center justify-around flex-wrap p-6 select-none">
+        <div v-if="roomState.watermark_enabled" class="pointer-events-none fixed inset-0 z-40 overflow-hidden opacity-20 mix-blend-screen flex items-center justify-around flex-wrap p-6 select-none">
             <div
                 v-for="i in 6"
                 :key="i"
@@ -1436,29 +1501,17 @@ onUnmounted(() => {
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
-                <!-- Host: Webinar Mode Toggle -->
+                <!-- Host: Unified Room Settings Modal Trigger -->
                 <button
                     v-if="room.is_host"
-                    @click="toggleWebinarMode"
-                    :class="isWebinarMode ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
-                    class="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition"
-                    :title="__('conference.room.webinar_mode_desc')"
-                >
-                    <span>{{ __('conference.room.webinar_badge') }}</span>
-                </button>
-
-                <!-- Host: Lock / Unlock Room -->
-                <button
-                    v-if="room.is_host"
-                    @click="toggleRoomLock"
-                    :class="isRoomLocked ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'"
-                    class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition"
+                    @click="openSettingsModal"
+                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-sm cursor-pointer"
+                    :title="__('conference.room.settings_title')"
                 >
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path v-if="isRoomLocked" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    <span>{{ isRoomLocked ? __('conference.controls.unlock_room') : __('conference.controls.lock_room') }}</span>
+                    <span class="hidden sm:inline">{{ __('conference.room.settings_title') }}</span>
                 </button>
 
                 <!-- Host: Export Attendance CSV -->
@@ -1472,23 +1525,32 @@ onUnmounted(() => {
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <span>{{ __('conference.controls.export_csv') }}</span>
+                    <span class="hidden md:inline">{{ __('conference.controls.export_csv') }}</span>
                 </a>
 
-                <!-- Leave / End Room -->
+                <!-- Leave Room (for everyone including host) -->
+                <button
+                    @click="leaveRoom"
+                    class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1 border border-slate-700 cursor-pointer"
+                    :title="__('conference.controls.leave')"
+                >
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span>{{ __('conference.controls.leave') }}</span>
+                </button>
+
+                <!-- End Room for All (Host Only) -->
                 <button
                     v-if="room.is_host"
                     @click="endRoomForAll"
-                    class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1"
+                    class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition flex items-center gap-1 shadow-md cursor-pointer"
+                    :title="__('conference.controls.end_for_all')"
                 >
-                    {{ __('conference.controls.end_for_all') }}
-                </button>
-                <button
-                    v-else
-                    @click="leaveRoom"
-                    class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white text-xs font-bold transition"
-                >
-                    {{ __('conference.controls.leave') }}
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>{{ __('conference.controls.end_for_all') }}</span>
                 </button>
             </div>
         </header>
@@ -1767,10 +1829,13 @@ onUnmounted(() => {
                             class="p-3 rounded-xl bg-slate-800/60 border border-slate-700/50 flex items-center justify-between gap-2 text-xs"
                         >
                             <div class="space-y-0.5 min-w-0">
-                                <div class="flex items-center gap-1.5">
+                                <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="font-bold text-slate-200 truncate">{{ p.display_name }}</span>
-                                    <span v-if="p.role === 'host'" class="px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-400 text-[10px] font-bold shrink-0">
-                                        {{ __('conference.common.host') }}
+                                    <span v-if="p.role === 'host' || p.user_id === room.host_user_id" class="px-2 py-0.5 rounded bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-[10px] font-extrabold shrink-0 flex items-center gap-1">
+                                        👑 {{ __('conference.common.host') }}
+                                    </span>
+                                    <span v-if="p.is_self" class="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold shrink-0">
+                                        ({{ __('conference.common.you') }})
                                     </span>
                                     <span v-if="p.hand_raised" class="text-amber-400 text-xs shrink-0">✋</span>
                                 </div>
@@ -2154,6 +2219,131 @@ onUnmounted(() => {
                     >
                         {{ __('conference.polls.submit_poll') }}
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unified Room Settings Modal (Host Only) -->
+        <div
+            v-if="isSettingsModalOpen"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in"
+        >
+            <div class="bg-slate-900 border border-slate-700 rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6 space-y-5 shadow-2xl">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <span class="w-8 h-8 rounded-xl bg-indigo-600/30 text-indigo-400 flex items-center justify-center">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </span>
+                        <h3 class="text-base font-bold text-white">{{ __('conference.room.settings_title') }}</h3>
+                    </div>
+                    <button @click="isSettingsModalOpen = false" class="text-slate-400 hover:text-white cursor-pointer">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">
+                                {{ __('conference.room.admission_policy') }}
+                            </label>
+                            <select
+                                v-model="settingsForm.admission_policy"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-white text-xs font-medium"
+                            >
+                                <option value="open">{{ __('conference.room.admission_open') }}</option>
+                                <option value="approval">{{ __('conference.room.admission_approval') }}</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1">
+                                {{ __('conference.room.initial_audio') }}
+                            </label>
+                            <select
+                                v-model="settingsForm.initial_audio_state"
+                                class="w-full px-3 py-2 rounded-xl border border-slate-700 bg-slate-800 text-white text-xs font-medium"
+                            >
+                                <option value="open">{{ __('conference.room.initial_audio_open') }}</option>
+                                <option value="muted">{{ __('conference.room.initial_audio_muted') }}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-300 mb-1">
+                            {{ __('conference.room.screen_share_policy') }}
+                        </label>
+                        <select
+                            v-model="settingsForm.screen_share_policy"
+                            class="w-full px-3 py-2.5 rounded-xl border border-slate-700 bg-slate-800 text-white text-xs font-medium"
+                        >
+                            <option value="everyone">{{ __('conference.room.screen_share_everyone') }}</option>
+                            <option value="by_permission">{{ __('conference.room.screen_share_by_permission') }}</option>
+                            <option value="host_only">{{ __('conference.room.screen_share_host_only') }}</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2.5 pt-1">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
+                            <input v-model="settingsForm.watermark_enabled" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-200 block">{{ __('conference.room.watermark_enabled_label') }}</span>
+                                <span class="text-slate-400 text-[11px]">{{ __('conference.room.watermark_enabled_desc') }}</span>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
+                            <input v-model="settingsForm.mute_others_on_share" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-200 block">{{ __('conference.room.mute_others_on_share') }}</span>
+                                <span class="text-slate-400 text-[11px]">{{ __('conference.room.mute_others_on_share_desc') }}</span>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
+                            <input v-model="settingsForm.webinar_mode" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-200 block">{{ __('conference.room.webinar_mode') }}</span>
+                                <span class="text-slate-400 text-[11px]">{{ __('conference.room.webinar_mode_desc') }}</span>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
+                            <input v-model="settingsForm.allow_whiteboard" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-200 block">{{ __('conference.room.allow_whiteboard') }}</span>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
+                            <input v-model="settingsForm.is_locked" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-200 block">{{ __('conference.controls.lock_room') }}</span>
+                                <span class="text-slate-400 text-[11px]">{{ __('conference.controls.lock_room_desc') }}</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="pt-3 flex items-center justify-end gap-2 border-t border-slate-800">
+                        <button
+                            type="button"
+                            @click="isSettingsModalOpen = false"
+                            class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold transition cursor-pointer"
+                        >
+                            {{ __('conference.common.cancel') }}
+                        </button>
+                        <button
+                            type="button"
+                            @click="saveRoomSettings"
+                            class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-lg cursor-pointer"
+                        >
+                            {{ __('conference.room.save_settings') }}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

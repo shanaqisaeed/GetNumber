@@ -50,13 +50,13 @@ const copySuccessUuid = ref<string | null>(null);
 const form = useForm({
     title: '',
     pin_code: '',
-    admission_policy: 'approval',
-    initial_audio_state: 'muted',
+    admission_policy: 'open',
+    initial_audio_state: 'open',
     webinar_mode: false,
-    screen_share_policy: 'by_permission',
-    mute_others_on_share: true,
+    screen_share_policy: 'everyone',
+    mute_others_on_share: false,
     allow_whiteboard: true,
-    max_participants: 50,
+    watermark_enabled: false,
     scheduled_start_at: '',
     scheduled_end_at: '',
 });
@@ -273,42 +273,27 @@ function deleteRoom(uuid: string) {
                 <form @submit.prevent="submitCreateRoom" class="space-y-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                            {{ __('conference.room.room_name') }} *
+                            {{ __('conference.room.room_name') }} <span class="text-slate-400 font-normal">({{ __('conference.common.optional') }})</span>
                         </label>
                         <input
                             v-model="form.title"
                             type="text"
-                            required
                             :placeholder="__('conference.room.room_name_placeholder')"
                             class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-purple-500"
                         />
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                {{ __('conference.room.pin_code') }}
-                            </label>
-                            <input
-                                v-model="form.pin_code"
-                                type="text"
-                                maxlength="8"
-                                :placeholder="__('conference.room.pin_placeholder')"
-                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-purple-500"
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                                {{ __('conference.room.max_participants') }}
-                            </label>
-                            <input
-                                v-model.number="form.max_participants"
-                                type="number"
-                                min="2"
-                                max="100"
-                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-purple-500"
-                            />
-                        </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                            {{ __('conference.room.pin_code') }}
+                        </label>
+                        <input
+                            v-model="form.pin_code"
+                            type="text"
+                            maxlength="8"
+                            :placeholder="__('conference.room.pin_placeholder')"
+                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-purple-500"
+                        />
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
@@ -320,8 +305,8 @@ function deleteRoom(uuid: string) {
                                 v-model="form.admission_policy"
                                 class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium"
                             >
-                                <option value="approval">{{ __('conference.room.admission_approval') }}</option>
                                 <option value="open">{{ __('conference.room.admission_open') }}</option>
+                                <option value="approval">{{ __('conference.room.admission_approval') }}</option>
                             </select>
                         </div>
                         <div>
@@ -332,8 +317,8 @@ function deleteRoom(uuid: string) {
                                 v-model="form.initial_audio_state"
                                 class="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium"
                             >
-                                <option value="muted">{{ __('conference.room.initial_audio_muted') }}</option>
                                 <option value="open">{{ __('conference.room.initial_audio_open') }}</option>
+                                <option value="muted">{{ __('conference.room.initial_audio_muted') }}</option>
                             </select>
                         </div>
                     </div>
@@ -346,13 +331,21 @@ function deleteRoom(uuid: string) {
                             v-model="form.screen_share_policy"
                             class="w-full px-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-medium"
                         >
+                            <option value="everyone">{{ __('conference.room.screen_share_everyone') }}</option>
                             <option value="by_permission">{{ __('conference.room.screen_share_by_permission') }}</option>
                             <option value="host_only">{{ __('conference.room.screen_share_host_only') }}</option>
-                            <option value="everyone">{{ __('conference.room.screen_share_everyone') }}</option>
                         </select>
                     </div>
 
                     <div class="space-y-3 pt-2">
+                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
+                            <input v-model="form.watermark_enabled" type="checkbox" class="w-4 h-4 text-purple-600 rounded" />
+                            <div class="text-xs">
+                                <span class="font-bold text-slate-800 dark:text-slate-200 block">{{ __('conference.room.watermark_enabled_label') }}</span>
+                                <span class="text-slate-500 text-[11px]">{{ __('conference.room.watermark_enabled_desc') }}</span>
+                            </div>
+                        </label>
+
                         <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
                             <input v-model="form.mute_others_on_share" type="checkbox" class="w-4 h-4 text-purple-600 rounded" />
                             <div class="text-xs">

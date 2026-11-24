@@ -33,6 +33,8 @@ interface ConferenceServiceInterface
 
     public function toggleWebinarMode(ConferenceRoom $room, User $hostUser): ConferenceRoom;
 
+    public function updateRoomSettings(ConferenceRoom $room, User $hostUser, array $settings): ConferenceRoom;
+
     public function grantScreenShare(ConferenceRoom $room, User $hostUser, int $participantId, bool $canShare): ConferenceParticipant;
 
     public function startScreenShare(ConferenceRoom $room, User $user, int $participantId): ConferenceParticipant;

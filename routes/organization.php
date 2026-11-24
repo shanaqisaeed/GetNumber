@@ -86,5 +86,6 @@ Route::middleware(['auth'])->prefix('org')->name('org.')->group(function () {
     Route::post('/conference/{uuid}/polls', [ConferenceController::class, 'createPoll'])->name('conference.polls.store');
     Route::post('/conference/{uuid}/polls/{poll}/close', [ConferenceController::class, 'closePoll'])->name('conference.polls.close');
     Route::post('/conference/{uuid}/polls/{poll}/vote', [ConferenceController::class, 'votePoll'])->name('conference.polls.vote');
+    Route::post('/conference/{uuid}/settings', [ConferenceController::class, 'updateSettings'])->name('conference.settings');
     Route::get('/conference/{uuid}/export-attendance', [ConferenceController::class, 'exportAttendance'])->name('conference.export_attendance');
 });

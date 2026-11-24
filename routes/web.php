@@ -387,6 +387,10 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     // Admin Voice Call Logs & Communication Oversight
     Route::get('/calls', [\App\Http\Controllers\Admin\VoiceCallLogController::class, 'index'])->name('calls.index');
 
+    // Admin Video Conference Management & Live Oversight
+    Route::get('/conferences', [\App\Http\Controllers\Admin\ConferenceManagementController::class, 'index'])->name('conferences.index');
+    Route::delete('/conferences/{uuid}', [\App\Http\Controllers\Admin\ConferenceManagementController::class, 'destroy'])->name('conferences.destroy');
+
     // Admin Audit Logs & Security Trails
     Route::get('/audit-logs', [\App\Http\Controllers\Admin\AuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/audit-logs/{auditLog}', [\App\Http\Controllers\Admin\AuditLogController::class, 'show'])->name('audit-logs.show');
