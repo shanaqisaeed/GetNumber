@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Contracts\ConferenceServiceInterface;
+use App\Enums\PhoneNumberStatus;
 use App\Enums\UserRole;
 use App\Models\ConferenceMessage;
 use App\Models\ConferenceRoom;
+use App\Models\PhoneNumber;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -23,11 +25,32 @@ class ConferenceSystemTest extends TestCase
         $this->conferenceService = app(ConferenceServiceInterface::class);
     }
 
-    public function test_user_can_create_and_delete_conference_room_with_7_day_expiry(): void
+    public function test_org_bulk_sms_page_loads_without_sql_is_active_error(): void
+    {
+        $user = User::factory()->create(['role' => UserRole::User]);
+        $org = $user->getOrCreatePersonalOrganization();
+
+        PhoneNumber::create([
+            'number' => '851000',
+            'user_id' => $user->id,
+            'organization_id' => $org->id,
+            'status' => PhoneNumberStatus::Allocated,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('org.bulk_sms.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Organization/BulkSms/Index')
+                ->has('sender_lines', 1)
+            );
+    }
+
+    public function test_user_can_create_and_delete_org_conference_room_with_7_day_expiry(): void
     {
         $user = User::factory()->create(['role' => UserRole::User]);
 
-        $response = $this->actingAs($user)->post(route('conference.store'), [
+        $response = $this->actingAs($user)->post(route('org.conference.store'), [
             'title' => 'جلسه هفتگی توسعه',
             'admission_policy' => 'approval',
             'initial_audio_state' => 'muted',
@@ -41,6 +64,7 @@ class ConferenceSystemTest extends TestCase
         $room = ConferenceRoom::first();
 
         $this->assertNotNull($room);
+        $this->assertNotNull($room->organization_id);
         $this->assertEquals('جلسه هفتگی توسعه', $room->title);
         $this->assertTrue($room->webinar_mode);
         $this->assertTrue($room->mute_others_on_share);
@@ -48,16 +72,20 @@ class ConferenceSystemTest extends TestCase
         $this->assertNotNull($room->expires_at);
         $this->assertTrue($room->expires_at->isAfter(Carbon::now()->addDays(6)));
 
-        $response->assertRedirect(route('conference.lobby', ['uuid' => $room->room_uuid]));
+        $response->assertRedirect(route('org.conference.lobby', ['uuid' => $room->room_uuid]));
 
-        // Host can render room page without errors
+        // Host can render room page without errors and camera defaults to true
         $this->actingAs($user)
-            ->get(route('conference.room', ['uuid' => $room->room_uuid]))
-            ->assertOk();
+            ->get(route('org.conference.room', ['uuid' => $room->room_uuid]))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Organization/Conference/Room')
+                ->where('currentParticipant.is_camera_on', true)
+            );
 
         // Host can delete room
         $this->actingAs($user)
-            ->deleteJson(route('conference.destroy', ['uuid' => $room->room_uuid]))
+            ->deleteJson(route('org.conference.destroy', ['uuid' => $room->room_uuid]))
             ->assertOk();
 
         $this->assertSoftDeleted('conference_rooms', ['id' => $room->id]);
@@ -76,11 +104,13 @@ class ConferenceSystemTest extends TestCase
 
         $phoneNumber = '09121234567';
 
-        $this->actingAs($guest1)->postJson(route('conference.join', ['uuid' => $room->room_uuid]), [
+        $this->actingAs($guest1)->postJson(route('org.conference.join', ['uuid' => $room->room_uuid]), [
             'phone_number' => $phoneNumber,
+            'is_camera_on' => true,
+            'is_muted' => false,
         ])->assertOk();
 
-        $duplicateAttempt = $this->actingAs($guest2)->postJson(route('conference.join', ['uuid' => $room->room_uuid]), [
+        $duplicateAttempt = $this->actingAs($guest2)->postJson(route('org.conference.join', ['uuid' => $room->room_uuid]), [
             'phone_number' => $phoneNumber,
         ]);
 
@@ -110,12 +140,12 @@ class ConferenceSystemTest extends TestCase
 
         // Guest initially cannot share screen when policy is by_permission
         $this->actingAs($guest)
-            ->postJson(route('conference.start_screen_share', ['uuid' => $room->room_uuid]))
+            ->postJson(route('org.conference.start_screen_share', ['uuid' => $room->room_uuid]))
             ->assertStatus(403);
 
         // Host grants screen share permission to guest
         $this->actingAs($host)
-            ->postJson(route('conference.grant_screen_share', [
+            ->postJson(route('org.conference.grant_screen_share', [
                 'uuid' => $room->room_uuid,
                 'participant' => $guestJoin['participant']->id,
             ]), ['can_share' => true])
@@ -127,7 +157,7 @@ class ConferenceSystemTest extends TestCase
 
         // Now guest can start screen share, which automatically mutes otherGuest
         $this->actingAs($guest)
-            ->postJson(route('conference.start_screen_share', ['uuid' => $room->room_uuid]))
+            ->postJson(route('org.conference.start_screen_share', ['uuid' => $room->room_uuid]))
             ->assertOk();
 
         $this->assertTrue($guestJoin['participant']->fresh()->is_sharing_screen);
@@ -152,7 +182,7 @@ class ConferenceSystemTest extends TestCase
 
         // Host admits waiting participant
         $this->actingAs($host)
-            ->postJson(route('conference.admit', [
+            ->postJson(route('org.conference.admit', [
                 'uuid' => $room->room_uuid,
                 'participant' => $guestJoin['participant']->id,
             ]))
@@ -162,7 +192,7 @@ class ConferenceSystemTest extends TestCase
 
         // Host sends WebRTC offer signal to guest
         $this->actingAs($host)
-            ->postJson(route('conference.signal', ['uuid' => $room->room_uuid]), [
+            ->postJson(route('org.conference.signal', ['uuid' => $room->room_uuid]), [
                 'type' => 'offer',
                 'target_participant_id' => $guestJoin['participant']->id,
                 'payload' => ['sdp' => ['type' => 'offer', 'sdp' => 'v=0...']],
@@ -171,7 +201,7 @@ class ConferenceSystemTest extends TestCase
 
         // Guest polls state and receives the signal
         $stateRes = $this->actingAs($guest)
-            ->getJson(route('conference.state', ['uuid' => $room->room_uuid, 'since_seq' => 0]))
+            ->getJson(route('org.conference.state', ['uuid' => $room->room_uuid, 'since_seq' => 0]))
             ->assertOk();
 
         $this->assertCount(1, $stateRes->json('signals'));
@@ -179,18 +209,18 @@ class ConferenceSystemTest extends TestCase
 
         // Host toggles lock and webinar mode
         $this->actingAs($host)
-            ->postJson(route('conference.lock', ['uuid' => $room->room_uuid]))
+            ->postJson(route('org.conference.lock', ['uuid' => $room->room_uuid]))
             ->assertOk()
             ->assertJsonFragment(['is_locked' => true]);
 
         $this->actingAs($host)
-            ->postJson(route('conference.webinar', ['uuid' => $room->room_uuid]))
+            ->postJson(route('org.conference.webinar', ['uuid' => $room->room_uuid]))
             ->assertOk()
             ->assertJsonFragment(['webinar_mode' => true]);
 
         // Host exports attendance CSV
         $this->actingAs($host)
-            ->get(route('conference.export_attendance', ['uuid' => $room->room_uuid]))
+            ->get(route('org.conference.export_attendance', ['uuid' => $room->room_uuid]))
             ->assertOk();
     }
 
@@ -244,7 +274,7 @@ class ConferenceSystemTest extends TestCase
 
         // Host closes poll
         $this->actingAs($host)
-            ->postJson(route('conference.polls.close', ['uuid' => $room->room_uuid, 'poll' => $poll->id]))
+            ->postJson(route('org.conference.polls.close', ['uuid' => $room->room_uuid, 'poll' => $poll->id]))
             ->assertOk();
 
         $this->assertFalse($poll->fresh()->is_active);
@@ -302,10 +332,10 @@ class ConferenceSystemTest extends TestCase
         ]);
 
         $this->actingAs($admin)
-            ->get(route('conference.room', ['uuid' => $room->room_uuid]))
+            ->get(route('org.conference.room', ['uuid' => $room->room_uuid]))
             ->assertOk()
             ->assertInertia(fn ($page) => $page
-                ->component('User/Conference/Room')
+                ->component('Organization/Conference/Room')
                 ->where('sfuConfig.enabled', true)
                 ->where('sfuConfig.wsUrl', 'wss://meet.ravyno.ir/ws/sfu')
                 ->where('sfuConfig.wsPort', 49001)

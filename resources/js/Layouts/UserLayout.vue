@@ -161,13 +161,6 @@ const navItems = computed(() => [
         active: route().current('contacts.*'),
         icon: 'contacts',
     },
-    {
-        name: computed(() => __('conference.title')),
-        route: 'conference.*',
-        href: route('conference.index'),
-        active: route().current('conference.*'),
-        icon: 'video',
-    },
 ]);
 </script>
 

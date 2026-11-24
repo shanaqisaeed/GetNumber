@@ -3,6 +3,7 @@
 use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\Organization\ApiTokenController;
 use App\Http\Controllers\Organization\BulkMessageController;
+use App\Http\Controllers\Organization\ConferenceController;
 use App\Http\Controllers\Organization\LineManagementController;
 use App\Http\Controllers\Organization\NumberRequestController;
 use App\Http\Controllers\Organization\OrgContactController;
@@ -57,4 +58,33 @@ Route::middleware(['auth'])->prefix('org')->name('org.')->group(function () {
     Route::get('/wallet', [OrgWalletController::class, 'index'])->name('wallet.index');
     Route::post('/wallet/deposit', [OrgWalletController::class, 'deposit'])->name('wallet.deposit');
     Route::post('/wallet/transfer-from-personal', [OrgWalletController::class, 'transferFromPersonal'])->name('wallet.transfer_from_personal');
+
+    // Enterprise Video Conference Infrastructure (Organization Portal)
+    Route::get('/conference', [ConferenceController::class, 'index'])->name('conference.index');
+    Route::post('/conference', [ConferenceController::class, 'store'])->name('conference.store');
+    Route::delete('/conference/{uuid}', [ConferenceController::class, 'destroy'])->name('conference.destroy');
+    Route::get('/conference/{uuid}/lobby', [ConferenceController::class, 'lobby'])->name('conference.lobby');
+    Route::post('/conference/{uuid}/join', [ConferenceController::class, 'join'])->name('conference.join');
+    Route::get('/conference/{uuid}/room', [ConferenceController::class, 'room'])->name('conference.room');
+    Route::get('/conference/{uuid}/state', [ConferenceController::class, 'state'])->name('conference.state');
+    Route::post('/conference/{uuid}/signal', [ConferenceController::class, 'sendSignal'])->name('conference.signal');
+    Route::post('/conference/{uuid}/media-state', [ConferenceController::class, 'updateMediaState'])->name('conference.media_state');
+    Route::post('/conference/{uuid}/lock', [ConferenceController::class, 'toggleLock'])->name('conference.lock');
+    Route::post('/conference/{uuid}/webinar', [ConferenceController::class, 'toggleWebinar'])->name('conference.webinar');
+    Route::post('/conference/{uuid}/admit/{participant}', [ConferenceController::class, 'admitParticipant'])->name('conference.admit');
+    Route::post('/conference/{uuid}/reject/{participant}', [ConferenceController::class, 'rejectParticipant'])->name('conference.reject');
+    Route::post('/conference/{uuid}/kick/{participant}', [ConferenceController::class, 'kickParticipant'])->name('conference.kick');
+    Route::post('/conference/{uuid}/mute/{participant}', [ConferenceController::class, 'toggleMute'])->name('conference.mute');
+    Route::post('/conference/{uuid}/mute-all', [ConferenceController::class, 'muteAll'])->name('conference.mute_all');
+    Route::post('/conference/{uuid}/screen-share/{participant}', [ConferenceController::class, 'grantScreenShare'])->name('conference.grant_screen_share');
+    Route::post('/conference/{uuid}/start-screen-share', [ConferenceController::class, 'startScreenShare'])->name('conference.start_screen_share');
+    Route::post('/conference/{uuid}/stop-screen-share', [ConferenceController::class, 'stopScreenShare'])->name('conference.stop_screen_share');
+    Route::post('/conference/{uuid}/raise-hand', [ConferenceController::class, 'toggleRaiseHand'])->name('conference.raise_hand');
+    Route::post('/conference/{uuid}/leave', [ConferenceController::class, 'leave'])->name('conference.leave');
+    Route::post('/conference/{uuid}/end', [ConferenceController::class, 'endRoom'])->name('conference.end');
+    Route::post('/conference/{uuid}/messages', [ConferenceController::class, 'sendMessage'])->name('conference.messages.store');
+    Route::post('/conference/{uuid}/polls', [ConferenceController::class, 'createPoll'])->name('conference.polls.store');
+    Route::post('/conference/{uuid}/polls/{poll}/close', [ConferenceController::class, 'closePoll'])->name('conference.polls.close');
+    Route::post('/conference/{uuid}/polls/{poll}/vote', [ConferenceController::class, 'votePoll'])->name('conference.polls.vote');
+    Route::get('/conference/{uuid}/export-attendance', [ConferenceController::class, 'exportAttendance'])->name('conference.export_attendance');
 });

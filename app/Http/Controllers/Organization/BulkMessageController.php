@@ -33,7 +33,7 @@ class BulkMessageController extends Controller
                 $q->where('organization_id', $org->id)
                   ->orWhere('user_id', $user->id);
             })
-            ->where('is_active', true)
+            ->where('status', \App\Enums\PhoneNumberStatus::Allocated)
             ->with('phonePrefix')
             ->get()
             ->map(fn ($p) => [

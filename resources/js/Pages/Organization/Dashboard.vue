@@ -178,7 +178,17 @@ const props = defineProps<{
                 <h3 class="text-xs font-black uppercase text-slate-400 tracking-wider">
                     {{ __('organization.dashboard.quick_actions') }}
                 </h3>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                    <Link
+                        :href="route('org.conference.index')"
+                        class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/30 border border-slate-200/60 dark:border-slate-800 text-center transition-all group"
+                    >
+                        <div class="text-2xl mb-1 group-hover:scale-110 transition-transform">🎥</div>
+                        <span class="text-xs font-extrabold text-slate-700 dark:text-slate-300 group-hover:text-purple-600 dark:group-hover:text-purple-400">
+                            {{ __('organization.dashboard.quick_conference') }}
+                        </span>
+                    </Link>
+
                     <Link
                         :href="route('org.team.index')"
                         class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 hover:bg-purple-50 dark:hover:bg-purple-950/30 border border-slate-200/60 dark:border-slate-800 text-center transition-all group"

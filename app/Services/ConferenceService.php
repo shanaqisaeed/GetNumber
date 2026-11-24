@@ -125,7 +125,15 @@ class ConferenceService implements ConferenceServiceInterface
             : ($room->admission_policy === 'open' ? 'admitted' : 'waiting_approval');
 
         $canShareScreen = $isHost || ($room->screen_share_policy === 'everyone');
-        $initialMuted = $isHost ? false : ($room->initial_audio_state === 'muted' || $room->webinar_mode);
+        $defaultMuted = $isHost ? false : ($room->initial_audio_state === 'muted' || $room->webinar_mode);
+        $initialMuted = array_key_exists('is_muted', $clientMeta) && $clientMeta['is_muted'] !== null
+            ? (($room->webinar_mode && ! $isHost && ! $canShareScreen) ? true : (bool) $clientMeta['is_muted'])
+            : $defaultMuted;
+
+        $defaultCameraOn = ! ($room->webinar_mode && ! $isHost && ! $canShareScreen);
+        $initialCameraOn = array_key_exists('is_camera_on', $clientMeta) && $clientMeta['is_camera_on'] !== null
+            ? (($room->webinar_mode && ! $isHost && ! $canShareScreen) ? false : (bool) $clientMeta['is_camera_on'])
+            : $defaultCameraOn;
 
         $participant = ConferenceParticipant::updateOrCreate(
             [
@@ -138,7 +146,7 @@ class ConferenceService implements ConferenceServiceInterface
                 'status' => $initialStatus,
                 'role' => $isHost ? 'host' : 'participant',
                 'is_muted' => $initialMuted,
-                'is_camera_on' => false,
+                'is_camera_on' => $initialCameraOn,
                 'can_share_screen' => $canShareScreen,
                 'is_sharing_screen' => false,
                 'hand_raised' => false,
