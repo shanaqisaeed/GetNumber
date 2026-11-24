@@ -200,16 +200,44 @@ const currentBrushSize = ref(4);
 const strokeHistory = ref<WhiteboardStroke[]>([]);
 const remoteCursors = reactive<Record<number, RemoteCursor>>({});
 
-const localIdentityLabel = computed(
-    () => `${__('conference.common.user')} #${props.currentParticipant.user_id} (${props.currentParticipant.phone_number})`
-);
+const localIdentityLabel = computed(() => {
+    const rawName = (props.currentParticipant.display_name || '').trim();
+    const fallbackName = `${__('conference.common.user')} #${props.currentParticipant.user_id}`;
+    const name = rawName && rawName !== `USER-${props.currentParticipant.user_id}` ? rawName : fallbackName;
+    return props.currentParticipant.phone_number ? `${name} (${props.currentParticipant.phone_number})` : name;
+});
 
 // WebRTC Multi-Peer Connection Registry
 const peerConnections = new Map<number, RTCPeerConnection>();
 const remoteStreams = reactive<Record<number, MediaStream>>({});
 const remoteVideoRefs = new Map<number, HTMLVideoElement>();
+const remoteAudioRefs = new Map<number, HTMLAudioElement>();
+const remoteScreenVideoRef = ref<HTMLVideoElement | null>(null);
 const makingOfferMap = new Map<number, boolean>();
 const processedSignalKeys = new Set<string>();
+const pendingIceCandidates = new Map<number, RTCIceCandidateInit[]>();
+
+// In-Meeting Chat Notification State
+const unreadChatCount = ref(0);
+const seenMessageIds = new Set<number>();
+
+// Subtle synthesized audio chime on incoming chat message
+function playChatNotificationSound() {
+    try {
+        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.28);
+    } catch {}
+}
 
 // WebSocket & Audio Analyzer handles
 let sfuSocket: WebSocket | null = null;
@@ -386,6 +414,19 @@ function setRemoteVideoRef(participantId: number, el: any) {
     }
 }
 
+function setRemoteAudioRef(participantId: number, el: any) {
+    if (el instanceof HTMLAudioElement) {
+        remoteAudioRefs.set(participantId, el);
+        const stream = remoteStreams[participantId];
+        if (stream && el.srcObject !== stream) {
+            el.srcObject = stream;
+            el.play().catch(() => {});
+        }
+    } else {
+        remoteAudioRefs.delete(participantId);
+    }
+}
+
 function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnection {
     const existing = peerConnections.get(remoteParticipantId);
     if (existing && existing.connectionState !== 'closed') {
@@ -397,20 +438,26 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         iceTransportPolicy: props.rtcConfig?.iceTransportPolicy || 'all',
     });
 
-    // Attach local audio & active video (screen share or camera) tracks
-    if (localStream.value) {
-        const audioTrack = localStream.value.getAudioTracks()[0];
-        if (audioTrack) {
-            pc.addTrack(audioTrack, localStream.value);
-        }
+    // Attach local audio & active video (screen share or camera) tracks, with transceivers as bidirectional fallback
+    const audioTrack = localStream.value?.getAudioTracks()[0] || null;
+    if (audioTrack && localStream.value) {
+        pc.addTrack(audioTrack, localStream.value);
+    } else {
+        try {
+            pc.addTransceiver('audio', { direction: 'sendrecv' });
+        } catch {}
     }
 
     const activeVideoTrack = isSharingScreen.value && screenStream.value
         ? screenStream.value.getVideoTracks()[0]
-        : localStream.value?.getVideoTracks()[0];
+        : localStream.value?.getVideoTracks()[0] || null;
 
     if (activeVideoTrack && localStream.value) {
         pc.addTrack(activeVideoTrack, localStream.value);
+    } else {
+        try {
+            pc.addTransceiver('video', { direction: 'sendrecv' });
+        } catch {}
     }
 
     pc.onicecandidate = (event) => {
@@ -439,16 +486,28 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             videoEl.play().catch(() => {});
         }
 
+        const audioEl = remoteAudioRefs.get(remoteParticipantId);
+        if (audioEl) {
+            if (audioEl.srcObject !== stream) {
+                audioEl.srcObject = stream;
+            }
+            audioEl.play().catch(() => {});
+        }
+
+        if (activePresenter.value && activePresenter.value.id === remoteParticipantId && remoteScreenVideoRef.value) {
+            if (remoteScreenVideoRef.value.srcObject !== stream) {
+                remoteScreenVideoRef.value.srcObject = stream;
+            }
+            remoteScreenVideoRef.value.play().catch(() => {});
+        }
+
         if (event.track.kind === 'audio') {
             setupAudioAnalyser(remoteParticipantId, stream);
         }
     };
 
     pc.onnegotiationneeded = async () => {
-        // Deterministic initiator: participant with smaller ID initiates to avoid offer glare
-        if (props.currentParticipant.id < remoteParticipantId) {
-            await initiateOfferToPeer(remoteParticipantId, pc);
-        }
+        await initiateOfferToPeer(remoteParticipantId, pc);
     };
 
     peerConnections.set(remoteParticipantId, pc);
@@ -499,6 +558,18 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                 return;
             }
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+            // Drain queued ICE candidates
+            const queue = pendingIceCandidates.get(senderParticipantId);
+            if (queue && queue.length > 0) {
+                for (const cand of queue) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(cand));
+                    } catch {}
+                }
+                pendingIceCandidates.delete(senderParticipantId);
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             dispatchPeerSignal('answer', senderParticipantId, {
@@ -507,10 +578,30 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
         } else if (type === 'answer' && payload?.sdp) {
             if (pc.signalingState === 'have-local-offer') {
                 await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+
+                // Drain queued ICE candidates
+                const queue = pendingIceCandidates.get(senderParticipantId);
+                if (queue && queue.length > 0) {
+                    for (const cand of queue) {
+                        try {
+                            await pc.addIceCandidate(new RTCIceCandidate(cand));
+                        } catch {}
+                    }
+                    pendingIceCandidates.delete(senderParticipantId);
+                }
             }
         } else if (type === 'candidate' && payload?.candidate) {
-            if (pc.remoteDescription) {
-                await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
+                } catch (e) {
+                    console.warn('ICE candidate addition error:', e);
+                }
+            } else {
+                if (!pendingIceCandidates.has(senderParticipantId)) {
+                    pendingIceCandidates.set(senderParticipantId, []);
+                }
+                pendingIceCandidates.get(senderParticipantId)!.push(payload.candidate);
             }
         }
     } catch (e) {
@@ -532,6 +623,9 @@ function syncPeerConnectionsWithRoster() {
             peerConnections.delete(peerId);
             delete remoteStreams[peerId];
             peerAnalysers.delete(peerId);
+            remoteAudioRefs.delete(peerId);
+            remoteVideoRefs.delete(peerId);
+            pendingIceCandidates.delete(peerId);
         }
     });
 
@@ -546,9 +640,25 @@ function syncPeerConnectionsWithRoster() {
     });
 }
 
+async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
+    for (const [peerId, pc] of peerConnections.entries()) {
+        const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio')
+            || pc.getTransceivers().find((t) => t.receiver.track.kind === 'audio')?.sender;
+        if (audioSender) {
+            try {
+                await audioSender.replaceTrack(newTrack);
+            } catch {}
+        } else if (newTrack && localStream.value) {
+            pc.addTrack(newTrack, localStream.value);
+            await initiateOfferToPeer(peerId, pc);
+        }
+    }
+}
+
 async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
     for (const [peerId, pc] of peerConnections.entries()) {
-        const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video');
+        const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video')
+            || pc.getTransceivers().find((t) => t.receiver.track.kind === 'video')?.sender;
         if (videoSender) {
             try {
                 await videoSender.replaceTrack(newTrack);
@@ -608,6 +718,7 @@ async function toggleAudio() {
                     localStream.value.addTrack(aTrack);
                 }
                 setupAudioAnalyser(props.currentParticipant.id, localStream.value);
+                await replaceOutgoingAudioTrack(aTrack);
             }
         } catch {
             showToast(__('conference.controls.media_permission_error'));
@@ -689,7 +800,7 @@ async function toggleVideo() {
     sendSFUMessage('media_state', { is_camera_on: isCameraOn.value });
 }
 
-// 7. Toggle Screen Sharing (Condition Check, Permission Gating & Auto-Mute Others)
+// 7. Toggle Screen Sharing (Condition Check, Mobile Fallback & Auto-Mute Others)
 async function toggleScreenShare() {
     if (isSharingScreen.value) {
         await stopScreenShare();
@@ -701,12 +812,42 @@ async function toggleScreenShare() {
         return;
     }
 
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getDisplayMedia !== 'function') {
+        showToast(__('conference.controls.screen_share_not_supported'));
+        return;
+    }
+
+    let stream: MediaStream | null = null;
     try {
-        const stream = await navigator.mediaDevices.getDisplayMedia({
+        // Desktop primary attempt (with system audio)
+        stream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: 'always' } as any,
             audio: true,
         });
+    } catch (e: any) {
+        if (e.name === 'NotAllowedError' || e.name === 'AbortError') {
+            return;
+        }
+        // Mobile / Android fallback attempt (pure video constraint, no audio parameter)
+        try {
+            stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+            });
+        } catch (e2: any) {
+            if (e2.name === 'NotAllowedError' || e2.name === 'AbortError') {
+                return;
+            }
+            showToast(__('conference.controls.screen_share_not_supported'));
+            return;
+        }
+    }
 
+    if (!stream) {
+        showToast(__('conference.controls.screen_share_not_supported'));
+        return;
+    }
+
+    try {
         const resp = await axios.post(route('org.conference.start_screen_share', { uuid: props.room.uuid }));
         if (!resp.data.success) {
             stream.getTracks().forEach((t) => t.stop());
@@ -1020,6 +1161,39 @@ function initWhiteboard() {
     });
 }
 
+function drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    if (typeof ctx.roundRect === 'function') {
+        ctx.beginPath();
+        ctx.roundRect(x, y, w, h, r);
+    } else {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+    }
+}
+
+function getContrastTextColor(hexColor: string): string {
+    if (!hexColor || typeof hexColor !== 'string' || !hexColor.startsWith('#')) return '#ffffff';
+    let hex = hexColor.slice(1);
+    if (hex.length === 3) {
+        hex = hex.split('').map((c) => c + c).join('');
+    }
+    if (hex.length !== 6) return '#ffffff';
+    const r = parseInt(hex.substring(0, 2), 16) || 0;
+    const g = parseInt(hex.substring(2, 4), 16) || 0;
+    const b = parseInt(hex.substring(4, 6), 16) || 0;
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+    return yiq >= 150 ? '#0f172a' : '#ffffff';
+}
+
 function redrawWhiteboardCanvas() {
     if (!canvasRef.value) return;
     const canvas = canvasRef.value;
@@ -1044,20 +1218,85 @@ function redrawWhiteboardCanvas() {
         }
     }
 
-    // Render verified user ID + phone number attribution badge at the end of each user's stroke
+    // Render verified user name + phone number attribution badge at the tip of each user's latest stroke
     latestStrokePerUser.forEach((s) => {
-        if (!s.label) return;
-        const px = Math.min(1820, Math.max(20, s.x1 * 1920 + 10));
-        const py = Math.min(1050, Math.max(30, s.y1 * 1080 - 10));
+        let label = s.label;
+        if (!label || label.startsWith(__('conference.common.user') + ' #')) {
+            if (s.userId === props.currentParticipant.user_id) {
+                label = localIdentityLabel.value;
+            } else {
+                const participant = admittedParticipants.value.find((p) => p.user_id === s.userId);
+                if (participant && participant.display_name && participant.display_name !== `USER-${participant.user_id}`) {
+                    const phone = participant.phone_number ? ` (${participant.phone_number})` : '';
+                    label = `${participant.display_name}${phone}`;
+                }
+            }
+        }
+        if (!label) return;
+
         ctx.save();
-        ctx.font = 'bold 20px Vazirmatn, sans-serif';
-        const textWidth = ctx.measureText(s.label).width;
-        ctx.fillStyle = s.color || '#4f46e5';
-        ctx.beginPath();
-        ctx.roundRect(px - 8, py - 24, textWidth + 16, 32, 8);
+        ctx.font = 'bold 18px Vazirmatn, IRANSans, Tahoma, system-ui, sans-serif';
+        const textMetrics = ctx.measureText(label);
+        const textWidth = Math.ceil(textMetrics.width);
+        const padX = 16;
+        const badgeHeight = 34;
+        const badgeWidth = textWidth + padX * 2;
+        const radius = 10;
+
+        const strokeX = s.x1 * 1920;
+        const strokeY = s.y1 * 1080;
+
+        // Position badge centered above the stroke tip
+        let badgeX = Math.round(strokeX - badgeWidth / 2);
+        let badgeY = Math.round(strokeY - badgeHeight - 12);
+
+        // If too close to the top edge, position below the stroke tip
+        if (badgeY < 12) {
+            badgeY = Math.round(strokeY + 14);
+        }
+
+        // Clamp safely within the 1920x1080 canvas bounds
+        badgeX = Math.max(12, Math.min(1920 - badgeWidth - 12, badgeX));
+        badgeY = Math.max(12, Math.min(1080 - badgeHeight - 12, badgeY));
+
+        const bgColor = s.color || '#4f46e5';
+        const textColor = getContrastTextColor(bgColor);
+
+        // Elevation drop shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 2;
+
+        // Rounded badge background
+        drawRoundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, radius);
+        ctx.fillStyle = bgColor;
         ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.fillText(s.label, px, py);
+
+        // High-contrast border definition
+        ctx.shadowColor = 'transparent';
+        ctx.strokeStyle = textColor === '#ffffff' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Exact center text positioning (prevents RTL text displacement / clipping)
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.direction = 'rtl';
+        const centerX = badgeX + badgeWidth / 2;
+        const centerY = badgeY + badgeHeight / 2;
+        ctx.fillText(label, centerX, centerY);
+
+        // Small indicator pin dot at the stroke end
+        ctx.beginPath();
+        ctx.arc(strokeX, strokeY, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = bgColor;
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
         ctx.restore();
     });
 }
@@ -1109,6 +1348,25 @@ function clearWhiteboard() {
     strokeHistory.value = [];
     redrawWhiteboardCanvas();
     dispatchPeerSignal('whiteboard_clear', null, {});
+}
+
+function openWhiteboardForAll() {
+    isWhiteboardOpen.value = true;
+    initWhiteboard();
+    dispatchPeerSignal('whiteboard_toggle', null, { is_open: true });
+}
+
+function closeWhiteboardForAll() {
+    isWhiteboardOpen.value = false;
+    dispatchPeerSignal('whiteboard_toggle', null, { is_open: false });
+}
+
+function toggleWhiteboard() {
+    if (isWhiteboardOpen.value) {
+        closeWhiteboardForAll();
+    } else {
+        openWhiteboardForAll();
+    }
 }
 
 function getNormalizedCanvasPos(e: MouseEvent | TouchEvent) {
@@ -1242,11 +1500,30 @@ function handleSFUMessage(msg: any) {
             fetchState();
             break;
         case 'hand_lowered':
-        case 'chat_message':
         case 'poll_created':
         case 'poll_voted':
         case 'poll_closed':
             fetchState();
+            break;
+        case 'chat_message':
+            if (msg.payload && Number(msg.payload.sender_user_id || msg.user_id) !== props.currentParticipant.user_id) {
+                if (activeSideDrawer.value !== 'chat') {
+                    unreadChatCount.value += 1;
+                    const senderName = msg.payload.sender_name || msg.display_name || __('conference.common.participant');
+                    const msgContent = msg.payload.message || '';
+                    showToast(`💬 ${senderName}: ${String(msgContent).slice(0, 45)}${String(msgContent).length > 45 ? '...' : ''}`);
+                    playChatNotificationSound();
+                }
+            }
+            fetchState();
+            break;
+        case 'whiteboard_toggle':
+            if (msg.payload && typeof msg.payload.is_open === 'boolean') {
+                isWhiteboardOpen.value = msg.payload.is_open;
+                if (isWhiteboardOpen.value) {
+                    initWhiteboard();
+                }
+            }
             break;
         case 'whiteboard_sync':
             if (Array.isArray(msg.payload)) {
@@ -1313,7 +1590,32 @@ async function fetchState() {
         }
 
         participants.value = resp.data.participants || [];
-        messages.value = resp.data.messages || [];
+
+        // Check for new chat messages from others and alert
+        if (Array.isArray(resp.data.messages)) {
+            const previousCount = messages.value.length;
+            messages.value = resp.data.messages;
+
+            if (previousCount > 0 && resp.data.messages.length > previousCount) {
+                const newMsgs = resp.data.messages.slice(previousCount);
+                const fromOthers = newMsgs.filter(
+                    (m: any) => Number(m.sender_id || m.sender_user_id) !== props.currentParticipant.user_id && !seenMessageIds.has(m.id)
+                );
+                if (fromOthers.length > 0) {
+                    fromOthers.forEach((m: any) => seenMessageIds.add(m.id));
+                    if (activeSideDrawer.value !== 'chat') {
+                        unreadChatCount.value += fromOthers.length;
+                        const latest = fromOthers[fromOthers.length - 1];
+                        const text = latest.message || '';
+                        showToast(`💬 ${latest.sender_name}: ${text.slice(0, 45)}${text.length > 45 ? '...' : ''}`);
+                        playChatNotificationSound();
+                    }
+                }
+            } else if (previousCount === 0 && resp.data.messages.length > 0) {
+                resp.data.messages.forEach((m: any) => seenMessageIds.add(m.id));
+            }
+        }
+
         activePoll.value = resp.data.activePoll || null;
 
         // Sync self state changes triggered by host (mute, screen share permission, webinar mode)
@@ -1369,6 +1671,11 @@ async function fetchState() {
                     });
                 } else if (sig.type === 'whiteboard_clear') {
                     handleSFUMessage({ type: 'whiteboard_clear' });
+                } else if (sig.type === 'whiteboard_toggle' && sig.payload) {
+                    handleSFUMessage({
+                        type: 'whiteboard_toggle',
+                        payload: sig.payload,
+                    });
                 }
             }
         }
@@ -1423,12 +1730,44 @@ watch(isWhiteboardOpen, (open) => {
     }
 });
 
+watch(
+    [activePresenter, () => (activePresenter.value ? remoteStreams[activePresenter.value.id] : null)],
+    ([pres, stream]) => {
+        if (pres && stream && remoteScreenVideoRef.value) {
+            if (remoteScreenVideoRef.value.srcObject !== stream) {
+                remoteScreenVideoRef.value.srcObject = stream;
+            }
+            remoteScreenVideoRef.value.play().catch(() => {});
+        }
+    },
+    { immediate: true }
+);
+
+function unlockAutoplay() {
+    remoteVideoRefs.forEach((v) => {
+        if (v && v.paused) v.play().catch(() => {});
+    });
+    remoteAudioRefs.forEach((a) => {
+        if (a && a.paused) a.play().catch(() => {});
+    });
+    if (remoteScreenVideoRef.value && remoteScreenVideoRef.value.paused) {
+        remoteScreenVideoRef.value.play().catch(() => {});
+    }
+}
+
 onMounted(async () => {
+    window.addEventListener('click', unlockAutoplay, { passive: true });
+    window.addEventListener('touchstart', unlockAutoplay, { passive: true });
     await initLocalMedia();
     connectSFU();
     await fetchState();
     pollTimer = setInterval(fetchState, 2200);
     speakerDetectInterval = setInterval(detectActiveSpeaker, 400);
+});
+
+onUnmounted(() => {
+    window.removeEventListener('click', unlockAutoplay);
+    window.removeEventListener('touchstart', unlockAutoplay);
 });
 
 onUnmounted(() => {
@@ -1582,13 +1921,19 @@ onUnmounted(() => {
                             <input type="range" v-model.number="currentBrushSize" min="2" max="16" class="w-20 accent-indigo-500" />
                             <button
                                 @click="clearWhiteboard"
-                                class="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition"
+                                class="px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white text-xs font-bold transition cursor-pointer"
                             >
                                 {{ __('conference.controls.clear_whiteboard') }}
                             </button>
                             <button
+                                @click="closeWhiteboardForAll"
+                                class="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition cursor-pointer"
+                            >
+                                {{ __('conference.controls.close_whiteboard_for_all') }}
+                            </button>
+                            <button
                                 @click="isWhiteboardOpen = false"
-                                class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition"
+                                class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition cursor-pointer"
                             >
                                 {{ __('conference.controls.close_whiteboard') }}
                             </button>
@@ -1642,7 +1987,7 @@ onUnmounted(() => {
                         ></video>
                         <video
                             v-else-if="activePresenter"
-                            :ref="(el) => setRemoteVideoRef(activePresenter!.id, el)"
+                            ref="remoteScreenVideoRef"
                             autoplay
                             playsinline
                             class="max-w-full max-h-full object-contain"
@@ -1715,6 +2060,11 @@ onUnmounted(() => {
                             class="w-full h-full object-cover transition-opacity duration-200"
                             :class="p.is_camera_on ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                         ></video>
+                        <audio
+                            :ref="(el) => setRemoteAudioRef(p.id, el)"
+                            autoplay
+                            playsinline
+                        ></audio>
 
                         <div v-if="!p.is_camera_on" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
                             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-indigo-300 font-bold text-base sm:text-lg">
@@ -2010,9 +2360,9 @@ onUnmounted(() => {
             <div class="flex items-center gap-2">
                 <button
                     v-if="room.allow_whiteboard"
-                    @click="isWhiteboardOpen = !isWhiteboardOpen"
+                    @click="toggleWhiteboard"
                     :class="isWhiteboardOpen ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
-                    class="px-3 py-2.5 rounded-xl border border-slate-700 text-xs font-bold transition flex items-center gap-1.5"
+                    class="px-3 py-2.5 rounded-xl border border-slate-700 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -2114,14 +2464,20 @@ onUnmounted(() => {
                 </button>
 
                 <button
-                    @click="activeSideDrawer = activeSideDrawer === 'chat' ? null : 'chat'"
+                    @click="activeSideDrawer = activeSideDrawer === 'chat' ? null : 'chat'; unreadChatCount = 0;"
                     :class="activeSideDrawer === 'chat' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'"
-                    class="p-2.5 rounded-xl border border-slate-700 transition relative"
+                    class="p-2.5 rounded-xl border border-slate-700 transition relative cursor-pointer"
                     :title="__('conference.controls.chat')"
                 >
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                     </svg>
+                    <span
+                        v-if="unreadChatCount > 0"
+                        class="absolute -top-1.5 -end-1.5 min-w-5 h-5 px-1 rounded-full bg-rose-500 text-white font-bold text-[10px] flex items-center justify-center animate-pulse shadow-md border-2 border-slate-900"
+                    >
+                        {{ unreadChatCount }}
+                    </span>
                 </button>
 
                 <button

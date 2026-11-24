@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import OrgLayout from '@/Layouts/OrgLayout.vue';
 import { __ } from '@/Composables/useTrans';
@@ -32,7 +32,7 @@ interface LineItem {
     status: string;
 }
 
-defineProps<{
+const props = defineProps<{
     organization?: {
         id: number;
         name: string;
@@ -42,6 +42,29 @@ defineProps<{
     rooms: RoomItem[];
     operableLines: LineItem[];
 }>();
+
+const searchQuery = ref('');
+const joinCodeInput = ref('');
+
+const filteredRooms = computed(() => {
+    const q = searchQuery.value.trim().toLowerCase();
+    if (!q) return props.rooms;
+    return props.rooms.filter((r) => {
+        return (
+            (r.title && r.title.toLowerCase().includes(q)) ||
+            (r.creator_name && r.creator_name.toLowerCase().includes(q)) ||
+            (r.room_uuid && r.room_uuid.toLowerCase().includes(q))
+        );
+    });
+});
+
+function joinByCode() {
+    const val = joinCodeInput.value.trim();
+    if (!val) return;
+    const match = val.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+    const uuid = match ? match[1] : val;
+    router.visit(route('org.conference.lobby', { uuid }));
+}
 
 const isCreateModalOpen = ref(false);
 const isScheduleEnabled = ref(false);
@@ -132,13 +155,62 @@ function deleteRoom(uuid: string) {
                 </div>
             </div>
 
+            <!-- Search & Quick Join Bar -->
+            <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row items-center gap-4">
+                <!-- Live Search Input -->
+                <div class="relative flex-1 w-full">
+                    <div class="absolute inset-y-0 start-0 flex items-center ps-3.5 pointer-events-none text-slate-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <input
+                        v-model="searchQuery"
+                        type="text"
+                        :placeholder="__('conference.room.search_placeholder')"
+                        class="w-full ps-10 pe-9 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition"
+                    />
+                    <button
+                        v-if="searchQuery"
+                        @click="searchQuery = ''"
+                        class="absolute inset-y-0 end-0 flex items-center pe-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Quick Direct Join by Code or URL -->
+                <form @submit.prevent="joinByCode" class="flex items-center gap-2 w-full md:w-auto">
+                    <div class="relative flex-1 md:w-72">
+                        <input
+                            v-model="joinCodeInput"
+                            type="text"
+                            :placeholder="__('conference.room.join_code_placeholder')"
+                            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-slate-900 dark:text-white text-xs font-mono focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition"
+                        />
+                    </div>
+                    <button
+                        type="submit"
+                        :disabled="!joinCodeInput.trim()"
+                        class="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-bold transition flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
+                    >
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                        <span>{{ __('conference.room.join_by_code_btn') }}</span>
+                    </button>
+                </form>
+            </div>
+
             <!-- Active & Scheduled Rooms Grid -->
             <div>
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                         <span>{{ __('conference.room.active_rooms_title') }}</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-mono">
-                            {{ rooms.length }}
+                            {{ filteredRooms.length }}
                         </span>
                     </h2>
                 </div>
@@ -163,9 +235,24 @@ function deleteRoom(uuid: string) {
                     </div>
                 </div>
 
+                <div v-else-if="filteredRooms.length === 0" class="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-12 text-center space-y-3">
+                    <div class="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ __('conference.room.no_search_results') }}</p>
+                    <button
+                        @click="searchQuery = ''"
+                        class="text-xs font-bold text-purple-600 hover:text-purple-500 transition"
+                    >
+                        پاک کردن جستجو
+                    </button>
+                </div>
+
                 <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                     <div
-                        v-for="room in rooms"
+                        v-for="room in filteredRooms"
                         :key="room.id"
                         class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4"
                     >

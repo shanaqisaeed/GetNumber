@@ -19,6 +19,7 @@ return [
         'status' => 'Status',
         'actions' => 'Actions',
         'loading' => 'Loading...',
+        'optional' => 'Optional',
     ],
 
     'room' => [
@@ -78,6 +79,11 @@ return [
         'webinar_toggled_off' => 'Webinar mode disabled.',
         'capacity_reached' => 'This room has reached its maximum allowed capacity.',
         'not_found' => 'The conference room was not found or has expired.',
+        'search_placeholder' => 'Search meetings (title, room code, or host name)...',
+        'join_by_code_title' => 'Direct Join by Code or Link',
+        'join_code_placeholder' => 'Enter conference code or room URL...',
+        'join_by_code_btn' => 'Quick Join',
+        'no_search_results' => 'No active conference rooms match your search query.',
     ],
 
     'auth' => [
@@ -149,6 +155,7 @@ return [
         'all_muted_toast' => 'All participants have been muted.',
         'muted_by_host' => 'Your microphone was muted by the host.',
         'lock_room' => 'Lock Room',
+        'lock_room_desc' => 'Prevent new participants from entering the room',
         'unlock_room' => 'Unlock Room',
         'export_csv' => 'Attendance Report',
         'export_csv_tooltip' => 'Download attendee join and leave log',
@@ -162,6 +169,8 @@ return [
         'pinch_zoom_hint' => 'Use shortcut keys or mouse wheel to zoom presentation screen.',
         'reset_zoom' => 'Actual Size',
         'presenter_badge' => 'Presenting Screen:',
+        'close_whiteboard_for_all' => 'Close Whiteboard for All',
+        'screen_share_not_supported' => 'Screen sharing is not supported on this browser. Please use a desktop browser (Google Chrome or Edge).',
         'sfu_connected' => 'Connected',
         'p2p_mode_badge' => 'High Quality',
         'sfu_mode_badge' => 'Stable Connection',
@@ -176,6 +185,7 @@ return [
         'to_host_only' => 'Host Only',
         'private_badge' => 'Private with Host',
         'no_messages' => 'No messages in this meeting yet.',
+        'new_message_alert' => 'New message from :sender',
     ],
 
     'polls' => [
