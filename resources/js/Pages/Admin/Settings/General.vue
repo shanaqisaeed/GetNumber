@@ -88,6 +88,11 @@ interface VoiceBridgeSettings {
     turn_credential?: string;
     turn_secret?: string;
     ice_transport_policy?: 'all' | 'relay' | string;
+    sfu_enabled?: boolean;
+    sfu_ws_path?: string;
+    sfu_ws_public_url?: string;
+    sfu_min_port?: number;
+    sfu_max_port?: number;
 }
 
 interface Props {
@@ -332,6 +337,11 @@ const bridgeForm = useForm({
     turn_credential: props.voiceBridgeSettings?.turn_credential || '',
     turn_secret: props.voiceBridgeSettings?.turn_secret || '',
     ice_transport_policy: props.voiceBridgeSettings?.ice_transport_policy || 'all',
+    sfu_enabled: props.voiceBridgeSettings?.sfu_enabled ?? true,
+    sfu_ws_path: props.voiceBridgeSettings?.sfu_ws_path || '/ws/sfu',
+    sfu_ws_public_url: props.voiceBridgeSettings?.sfu_ws_public_url || '',
+    sfu_min_port: props.voiceBridgeSettings?.sfu_min_port || 49152,
+    sfu_max_port: props.voiceBridgeSettings?.sfu_max_port || 49250,
 });
 
 const bridgeSubTab = ref<'connection' | 'relay' | 'guide'>('connection');
@@ -1112,6 +1122,12 @@ const testBridgeConnection = async () => {
                                         <div>Service: {{ bridgeTestResult.data.service }} (v{{ bridgeTestResult.data.version }})</div>
                                         <div>Uptime: {{ bridgeTestResult.data.uptime_seconds }}s | Active Calls: {{ bridgeTestResult.data.active_sessions }}</div>
                                         <div>Endpoints: http://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.api_port }} & ws://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.ws_port }}</div>
+                                        <div v-if="bridgeTestResult.data.sfu">
+                                            SFU Conference Hub: {{ bridgeTestResult.data.sfu.active ? 'ACTIVE' : 'DISABLED' }} | Path: ws://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.ws_port }}{{ bridgeTestResult.data.sfu.ws_path || '/ws/sfu' }} | UDP Media Pool: {{ bridgeTestResult.data.sfu.udp_port_range || '49152-49250' }} (Rooms: {{ bridgeTestResult.data.sfu.active_rooms ?? 0 }}, Peers: {{ bridgeTestResult.data.sfu.active_peers ?? 0 }})
+                                        </div>
+                                        <div v-if="bridgeTestResult.data.stun_turn">
+                                            STUN/TURN Relay: {{ bridgeTestResult.data.stun_turn.active ? 'ACTIVE' : 'DISABLED' }} | Port: {{ bridgeTestResult.data.stun_turn.port }} | Relay Pool: {{ bridgeTestResult.data.stun_turn.relay_range || '49152-49250' }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1214,6 +1230,89 @@ const testBridgeConnection = async () => {
                                 />
                                 <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_wss_help_html')"></p>
                                 <InputError :message="bridgeForm.errors.ws_public_url" class="mt-1" />
+                            </div>
+
+                            <!-- SFU Multi-Party Video Conference & UDP Port Pool Settings -->
+                            <div class="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <div>
+                                        <h4 class="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200">
+                                            {{ __('admin.settings.general.sfu_section_title') }}
+                                        </h4>
+                                        <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-0.5">
+                                            {{ __('admin.settings.general.sfu_section_desc') }}
+                                        </p>
+                                    </div>
+                                    <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
+                                        <input
+                                            v-model="bridgeForm.sfu_enabled"
+                                            type="checkbox"
+                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
+                                        />
+                                        <span class="text-xs font-bold text-indigo-900 dark:text-indigo-200">
+                                            {{ __('admin.settings.general.sfu_enabled_label') }}
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                            {{ __('admin.settings.general.sfu_ws_path_label') }}
+                                        </label>
+                                        <input
+                                            v-model="bridgeForm.sfu_ws_path"
+                                            type="text"
+                                            placeholder="/ws/sfu"
+                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            dir="ltr"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                            {{ __('admin.settings.general.sfu_min_port_label') }}
+                                        </label>
+                                        <input
+                                            v-model.number="bridgeForm.sfu_min_port"
+                                            type="number"
+                                            min="1024"
+                                            max="65535"
+                                            placeholder="49152"
+                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            dir="ltr"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                            {{ __('admin.settings.general.sfu_max_port_label') }}
+                                        </label>
+                                        <input
+                                            v-model.number="bridgeForm.sfu_max_port"
+                                            type="number"
+                                            min="1024"
+                                            max="65535"
+                                            placeholder="49250"
+                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            dir="ltr"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                        {{ __('admin.settings.general.sfu_wss_label') }}
+                                    </label>
+                                    <input
+                                        v-model="bridgeForm.sfu_ws_public_url"
+                                        type="text"
+                                        :placeholder="__('admin.settings.general.sfu_wss_placeholder')"
+                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                        dir="ltr"
+                                    />
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.sfu_wss_help_html')"></p>
+                                </div>
                             </div>
                         </div>
 
@@ -1500,20 +1599,20 @@ const testBridgeConnection = async () => {
                                 <div class="space-y-2 pt-2">
                                     <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_2_title') }}</div>
                                     <div class="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-xs select-all" dir="ltr">
-                                        <div>sudo ufw allow 587/tcp comment "Voice Bridge REST API"</div>
-                                        <div>sudo ufw allow 993/tcp comment "Voice Bridge WebSocket"</div>
-                                        <div>sudo ufw allow 3478/tcp comment "STUN / TURN TCP"</div>
-                                        <div>sudo ufw allow 3478/udp comment "STUN / TURN UDP"</div>
-                                        <div>sudo ufw allow 5349/tcp comment "TURNS TLS TCP"</div>
-                                        <div>sudo ufw allow 49152:49250/udp comment "WebRTC Media UDP Ports"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.api_port || 49000 }}/tcp comment "Voice Bridge REST API"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.ws_port || 49001 }}/tcp comment "Voice Bridge & SFU WebSocket"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 3479 }}/tcp comment "STUN / TURN TCP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 3479 }}/udp comment "STUN / TURN UDP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turns_port || 5350 }}/tcp comment "TURNS TLS TCP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.sfu_min_port || 49152 }}:{{ bridgeForm.sfu_max_port || 49250 }}/udp comment "WebRTC TURN & SFU Media UDP Ports"</div>
                                     </div>
                                 </div>
 
                                 <div class="space-y-2 pt-2">
                                     <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_3_title') }}</div>
                                     <pre class="p-3 rounded-xl bg-gray-900 text-slate-300 font-mono text-[11px] overflow-x-auto select-all" dir="ltr">
-location /ws/signaling {
-    proxy_pass http://127.0.0.1:993;
+location ~ ^/ws/(signaling|sfu|local-push) {
+    proxy_pass http://127.0.0.1:{{ bridgeForm.ws_port || 49001 }};
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";

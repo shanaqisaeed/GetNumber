@@ -134,7 +134,7 @@ elif [ -f "${SCRIPT_DIR}/voice-bridge-linux-arm64" ] && ([ "$ARCH" = "aarch64" ]
 elif [ -f "${SCRIPT_DIR}/voice-bridge" ]; then
     BINARY_SRC="${SCRIPT_DIR}/voice-bridge"
 elif command -v go >/dev/null 2>&1 && [ -f "${SCRIPT_DIR}/main.go" ]; then
-    (cd "${SCRIPT_DIR}" && go build -o "${INSTALL_DIR}/voice-bridge" .)
+    (cd "${SCRIPT_DIR}" && go build -mod=vendor -ldflags="-s -w" -o "${INSTALL_DIR}/voice-bridge" . 2>/dev/null || go build -ldflags="-s -w" -o "${INSTALL_DIR}/voice-bridge" .)
     BINARY_SRC="${INSTALL_DIR}/voice-bridge"
 fi
 
@@ -225,6 +225,37 @@ ACTIVE_TURNS_PORT=$(grep "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut 
 ACTIVE_TURN_MIN=$(grep "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49152")
 ACTIVE_TURN_MAX=$(grep "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49250")
 
+# Ensure SFU Conference parameters are provisioned into existing .env
+if ! grep -q "^SFU_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "SFU_ENABLED=true" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^SFU_WS_PATH=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "SFU_WS_PATH=/ws/sfu" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^SFU_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "SFU_MIN_PORT=${ACTIVE_TURN_MIN}" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^SFU_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "SFU_MAX_PORT=${ACTIVE_TURN_MAX}" >> "${INSTALL_DIR}/.env"
+fi
+
+ACTIVE_SFU_EN=$(grep "^SFU_ENABLED=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "true")
+ACTIVE_SFU_WS=$(grep "^SFU_WS_PATH=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "/ws/sfu")
+ACTIVE_SFU_MIN=$(grep "^SFU_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "${ACTIVE_TURN_MIN}")
+ACTIVE_SFU_MAX=$(grep "^SFU_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "${ACTIVE_TURN_MAX}")
+
+# Tune Linux Kernel UDP Socket Buffers for High-Concurrency SFU Video Conferencing
+if [ -d "/etc/sysctl.d" ]; then
+    cat > "/etc/sysctl.d/99-ravyno-voice-bridge.conf" << 'SYSEOF'
+# RavyNo Voice Bridge & SFU High-Throughput UDP Media Buffers
+net.core.rmem_max=26214400
+net.core.wmem_max=26214400
+net.core.rmem_default=2097152
+net.core.wmem_default=2097152
+SYSEOF
+    sysctl --system >/dev/null 2>&1 || true
+fi
+
 # Firewall update if UFW active
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     if [ "$ACTIVE_TURN_EN" = "true" ] || [ "$ACTIVE_TURN_EN" = "1" ] || [ "$ACTIVE_TURN_EN" = "yes" ]; then
@@ -232,6 +263,9 @@ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: a
         ufw allow ${ACTIVE_TURN_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${ACTIVE_TURNS_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${ACTIVE_TURN_MIN}:${ACTIVE_TURN_MAX}/udp >/dev/null 2>&1 || true
+    fi
+    if [ "$ACTIVE_SFU_EN" = "true" ] || [ "$ACTIVE_SFU_EN" = "1" ] || [ "$ACTIVE_SFU_EN" = "yes" ]; then
+        ufw allow ${ACTIVE_SFU_MIN}:${ACTIVE_SFU_MAX}/udp >/dev/null 2>&1 || true
     fi
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/4] Auth secret preserved & environment synchronized${RESET} ${GREEN}[DONE]${RESET}\n"
@@ -282,6 +316,8 @@ echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE UPGRADED SUCCESSFU
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${ACTIVE_SFU_WS}"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 SFU UDP Media Pool" "${ACTIVE_SFU_MIN}-${ACTIVE_SFU_MAX}/udp"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
 printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge & TURN Secret" "${SECRET}"

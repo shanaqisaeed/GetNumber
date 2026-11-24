@@ -56,9 +56,38 @@ type Config struct {
 	TurnStaticPass string
 	TurnCertFile   string
 	TurnKeyFile    string
+
+	// Embedded SFU Conference Media & Control Configuration
+	SFUEnabled bool
+	SFUWSPath  string
+	SFUMinPort int
+	SFUMaxPort int
 }
 
-// --- STRING CLEANING HELPER ---
+// --- STRING CLEANING & DOTENV HELPERS ---
+
+func loadDotEnvFile(filename string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return
+	}
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		line = cleanEnvStr(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) == 2 {
+			k := cleanEnvStr(parts[0])
+			v := cleanEnvStr(parts[1])
+			v = strings.Trim(v, `"'`)
+			if os.Getenv(k) == "" {
+				os.Setenv(k, v)
+			}
+		}
+	}
+}
 
 func cleanEnvStr(s string) string {
 	s = strings.ReplaceAll(s, "\r", "")
@@ -88,7 +117,19 @@ func loadConfig() Config {
 	flagTurnStaticPass := flag.String("turn-pass", "", "Optional static TURN password (or TURN_STATIC_PASS)")
 	flagTurnCertFile := flag.String("turn-cert", "", "Path to TLS certificate for TURNS (or TURN_CERT_FILE)")
 	flagTurnKeyFile := flag.String("turn-key", "", "Path to TLS private key for TURNS (or TURN_KEY_FILE)")
+
+	// SFU Conference Engine flags
+	flagSFUEnabled := flag.Bool("sfu-enabled", true, "Enable embedded SFU conference engine (default true or SFU_ENABLED)")
+	flagSFUWSPath := flag.String("sfu-ws-path", "", "SFU WebSocket endpoint path (default /ws/sfu or SFU_WS_PATH)")
+	flagSFUMinPort := flag.Int("sfu-min-port", 0, "SFU media min UDP port (default 49152 or SFU_MIN_PORT)")
+	flagSFUMaxPort := flag.Int("sfu-max-port", 0, "SFU media max UDP port (default 49250 or SFU_MAX_PORT)")
 	flag.Parse()
+
+	// Automatically load .env file if present in working directory or binary directory
+	loadDotEnvFile(".env")
+	if exe, err := os.Executable(); err == nil {
+		loadDotEnvFile(filepath.Join(filepath.Dir(exe), ".env"))
+	}
 
 	// Host
 	host := cleanEnvStr(*flagHost)
@@ -292,6 +333,53 @@ func loadConfig() Config {
 		turnKeyFile = cleanEnvStr(os.Getenv("TURN_KEY"))
 	}
 
+	// SFU Conference Engine Settings (Reusing 49152-49250 UDP port range)
+	sfuEnabled := *flagSFUEnabled
+	if env := cleanEnvStr(os.Getenv("SFU_ENABLED")); env != "" {
+		sfuEnabled = (env == "true" || env == "1" || env == "yes")
+	}
+
+	sfuWSPath := cleanEnvStr(*flagSFUWSPath)
+	if sfuWSPath == "" {
+		sfuWSPath = cleanEnvStr(os.Getenv("SFU_WS_PATH"))
+	}
+	if sfuWSPath == "" {
+		sfuWSPath = "/ws/sfu"
+	}
+
+	sfuMinPort := *flagSFUMinPort
+	if sfuMinPort == 0 {
+		if p := cleanEnvStr(os.Getenv("SFU_MIN_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				sfuMinPort = val
+			}
+		}
+	}
+	if sfuMinPort == 0 {
+		sfuMinPort = turnMinPort
+	}
+
+	sfuMaxPort := *flagSFUMaxPort
+	if sfuMaxPort == 0 {
+		if p := cleanEnvStr(os.Getenv("SFU_MAX_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				sfuMaxPort = val
+			}
+		}
+	}
+	if sfuMaxPort == 0 {
+		sfuMaxPort = turnMaxPort
+	}
+	if sfuMinPort <= 0 || sfuMinPort > 65535 {
+		sfuMinPort = 49152
+	}
+	if sfuMaxPort <= 0 || sfuMaxPort > 65535 || sfuMaxPort < sfuMinPort {
+		sfuMaxPort = 49250
+	}
+	if !strings.HasPrefix(sfuWSPath, "/") {
+		sfuWSPath = "/" + sfuWSPath
+	}
+
 	return Config{
 		Host:           host,
 		APIPort:        apiPort,
@@ -311,6 +399,10 @@ func loadConfig() Config {
 		TurnStaticPass: turnStaticPass,
 		TurnCertFile:   turnCertFile,
 		TurnKeyFile:    turnKeyFile,
+		SFUEnabled:     sfuEnabled,
+		SFUWSPath:      sfuWSPath,
+		SFUMinPort:     sfuMinPort,
+		SFUMaxPort:     sfuMaxPort,
 	}
 }
 
@@ -942,16 +1034,19 @@ type wsFrame struct {
 	Payload []byte
 }
 
-func readWSFrame(r *bufio.Reader) (wsFrame, error) {
+const maxWSFrameBytes = 2 * 1024 * 1024 // 2 MB cap against malformed/oversized frames
+
+func readRawWSFragment(r *bufio.Reader) (fin bool, opcode byte, payload []byte, err error) {
 	b0, err := r.ReadByte()
 	if err != nil {
-		return wsFrame{}, err
+		return false, 0, nil, err
 	}
-	opcode := b0 & 0x0F
+	fin = (b0 & 0x80) != 0
+	opcode = b0 & 0x0F
 
 	b1, err := r.ReadByte()
 	if err != nil {
-		return wsFrame{}, err
+		return false, 0, nil, err
 	}
 	isMasked := (b1 & 0x80) != 0
 	length := int(b1 & 0x7F)
@@ -959,27 +1054,34 @@ func readWSFrame(r *bufio.Reader) (wsFrame, error) {
 	if length == 126 {
 		var l uint16
 		if err := binary.Read(r, binary.BigEndian, &l); err != nil {
-			return wsFrame{}, err
+			return false, 0, nil, err
 		}
 		length = int(l)
 	} else if length == 127 {
 		var l uint64
 		if err := binary.Read(r, binary.BigEndian, &l); err != nil {
-			return wsFrame{}, err
+			return false, 0, nil, err
+		}
+		if l > uint64(maxWSFrameBytes) {
+			return false, 0, nil, fmt.Errorf("websocket frame exceeds max size (%d bytes)", l)
 		}
 		length = int(l)
+	}
+
+	if length < 0 || length > maxWSFrameBytes {
+		return false, 0, nil, fmt.Errorf("invalid websocket frame length: %d", length)
 	}
 
 	var maskKey [4]byte
 	if isMasked {
 		if _, err := io.ReadFull(r, maskKey[:]); err != nil {
-			return wsFrame{}, err
+			return false, 0, nil, err
 		}
 	}
 
-	payload := make([]byte, length)
+	payload = make([]byte, length)
 	if _, err := io.ReadFull(r, payload); err != nil {
-		return wsFrame{}, err
+		return false, 0, nil, err
 	}
 
 	if isMasked {
@@ -988,7 +1090,45 @@ func readWSFrame(r *bufio.Reader) (wsFrame, error) {
 		}
 	}
 
-	return wsFrame{Opcode: opcode, Payload: payload}, nil
+	return fin, opcode, payload, nil
+}
+
+// readWSFrame reads a full RFC 6455 message, automatically reassembling fragmented frames
+// (FIN=0 followed by Opcode=0x00 continuation frames) for large WebRTC Video SDPs and whiteboard syncs.
+func readWSFrame(r *bufio.Reader) (wsFrame, error) {
+	fin, opcode, payload, err := readRawWSFragment(r)
+	if err != nil {
+		return wsFrame{}, err
+	}
+
+	// Control frames (Close 0x08, Ping 0x09, Pong 0x0A) are never fragmented
+	if fin || opcode >= 0x08 {
+		return wsFrame{Opcode: opcode, Payload: payload}, nil
+	}
+
+	initialOpcode := opcode
+	assembled := make([]byte, 0, len(payload)*2)
+	assembled = append(assembled, payload...)
+
+	for {
+		nextFin, nextOp, nextPayload, err := readRawWSFragment(r)
+		if err != nil {
+			return wsFrame{}, err
+		}
+		// Control frames may be interleaved between fragments per RFC 6455
+		if nextOp >= 0x08 {
+			return wsFrame{Opcode: nextOp, Payload: nextPayload}, nil
+		}
+		if len(assembled)+len(nextPayload) > maxWSFrameBytes {
+			return wsFrame{}, fmt.Errorf("reassembled websocket message exceeds max size")
+		}
+		assembled = append(assembled, nextPayload...)
+		if nextFin {
+			break
+		}
+	}
+
+	return wsFrame{Opcode: initialOpcode, Payload: assembled}, nil
 }
 
 func writeWSFrame(w *bufio.Writer, opcode byte, payload []byte) error {
@@ -1811,7 +1951,7 @@ func (lph *LocalPushHub) Count() int {
 
 // --- REST API SERVER ---
 
-func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub, turnSrv *TurnServer, startTime time.Time) *http.Server {
+func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub, turnSrv *TurnServer, sfuHub *SFUHub, startTime time.Time) *http.Server {
 	mux := http.NewServeMux()
 
 	// CORS & Auth Middleware Helper
@@ -1879,10 +2019,22 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 			localPushCount = localPushHub.Count()
 		}
 
+		sfuInfo := map[string]interface{}{
+			"enabled":        cfg.SFUEnabled,
+			"active":         cfg.SFUEnabled && sfuHub != nil,
+			"ws_path":        cfg.SFUWSPath,
+			"udp_port_range": fmt.Sprintf("%d-%d", cfg.SFUMinPort, cfg.SFUMaxPort),
+		}
+		if sfuHub != nil {
+			for k, v := range sfuHub.Stats() {
+				sfuInfo[k] = v
+			}
+		}
+
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":          "ok",
 			"service":         "RavyNo Voice Bridge Daemon",
-			"version":         "2.2.0",
+			"version":         "2.3.0",
 			"uptime_seconds":  uptime,
 			"active_sessions": store.TotalActive(),
 			"bridge_host":     cfg.Host,
@@ -1892,6 +2044,7 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 			"auth_required":   cfg.Secret != "",
 			"auth_valid":      authValid,
 			"stun_turn":       turnInfo,
+			"sfu":             sfuInfo,
 			"local_push": map[string]interface{}{
 				"enabled":           true,
 				"ws_path":           "/ws/local-push",
@@ -2170,11 +2323,14 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 
 // --- WEBSOCKET SERVER ---
 
-func startWSServer(cfg Config, hub *SignalingHub, localPushHub *LocalPushHub) *http.Server {
+func startWSServer(cfg Config, hub *SignalingHub, localPushHub *LocalPushHub, sfuHub *SFUHub) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws/signaling", hub.HandleWS)
 	if localPushHub != nil {
 		mux.HandleFunc("/ws/local-push", localPushHub.HandleWS)
+	}
+	if sfuHub != nil && cfg.SFUEnabled {
+		mux.HandleFunc(cfg.SFUWSPath, sfuHub.HandleWS)
 	}
 
 	server := &http.Server{
@@ -2183,7 +2339,7 @@ func startWSServer(cfg Config, hub *SignalingHub, localPushHub *LocalPushHub) *h
 	}
 
 	go func() {
-		log.Printf("[Voice Bridge WebSocket] Listening on ws://%s:%d/ws/signaling & /ws/local-push", cfg.Host, cfg.WSPort)
+		log.Printf("[Voice Bridge WebSocket] Listening on ws://%s:%d/ws/signaling, /ws/local-push & %s", cfg.Host, cfg.WSPort, cfg.SFUWSPath)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("[Voice Bridge WS] Error: %v", err)
 		}
@@ -2201,6 +2357,11 @@ func main() {
 	hub := NewSignalingHub(store, cfg.Secret, cfg.CallbackURL)
 	localPushHub := NewLocalPushHub(cfg.Secret, cfg.CallbackURL)
 
+	var sfuHub *SFUHub
+	if cfg.SFUEnabled {
+		sfuHub = NewSFUHub(cfg.Secret, cfg.SFUMinPort, cfg.SFUMaxPort)
+	}
+
 	turnSrv, err := startTurnServer(cfg)
 	if err != nil {
 		log.Printf("[Voice Bridge TURN] ⚠️ Warning: Failed to start embedded TURN server: %v", err)
@@ -2212,6 +2373,9 @@ func main() {
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)
 	fmt.Printf("📲 Local Push Server:     ws://%s:%d/ws/local-push\n", cfg.Host, cfg.WSPort)
+	if cfg.SFUEnabled {
+		fmt.Printf("🎥 SFU Conference Hub:    ws://%s:%d%s (UDP Ports: %d-%d)\n", cfg.Host, cfg.WSPort, cfg.SFUWSPath, cfg.SFUMinPort, cfg.SFUMaxPort)
+	}
 	if cfg.TurnEnabled {
 		fmt.Printf("🔄 STUN Server:           stun:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
 		fmt.Printf("🛡️  TURN Relay Server:     turn:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
@@ -2231,8 +2395,8 @@ func main() {
 	fmt.Println("👉 Set this secret in Admin: Settings > Voice Bridge > Secret")
 	fmt.Println("==================================================================")
 
-	apiServer := startAPIServer(cfg, store, localPushHub, turnSrv, startTime)
-	wsServer := startWSServer(cfg, hub, localPushHub)
+	apiServer := startAPIServer(cfg, store, localPushHub, turnSrv, sfuHub, startTime)
+	wsServer := startWSServer(cfg, hub, localPushHub, sfuHub)
 
 	// Graceful shutdown handling
 	stop := make(chan os.Signal, 1)
@@ -2240,6 +2404,9 @@ func main() {
 	<-stop
 
 	log.Println("[Voice Bridge] Shutting down servers gracefully...")
+	if sfuHub != nil {
+		sfuHub.Close()
+	}
 	if turnSrv != nil {
 		_ = turnSrv.Close()
 	}

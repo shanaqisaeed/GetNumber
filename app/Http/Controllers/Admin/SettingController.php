@@ -101,6 +101,11 @@ class SettingController extends Controller
                 'intranet_ssids' => SystemSetting::get('voice_intranet_ssids', ''),
                 'local_push_ws_url' => SystemSetting::get('voice_local_push_ws_url', ''),
                 'ring_timeout_seconds' => (int) SystemSetting::get('voice_ring_timeout_seconds', 45),
+                'sfu_enabled' => (bool) (int) SystemSetting::get('voice_sfu_enabled', '1'),
+                'sfu_ws_path' => SystemSetting::get('voice_sfu_ws_path', '/ws/sfu'),
+                'sfu_ws_public_url' => SystemSetting::get('voice_sfu_ws_public_url', ''),
+                'sfu_min_port' => (int) SystemSetting::get('voice_sfu_min_port', 49152),
+                'sfu_max_port' => (int) SystemSetting::get('voice_sfu_max_port', 49250),
             ],
         ]);
     }
@@ -382,6 +387,11 @@ class SettingController extends Controller
             'intranet_ssids' => ['nullable', 'string', 'max:1000'],
             'local_push_ws_url' => ['nullable', 'string', 'max:255'],
             'ring_timeout_seconds' => ['nullable', 'integer', 'min:15', 'max:180'],
+            'sfu_enabled' => ['boolean'],
+            'sfu_ws_path' => ['nullable', 'string', 'max:100'],
+            'sfu_ws_public_url' => ['nullable', 'string', 'max:255'],
+            'sfu_min_port' => ['nullable', 'integer', 'min:1024', 'max:65535'],
+            'sfu_max_port' => ['nullable', 'integer', 'min:1024', 'max:65535'],
         ], [
             'host.required' => __('controllers.admin.settings.val_voice_host_required'),
             'api_port.required' => __('controllers.admin.settings.val_voice_api_port_required'),
@@ -437,6 +447,23 @@ class SettingController extends Controller
         }
         if ($request->has('ring_timeout_seconds')) {
             SystemSetting::set('voice_ring_timeout_seconds', (string) ($validated['ring_timeout_seconds'] ?? 45), __('controllers.admin.settings.desc_voice_ring_timeout_seconds'));
+        }
+        if ($request->has('sfu_enabled')) {
+            SystemSetting::set('voice_sfu_enabled', $request->boolean('sfu_enabled') ? '1' : '0', 'Enable embedded SFU conference engine');
+        }
+        if ($request->has('sfu_ws_path')) {
+            $rawSfuPath = trim((string) ($validated['sfu_ws_path'] ?? '/ws/sfu'));
+            $normSfuPath = '/' . ltrim($rawSfuPath ?: 'ws/sfu', '/');
+            SystemSetting::set('voice_sfu_ws_path', $normSfuPath, 'SFU WebSocket endpoint path');
+        }
+        if ($request->has('sfu_ws_public_url')) {
+            SystemSetting::set('voice_sfu_ws_public_url', trim((string) ($validated['sfu_ws_public_url'] ?? '')), 'Public WSS URL for SFU conference');
+        }
+        if ($request->has('sfu_min_port')) {
+            SystemSetting::set('voice_sfu_min_port', (string) ($validated['sfu_min_port'] ?? 49152), 'SFU UDP media relay min port');
+        }
+        if ($request->has('sfu_max_port')) {
+            SystemSetting::set('voice_sfu_max_port', (string) ($validated['sfu_max_port'] ?? 49250), 'SFU UDP media relay max port');
         }
 
         $this->logSettingChange($request, __('controllers.admin.settings.audit_voice_bridge_updated'));

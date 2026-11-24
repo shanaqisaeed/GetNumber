@@ -279,10 +279,15 @@ Route::middleware(['auth'])->group(function () {
     // Enterprise Video Conference Infrastructure
     Route::get('/conference', [\App\Http\Controllers\User\ConferenceController::class, 'index'])->name('conference.index');
     Route::post('/conference', [\App\Http\Controllers\User\ConferenceController::class, 'store'])->name('conference.store');
+    Route::delete('/conference/{uuid}', [\App\Http\Controllers\User\ConferenceController::class, 'destroy'])->name('conference.destroy');
     Route::get('/conference/{uuid}/lobby', [\App\Http\Controllers\User\ConferenceController::class, 'lobby'])->name('conference.lobby');
     Route::post('/conference/{uuid}/join', [\App\Http\Controllers\User\ConferenceController::class, 'join'])->name('conference.join');
     Route::get('/conference/{uuid}/room', [\App\Http\Controllers\User\ConferenceController::class, 'room'])->name('conference.room');
     Route::get('/conference/{uuid}/state', [\App\Http\Controllers\User\ConferenceController::class, 'state'])->name('conference.state');
+    Route::post('/conference/{uuid}/signal', [\App\Http\Controllers\User\ConferenceController::class, 'sendSignal'])->name('conference.signal');
+    Route::post('/conference/{uuid}/media-state', [\App\Http\Controllers\User\ConferenceController::class, 'updateMediaState'])->name('conference.media_state');
+    Route::post('/conference/{uuid}/lock', [\App\Http\Controllers\User\ConferenceController::class, 'toggleLock'])->name('conference.lock');
+    Route::post('/conference/{uuid}/webinar', [\App\Http\Controllers\User\ConferenceController::class, 'toggleWebinar'])->name('conference.webinar');
     Route::post('/conference/{uuid}/admit/{participant}', [\App\Http\Controllers\User\ConferenceController::class, 'admitParticipant'])->name('conference.admit');
     Route::post('/conference/{uuid}/reject/{participant}', [\App\Http\Controllers\User\ConferenceController::class, 'rejectParticipant'])->name('conference.reject');
     Route::post('/conference/{uuid}/kick/{participant}', [\App\Http\Controllers\User\ConferenceController::class, 'kickParticipant'])->name('conference.kick');
@@ -296,6 +301,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/conference/{uuid}/end', [\App\Http\Controllers\User\ConferenceController::class, 'endRoom'])->name('conference.end');
     Route::post('/conference/{uuid}/messages', [\App\Http\Controllers\User\ConferenceController::class, 'sendMessage'])->name('conference.messages.store');
     Route::post('/conference/{uuid}/polls', [\App\Http\Controllers\User\ConferenceController::class, 'createPoll'])->name('conference.polls.store');
+    Route::post('/conference/{uuid}/polls/{poll}/close', [\App\Http\Controllers\User\ConferenceController::class, 'closePoll'])->name('conference.polls.close');
     Route::post('/conference/{uuid}/polls/{poll}/vote', [\App\Http\Controllers\User\ConferenceController::class, 'votePoll'])->name('conference.polls.vote');
     Route::get('/conference/{uuid}/export-attendance', [\App\Http\Controllers\User\ConferenceController::class, 'exportAttendance'])->name('conference.export_attendance');
 

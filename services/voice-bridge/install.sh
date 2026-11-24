@@ -55,6 +55,10 @@ TURN_REALM="${TURN_REALM:-ravy-no}"
 TURN_PUBLIC_IP="${TURN_PUBLIC_IP:-}"
 TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
 TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
+SFU_ENABLED="${SFU_ENABLED:-true}"
+SFU_WS_PATH="${SFU_WS_PATH:-/ws/sfu}"
+SFU_MIN_PORT="${SFU_MIN_PORT:-}"
+SFU_MAX_PORT="${SFU_MAX_PORT:-}"
 CLEAN_INSTALL=false
 NON_INTERACTIVE=false
 
@@ -114,6 +118,30 @@ while [[ $# -gt 0 ]]; do
             ;;
         --turn-max-port)
             TURN_MAX_PORT="$2"
+            shift 2
+            ;;
+        --sfu-enabled)
+            SFU_ENABLED="$2"
+            shift 2
+            ;;
+        --enable-sfu)
+            SFU_ENABLED="true"
+            shift
+            ;;
+        --disable-sfu|--no-sfu)
+            SFU_ENABLED="false"
+            shift
+            ;;
+        --sfu-ws-path)
+            SFU_WS_PATH="$2"
+            shift 2
+            ;;
+        --sfu-min-port)
+            SFU_MIN_PORT="$2"
+            shift 2
+            ;;
+        --sfu-max-port)
+            SFU_MAX_PORT="$2"
             shift 2
             ;;
         --clean|--reinstall)
@@ -310,7 +338,7 @@ elif [ -f "${SCRIPT_DIR}/voice-bridge-linux-arm64" ] && ([ "$ARCH" = "aarch64" ]
 elif [ -f "${SCRIPT_DIR}/voice-bridge" ]; then
     BINARY_SRC="${SCRIPT_DIR}/voice-bridge"
 elif command -v go >/dev/null 2>&1 && [ -f "${SCRIPT_DIR}/main.go" ]; then
-    (cd "${SCRIPT_DIR}" && go build -o "${INSTALL_DIR}/voice-bridge" .)
+    (cd "${SCRIPT_DIR}" && go build -mod=vendor -ldflags="-s -w" -o "${INSTALL_DIR}/voice-bridge" . 2>/dev/null || go build -ldflags="-s -w" -o "${INSTALL_DIR}/voice-bridge" .)
     BINARY_SRC="${INSTALL_DIR}/voice-bridge"
 fi
 
@@ -340,6 +368,16 @@ fi
 echo "$SECRET" > "${INSTALL_DIR}/.secret"
 chmod 600 "${INSTALL_DIR}/.secret"
 
+SFU_MIN_PORT="${SFU_MIN_PORT:-$TURN_MIN_PORT}"
+SFU_MAX_PORT="${SFU_MAX_PORT:-$TURN_MAX_PORT}"
+
+if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
+    if ! [[ "$SFU_MIN_PORT" =~ ^[0-9]+$ ]] || ! [[ "$SFU_MAX_PORT" =~ ^[0-9]+$ ]] || [ "$SFU_MIN_PORT" -gt "$SFU_MAX_PORT" ]; then
+        echo -e "${RED}✖ Validation Error:${RESET} Invalid SFU UDP port range (${SFU_MIN_PORT}-${SFU_MAX_PORT}).\n"
+        exit 1
+    fi
+fi
+
 cat > "${INSTALL_DIR}/.env" << EOF
 BRIDGE_HOST=${HOST}
 BRIDGE_API_PORT=${API_PORT}
@@ -356,8 +394,26 @@ TURN_PUBLIC_IP=${TURN_PUBLIC_IP}
 TURN_MIN_PORT=${TURN_MIN_PORT}
 TURN_MAX_PORT=${TURN_MAX_PORT}
 TURN_SECRET=${SECRET}
+
+# Embedded SFU Conference Engine Settings (Reusing 49152-49250 UDP Range)
+SFU_ENABLED=${SFU_ENABLED}
+SFU_WS_PATH=${SFU_WS_PATH}
+SFU_MIN_PORT=${SFU_MIN_PORT}
+SFU_MAX_PORT=${SFU_MAX_PORT}
 EOF
 chmod 600 "${INSTALL_DIR}/.env"
+
+# Tune Linux Kernel UDP Socket Buffers for High-Concurrency SFU Video Conferencing
+if [ -d "/etc/sysctl.d" ]; then
+    cat > "/etc/sysctl.d/99-ravyno-voice-bridge.conf" << 'SYSEOF'
+# RavyNo Voice Bridge & SFU High-Throughput UDP Media Buffers
+net.core.rmem_max=26214400
+net.core.wmem_max=26214400
+net.core.rmem_default=2097152
+net.core.wmem_default=2097152
+SYSEOF
+    sysctl --system >/dev/null 2>&1 || true
+fi
 
 # Configure Firewall (UFW) if active
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
@@ -368,6 +424,9 @@ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: a
         ufw allow ${TURN_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${TURNS_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp >/dev/null 2>&1 || true
+    fi
+    if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
+        ufw allow ${SFU_MIN_PORT}:${SFU_MAX_PORT}/udp >/dev/null 2>&1 || true
     fi
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/5] Cryptographic tokens sealed into .env & .secret${RESET} ${GREEN}[DONE]${RESET}\n"
@@ -442,6 +501,10 @@ echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE DAEMON IS ONLINE A
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
+if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${SFU_WS_PATH}"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 SFU UDP Media Pool" "${SFU_MIN_PORT}-${SFU_MAX_PORT}/udp"
+fi
 if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
     printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
     printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔒 TURNS TLS Relay" "turns:${SERVER_IP}:${TURNS_PORT} (TCP)"

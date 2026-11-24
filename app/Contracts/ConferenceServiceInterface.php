@@ -13,6 +13,8 @@ interface ConferenceServiceInterface
 {
     public function createRoom(User $user, array $data): ConferenceRoom;
 
+    public function deleteRoom(ConferenceRoom $room, User $hostUser): void;
+
     public function joinRoom(ConferenceRoom $room, User $user, string $phoneNumber, ?string $pinCode = null, array $clientMeta = []): array;
 
     public function admitParticipant(ConferenceRoom $room, User $hostUser, int $participantId): ConferenceParticipant;
@@ -23,7 +25,13 @@ interface ConferenceServiceInterface
 
     public function toggleMuteParticipant(ConferenceRoom $room, User $actor, int $participantId, ?bool $muteState = null): ConferenceParticipant;
 
+    public function updateMediaState(ConferenceRoom $room, User $user, array $state): ConferenceParticipant;
+
     public function muteAllParticipants(ConferenceRoom $room, User $hostUser): void;
+
+    public function toggleLockRoom(ConferenceRoom $room, User $hostUser): ConferenceRoom;
+
+    public function toggleWebinarMode(ConferenceRoom $room, User $hostUser): ConferenceRoom;
 
     public function grantScreenShare(ConferenceRoom $room, User $hostUser, int $participantId, bool $canShare): ConferenceParticipant;
 
@@ -40,6 +48,8 @@ interface ConferenceServiceInterface
     public function sendMessage(ConferenceRoom $room, User $user, string $message, ?int $toUserId = null): ConferenceMessage;
 
     public function createPoll(ConferenceRoom $room, User $user, string $question, array $options): ConferencePoll;
+
+    public function closePoll(ConferenceRoom $room, User $hostUser, int $pollId): ConferencePoll;
 
     public function votePoll(ConferencePoll $poll, User $user, int $optionIndex): ConferencePollVote;
 

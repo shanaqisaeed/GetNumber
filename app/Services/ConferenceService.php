@@ -11,6 +11,7 @@ use App\Models\ConferenceRoom;
 use App\Models\PhoneNumber;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -54,6 +55,26 @@ class ConferenceService implements ConferenceServiceInterface
         ]);
     }
 
+    public function deleteRoom(ConferenceRoom $room, User $hostUser): void
+    {
+        $this->ensureHost($room, $hostUser);
+
+        DB::transaction(function () use ($room) {
+            ConferenceParticipant::where('conference_room_id', $room->id)
+                ->whereIn('status', ['waiting_approval', 'admitted'])
+                ->update([
+                    'status' => 'left',
+                    'left_at' => Carbon::now(),
+                    'is_sharing_screen' => false,
+                ]);
+
+            $room->update(['is_active' => false]);
+            $room->delete();
+        });
+
+        Cache::forget("conf_signals:{$room->id}");
+    }
+
     public function joinRoom(ConferenceRoom $room, User $user, string $phoneNumber, ?string $pinCode = null, array $clientMeta = []): array
     {
         if (! $room->is_active || $room->isExpired()) {
@@ -66,15 +87,14 @@ class ConferenceService implements ConferenceServiceInterface
 
         if ($room->pin_code && $room->created_by_user_id !== $user->id) {
             if (empty($pinCode) || (string) $room->pin_code !== (string) $pinCode) {
-                throw new InvalidArgumentException(__('conference.room.pin_code') . ' ' . __('validation.custom.invalid'));
+                throw new InvalidArgumentException(__('conference.room.pin_code') . ' - ' . __('conference.auth.line_not_authorized'));
             }
         }
 
         // Single-Seat Line Policy Check:
         // 1. If line is an assigned line in the organization, ensure caller is the assigned user
         $assignedLine = PhoneNumber::where('number', $phoneNumber)->first();
-        if ($assignedLine && $assignedLine->assigned_user_id && $assignedLine->assigned_user_id !== $user->id) {
-            // Line is strictly assigned to another organization member
+        if ($assignedLine && $assignedLine->assigned_user_id && (int) $assignedLine->assigned_user_id !== (int) $user->id) {
             throw new InvalidArgumentException(__('conference.auth.admin_line_conflict'));
         }
 
@@ -89,10 +109,13 @@ class ConferenceService implements ConferenceServiceInterface
             throw new InvalidArgumentException(__('conference.auth.single_seat_violation'));
         }
 
-        $isHost = ($room->created_by_user_id === $user->id);
+        $isHost = ((int) $room->created_by_user_id === (int) $user->id);
 
         // Check room capacity
-        $currentAdmittedCount = $room->admittedParticipants()->count();
+        $currentAdmittedCount = $room->admittedParticipants()
+            ->where('user_id', '!=', $user->id)
+            ->count();
+
         if (! $isHost && $currentAdmittedCount >= $room->max_participants) {
             throw new InvalidArgumentException(__('conference.room.capacity_reached'));
         }
@@ -102,7 +125,7 @@ class ConferenceService implements ConferenceServiceInterface
             : ($room->admission_policy === 'open' ? 'admitted' : 'waiting_approval');
 
         $canShareScreen = $isHost || ($room->screen_share_policy === 'everyone');
-        $initialMuted = ($room->initial_audio_state === 'muted');
+        $initialMuted = $isHost ? false : ($room->initial_audio_state === 'muted' || $room->webinar_mode);
 
         $participant = ConferenceParticipant::updateOrCreate(
             [
@@ -114,11 +137,12 @@ class ConferenceService implements ConferenceServiceInterface
                 'display_name' => $user->name ?: ($user->username ?: __('conference.common.user') . ' #' . $user->id),
                 'status' => $initialStatus,
                 'role' => $isHost ? 'host' : 'participant',
-                'is_muted' => $isHost ? false : $initialMuted,
+                'is_muted' => $initialMuted,
                 'is_camera_on' => false,
                 'can_share_screen' => $canShareScreen,
                 'is_sharing_screen' => false,
                 'hand_raised' => false,
+                'hand_raised_at' => null,
                 'ip_address' => $clientMeta['ip'] ?? request()->ip(),
                 'joined_at' => Carbon::now(),
                 'left_at' => null,
@@ -176,6 +200,8 @@ class ConferenceService implements ConferenceServiceInterface
             'status' => 'kicked',
             'left_at' => Carbon::now(),
             'is_sharing_screen' => false,
+            'is_camera_on' => false,
+            'hand_raised' => false,
         ]);
 
         return $participant;
@@ -186,14 +212,42 @@ class ConferenceService implements ConferenceServiceInterface
         $participant = ConferenceParticipant::where('conference_room_id', $room->id)
             ->findOrFail($participantId);
 
-        // A user can mute/unmute themselves, or host can mute anyone
-        $isHost = ($room->created_by_user_id === $actor->id);
-        if (! $isHost && $participant->user_id !== $actor->id) {
+        $isHost = ((int) $room->created_by_user_id === (int) $actor->id);
+        if (! $isHost && (int) $participant->user_id !== (int) $actor->id) {
             throw new InvalidArgumentException(__('conference.auth.line_not_authorized'));
         }
 
         $newState = ($muteState !== null) ? $muteState : ! $participant->is_muted;
-        $participant->update(['is_muted' => $newState]);
+        $participant->update([
+            'is_muted' => $newState,
+            // If host unmuted someone who raised hand, lower their hand
+            'hand_raised' => ($isHost && ! $newState) ? false : $participant->hand_raised,
+            'hand_raised_at' => ($isHost && ! $newState) ? null : $participant->hand_raised_at,
+        ]);
+
+        return $participant;
+    }
+
+    public function updateMediaState(ConferenceRoom $room, User $user, array $state): ConferenceParticipant
+    {
+        $participant = ConferenceParticipant::where('conference_room_id', $room->id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
+
+        $updates = [];
+        if (array_key_exists('is_muted', $state) && $state['is_muted'] !== null) {
+            $updates['is_muted'] = (bool) $state['is_muted'];
+        }
+        if (array_key_exists('is_camera_on', $state) && $state['is_camera_on'] !== null) {
+            // In webinar mode, non-hosts without screen share permission stay in listener mode unless allowed
+            $updates['is_camera_on'] = ($room->webinar_mode && ! $participant->isHost() && ! $participant->can_share_screen)
+                ? false
+                : (bool) $state['is_camera_on'];
+        }
+
+        if (! empty($updates)) {
+            $participant->update($updates);
+        }
 
         return $participant;
     }
@@ -208,6 +262,43 @@ class ConferenceService implements ConferenceServiceInterface
             ->update(['is_muted' => true]);
     }
 
+    public function toggleLockRoom(ConferenceRoom $room, User $hostUser): ConferenceRoom
+    {
+        $this->ensureHost($room, $hostUser);
+
+        $room->update([
+            'is_locked' => ! $room->is_locked,
+            'last_active_at' => Carbon::now(),
+        ]);
+
+        return $room;
+    }
+
+    public function toggleWebinarMode(ConferenceRoom $room, User $hostUser): ConferenceRoom
+    {
+        $this->ensureHost($room, $hostUser);
+
+        $newMode = ! $room->webinar_mode;
+        $room->update([
+            'webinar_mode' => $newMode,
+            'last_active_at' => Carbon::now(),
+        ]);
+
+        if ($newMode) {
+            // In webinar mode, mute and turn off camera of regular non-presenter participants to save 100GB server bandwidth
+            ConferenceParticipant::where('conference_room_id', $room->id)
+                ->where('status', 'admitted')
+                ->where('role', '!=', 'host')
+                ->where('can_share_screen', false)
+                ->update([
+                    'is_muted' => true,
+                    'is_camera_on' => false,
+                ]);
+        }
+
+        return $room;
+    }
+
     public function grantScreenShare(ConferenceRoom $room, User $hostUser, int $participantId, bool $canShare): ConferenceParticipant
     {
         $this->ensureHost($room, $hostUser);
@@ -217,7 +308,6 @@ class ConferenceService implements ConferenceServiceInterface
 
         $participant->update([
             'can_share_screen' => $canShare,
-            // If revoked while sharing, immediately stop sharing
             'is_sharing_screen' => $canShare ? $participant->is_sharing_screen : false,
         ]);
 
@@ -230,11 +320,21 @@ class ConferenceService implements ConferenceServiceInterface
             ->where('user_id', $user->id)
             ->findOrFail($participantId);
 
-        if (! $participant->can_share_screen && ! $participant->isHost()) {
+        $allowed = $participant->isHost()
+            || $room->screen_share_policy === 'everyone'
+            || ($room->screen_share_policy === 'by_permission' && $participant->can_share_screen);
+
+        if (! $allowed) {
             throw new InvalidArgumentException(__('conference.controls.screen_share_denied'));
         }
 
-        // If room policy has mute_others_on_share enabled, automatically mute all other participants
+        // Stop any previous active screen share in the room so only 1 presenter shares at a time
+        ConferenceParticipant::where('conference_room_id', $room->id)
+            ->where('id', '!=', $participant->id)
+            ->where('is_sharing_screen', true)
+            ->update(['is_sharing_screen' => false]);
+
+        // Condition check: if mute_others_on_share is enabled, automatically mute all other participants
         if ($room->mute_others_on_share) {
             ConferenceParticipant::where('conference_room_id', $room->id)
                 ->where('status', 'admitted')
@@ -281,6 +381,7 @@ class ConferenceService implements ConferenceServiceInterface
                 'status' => 'left',
                 'left_at' => Carbon::now(),
                 'is_sharing_screen' => false,
+                'is_camera_on' => false,
                 'hand_raised' => false,
             ]);
     }
@@ -295,12 +396,15 @@ class ConferenceService implements ConferenceServiceInterface
                 'status' => 'left',
                 'left_at' => Carbon::now(),
                 'is_sharing_screen' => false,
+                'is_camera_on' => false,
             ]);
 
         $room->update([
             'is_active' => false,
             'last_active_at' => Carbon::now(),
         ]);
+
+        Cache::forget("conf_signals:{$room->id}");
     }
 
     public function sendMessage(ConferenceRoom $room, User $user, string $message, ?int $toUserId = null): ConferenceMessage
@@ -315,7 +419,8 @@ class ConferenceService implements ConferenceServiceInterface
 
     public function createPoll(ConferenceRoom $room, User $user, string $question, array $options): ConferencePoll
     {
-        // Close prior active polls if any
+        $this->ensureHost($room, $user);
+
         ConferencePoll::where('conference_room_id', $room->id)
             ->where('is_active', true)
             ->update(['is_active' => false]);
@@ -324,15 +429,32 @@ class ConferenceService implements ConferenceServiceInterface
             'conference_room_id' => $room->id,
             'created_by_user_id' => $user->id,
             'question' => trim($question),
-            'options' => array_values(array_filter($options)),
+            'options' => array_values(array_filter(array_map('trim', $options))),
             'is_active' => true,
         ]);
+    }
+
+    public function closePoll(ConferenceRoom $room, User $hostUser, int $pollId): ConferencePoll
+    {
+        $this->ensureHost($room, $hostUser);
+
+        $poll = ConferencePoll::where('conference_room_id', $room->id)
+            ->findOrFail($pollId);
+
+        $poll->update(['is_active' => false]);
+
+        return $poll;
     }
 
     public function votePoll(ConferencePoll $poll, User $user, int $optionIndex): ConferencePollVote
     {
         if (! $poll->is_active) {
             throw new InvalidArgumentException(__('conference.polls.closed_poll'));
+        }
+
+        $options = $poll->options ?? [];
+        if ($optionIndex < 0 || $optionIndex >= count($options)) {
+            throw new InvalidArgumentException(__('conference.polls.validation_error'));
         }
 
         return ConferencePollVote::updateOrCreate(
@@ -360,7 +482,6 @@ class ConferenceService implements ConferenceServiceInterface
         $count = 0;
         foreach ($expiredRooms as $room) {
             DB::transaction(function () use ($room) {
-                // Mark all active participants as left
                 ConferenceParticipant::where('conference_room_id', $room->id)
                     ->whereIn('status', ['waiting_approval', 'admitted'])
                     ->update([
@@ -369,8 +490,9 @@ class ConferenceService implements ConferenceServiceInterface
                     ]);
 
                 $room->update(['is_active' => false]);
-                $room->delete(); // Soft delete
+                $room->delete();
             });
+            Cache::forget("conf_signals:{$room->id}");
             $count++;
         }
 
@@ -379,7 +501,7 @@ class ConferenceService implements ConferenceServiceInterface
 
     private function ensureHost(ConferenceRoom $room, User $user): void
     {
-        if ($room->created_by_user_id !== $user->id) {
+        if ((int) $room->created_by_user_id !== (int) $user->id) {
             throw new InvalidArgumentException(__('conference.auth.line_not_authorized'));
         }
     }

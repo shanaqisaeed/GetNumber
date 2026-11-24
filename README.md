@@ -263,7 +263,7 @@ The Voice Bridge daemon resides in `services/voice-bridge`. It provides high-spe
 cd services/voice-bridge
 
 # 2. Build the Go binary (if compiling manually)
-go build -o voice-bridge main.go
+go build -o voice-bridge .
 
 # 3. Automated Linux deployment (Ubuntu / Debian)
 sudo bash install.sh
