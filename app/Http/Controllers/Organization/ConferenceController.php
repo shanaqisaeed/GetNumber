@@ -494,12 +494,23 @@ class ConferenceController extends Controller
 
         $myPartId = $selfParticipant ? (int) $selfParticipant->id : 0;
 
+        $nowMs = now()->getTimestampMs();
         foreach ($allSignals as $sig) {
             $seq = (int) ($sig['seq'] ?? 0);
             if ($seq > $latestSeq) {
                 $latestSeq = $seq;
             }
             if ($seq > $sinceSeq && (int) ($sig['sender_participant_id'] ?? 0) !== $myPartId) {
+                $sigType = (string) ($sig['type'] ?? '');
+                $sigTime = (int) ($sig['timestamp'] ?? 0);
+
+                // Expire transient WebRTC signaling frames older than 10 seconds (or on initial load with sinceSeq=0)
+                if (in_array($sigType, ['offer', 'answer', 'candidate', 'renegotiate_needed'], true)) {
+                    if ($sinceSeq === 0 || ($sigTime > 0 && ($nowMs - $sigTime) > 10000)) {
+                        continue;
+                    }
+                }
+
                 $targetId = isset($sig['target_participant_id']) && $sig['target_participant_id'] !== null
                     ? (int) $sig['target_participant_id']
                     : null;

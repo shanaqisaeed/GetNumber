@@ -1963,9 +1963,11 @@ async function fetchState() {
             latestSignalSeq.value = resp.data.latest_seq;
         }
         if (Array.isArray(resp.data.signals)) {
+            const now = Date.now();
             for (const sig of resp.data.signals) {
                 if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate' || sig.type === 'renegotiate_needed') {
-                    if (!isWsConnected) {
+                    const sigAge = sig.timestamp ? now - Number(sig.timestamp) : 0;
+                    if (!isWsConnected && sigAge < 10000) {
                         await handleIncomingRtcSignal(sig.type, Number(sig.sender_participant_id), sig.payload);
                     }
                 } else if (sig.type === 'room_settings_updated' && sig.payload) {
