@@ -102,6 +102,7 @@ type SFUUDPRelay struct {
 	ForwardedBytes   uint64
 	ForwardedPackets uint64
 	closed           int32
+	Endpoints        map[string]*net.UDPAddr
 }
 
 func (relay *SFUUDPRelay) Run() {
@@ -122,38 +123,34 @@ func (relay *SFUUDPRelay) Run() {
 			continue
 		}
 
-		relay.Room.RLock()
-		webinarMode := relay.Room.WebinarMode
-		senderAllowed := true
+		relay.Room.Lock()
+		if relay.Endpoints == nil {
+			relay.Endpoints = make(map[string]*net.UDPAddr)
+		}
+		addrKey := senderAddr.String()
+		relay.Endpoints[addrKey] = senderAddr
 
-		var senderPeerID string
-		for id, peer := range relay.Room.Peers {
-			if peer.UDPAddr != nil && peer.UDPAddr.IP.Equal(senderAddr.IP) && peer.UDPAddr.Port == senderAddr.Port {
-				senderPeerID = id
-				if webinarMode && peer.Role != "host" && peer.Role != "co_host" && !peer.CanShareScreen {
-					senderAllowed = false
-				}
+		// Associate senderAddr with a peer if not yet associated
+		for _, peer := range relay.Room.Peers {
+			if peer.UDPAddr == nil {
+				peer.UDPAddr = senderAddr
 				break
 			}
 		}
 
-		if senderAllowed {
-			for id, peer := range relay.Room.Peers {
-				if id == senderPeerID || peer.UDPAddr == nil {
-					continue
-				}
-				if peer.UDPAddr.IP.Equal(senderAddr.IP) && peer.UDPAddr.Port == senderAddr.Port {
-					continue
-				}
-				written, err := relay.Conn.WriteToUDP(buf[:n], peer.UDPAddr)
-				if err == nil && written > 0 {
-					atomic.AddUint64(&relay.ForwardedBytes, uint64(written))
-					atomic.AddUint64(&relay.ForwardedPackets, 1)
-					atomic.AddUint64(&relay.Room.Hub.totalForwardedBytes, uint64(written))
-				}
+		// Forward RTP/RTCP packet to all other registered endpoints in this room
+		for key, targetAddr := range relay.Endpoints {
+			if key == addrKey || targetAddr == nil {
+				continue
+			}
+			written, err := relay.Conn.WriteToUDP(buf[:n], targetAddr)
+			if err == nil && written > 0 {
+				atomic.AddUint64(&relay.ForwardedBytes, uint64(written))
+				atomic.AddUint64(&relay.ForwardedPackets, 1)
+				atomic.AddUint64(&relay.Room.Hub.totalForwardedBytes, uint64(written))
 			}
 		}
-		relay.Room.RUnlock()
+		relay.Room.Unlock()
 	}
 }
 
@@ -180,16 +177,9 @@ type SFURoom struct {
 	Hub               *SFUHub
 }
 
-// TopologyMode returns "p2p" for 1-2 participants (0 server media bandwidth) and "sfu" for 3+.
+// TopologyMode returns "sfu" for all conference rooms ensuring stable UDP media relay across all NAT/firewalls.
 func (r *SFURoom) TopologyMode() string {
-	r.RLock()
-	count := len(r.Peers)
-	r.RUnlock()
-
-	if count >= 3 {
-		return "sfu"
-	}
-	return "p2p"
+	return "sfu"
 }
 
 func (r *SFURoom) EnsureUDPRelay() int {
@@ -416,8 +406,8 @@ func (hub *SFUHub) RemovePeer(roomUUID, peerID string) {
 	}
 	remaining := len(room.Peers)
 	var relayToRelease *SFUUDPRelay
-	// Release UDP relay port when room drops below 3 peers (switches back to 0-bandwidth P2P) or becomes empty
-	if remaining < 3 && room.UDPRelay != nil {
+	// Release UDP relay port only when room becomes completely empty
+	if remaining == 0 && room.UDPRelay != nil {
 		relayToRelease = room.UDPRelay
 		room.UDPRelay = nil
 	}
@@ -663,13 +653,9 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			copy(wbHistory, currentRoom.WhiteboardHistory)
 			currentRoom.Unlock()
 
-			// Smart Hybrid Decision: 1-2 peers -> P2P (0 server quota), 3+ peers -> SFU with UDP relay port
-			topology := "p2p"
-			udpPort := 0
-			if peerCount >= 3 {
-				topology = "sfu"
-				udpPort = currentRoom.EnsureUDPRelay()
-			}
+			// Always enable SFU with UDP relay for guaranteed media transfer across all NATs/networks
+			topology := "sfu"
+			udpPort := currentRoom.EnsureUDPRelay()
 
 			peersJSON, _ := json.Marshal(existingPeers)
 			_ = currentPeer.Send(SFUMessage{

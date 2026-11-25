@@ -415,6 +415,10 @@ class ConferenceController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
+        if ($selfParticipant && in_array($selfParticipant->status, ['waiting_approval', 'admitted'], true)) {
+            $selfParticipant->touch();
+        }
+
         $participants = ConferenceParticipant::where('conference_room_id', $room->id)
             ->whereIn('status', ['waiting_approval', 'admitted'])
             ->with('user:id,name,account_id')

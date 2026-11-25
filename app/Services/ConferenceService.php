@@ -104,15 +104,37 @@ class ConferenceService implements ConferenceServiceInterface
             throw new InvalidArgumentException(__('conference.auth.admin_line_conflict'));
         }
 
-        // 2. Strict Single-Seat: No two participants can hold the same phone line at the same time in the same room
-        $existingSeat = ConferenceParticipant::where('conference_room_id', $room->id)
-            ->where('phone_number', $phoneNumber)
+        // 2. Strict Single-Seat Security Policy:
+        // No two participants can hold the same phone line OR user account concurrently in the same room.
+        $existingActiveParticipant = ConferenceParticipant::where('conference_room_id', $room->id)
+            ->where(function ($query) use ($phoneNumber, $user) {
+                $query->where('phone_number', $phoneNumber)
+                      ->orWhere('user_id', $user->id);
+            })
             ->whereIn('status', ['waiting_approval', 'admitted'])
-            ->where('user_id', '!=', $user->id)
+            ->whereNull('left_at')
             ->first();
 
-        if ($existingSeat) {
-            throw new InvalidArgumentException(__('conference.auth.single_seat_violation'));
+        if ($existingActiveParticipant) {
+            // Check if existing session is active (recent presence in last 25 seconds)
+            $isStillActive = $existingActiveParticipant->updated_at &&
+                $existingActiveParticipant->updated_at->greaterThan(Carbon::now()->subSeconds(25));
+
+            if ($isStillActive) {
+                $clientIp = $clientMeta['ip'] ?? request()->ip();
+                $isSameSession = ((int) $existingActiveParticipant->user_id === (int) $user->id &&
+                    (string) $existingActiveParticipant->ip_address === (string) $clientIp &&
+                    (string) $existingActiveParticipant->phone_number === (string) $phoneNumber);
+
+                if (! $isSameSession) {
+                    throw new InvalidArgumentException(__('conference.auth.single_seat_violation'));
+                }
+            } else {
+                $existingActiveParticipant->update([
+                    'status' => 'left',
+                    'left_at' => Carbon::now(),
+                ]);
+            }
         }
 
         $isHost = ((int) $room->created_by_user_id === (int) $user->id);
