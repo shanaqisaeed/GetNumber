@@ -504,9 +504,9 @@ class ConferenceController extends Controller
                 $sigType = (string) ($sig['type'] ?? '');
                 $sigTime = (int) ($sig['timestamp'] ?? 0);
 
-                // Expire transient WebRTC signaling frames older than 10 seconds (or on initial load with sinceSeq=0)
+                // Expire transient WebRTC signaling frames older than 12 seconds
                 if (in_array($sigType, ['offer', 'answer', 'candidate', 'renegotiate_needed'], true)) {
-                    if ($sinceSeq === 0 || ($sigTime > 0 && ($nowMs - $sigTime) > 10000)) {
+                    if ($sigTime > 0 && ($nowMs - $sigTime) > 12000) {
                         continue;
                     }
                 }
