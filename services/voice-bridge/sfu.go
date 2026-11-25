@@ -690,7 +690,7 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 			log.Printf("[SFU] Peer %s (%s) joined room %s (peers: %d, mode: %s, udpPort: %d)", peerID, phoneNumber, roomUUID, peerCount, topology, udpPort)
 
-		case "offer", "answer", "candidate":
+		case "offer", "answer", "candidate", "renegotiate_needed":
 			if currentRoom == nil || currentPeer == nil {
 				continue
 			}

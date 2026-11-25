@@ -313,8 +313,8 @@ const bridgeForm = useForm({
     secret: props.voiceBridgeSettings?.secret || '',
     enabled: props.voiceBridgeSettings?.enabled ?? true,
     turn_domain_or_ip: props.voiceBridgeSettings?.turn_domain_or_ip || '',
-    turn_port: props.voiceBridgeSettings?.turn_port || 3478,
-    turns_port: props.voiceBridgeSettings?.turns_port || 5349,
+    turn_port: props.voiceBridgeSettings?.turn_port || 3479,
+    turns_port: props.voiceBridgeSettings?.turns_port || 5350,
     turns_enabled: props.voiceBridgeSettings?.turns_enabled ?? false,
     turn_realm: props.voiceBridgeSettings?.turn_realm || 'ravy-no',
     offline_mode: props.voiceBridgeSettings?.offline_mode ?? false,
@@ -405,11 +405,11 @@ const applyPrivatePreset = () => {
         ? bridgeForm.host
         : (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1');
     bridgeForm.turn_domain_or_ip = host;
-    bridgeForm.turn_port = 3478;
-    bridgeForm.turns_port = 5349;
+    bridgeForm.turn_port = 3479;
+    bridgeForm.turns_port = 5350;
     bridgeForm.turns_enabled = true;
-    bridgeForm.stun_urls = `stun:${host}:3478\nstun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302`;
-    bridgeForm.turn_urls = `turn:${host}:3478?transport=udp\nturn:${host}:3478?transport=tcp\nturns:${host}:5349?transport=tcp`;
+    bridgeForm.stun_urls = `stun:${host}:3479\nstun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302`;
+    bridgeForm.turn_urls = `turn:${host}:3479?transport=udp\nturn:${host}:3479?transport=tcp\nturns:${host}:5350?transport=tcp`;
     bridgeForm.offline_mode = false;
     if (!bridgeForm.turn_secret && bridgeForm.secret) {
         bridgeForm.turn_secret = bridgeForm.secret;
@@ -1477,7 +1477,7 @@ const testBridgeConnection = async () => {
                                             type="number"
                                             min="1"
                                             max="65535"
-                                            placeholder="3478"
+                                            placeholder="3479"
                                             class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             dir="ltr"
                                         />
@@ -1496,7 +1496,7 @@ const testBridgeConnection = async () => {
                                             type="number"
                                             min="1"
                                             max="65535"
-                                            placeholder="5349"
+                                            placeholder="5350"
                                             class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             dir="ltr"
                                         />
@@ -1558,7 +1558,7 @@ const testBridgeConnection = async () => {
                                         <textarea
                                             v-model="bridgeForm.turn_urls"
                                             rows="3"
-                                            placeholder="turn:YOUR_SERVER_IP:3478?transport=udp&#10;turn:YOUR_SERVER_IP:3478?transport=tcp&#10;turns:YOUR_DOMAIN:5349?transport=tcp"
+                                            placeholder="turn:YOUR_SERVER_IP:3479?transport=udp&#10;turn:YOUR_SERVER_IP:3479?transport=tcp&#10;turns:YOUR_DOMAIN:5350?transport=tcp"
                                             class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             dir="ltr"
                                         ></textarea>

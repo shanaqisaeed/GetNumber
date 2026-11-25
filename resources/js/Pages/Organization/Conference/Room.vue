@@ -506,29 +506,33 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     const pc = new RTCPeerConnection({
         iceServers,
         iceTransportPolicy: (effectiveRtcConfig?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
         iceCandidatePoolSize: 4,
     });
 
-    // Attach local audio & active video (screen share or camera) tracks, with transceivers as bidirectional fallback
+    // Attach local audio & active video (screen share or camera) tracks using consistent transceivers
+    // Strict symmetrical ordering (0: audio, 1: video) prevents m-line order mismatches
     const audioTrack = localStream.value?.getAudioTracks()[0] || null;
-    if (audioTrack && localStream.value) {
-        pc.addTrack(audioTrack, localStream.value);
-    } else {
-        try {
-            pc.addTransceiver('audio', { direction: 'recvonly' });
-        } catch {}
+    const audioTransceiver = pc.addTransceiver('audio', {
+        direction: audioTrack ? 'sendrecv' : 'recvonly',
+        streams: localStream.value ? [localStream.value] : [],
+    });
+    if (audioTrack && audioTransceiver.sender) {
+        audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
     }
 
     const activeVideoTrack = isSharingScreen.value && screenStream.value
         ? screenStream.value.getVideoTracks()[0]
         : localStream.value?.getVideoTracks()[0] || null;
+    const activeVideoStream = isSharingScreen.value && screenStream.value ? screenStream.value : localStream.value;
 
-    if (activeVideoTrack && localStream.value) {
-        pc.addTrack(activeVideoTrack, localStream.value);
-    } else {
-        try {
-            pc.addTransceiver('video', { direction: 'recvonly' });
-        } catch {}
+    const videoTransceiver = pc.addTransceiver('video', {
+        direction: activeVideoTrack ? 'sendrecv' : 'recvonly',
+        streams: activeVideoStream ? [activeVideoStream] : [],
+    });
+    if (activeVideoTrack && videoTransceiver.sender) {
+        videoTransceiver.sender.replaceTrack(activeVideoTrack).catch(() => {});
     }
 
     pc.onicecandidate = (event) => {
@@ -562,8 +566,9 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ ICE state ${state}, attempting restart...`);
             if (typeof pc.restartIce === 'function') {
                 pc.restartIce();
-            } else if (props.currentParticipant.id < remoteParticipantId) {
-                initiateOfferToPeer(remoteParticipantId, pc);
+            }
+            if (props.currentParticipant.id < remoteParticipantId) {
+                initiateOfferToPeer(remoteParticipantId, pc, true);
             } else {
                 dispatchPeerSignal('renegotiate_needed', remoteParticipantId, {});
             }
@@ -580,7 +585,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             lastIceRestartMap.set(remoteParticipantId, now);
             console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ Connection failed, re-establishing offer...`);
             if (props.currentParticipant.id < remoteParticipantId) {
-                initiateOfferToPeer(remoteParticipantId, pc);
+                initiateOfferToPeer(remoteParticipantId, pc, true);
             } else {
                 dispatchPeerSignal('renegotiate_needed', remoteParticipantId, {});
             }
@@ -659,7 +664,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     return pc;
 }
 
-async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConnection) {
+async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConnection, iceRestart = false) {
     if (props.currentParticipant.id >= remoteParticipantId) {
         return;
     }
@@ -670,7 +675,8 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
 
     try {
         makingOfferMap.set(remoteParticipantId, true);
-        const offer = await conn.createOffer();
+        const offer = await conn.createOffer(iceRestart ? { iceRestart: true } : undefined);
+        if (conn.signalingState !== 'stable') return;
         await conn.setLocalDescription(offer);
         dispatchPeerSignal('offer', remoteParticipantId, {
             sdp: conn.localDescription ? {
@@ -746,19 +752,23 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
             if (pc.signalingState === 'have-local-offer') {
                 const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
                 const sanitized = sanitizeSdp(rawSdp);
-                await pc.setRemoteDescription(new RTCSessionDescription({
-                    type: 'answer',
-                    sdp: sanitized,
-                }));
+                try {
+                    await pc.setRemoteDescription(new RTCSessionDescription({
+                        type: 'answer',
+                        sdp: sanitized,
+                    }));
 
-                // Drain queued ICE candidates
-                const queue = pendingIceCandidates.get(senderParticipantId) || [];
-                pendingIceCandidates.delete(senderParticipantId);
-                for (const cand of queue) {
-                    try {
-                        const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
-                        await pc.addIceCandidate(new RTCIceCandidate(c));
-                    } catch {}
+                    // Drain queued ICE candidates
+                    const queue = pendingIceCandidates.get(senderParticipantId) || [];
+                    pendingIceCandidates.delete(senderParticipantId);
+                    for (const cand of queue) {
+                        try {
+                            const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
+                            await pc.addIceCandidate(new RTCIceCandidate(c));
+                        } catch {}
+                    }
+                } catch (ansErr) {
+                    console.warn(`[WebRTC:Peer:${senderParticipantId}] Ignored mismatched answer:`, ansErr);
                 }
             }
         } else if (type === 'candidate') {
@@ -865,7 +875,7 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
 
 // 4. Dual-Path Signal Dispatcher (Go /ws/sfu WebSocket + HTTP Cache Queue Fallback)
 function dispatchPeerSignal(type: string, targetParticipantId: number | null, payload: any) {
-    // Path 1: Fast Go SFU WebSocket
+    // Path 1: Fast Go SFU WebSocket (Primary - Prevents double-signaling collisions)
     if (sfuSocket && sfuSocket.readyState === WebSocket.OPEN) {
         sfuSocket.send(
             JSON.stringify({
@@ -880,9 +890,10 @@ function dispatchPeerSignal(type: string, targetParticipantId: number | null, pa
                 payload,
             })
         );
+        return;
     }
 
-    // Path 2: Resilient HTTP/Cache Signaling Bus
+    // Path 2: Resilient HTTP/Cache Signaling Bus (Fallback only when WebSocket is unavailable)
     axios
         .post(route('org.conference.signal', { uuid: props.room.uuid }), {
             type,
@@ -1778,6 +1789,7 @@ function handleSFUMessage(msg: any) {
         case 'offer':
         case 'answer':
         case 'candidate':
+        case 'renegotiate_needed':
             handleIncomingRtcSignal(msg.type, senderId, msg.payload);
             break;
         case 'mute_all':
@@ -1945,33 +1957,42 @@ async function fetchState() {
             }
         }
 
-        // Process buffered fallback signals (WebRTC SDP + Whiteboard + Settings)
+        // Process buffered fallback signals ONLY if WebSocket is down (prevents stale echo)
+        const isWsConnected = sfuSocket && sfuSocket.readyState === WebSocket.OPEN;
         if (typeof resp.data.latest_seq === 'number' && resp.data.latest_seq > latestSignalSeq.value) {
             latestSignalSeq.value = resp.data.latest_seq;
         }
         if (Array.isArray(resp.data.signals)) {
             for (const sig of resp.data.signals) {
-                if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate') {
-                    await handleIncomingRtcSignal(sig.type, Number(sig.sender_participant_id), sig.payload);
+                if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate' || sig.type === 'renegotiate_needed') {
+                    if (!isWsConnected) {
+                        await handleIncomingRtcSignal(sig.type, Number(sig.sender_participant_id), sig.payload);
+                    }
                 } else if (sig.type === 'room_settings_updated' && sig.payload) {
                     Object.assign(roomState.value, sig.payload);
                     roomState.value.watermark_enabled = Boolean(sig.payload.watermark_enabled);
                     isRoomLocked.value = Boolean(sig.payload.is_locked);
                     isWebinarMode.value = Boolean(sig.payload.webinar_mode);
                 } else if (sig.type === 'whiteboard_draw' && sig.payload) {
-                    handleSFUMessage({
-                        type: 'whiteboard_draw',
-                        participant_id: sig.sender_participant_id,
-                        user_id: sig.sender_user_id,
-                        payload: sig.payload,
-                    });
+                    if (!isWsConnected) {
+                        handleSFUMessage({
+                            type: 'whiteboard_draw',
+                            participant_id: sig.sender_participant_id,
+                            user_id: sig.sender_user_id,
+                            payload: sig.payload,
+                        });
+                    }
                 } else if (sig.type === 'whiteboard_clear') {
-                    handleSFUMessage({ type: 'whiteboard_clear' });
+                    if (!isWsConnected) {
+                        handleSFUMessage({ type: 'whiteboard_clear' });
+                    }
                 } else if (sig.type === 'whiteboard_toggle' && sig.payload) {
-                    handleSFUMessage({
-                        type: 'whiteboard_toggle',
-                        payload: sig.payload,
-                    });
+                    if (!isWsConnected) {
+                        handleSFUMessage({
+                            type: 'whiteboard_toggle',
+                            payload: sig.payload,
+                        });
+                    }
                 }
             }
         }

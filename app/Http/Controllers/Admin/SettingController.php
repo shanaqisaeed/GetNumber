@@ -88,8 +88,8 @@ class SettingController extends Controller
                 'secret' => SystemSetting::get('voice_bridge_secret', ''),
                 'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
                 'turn_domain_or_ip' => SystemSetting::get('voice_turn_domain_or_ip', ''),
-                'turn_port' => (int) SystemSetting::get('voice_turn_port', 3478),
-                'turns_port' => (int) SystemSetting::get('voice_turns_port', 5349),
+                'turn_port' => (int) SystemSetting::get('voice_turn_port', 3479),
+                'turns_port' => (int) SystemSetting::get('voice_turns_port', 5350),
                 'turns_enabled' => (bool) (int) SystemSetting::get('voice_turns_enabled', '0'),
                 'turn_realm' => SystemSetting::get('voice_turn_realm', 'ravy-no'),
                 'offline_mode' => (bool) (int) SystemSetting::get('voice_offline_mode', '0'),
@@ -411,10 +411,10 @@ class SettingController extends Controller
             SystemSetting::set('voice_turn_domain_or_ip', trim((string) ($validated['turn_domain_or_ip'] ?? '')), __('controllers.admin.settings.desc_voice_turn_domain'));
         }
         if ($request->has('turn_port')) {
-            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3478), __('controllers.admin.settings.desc_voice_turn_port'));
+            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3479), __('controllers.admin.settings.desc_voice_turn_port'));
         }
         if ($request->has('turns_port')) {
-            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5349), __('controllers.admin.settings.desc_voice_turns_port'));
+            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5350), __('controllers.admin.settings.desc_voice_turns_port'));
         }
         if ($request->has('turns_enabled')) {
             SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
@@ -588,8 +588,8 @@ class SettingController extends Controller
 
             // 2. TURN / STUN details
             $turnInfo = is_array($data['stun_turn'] ?? null) ? $data['stun_turn'] : [];
-            $turnPort = (int) ($turnInfo['port'] ?? 3478);
-            $turnsPort = (int) ($turnInfo['turns_port'] ?? 5349);
+            $turnPort = (int) ($turnInfo['port'] ?? 3479);
+            $turnsPort = (int) ($turnInfo['turns_port'] ?? 5350);
             $hasTurns = ! empty($turnInfo['has_tls']) || $turnsPort > 0;
             $turnRealm = trim((string) ($turnInfo['realm'] ?? 'ravy-no'));
             $turnDomainOrIp = ($relayIp !== '' && $relayIp !== '0.0.0.0') ? $relayIp : $effectiveHost;

@@ -76,9 +76,9 @@ class IceServerProvider
     public function resolveStunUrls(): array
     {
         $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
-        $turnPort = (int) SystemSetting::get('voice_turn_port', 3478);
+        $turnPort = (int) SystemSetting::get('voice_turn_port', 3479);
         if ($turnPort <= 0) {
-            $turnPort = 3478;
+            $turnPort = 3479;
         }
 
         $selfStun = [];
@@ -132,14 +132,14 @@ class IceServerProvider
             return [];
         }
 
-        $port = (int) SystemSetting::get('voice_turn_port', 3478);
+        $port = (int) SystemSetting::get('voice_turn_port', 3479);
         if ($port <= 0) {
-            $port = 3478;
+            $port = 3479;
         }
 
-        $turnsPort = (int) SystemSetting::get('voice_turns_port', 5349);
+        $turnsPort = (int) SystemSetting::get('voice_turns_port', 5350);
         if ($turnsPort <= 0) {
-            $turnsPort = 5349;
+            $turnsPort = 5350;
         }
 
         $hasTurns = (bool) (int) SystemSetting::get('voice_turns_enabled', '0');
