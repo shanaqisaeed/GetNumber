@@ -117,9 +117,42 @@ class ConferenceController extends Controller
     /**
      * Delete/Archive a conference room by its host.
      */
+    /**
+     * Resolve ConferenceRoom by UUID, prefix-stripped/added identifier, or full URL snippet.
+     */
+    protected function resolveRoom(string $uuid): ConferenceRoom
+    {
+        $clean = trim($uuid);
+        $clean = preg_replace('#/(lobby|room)$#i', '', $clean);
+        if (str_contains($clean, 'conference/')) {
+            $parts = explode('conference/', $clean);
+            $clean = end($parts);
+            $clean = explode('/', $clean)[0];
+        }
+
+        $room = ConferenceRoom::where('room_uuid', $clean)->first();
+        if ($room) {
+            return $room;
+        }
+
+        if (! str_starts_with($clean, 'conf_')) {
+            $room = ConferenceRoom::where('room_uuid', 'conf_' . $clean)->first();
+            if ($room) {
+                return $room;
+            }
+        } else {
+            $room = ConferenceRoom::where('room_uuid', substr($clean, 5))->first();
+            if ($room) {
+                return $room;
+            }
+        }
+
+        abort(404, __('conference.room.not_found'));
+    }
+
     public function destroy(Request $request, string $uuid): RedirectResponse|JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         try {
             $this->conferenceService->deleteRoom($room, $request->user());
@@ -143,7 +176,12 @@ class ConferenceController extends Controller
         $user = $request->user();
         $org = $user->getOrCreatePersonalOrganization();
 
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        try {
+            $room = $this->resolveRoom($uuid);
+        } catch (\Throwable $e) {
+            return redirect()->route('org.conference.index')
+                ->with('error', __('conference.room.not_found'));
+        }
 
         if (! $room->is_active || $room->isExpired()) {
             return redirect()->route('org.conference.index')
@@ -188,7 +226,14 @@ class ConferenceController extends Controller
     public function join(Request $request, string $uuid): JsonResponse
     {
         $user = $request->user();
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        try {
+            $room = $this->resolveRoom($uuid);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => __('conference.room.not_found'),
+            ], 404);
+        }
 
         $validated = $request->validate([
             'phone_number' => 'required|string',
@@ -232,7 +277,12 @@ class ConferenceController extends Controller
     public function room(Request $request, string $uuid): Response|RedirectResponse
     {
         $user = $request->user();
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        try {
+            $room = $this->resolveRoom($uuid);
+        } catch (\Throwable $e) {
+            return redirect()->route('org.conference.index')
+                ->with('error', __('conference.room.not_found'));
+        }
 
         if (! $room->is_active || $room->isExpired()) {
             return redirect()->route('org.conference.index')

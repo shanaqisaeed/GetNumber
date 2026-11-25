@@ -17,7 +17,7 @@ interface ParticipantItem {
     can_share_screen: boolean;
     is_sharing_screen: boolean;
     hand_raised: boolean;
-    hand_raised_at: string | null;
+    hand_raised_at?: string | null;
 }
 
 interface MessageItem {
@@ -99,9 +99,17 @@ const props = defineProps<{
         is_sharing_screen: boolean;
         hand_raised: boolean;
     };
-    rtcConfig: {
+    rtcConfig?: {
         iceServers: RTCIceServer[];
         iceTransportPolicy?: RTCIceTransportPolicy;
+        hasTurn?: boolean;
+        isOfflineMode?: boolean;
+    };
+    rtc_config?: {
+        iceServers: RTCIceServer[];
+        iceTransportPolicy?: RTCIceTransportPolicy;
+        hasTurn?: boolean;
+        isOfflineMode?: boolean;
     };
     sfuConfig: {
         enabled: boolean;
@@ -205,6 +213,28 @@ const localIdentityLabel = computed(() => {
     const fallbackName = `${__('conference.common.user')} #${props.currentParticipant.user_id}`;
     const name = rawName && rawName !== `USER-${props.currentParticipant.user_id}` ? rawName : fallbackName;
     return props.currentParticipant.phone_number ? `${name} (${props.currentParticipant.phone_number})` : name;
+});
+
+const activeRemoteCursors = computed(() => {
+    const now = Date.now();
+    const result: Record<number, RemoteCursor> = {};
+    for (const [id, cursor] of Object.entries(remoteCursors)) {
+        if (now - cursor.updatedAt < 5000) {
+            result[Number(id)] = cursor;
+        }
+    }
+    return result;
+});
+
+const currentActiveWriterLabel = computed(() => {
+    if (isDrawing.value) {
+        return localIdentityLabel.value;
+    }
+    const active = Object.values(activeRemoteCursors.value);
+    if (active.length > 0) {
+        return active[active.length - 1].label;
+    }
+    return null;
 });
 
 // WebRTC Multi-Peer Connection Registry
@@ -427,15 +457,31 @@ function setRemoteAudioRef(participantId: number, el: any) {
     }
 }
 
+const liveVideoMap = reactive<Record<number, boolean>>({});
+
+function isRemoteVideoLive(participantId: number): boolean {
+    return Boolean(liveVideoMap[participantId]);
+}
+
 function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnection {
     const existing = peerConnections.get(remoteParticipantId);
     if (existing && existing.connectionState !== 'closed') {
         return existing;
     }
 
+    const effectiveRtcConfig = props.rtcConfig || (props as any).rtc_config;
+    const defaultIceServers: RTCIceServer[] = effectiveRtcConfig?.isOfflineMode
+        ? []
+        : [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+
+    const iceServers = Array.isArray(effectiveRtcConfig?.iceServers) && effectiveRtcConfig.iceServers.length > 0
+        ? effectiveRtcConfig.iceServers
+        : defaultIceServers;
+
     const pc = new RTCPeerConnection({
-        iceServers: props.rtcConfig?.iceServers || [],
-        iceTransportPolicy: props.rtcConfig?.iceTransportPolicy || 'all',
+        iceServers,
+        iceTransportPolicy: (effectiveRtcConfig?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
+        iceCandidatePoolSize: 4,
     });
 
     // Attach local audio & active video (screen share or camera) tracks, with transceivers as bidirectional fallback
@@ -501,6 +547,19 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             remoteScreenVideoRef.value.play().catch(() => {});
         }
 
+        if (event.track.kind === 'video') {
+            liveVideoMap[remoteParticipantId] = true;
+            event.track.onended = () => {
+                liveVideoMap[remoteParticipantId] = false;
+            };
+            event.track.onmute = () => {
+                liveVideoMap[remoteParticipantId] = false;
+            };
+            event.track.onunmute = () => {
+                liveVideoMap[remoteParticipantId] = true;
+            };
+        }
+
         if (event.track.kind === 'audio') {
             setupAudioAnalyser(remoteParticipantId, stream);
         }
@@ -554,20 +613,24 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
         if (type === 'offer' && payload?.sdp) {
             const polite = props.currentParticipant.id > senderParticipantId;
             const offerCollision = makingOfferMap.get(senderParticipantId) || pc.signalingState !== 'stable';
-            if (offerCollision && !polite) {
-                return;
+            if (offerCollision) {
+                if (!polite) {
+                    return;
+                }
+                try {
+                    await pc.setLocalDescription({ type: 'rollback' });
+                } catch {}
             }
             await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
 
             // Drain queued ICE candidates
-            const queue = pendingIceCandidates.get(senderParticipantId);
-            if (queue && queue.length > 0) {
-                for (const cand of queue) {
-                    try {
-                        await pc.addIceCandidate(new RTCIceCandidate(cand));
-                    } catch {}
-                }
-                pendingIceCandidates.delete(senderParticipantId);
+            const queue = pendingIceCandidates.get(senderParticipantId) || [];
+            pendingIceCandidates.delete(senderParticipantId);
+            for (const cand of queue) {
+                try {
+                    const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
+                    await pc.addIceCandidate(new RTCIceCandidate(c));
+                } catch {}
             }
 
             const answer = await pc.createAnswer();
@@ -580,28 +643,31 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                 await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
 
                 // Drain queued ICE candidates
-                const queue = pendingIceCandidates.get(senderParticipantId);
-                if (queue && queue.length > 0) {
-                    for (const cand of queue) {
-                        try {
-                            await pc.addIceCandidate(new RTCIceCandidate(cand));
-                        } catch {}
-                    }
-                    pendingIceCandidates.delete(senderParticipantId);
+                const queue = pendingIceCandidates.get(senderParticipantId) || [];
+                pendingIceCandidates.delete(senderParticipantId);
+                for (const cand of queue) {
+                    try {
+                        const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
+                        await pc.addIceCandidate(new RTCIceCandidate(c));
+                    } catch {}
                 }
             }
-        } else if (type === 'candidate' && payload?.candidate) {
-            if (pc.remoteDescription && pc.remoteDescription.type) {
-                try {
-                    await pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
-                } catch (e) {
-                    console.warn('ICE candidate addition error:', e);
+        } else if (type === 'candidate') {
+            const cand: any = payload?.candidate || payload;
+            if (cand && (cand.candidate !== undefined || typeof cand === 'string')) {
+                if (pc.remoteDescription && pc.remoteDescription.type) {
+                    try {
+                        const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
+                        await pc.addIceCandidate(new RTCIceCandidate(c));
+                    } catch (e) {
+                        console.warn('ICE candidate addition error:', e);
+                    }
+                } else {
+                    if (!pendingIceCandidates.has(senderParticipantId)) {
+                        pendingIceCandidates.set(senderParticipantId, []);
+                    }
+                    pendingIceCandidates.get(senderParticipantId)!.push(cand);
                 }
-            } else {
-                if (!pendingIceCandidates.has(senderParticipantId)) {
-                    pendingIceCandidates.set(senderParticipantId, []);
-                }
-                pendingIceCandidates.get(senderParticipantId)!.push(payload.candidate);
             }
         }
     } catch (e) {
@@ -642,12 +708,17 @@ function syncPeerConnectionsWithRoster() {
 
 async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
     for (const [peerId, pc] of peerConnections.entries()) {
-        const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio')
-            || pc.getTransceivers().find((t) => t.receiver.track.kind === 'audio')?.sender;
-        if (audioSender) {
+        const transceiver = pc.getTransceivers().find(
+            (t) => t.sender.track?.kind === 'audio' || t.receiver.track.kind === 'audio'
+        );
+        if (transceiver) {
+            transceiver.direction = newTrack ? 'sendrecv' : 'recvonly';
             try {
-                await audioSender.replaceTrack(newTrack);
-            } catch {}
+                await transceiver.sender.replaceTrack(newTrack);
+            } catch (e) {
+                console.warn('replaceTrack audio error:', e);
+            }
+            await initiateOfferToPeer(peerId, pc);
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
             await initiateOfferToPeer(peerId, pc);
@@ -657,12 +728,17 @@ async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
 
 async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
     for (const [peerId, pc] of peerConnections.entries()) {
-        const videoSender = pc.getSenders().find((s) => s.track?.kind === 'video')
-            || pc.getTransceivers().find((t) => t.receiver.track.kind === 'video')?.sender;
-        if (videoSender) {
+        const transceiver = pc.getTransceivers().find(
+            (t) => t.sender.track?.kind === 'video' || t.receiver.track.kind === 'video'
+        );
+        if (transceiver) {
+            transceiver.direction = newTrack ? 'sendrecv' : 'recvonly';
             try {
-                await videoSender.replaceTrack(newTrack);
-            } catch {}
+                await transceiver.sender.replaceTrack(newTrack);
+            } catch (e) {
+                console.warn('replaceTrack video error:', e);
+            }
+            await initiateOfferToPeer(peerId, pc);
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
             await initiateOfferToPeer(peerId, pc);
@@ -1235,12 +1311,15 @@ function redrawWhiteboardCanvas() {
         if (!label) return;
 
         ctx.save();
-        ctx.font = 'bold 18px Vazirmatn, IRANSans, Tahoma, system-ui, sans-serif';
+        ctx.font = 'bold 22px Vazirmatn, IRANSans, Tahoma, -apple-system, system-ui, sans-serif';
+        const isRtl = /[\u0600-\u06FF]/.test(label);
+        ctx.direction = isRtl ? 'rtl' : 'ltr';
+
         const textMetrics = ctx.measureText(label);
         const textWidth = Math.ceil(textMetrics.width);
-        const padX = 16;
-        const badgeHeight = 34;
-        const badgeWidth = textWidth + padX * 2;
+        const padX = 26;
+        const badgeHeight = 36;
+        const badgeWidth = Math.max(textWidth + padX * 2, 90);
         const radius = 10;
 
         const strokeX = s.x1 * 1920;
@@ -1248,25 +1327,25 @@ function redrawWhiteboardCanvas() {
 
         // Position badge centered above the stroke tip
         let badgeX = Math.round(strokeX - badgeWidth / 2);
-        let badgeY = Math.round(strokeY - badgeHeight - 12);
+        let badgeY = Math.round(strokeY - badgeHeight - 14);
 
         // If too close to the top edge, position below the stroke tip
-        if (badgeY < 12) {
-            badgeY = Math.round(strokeY + 14);
+        if (badgeY < 14) {
+            badgeY = Math.round(strokeY + 16);
         }
 
         // Clamp safely within the 1920x1080 canvas bounds
-        badgeX = Math.max(12, Math.min(1920 - badgeWidth - 12, badgeX));
-        badgeY = Math.max(12, Math.min(1080 - badgeHeight - 12, badgeY));
+        badgeX = Math.max(14, Math.min(1920 - badgeWidth - 14, badgeX));
+        badgeY = Math.max(14, Math.min(1080 - badgeHeight - 14, badgeY));
 
         const bgColor = s.color || '#4f46e5';
         const textColor = getContrastTextColor(bgColor);
 
         // Elevation drop shadow
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
-        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 10;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 2;
+        ctx.shadowOffsetY = 3;
 
         // Rounded badge background
         drawRoundedRect(ctx, badgeX, badgeY, badgeWidth, badgeHeight, radius);
@@ -1275,26 +1354,31 @@ function redrawWhiteboardCanvas() {
 
         // High-contrast border definition
         ctx.shadowColor = 'transparent';
-        ctx.strokeStyle = textColor === '#ffffff' ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.2)';
+        ctx.strokeStyle = textColor === '#ffffff' ? 'rgba(255, 255, 255, 0.45)' : 'rgba(0, 0, 0, 0.25)';
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        // Clip strictly inside the badge bounds so text can NEVER bleed outside
+        ctx.save();
+        drawRoundedRect(ctx, badgeX + 1, badgeY + 1, badgeWidth - 2, badgeHeight - 2, radius - 1);
+        ctx.clip();
 
         // Exact center text positioning (prevents RTL text displacement / clipping)
         ctx.fillStyle = textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.direction = 'rtl';
         const centerX = badgeX + badgeWidth / 2;
         const centerY = badgeY + badgeHeight / 2;
         ctx.fillText(label, centerX, centerY);
+        ctx.restore();
 
         // Small indicator pin dot at the stroke end
         ctx.beginPath();
-        ctx.arc(strokeX, strokeY, 3.5, 0, Math.PI * 2);
+        ctx.arc(strokeX, strokeY, 4, 0, Math.PI * 2);
         ctx.fillStyle = bgColor;
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
+        ctx.lineWidth = 1.5;
         ctx.stroke();
 
         ctx.restore();
@@ -1462,21 +1546,105 @@ function handleSFUMessage(msg: any) {
     const senderId = Number(msg.participant_id || msg.sender_participant_id || 0);
 
     switch (msg.type) {
-        case 'joined':
-        case 'peer_joined':
+        case 'joined': {
+            if (Array.isArray(msg.payload)) {
+                msg.payload.forEach((ep: any) => {
+                    const epId = Number(ep.id);
+                    if (epId && epId !== props.currentParticipant.id) {
+                        let existing = participants.value.find((p) => p.id === epId);
+                        if (!existing) {
+                            participants.value.push({
+                                id: epId,
+                                user_id: Number(ep.user_id || 0),
+                                role: ep.role || 'participant',
+                                phone_number: ep.phone_number || '',
+                                display_name: ep.display_name || `USER-${ep.user_id || epId}`,
+                                is_muted: Boolean(ep.is_muted),
+                                is_camera_on: Boolean(ep.is_camera_on),
+                                can_share_screen: Boolean(ep.can_share_screen),
+                                is_sharing_screen: Boolean(ep.is_sharing_screen),
+                                hand_raised: Boolean(ep.hand_raised),
+                                hand_raised_at: null,
+                                status: 'admitted',
+                                is_self: false,
+                            });
+                        }
+                        const pc = getOrCreatePeerConnection(epId);
+                        if (props.currentParticipant.id < epId) {
+                            initiateOfferToPeer(epId, pc);
+                        }
+                    }
+                });
+            }
+            fetchState();
+            break;
+        }
+        case 'peer_joined': {
+            const newPid = Number(msg.participant_id);
+            if (newPid && newPid !== props.currentParticipant.id) {
+                let existing = participants.value.find((p) => p.id === newPid);
+                if (!existing) {
+                    participants.value.push({
+                        id: newPid,
+                        user_id: Number(msg.user_id || 0),
+                        role: msg.role || 'participant',
+                        phone_number: msg.phone_number || '',
+                        display_name: msg.display_name || `USER-${msg.user_id || newPid}`,
+                        is_muted: true,
+                        is_camera_on: false,
+                        can_share_screen: false,
+                        is_sharing_screen: false,
+                        hand_raised: false,
+                        hand_raised_at: null,
+                        status: 'admitted',
+                        is_self: false,
+                    });
+                }
+                const pc = getOrCreatePeerConnection(newPid);
+                if (props.currentParticipant.id < newPid) {
+                    initiateOfferToPeer(newPid, pc);
+                }
+            }
+            fetchState();
+            break;
+        }
+        case 'peer_media_updated': {
+            const pid = Number(msg.participant_id);
+            const targetPeer = participants.value.find((p) => p.id === pid);
+            if (targetPeer && msg.payload) {
+                if (typeof msg.payload.is_camera_on === 'boolean') {
+                    targetPeer.is_camera_on = msg.payload.is_camera_on;
+                }
+                if (typeof msg.payload.is_muted === 'boolean') {
+                    targetPeer.is_muted = msg.payload.is_muted;
+                }
+                if (typeof msg.payload.is_sharing_screen === 'boolean') {
+                    targetPeer.is_sharing_screen = msg.payload.is_sharing_screen;
+                }
+            }
+            fetchState();
+            break;
+        }
+        case 'room_policy_updated':
+        case 'room_settings_updated':
+            if (msg.payload && typeof msg.payload === 'object') {
+                Object.assign(roomState.value, msg.payload);
+                if (msg.payload.watermark_enabled !== undefined) {
+                    roomState.value.watermark_enabled = Boolean(msg.payload.watermark_enabled);
+                }
+                if (msg.payload.is_locked !== undefined) {
+                    isRoomLocked.value = Boolean(msg.payload.is_locked);
+                }
+                if (msg.payload.webinar_mode !== undefined) {
+                    isWebinarMode.value = Boolean(msg.payload.webinar_mode);
+                }
+            }
+            fetchState();
+            break;
         case 'peer_left':
-        case 'peer_media_updated':
         case 'screen_share_started':
         case 'screen_share_stopped':
         case 'screen_share_permission_updated':
-        case 'room_policy_updated':
-        case 'room_settings_updated':
-            if (msg.payload) {
-                Object.assign(roomState.value, msg.payload);
-                roomState.value.watermark_enabled = Boolean(msg.payload.watermark_enabled);
-                isRoomLocked.value = Boolean(msg.payload.is_locked);
-                isWebinarMode.value = Boolean(msg.payload.webinar_mode);
-            }
             fetchState();
             break;
         case 'offer':
@@ -1912,8 +2080,44 @@ onUnmounted(() => {
                             class="w-full h-full cursor-crosshair touch-none"
                         ></canvas>
 
+                        <!-- Live Interactive Remote Cursors & Writer Badges (Overlay) -->
+                        <div
+                            v-for="(cursor, cId) in activeRemoteCursors"
+                            :key="cId"
+                            class="absolute pointer-events-none transition-all duration-75 ease-out z-10 flex flex-col items-center -translate-x-1/2 -translate-y-full"
+                            :style="{
+                                left: `${Math.max(4, Math.min(96, cursor.x * 100))}%`,
+                                top: `${Math.max(4, Math.min(96, cursor.y * 100))}%`,
+                            }"
+                        >
+                            <!-- Clean Pill Badge -->
+                            <div
+                                class="px-2.5 py-1 rounded-full text-white text-xs font-bold shadow-xl flex items-center gap-1.5 whitespace-nowrap border border-white/30 select-none mb-1 ring-2 ring-black/20"
+                                :style="{ backgroundColor: cursor.color || '#4f46e5' }"
+                                dir="rtl"
+                            >
+                                <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                                <span>{{ cursor.label }}</span>
+                            </div>
+                            <!-- Cursor Pen Indicator -->
+                            <div class="relative flex items-center justify-center">
+                                <svg class="w-5 h-5 -rotate-45 drop-shadow-md" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path :stroke="cursor.color || '#4f46e5'" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" fill="#ffffff" />
+                                </svg>
+                            </div>
+                        </div>
+
                         <!-- Floating Whiteboard Toolbar -->
                         <div class="absolute top-3 left-3 bg-slate-900/95 backdrop-blur-md border border-slate-700 rounded-xl p-2 flex flex-wrap items-center gap-2.5 shadow-xl z-20">
+                            <!-- Live Active Writer Indicator -->
+                            <div
+                                v-if="currentActiveWriterLabel"
+                                class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold animate-pulse"
+                            >
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                                <span>{{ currentActiveWriterLabel }} {{ __('conference.controls.is_writing') }}</span>
+                            </div>
+
                             <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-mono font-bold">
                                 {{ localIdentityLabel }}
                             </span>
@@ -2058,7 +2262,7 @@ onUnmounted(() => {
                             autoplay
                             playsinline
                             class="w-full h-full object-cover transition-opacity duration-200"
-                            :class="p.is_camera_on ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                            :class="(p.is_camera_on || isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                         ></video>
                         <audio
                             :ref="(el) => setRemoteAudioRef(p.id, el)"
@@ -2066,7 +2270,7 @@ onUnmounted(() => {
                             playsinline
                         ></audio>
 
-                        <div v-if="!p.is_camera_on" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
+                        <div v-if="!p.is_camera_on && !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
                             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-indigo-300 font-bold text-base sm:text-lg">
                                 {{ p.display_name.charAt(0) }}
                             </div>

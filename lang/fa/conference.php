@@ -174,6 +174,7 @@ return [
         'sfu_connected' => 'ارتباط برقرار است',
         'p2p_mode_badge' => 'کیفیت عالی',
         'sfu_mode_badge' => 'اتصال پایدار',
+        'is_writing' => 'در حال نوشتن است...',
     ],
 
     'chat' => [

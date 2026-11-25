@@ -63,6 +63,7 @@ Route::middleware(['auth'])->prefix('org')->name('org.')->group(function () {
     Route::get('/conference', [ConferenceController::class, 'index'])->name('conference.index');
     Route::post('/conference', [ConferenceController::class, 'store'])->name('conference.store');
     Route::delete('/conference/{uuid}', [ConferenceController::class, 'destroy'])->name('conference.destroy');
+    Route::get('/conference/{uuid}', fn (string $uuid) => redirect()->route('org.conference.lobby', ['uuid' => $uuid]))->name('conference.direct');
     Route::get('/conference/{uuid}/lobby', [ConferenceController::class, 'lobby'])->name('conference.lobby');
     Route::post('/conference/{uuid}/join', [ConferenceController::class, 'join'])->name('conference.join');
     Route::get('/conference/{uuid}/room', [ConferenceController::class, 'room'])->name('conference.room');

@@ -227,12 +227,18 @@ func (r *SFURoom) Broadcast(msg SFUMessage, excludeID string) {
 
 func (r *SFURoom) SendTo(targetID string, msg SFUMessage) bool {
 	r.RLock()
-	peer, ok := r.Peers[targetID]
-	r.RUnlock()
+	defer r.RUnlock()
 
-	if ok && peer != nil {
+	targetID = strings.TrimSpace(targetID)
+	if peer, ok := r.Peers[targetID]; ok && peer != nil {
 		_ = peer.Send(msg)
 		return true
+	}
+	for _, peer := range r.Peers {
+		if fmt.Sprintf("%d", peer.UserID) == targetID && peer != nil {
+			_ = peer.Send(msg)
+			return true
+		}
 	}
 	return false
 }
@@ -699,16 +705,36 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[SFU] Peer %s (%s) joined room %s (peers: %d, mode: %s, udpPort: %d)", peerID, phoneNumber, roomUUID, peerCount, topology, udpPort)
 
 		case "offer", "answer", "candidate":
-			if currentRoom == nil || currentPeer == nil || msg.TargetID == "" {
+			if currentRoom == nil || currentPeer == nil {
 				continue
 			}
 
+			targetID := strings.TrimSpace(msg.TargetID)
+			if targetID == "" && len(msg.Payload) > 0 {
+				var targetPayload struct {
+					TargetID            interface{} `json:"target_id"`
+					TargetParticipantID interface{} `json:"target_participant_id"`
+				}
+				if err := json.Unmarshal(msg.Payload, &targetPayload); err == nil {
+					if targetPayload.TargetID != nil {
+						targetID = strings.TrimSpace(fmt.Sprintf("%v", targetPayload.TargetID))
+					} else if targetPayload.TargetParticipantID != nil {
+						targetID = strings.TrimSpace(fmt.Sprintf("%v", targetPayload.TargetParticipantID))
+					}
+				}
+			}
+
+			if targetID == "" {
+				continue
+			}
+
+			msg.TargetID = targetID
 			msg.ParticipantID = currentPeer.ID
 			msg.UserID = currentPeer.UserID
 			msg.PhoneNumber = currentPeer.PhoneNumber
 			msg.DisplayName = currentPeer.DisplayName
 			msg.Role = currentPeer.Role
-			currentRoom.SendTo(msg.TargetID, msg)
+			currentRoom.SendTo(targetID, msg)
 
 		case "media_state":
 			if currentPeer == nil || currentRoom == nil {
@@ -939,6 +965,23 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 
 			msg.ParticipantID = currentPeer.ID
 			currentRoom.Broadcast(msg, currentPeer.ID)
+
+		case "whiteboard_toggle":
+			if currentPeer == nil || currentRoom == nil {
+				continue
+			}
+			msg.ParticipantID = currentPeer.ID
+			msg.UserID = currentPeer.UserID
+			msg.PhoneNumber = currentPeer.PhoneNumber
+			msg.DisplayName = currentPeer.DisplayName
+			currentRoom.Broadcast(msg, currentPeer.ID)
+
+		case "room_settings_updated":
+			if currentPeer == nil || currentRoom == nil {
+				continue
+			}
+			msg.ParticipantID = currentPeer.ID
+			currentRoom.Broadcast(msg, "")
 
 		case "mute_all":
 			if currentPeer == nil || currentRoom == nil || currentPeer.Role != "host" {

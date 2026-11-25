@@ -46,23 +46,86 @@ const props = defineProps<{
 const searchQuery = ref('');
 const joinCodeInput = ref('');
 
+function extractRoomIdentifier(input: string): string {
+    let clean = (input || '').trim();
+    if (!clean) return '';
+
+    // Remove any trailing query parameters or hashes
+    clean = clean.split('?')[0].split('#')[0];
+
+    // Pattern 1: standard conf_xxxxxx format (e.g. conf_a1b2c3d4e5f6)
+    const confMatch = clean.match(/\b(conf_[a-zA-Z0-9_\-]+)\b/i);
+    if (confMatch) {
+        return confMatch[1];
+    }
+
+    // Pattern 2: standard UUID format (e.g. 550e8400-e29b-41d4-a716-446655440000)
+    const uuidMatch = clean.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+    if (uuidMatch) {
+        return uuidMatch[1];
+    }
+
+    // Pattern 3: URL path extraction from /org/conference/{room_uuid}/...
+    try {
+        const urlStr = clean.startsWith('http://') || clean.startsWith('https://')
+            ? clean
+            : (clean.includes('/') ? `http://dummy.local/${clean.replace(/^\/+/, '')}` : null);
+        if (urlStr) {
+            const parsed = new URL(urlStr);
+            const segments = parsed.pathname.split('/').filter(Boolean);
+            const confIndex = segments.findIndex((s) => s.toLowerCase() === 'conference');
+            if (confIndex !== -1 && segments[confIndex + 1]) {
+                const cand = segments[confIndex + 1];
+                if (cand !== 'lobby' && cand !== 'room') {
+                    return cand;
+                }
+            }
+            if (segments.length > 0) {
+                const last = segments[segments.length - 1];
+                if (last === 'lobby' || last === 'room') {
+                    if (segments.length > 1) return segments[segments.length - 2];
+                }
+                return last;
+            }
+        }
+    } catch {}
+
+    // Pattern 4: Strip any remaining slashes
+    const parts = clean.split('/').filter(Boolean);
+    if (parts.length > 0) {
+        const lastPart = parts[parts.length - 1];
+        if (lastPart === 'lobby' || lastPart === 'room') {
+            if (parts.length > 1) return parts[parts.length - 2];
+        }
+        return lastPart;
+    }
+
+    return clean;
+}
+
 const filteredRooms = computed(() => {
-    const q = searchQuery.value.trim().toLowerCase();
-    if (!q) return props.rooms;
+    const raw = searchQuery.value.trim();
+    if (!raw) return props.rooms;
+    const extracted = extractRoomIdentifier(raw).toLowerCase();
+    const lowerQ = raw.toLowerCase();
     return props.rooms.filter((r) => {
+        const title = (r.title || '').toLowerCase();
+        const creator = (r.creator_name || '').toLowerCase();
+        const uuid = (r.room_uuid || '').toLowerCase();
         return (
-            (r.title && r.title.toLowerCase().includes(q)) ||
-            (r.creator_name && r.creator_name.toLowerCase().includes(q)) ||
-            (r.room_uuid && r.room_uuid.toLowerCase().includes(q))
+            title.includes(lowerQ) ||
+            creator.includes(lowerQ) ||
+            uuid.includes(lowerQ) ||
+            (extracted && uuid.includes(extracted))
         );
     });
 });
 
 function joinByCode() {
-    const val = joinCodeInput.value.trim();
-    if (!val) return;
-    const match = val.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
-    const uuid = match ? match[1] : val;
+    const raw = joinCodeInput.value.trim() || searchQuery.value.trim();
+    if (!raw) return;
+    const uuid = extractRoomIdentifier(raw);
+    if (!uuid) return;
     router.visit(route('org.conference.lobby', { uuid }));
 }
 
@@ -242,12 +305,25 @@ function deleteRoom(uuid: string) {
                         </svg>
                     </div>
                     <p class="text-sm text-slate-500 dark:text-slate-400">{{ __('conference.room.no_search_results') }}</p>
-                    <button
-                        @click="searchQuery = ''"
-                        class="text-xs font-bold text-purple-600 hover:text-purple-500 transition"
-                    >
-                        پاک کردن جستجو
-                    </button>
+                    <div v-if="extractRoomIdentifier(searchQuery)" class="pt-2">
+                        <button
+                            @click="router.visit(route('org.conference.lobby', { uuid: extractRoomIdentifier(searchQuery) }))"
+                            class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition inline-flex items-center gap-2 cursor-pointer shadow-md"
+                        >
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                            </svg>
+                            <span>ورود به جلسه با شناسه «{{ extractRoomIdentifier(searchQuery) }}»</span>
+                        </button>
+                    </div>
+                    <div v-else>
+                        <button
+                            @click="searchQuery = ''"
+                            class="text-xs font-bold text-purple-600 hover:text-purple-500 transition"
+                        >
+                            پاک کردن جستجو
+                        </button>
+                    </div>
                 </div>
 
                 <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

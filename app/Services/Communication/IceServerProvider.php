@@ -17,7 +17,7 @@ use App\Models\User;
  */
 class IceServerProvider
 {
-    public const DEFAULT_STUN_URLS = '';
+    public const DEFAULT_STUN_URLS = 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302';
 
     /** Lifetime of generated TURN REST credentials (seconds). */
     private const TURN_CREDENTIAL_TTL = 6 * 3600;
@@ -86,9 +86,11 @@ class IceServerProvider
             $selfStun[] = "stun:{$domainOrIp}:{$turnPort}";
         }
 
+        $rawConfiguredStun = trim((string) SystemSetting::get('voice_stun_urls', ''));
+        $configuredStun = self::parseUrlList($rawConfiguredStun);
+
         if ($this->isOfflineMode()) {
             // In offline/intranet mode, strictly purge ALL external public internet STUN hosts
-            $configuredStun = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', ''));
             $localStun = array_filter($configuredStun, function (string $url) {
                 return ! self::isPublicCloudIceUrl($url);
             });
@@ -97,11 +99,16 @@ class IceServerProvider
             return array_values(array_unique($merged));
         }
 
-        // Online mode: self-hosted STUN first, then configured/default public STUNs
-        $configuredStun = self::parseUrlList((string) SystemSetting::get('voice_stun_urls', self::DEFAULT_STUN_URLS));
-        $merged = array_merge($selfStun, $configuredStun);
+        // Online mode:
+        // If custom STUN URLs or a self-hosted domain/IP are explicitly configured in settings,
+        // strictly use the user's dedicated infrastructure without injecting public fallbacks.
+        if (! empty($selfStun) || ! empty($configuredStun)) {
+            $merged = array_merge($selfStun, $configuredStun);
+            return array_values(array_unique($merged));
+        }
 
-        return array_values(array_unique($merged));
+        // Fall back to public STUN only when no custom infrastructure is configured in settings
+        return self::parseUrlList(self::DEFAULT_STUN_URLS);
     }
 
     /**

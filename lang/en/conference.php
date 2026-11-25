@@ -174,6 +174,7 @@ return [
         'sfu_connected' => 'Connected',
         'p2p_mode_badge' => 'High Quality',
         'sfu_mode_badge' => 'Stable Connection',
+        'is_writing' => 'is writing...',
     ],
 
     'chat' => [

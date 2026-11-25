@@ -278,6 +278,7 @@ Route::middleware(['auth'])->group(function () {
 
     // Redirect legacy conference URLs to Organization Conference Portal
     Route::redirect('/conference', '/org/conference');
+    Route::get('/conference/{uuid}', fn (string $uuid) => redirect()->route('org.conference.lobby', ['uuid' => $uuid]));
     Route::get('/conference/{uuid}/lobby', fn (string $uuid) => redirect()->route('org.conference.lobby', ['uuid' => $uuid]));
     Route::get('/conference/{uuid}/room', fn (string $uuid) => redirect()->route('org.conference.room', ['uuid' => $uuid]));
 
