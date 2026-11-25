@@ -513,9 +513,10 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
 
     // Attach local audio & active video (screen share or camera) tracks using consistent transceivers
     // Strict symmetrical ordering (0: audio, 1: video) prevents m-line order mismatches
+    // Always pre-negotiate both audio and video as 'sendrecv' so camera/mic toggle transmits instantly without renegotiation glare
     const audioTrack = localStream.value?.getAudioTracks()[0] || null;
     const audioTransceiver = pc.addTransceiver('audio', {
-        direction: audioTrack ? 'sendrecv' : 'recvonly',
+        direction: 'sendrecv',
         streams: localStream.value ? [localStream.value] : [],
     });
     if (audioTrack && audioTransceiver.sender) {
@@ -528,7 +529,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     const activeVideoStream = isSharingScreen.value && screenStream.value ? screenStream.value : localStream.value;
 
     const videoTransceiver = pc.addTransceiver('video', {
-        direction: activeVideoTrack ? 'sendrecv' : 'recvonly',
+        direction: 'sendrecv',
         streams: activeVideoStream ? [activeVideoStream] : [],
     });
     if (activeVideoTrack && videoTransceiver.sender) {
@@ -639,16 +640,19 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             event.track.onended = () => {
                 liveVideoMap[remoteParticipantId] = false;
             };
-            event.track.onmute = () => {
-                liveVideoMap[remoteParticipantId] = false;
-            };
             event.track.onunmute = () => {
                 liveVideoMap[remoteParticipantId] = true;
+                const v = remoteVideoRefs.get(remoteParticipantId);
+                if (v && v.srcObject) v.play().catch(() => {});
             };
         }
 
         if (event.track.kind === 'audio') {
             setupAudioAnalyser(remoteParticipantId, stream);
+            event.track.onunmute = () => {
+                const a = remoteAudioRefs.get(remoteParticipantId);
+                if (a && a.srcObject) a.play().catch(() => {});
+            };
         }
     };
 
@@ -831,7 +835,7 @@ async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
             (t) => t.sender.track?.kind === 'audio' || t.receiver.track.kind === 'audio'
         );
         if (transceiver) {
-            transceiver.direction = newTrack ? 'sendrecv' : 'recvonly';
+            transceiver.direction = 'sendrecv';
             try {
                 await transceiver.sender.replaceTrack(newTrack);
             } catch (e) {
@@ -839,12 +843,11 @@ async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
             }
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
-        }
-
-        if (props.currentParticipant.id < peerId) {
-            await initiateOfferToPeer(peerId, pc);
-        } else {
-            dispatchPeerSignal('renegotiate_needed', peerId, {});
+            if (props.currentParticipant.id < peerId) {
+                await initiateOfferToPeer(peerId, pc);
+            } else {
+                dispatchPeerSignal('renegotiate_needed', peerId, {});
+            }
         }
     }
 }
@@ -855,7 +858,7 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
             (t) => t.sender.track?.kind === 'video' || t.receiver.track.kind === 'video'
         );
         if (transceiver) {
-            transceiver.direction = newTrack ? 'sendrecv' : 'recvonly';
+            transceiver.direction = 'sendrecv';
             try {
                 await transceiver.sender.replaceTrack(newTrack);
             } catch (e) {
@@ -863,12 +866,11 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
             }
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
-        }
-
-        if (props.currentParticipant.id < peerId) {
-            await initiateOfferToPeer(peerId, pc);
-        } else {
-            dispatchPeerSignal('renegotiate_needed', peerId, {});
+            if (props.currentParticipant.id < peerId) {
+                await initiateOfferToPeer(peerId, pc);
+            } else {
+                dispatchPeerSignal('renegotiate_needed', peerId, {});
+            }
         }
     }
 }
