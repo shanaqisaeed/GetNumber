@@ -4,6 +4,7 @@ import { useTrans } from '@/Composables/useTrans';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import axios from 'axios';
 
 interface GeneralSettings {
     app_name: string;
@@ -218,17 +219,12 @@ const testLdapConnection = async () => {
     testingLdap.value = true;
     ldapTestResult.value = null;
     try {
-        const res = await fetch(route('admin.settings.ldap.test'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-            },
-        });
-        ldapTestResult.value = await res.json();
-    } catch {
-        ldapTestResult.value = { success: false, message: __('admin.settings.general.ldap_conn_error') };
+        const res = await axios.post(route('admin.settings.ldap.test'));
+        ldapTestResult.value = res.data;
+    } catch (err: any) {
+        console.error('LDAP test error:', err);
+        const msg = err.response?.data?.message || err.message || __('admin.settings.general.ldap_conn_error');
+        ldapTestResult.value = { success: false, message: msg };
     } finally {
         testingLdap.value = false;
     }
@@ -256,17 +252,12 @@ const testKeycloakConnection = async () => {
     testingKeycloak.value = true;
     keycloakTestResult.value = null;
     try {
-        const res = await fetch(route('admin.settings.keycloak.test'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-            },
-        });
-        keycloakTestResult.value = await res.json();
-    } catch {
-        keycloakTestResult.value = { success: false, message: __('admin.settings.general.keycloak_conn_error') };
+        const res = await axios.post(route('admin.settings.keycloak.test'));
+        keycloakTestResult.value = res.data;
+    } catch (err: any) {
+        console.error('Keycloak test error:', err);
+        const msg = err.response?.data?.message || err.message || __('admin.settings.general.keycloak_conn_error');
+        keycloakTestResult.value = { success: false, message: msg };
     } finally {
         testingKeycloak.value = false;
     }
@@ -298,20 +289,14 @@ const testSmtpConnection = async () => {
     testingSmtp.value = true;
     smtpTestResult.value = null;
     try {
-        const res = await fetch(route('admin.settings.smtp.test'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-            },
-            body: JSON.stringify({
-                recipient: testRecipient.value || undefined,
-            }),
+        const res = await axios.post(route('admin.settings.smtp.test'), {
+            recipient: testRecipient.value || undefined,
         });
-        smtpTestResult.value = await res.json();
-    } catch {
-        smtpTestResult.value = { success: false, error: __('admin.settings.general.smtp_network_error') };
+        smtpTestResult.value = res.data;
+    } catch (err: any) {
+        console.error('SMTP test error:', err);
+        const msg = err.response?.data?.error || err.response?.data?.message || err.message || __('admin.settings.general.smtp_network_error');
+        smtpTestResult.value = { success: false, error: msg };
     } finally {
         testingSmtp.value = false;
     }
@@ -453,20 +438,12 @@ const syncBridgeConnection = async () => {
     syncingBridge.value = true;
     bridgeSyncResult.value = null;
     try {
-        const res = await fetch(route('admin.settings.voice_bridge.sync'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-            },
-            body: JSON.stringify({
-                host: bridgeForm.host,
-                api_port: bridgeForm.api_port,
-                secret: bridgeForm.secret,
-            }),
+        const res = await axios.post(route('admin.settings.voice_bridge.sync'), {
+            host: bridgeForm.host,
+            api_port: bridgeForm.api_port,
+            secret: bridgeForm.secret,
         });
-        const result = await res.json();
+        const result = res.data;
         bridgeSyncResult.value = result;
         const synced = result.synced || result.data;
         if (result.success && synced) {
@@ -490,8 +467,10 @@ const syncBridgeConnection = async () => {
             if (synced.sfu_ws_path) bridgeForm.sfu_ws_path = synced.sfu_ws_path;
             if (synced.sfu_ws_public_url !== undefined) bridgeForm.sfu_ws_public_url = synced.sfu_ws_public_url;
         }
-    } catch {
-        bridgeSyncResult.value = { success: false, message: __('admin.settings.general.bridge_network_error') };
+    } catch (err: any) {
+        console.error('Voice bridge sync error:', err);
+        const errMsg = err.response?.data?.message || err.message || __('admin.settings.general.bridge_network_error');
+        bridgeSyncResult.value = { success: false, message: errMsg };
     } finally {
         syncingBridge.value = false;
     }
@@ -501,22 +480,16 @@ const testBridgeConnection = async () => {
     testingBridge.value = true;
     bridgeTestResult.value = null;
     try {
-        const res = await fetch(route('admin.settings.voice_bridge.test'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
-            },
-            body: JSON.stringify({
-                host: bridgeForm.host,
-                api_port: bridgeForm.api_port,
-                secret: bridgeForm.secret,
-            }),
+        const res = await axios.post(route('admin.settings.voice_bridge.test'), {
+            host: bridgeForm.host,
+            api_port: bridgeForm.api_port,
+            secret: bridgeForm.secret,
         });
-        bridgeTestResult.value = await res.json();
-    } catch {
-        bridgeTestResult.value = { success: false, message: __('admin.settings.general.bridge_network_error') };
+        bridgeTestResult.value = res.data;
+    } catch (err: any) {
+        console.error('Voice bridge test error:', err);
+        const errMsg = err.response?.data?.message || err.message || __('admin.settings.general.bridge_network_error');
+        bridgeTestResult.value = { success: false, message: errMsg };
     } finally {
         testingBridge.value = false;
     }

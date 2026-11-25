@@ -488,6 +488,7 @@ class SettingController extends Controller
         try {
             $startTime = microtime(true);
             $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
+            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Testing connection to {$healthUrl}");
             $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
                 ->timeout(3.0)
                 ->get($healthUrl);
@@ -522,11 +523,13 @@ class SettingController extends Controller
                 ]);
             }
 
+            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Daemon HTTP status {$response->status()} at {$healthUrl}");
             return response()->json([
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
             ], 422);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Connection error to {$host}:{$port} - " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_unreachable', ['error' => $e->getMessage()]),
@@ -552,11 +555,13 @@ class SettingController extends Controller
 
         try {
             $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
+            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Syncing settings from {$healthUrl}");
             $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
                 ->timeout(4.0)
                 ->get($healthUrl);
 
             if (! $response->successful()) {
+                \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Sync HTTP status {$response->status()} from {$healthUrl}");
                 return response()->json([
                     'success' => false,
                     'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
@@ -670,6 +675,7 @@ class SettingController extends Controller
                 ],
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Sync error from {$host}:{$port} - " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_unreachable', ['error' => $e->getMessage()]),
