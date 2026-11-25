@@ -177,14 +177,6 @@ return [
         'is_writing' => 'is writing...',
         'autoplay_unblock_hint' => 'Tap here to enable remote audio playback.',
         'unblock_audio_btn' => 'Unblock Audio',
-        'diagnostics_title' => 'Network & Connection Diagnostics',
-        'diagnostics_tooltip' => 'View WebRTC & SFU server connection logs',
-        'peer_count' => 'connected peers',
-        'restart_ice_btn' => 'Restart Connection',
-        'ice_state_label' => 'ICE State:',
-        'connection_state_label' => 'Media Connection:',
-        'audio_track_label' => 'Audio Stream:',
-        'video_track_label' => 'Video Stream:',
     ],
 
     'chat' => [

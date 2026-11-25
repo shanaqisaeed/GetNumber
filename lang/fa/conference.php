@@ -177,14 +177,6 @@ return [
         'is_writing' => 'در حال نوشتن است...',
         'autoplay_unblock_hint' => 'برای فعال‌سازی صدای شرکت‌کنندگان روی این نوار ضربه بزنید.',
         'unblock_audio_btn' => 'فعال‌سازی صدا',
-        'diagnostics_title' => 'وضعیت شبکه و عیب‌یابی ارتباط',
-        'diagnostics_tooltip' => 'مشاهده لاگ و جزئیات ارتباط WebRTC و سرور SFU',
-        'peer_count' => 'کاربر متصل',
-        'restart_ice_btn' => 'تلاش مجدد برای اتصال',
-        'ice_state_label' => 'وضعیت تبادل:',
-        'connection_state_label' => 'وضعیت اتصال رسانه:',
-        'audio_track_label' => 'جریان صدا:',
-        'video_track_label' => 'جریان تصویر:',
     ],
 
     'chat' => [

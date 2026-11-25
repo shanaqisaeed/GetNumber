@@ -139,27 +139,8 @@ const isWebinarMode = ref(props.room.webinar_mode);
 const canShareScreen = ref(props.currentParticipant.can_share_screen);
 const topologyMode = ref<'p2p' | 'sfu'>('sfu');
 
-// Diagnostics & WebRTC Error Tracking
-interface PeerDiagnostics {
-    iceState?: string;
-    connectionState?: string;
-    signalingState?: string;
-    candidateType?: string;
-    hasAudio?: boolean;
-    hasVideo?: boolean;
-    lastError?: string;
-}
-const peerDiagnostics = reactive<Record<number, PeerDiagnostics>>({});
-const isDiagnosticsModalOpen = ref(false);
 const isAudioPlaybackBlocked = ref(false);
 const sfuConnectionStatus = ref<'connecting' | 'connected' | 'disconnected'>('connecting');
-
-function updatePeerDiagnostics(peerId: number, update: Partial<PeerDiagnostics>) {
-    if (!peerDiagnostics[peerId]) {
-        peerDiagnostics[peerId] = {};
-    }
-    Object.assign(peerDiagnostics[peerId], update);
-}
 
 function unlockAudioPlayback() {
     isAudioPlaybackBlocked.value = false;
@@ -174,15 +155,16 @@ function unlockAudioPlayback() {
     });
 }
 
-function restartAllPeerConnections() {
-    peerConnections.forEach((pc, peerId) => {
-        console.log(`[WebRTC] Manual reconnection requested for peer ${peerId}`);
-        if (typeof pc.restartIce === 'function') {
-            pc.restartIce();
-        } else {
-            initiateOfferToPeer(peerId, pc);
-        }
-    });
+/**
+ * Sanitizes SDP strings to fix compatibility issues across Chromium / WebRTC implementations.
+ * Specifically fixes "OperationError: Failed to parse SessionDescription. a=ssrc:... msid:- ... Invalid SDP line".
+ * Also enforces strict RFC 8866 CRLF line terminators.
+ */
+function sanitizeSdp(sdp: string): string {
+    if (!sdp || typeof sdp !== 'string') return sdp || '';
+    let cleaned = sdp.replace(/^(a=ssrc:\d+\s+msid):\s*-\s+/gm, '$1:stream ');
+    cleaned = cleaned.replace(/^(a=msid):\s*-\s+/gm, '$1:stream ');
+    return cleaned.replace(/\r?\n/g, '\r\n').trim() + '\r\n';
 }
 
 // Local media states
@@ -536,7 +518,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         pc.addTrack(audioTrack, localStream.value);
     } else {
         try {
-            pc.addTransceiver('audio', { direction: 'sendrecv' });
+            pc.addTransceiver('audio', { direction: 'recvonly' });
         } catch {}
     }
 
@@ -548,7 +530,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         pc.addTrack(activeVideoTrack, localStream.value);
     } else {
         try {
-            pc.addTransceiver('video', { direction: 'sendrecv' });
+            pc.addTransceiver('video', { direction: 'recvonly' });
         } catch {}
     }
 
@@ -556,7 +538,6 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         if (event.candidate) {
             const candType = event.candidate.type || 'unknown';
             console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 Local ICE Candidate (${candType}):`, event.candidate.candidate);
-            updatePeerDiagnostics(remoteParticipantId, { candidateType: candType });
             dispatchPeerSignal('candidate', remoteParticipantId, {
                 candidate: event.candidate.toJSON(),
             });
@@ -568,13 +549,11 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     pc.onicecandidateerror = (event: any) => {
         const errDetail = `${event.errorCode} ${event.errorText || ''} (${event.url || ''})`;
         console.warn(`[WebRTC:Peer:${remoteParticipantId}] ❌ ICE Candidate Error:`, errDetail);
-        updatePeerDiagnostics(remoteParticipantId, { lastError: errDetail });
     };
 
     pc.oniceconnectionstatechange = () => {
         const state = pc.iceConnectionState;
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 🔄 ICE Connection State: ${state}`);
-        updatePeerDiagnostics(remoteParticipantId, { iceState: state });
         if (state === 'failed' || state === 'disconnected') {
             console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ ICE state ${state}, attempting restartIce...`);
             if (typeof pc.restartIce === 'function') {
@@ -588,7 +567,6 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     pc.onconnectionstatechange = () => {
         const state = pc.connectionState;
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 🔗 Connection State: ${state}`);
-        updatePeerDiagnostics(remoteParticipantId, { connectionState: state });
         if (state === 'failed') {
             console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ Connection failed, re-establishing offer...`);
             initiateOfferToPeer(remoteParticipantId, pc);
@@ -597,15 +575,10 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
 
     pc.onsignalingstatechange = () => {
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 Signaling State: ${pc.signalingState}`);
-        updatePeerDiagnostics(remoteParticipantId, { signalingState: pc.signalingState });
     };
 
     pc.ontrack = (event) => {
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 📥 Remote Track Received: kind=${event.track.kind}, id=${event.track.id}`);
-        updatePeerDiagnostics(remoteParticipantId, {
-            hasAudio: event.track.kind === 'audio' ? true : peerDiagnostics[remoteParticipantId]?.hasAudio,
-            hasVideo: event.track.kind === 'video' ? true : peerDiagnostics[remoteParticipantId]?.hasVideo,
-        });
 
         let stream = remoteStreams[remoteParticipantId];
         if (!stream) {
@@ -676,13 +649,13 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
 
     try {
         makingOfferMap.set(remoteParticipantId, true);
-        const offer = await conn.createOffer({
-            offerToReceiveAudio: true,
-            offerToReceiveVideo: true,
-        });
+        const offer = await conn.createOffer();
         await conn.setLocalDescription(offer);
         dispatchPeerSignal('offer', remoteParticipantId, {
-            sdp: conn.localDescription,
+            sdp: conn.localDescription ? {
+                type: conn.localDescription.type,
+                sdp: sanitizeSdp(conn.localDescription.sdp),
+            } : null,
         });
     } catch (e) {
         console.warn('Offer creation error:', e);
@@ -706,6 +679,8 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
 
     try {
         if (type === 'offer' && payload?.sdp) {
+            const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
+            const sanitized = sanitizeSdp(rawSdp);
             const polite = props.currentParticipant.id > senderParticipantId;
             const offerCollision = makingOfferMap.get(senderParticipantId) || pc.signalingState !== 'stable';
             if (offerCollision) {
@@ -716,7 +691,10 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                     await pc.setLocalDescription({ type: 'rollback' });
                 } catch {}
             }
-            await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            await pc.setRemoteDescription(new RTCSessionDescription({
+                type: 'offer',
+                sdp: sanitized,
+            }));
 
             // Drain queued ICE candidates
             const queue = pendingIceCandidates.get(senderParticipantId) || [];
@@ -731,11 +709,19 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             dispatchPeerSignal('answer', senderParticipantId, {
-                sdp: pc.localDescription,
+                sdp: pc.localDescription ? {
+                    type: pc.localDescription.type,
+                    sdp: sanitizeSdp(pc.localDescription.sdp),
+                } : null,
             });
         } else if (type === 'answer' && payload?.sdp) {
             if (pc.signalingState === 'have-local-offer') {
-                await pc.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+                const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
+                const sanitized = sanitizeSdp(rawSdp);
+                await pc.setRemoteDescription(new RTCSessionDescription({
+                    type: 'answer',
+                    sdp: sanitized,
+                }));
 
                 // Drain queued ICE candidates
                 const queue = pendingIceCandidates.get(senderParticipantId) || [];
@@ -2100,17 +2086,6 @@ onUnmounted(() => {
                     {{ room.title }}
                 </h1>
 
-                <!-- SFU Mode & Network Diagnostics Badge -->
-                <button
-                    @click="isDiagnosticsModalOpen = true"
-                    class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition cursor-pointer bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30"
-                    :title="__('conference.controls.diagnostics_tooltip')"
-                >
-                    <span class="w-2 h-2 rounded-full" :class="sfuConnectionStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'"></span>
-                    <span>{{ __('conference.controls.sfu_mode_badge') }}</span>
-                    <span class="text-[10px] opacity-75 font-mono">({{ remoteAdmittedParticipants.length }} {{ __('conference.controls.peer_count') }})</span>
-                </button>
-
                 <span v-if="isWebinarMode" class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30">
                     {{ __('conference.room.webinar_badge') }}
                 </span>
@@ -3028,108 +3003,6 @@ onUnmounted(() => {
                             {{ __('conference.room.save_settings') }}
                         </button>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Connection Diagnostics & WebRTC Logs Modal -->
-        <div
-            v-if="isDiagnosticsModalOpen"
-            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
-        >
-            <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-xl p-5 shadow-2xl flex flex-col max-h-[85vh]">
-                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                    <div class="flex items-center gap-2">
-                        <span class="w-3 h-3 rounded-full" :class="sfuConnectionStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'"></span>
-                        <h3 class="text-sm font-bold text-white">{{ __('conference.controls.diagnostics_title') }}</h3>
-                    </div>
-                    <button @click="isDiagnosticsModalOpen = false" class="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-
-                <div class="py-4 space-y-4 overflow-y-auto flex-1 text-xs">
-                    <!-- SFU Server State -->
-                    <div class="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1.5">
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">سرویس سرور SFU:</span>
-                            <span class="font-bold text-indigo-300 font-mono">185.141.107.203 (Relay: 49152-49250 UDP)</span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">وضعیت اتصال سوکت:</span>
-                            <span class="font-bold" :class="sfuConnectionStatus === 'connected' ? 'text-emerald-400' : 'text-rose-400'">
-                                {{ sfuConnectionStatus === 'connected' ? 'متصل و آماده تبادل سیگنال' : 'قطع ارتباط (در حال تلاش مجدد)' }}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-slate-400">پیکربندی STUN / TURN اختصاصی:</span>
-                            <span class="font-bold text-slate-200 font-mono">stun:185.141.107.203:3479</span>
-                        </div>
-                    </div>
-
-                    <!-- Peers Real-Time WebRTC Status -->
-                    <div class="space-y-2">
-                        <h4 class="text-slate-300 font-bold">وضعیت همتاهای حاضر در جلسه ({{ remoteAdmittedParticipants.length }} کاربر):</h4>
-                        <div v-if="remoteAdmittedParticipants.length === 0" class="p-3 text-center text-slate-500 bg-slate-950/30 rounded-xl border border-slate-800">
-                            هیچ شرکت‌کننده دیگری در جلسه حضور ندارد.
-                        </div>
-                        <div
-                            v-for="p in remoteAdmittedParticipants"
-                            :key="p.id"
-                            class="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2"
-                        >
-                            <div class="flex items-center justify-between font-bold">
-                                <span class="text-white">{{ p.display_name }} ({{ p.phone_number }})</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">شناسه: #{{ p.id }}</span>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2 text-[11px]">
-                                <div class="flex items-center justify-between p-1.5 bg-slate-900 rounded-lg">
-                                    <span class="text-slate-400">{{ __('conference.controls.connection_state_label') }}</span>
-                                    <span class="font-mono font-bold" :class="peerDiagnostics[p.id]?.connectionState === 'connected' ? 'text-emerald-400' : 'text-amber-400'">
-                                        {{ peerDiagnostics[p.id]?.connectionState || 'new' }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center justify-between p-1.5 bg-slate-900 rounded-lg">
-                                    <span class="text-slate-400">{{ __('conference.controls.ice_state_label') }}</span>
-                                    <span class="font-mono font-bold" :class="peerDiagnostics[p.id]?.iceState === 'connected' ? 'text-emerald-400' : 'text-amber-400'">
-                                        {{ peerDiagnostics[p.id]?.iceState || 'checking' }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center justify-between p-1.5 bg-slate-900 rounded-lg">
-                                    <span class="text-slate-400">{{ __('conference.controls.audio_track_label') }}</span>
-                                    <span class="font-bold" :class="peerDiagnostics[p.id]?.hasAudio ? 'text-emerald-400' : 'text-slate-500'">
-                                        {{ peerDiagnostics[p.id]?.hasAudio ? 'دریافت فعال' : 'بدون صدا' }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center justify-between p-1.5 bg-slate-900 rounded-lg">
-                                    <span class="text-slate-400">{{ __('conference.controls.video_track_label') }}</span>
-                                    <span class="font-bold" :class="peerDiagnostics[p.id]?.hasVideo ? 'text-emerald-400' : 'text-slate-500'">
-                                        {{ peerDiagnostics[p.id]?.hasVideo ? 'دریافت فعال' : 'دوربین خاموش' }}
-                                    </span>
-                                </div>
-                            </div>
-                            <div v-if="peerDiagnostics[p.id]?.lastError" class="p-2 bg-rose-950/40 rounded-lg border border-rose-900/60 text-rose-300 font-mono text-[10px]">
-                                خطا: {{ peerDiagnostics[p.id]?.lastError }}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
-                    <button
-                        @click="restartAllPeerConnections"
-                        class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition shadow cursor-pointer"
-                    >
-                        {{ __('conference.controls.restart_ice_btn') }}
-                    </button>
-                    <button
-                        @click="isDiagnosticsModalOpen = false"
-                        class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
-                    >
-                        {{ __('conference.common.close') }}
-                    </button>
                 </div>
             </div>
         </div>
