@@ -580,6 +580,8 @@ return [
             'voice_bridge_test_ok' => 'ارتباط با سرور ارتباط صوتی با موفقیت برقرار شد (تأخیر: :latencyms).',
             'voice_bridge_secret_ok' => 'توکن امنیتی سرور با موفقیت تایید و احراز هویت شد.',
             'voice_bridge_secret_invalid' => '⚠️ اخطار: سرور ارتباط صوتی فعال است اما توکن امنیتی نامعتبر است!',
+            'voice_bridge_sync_success' => 'مشخصات سرور و رله‌های صوتی با موفقیت از سرور استعلام و در پایگاه‌داده همگام گردید.',
+            'voice_bridge_sync_invalid_params' => 'آدرس هاست و پورت سرور ارتباط صوتی جهت همگام‌سازی نامعتبر است.',
             'voice_bridge_bad_status' => 'پاسخ ناموفق از سرور ارتباط صوتی: وضعیت :status',
             'voice_bridge_unreachable' => 'عدم دسترسی به سرور ارتباط صوتی: :error',
         ],

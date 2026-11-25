@@ -91,6 +91,7 @@ class SettingController extends Controller
                 'turn_port' => (int) SystemSetting::get('voice_turn_port', 3478),
                 'turns_port' => (int) SystemSetting::get('voice_turns_port', 5349),
                 'turns_enabled' => (bool) (int) SystemSetting::get('voice_turns_enabled', '0'),
+                'turn_realm' => SystemSetting::get('voice_turn_realm', 'ravy-no'),
                 'offline_mode' => (bool) (int) SystemSetting::get('voice_offline_mode', '0'),
                 'stun_urls' => SystemSetting::get('voice_stun_urls', \App\Services\Communication\IceServerProvider::DEFAULT_STUN_URLS),
                 'turn_urls' => SystemSetting::get('voice_turn_urls', ''),
@@ -377,6 +378,7 @@ class SettingController extends Controller
             'turn_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'turns_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'turns_enabled' => ['boolean'],
+            'turn_realm' => ['nullable', 'string', 'max:100'],
             'offline_mode' => ['boolean'],
             'stun_urls' => ['nullable', 'string', 'max:1000'],
             'turn_urls' => ['nullable', 'string', 'max:1000'],
@@ -416,6 +418,9 @@ class SettingController extends Controller
         }
         if ($request->has('turns_enabled')) {
             SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
+        }
+        if ($request->has('turn_realm')) {
+            SystemSetting::set('voice_turn_realm', trim((string) ($validated['turn_realm'] ?? 'ravy-no')), 'TURN server authentication realm');
         }
         if ($request->has('offline_mode')) {
             SystemSetting::set('voice_offline_mode', $request->boolean('offline_mode') ? '1' : '0', __('controllers.admin.settings.desc_voice_offline_mode'));
@@ -521,6 +526,149 @@ class SettingController extends Controller
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
             ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => __('controllers.admin.settings.voice_bridge_unreachable', ['error' => $e->getMessage()]),
+            ], 422);
+        }
+    }
+
+    /**
+     * Auto-sync Voice Bridge, STUN, TURN, and SFU settings from live daemon.
+     */
+    public function syncVoiceBridge(Request $request): JsonResponse
+    {
+        $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
+        $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+        $secret = trim((string) $request->input('secret', SystemSetting::get('voice_bridge_secret', '')));
+
+        if (empty($host) || $port <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => __('controllers.admin.settings.voice_bridge_sync_invalid_params'),
+            ], 422);
+        }
+
+        try {
+            $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
+            $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
+                ->timeout(4.0)
+                ->get($healthUrl);
+
+            if (! $response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
+                ], 422);
+            }
+
+            $data = $response->json();
+            if (! is_array($data)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid JSON received from Voice Bridge daemon.',
+                ], 422);
+            }
+
+            // 1. Resolve effective host and relay IP
+            $serverReportedHost = trim((string) ($data['bridge_host'] ?? ''));
+            $relayIp = trim((string) ($data['stun_turn']['relay_ip'] ?? ''));
+            $effectiveHost = ($serverReportedHost !== '' && $serverReportedHost !== '0.0.0.0')
+                ? $serverReportedHost
+                : (($relayIp !== '' && $relayIp !== '0.0.0.0') ? $relayIp : $host);
+
+            $apiPort = (int) ($data['api_port'] ?? $port);
+            $wsPort = (int) ($data['ws_port'] ?? 49001);
+
+            // 2. TURN / STUN details
+            $turnInfo = is_array($data['stun_turn'] ?? null) ? $data['stun_turn'] : [];
+            $turnPort = (int) ($turnInfo['port'] ?? 3478);
+            $turnsPort = (int) ($turnInfo['turns_port'] ?? 5349);
+            $hasTurns = ! empty($turnInfo['has_tls']) || $turnsPort > 0;
+            $turnRealm = trim((string) ($turnInfo['realm'] ?? 'ravy-no'));
+            $turnDomainOrIp = ($relayIp !== '' && $relayIp !== '0.0.0.0') ? $relayIp : $effectiveHost;
+
+            // 3. SFU details
+            $sfuInfo = is_array($data['sfu'] ?? null) ? $data['sfu'] : [];
+            $sfuActive = ! empty($sfuInfo['enabled']);
+            $sfuWsPath = trim((string) ($sfuInfo['ws_path'] ?? '/ws/sfu'));
+            if ($sfuWsPath === '') {
+                $sfuWsPath = '/ws/sfu';
+            }
+            $sfuWsPath = '/' . ltrim($sfuWsPath, '/');
+
+            $sfuMinPort = 49152;
+            $sfuMaxPort = 49250;
+            if (! empty($sfuInfo['udp_port_range']) && is_string($sfuInfo['udp_port_range'])) {
+                $ports = explode('-', $sfuInfo['udp_port_range']);
+                if (count($ports) === 2) {
+                    $sfuMinPort = (int) $ports[0];
+                    $sfuMaxPort = (int) $ports[1];
+                }
+            }
+
+            // 4. Construct dedicated STUN and TURN URLs strictly from server parameters
+            $stunUrls = "stun:{$turnDomainOrIp}:{$turnPort}";
+            $turnUrlLines = [
+                "turn:{$turnDomainOrIp}:{$turnPort}?transport=udp",
+                "turn:{$turnDomainOrIp}:{$turnPort}?transport=tcp",
+            ];
+            if ($hasTurns && $turnsPort > 0) {
+                $turnUrlLines[] = "turns:{$turnDomainOrIp}:{$turnsPort}?transport=tcp";
+            }
+            $turnUrls = implode("\n", $turnUrlLines);
+
+            // 5. Persist synchronized configuration to SystemSettings
+            SystemSetting::set('voice_bridge_host', $effectiveHost, __('controllers.admin.settings.desc_voice_bridge_host'));
+            SystemSetting::set('voice_bridge_api_port', (string) $apiPort, __('controllers.admin.settings.desc_voice_bridge_api_port'));
+            SystemSetting::set('voice_bridge_ws_port', (string) $wsPort, __('controllers.admin.settings.desc_voice_bridge_ws_port'));
+            SystemSetting::set('voice_bridge_ws_public_url', "ws://{$effectiveHost}:{$wsPort}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+            SystemSetting::set('voice_bridge_enabled', '1', __('controllers.admin.settings.desc_voice_bridge_enabled'));
+            if ($secret !== '') {
+                SystemSetting::set('voice_bridge_secret', $secret, __('controllers.admin.settings.desc_voice_bridge_secret'));
+                SystemSetting::set('voice_turn_secret', $secret, __('controllers.admin.settings.desc_voice_turn_secret'));
+            }
+
+            SystemSetting::set('voice_turn_domain_or_ip', $turnDomainOrIp, __('controllers.admin.settings.desc_voice_turn_domain'));
+            SystemSetting::set('voice_turn_port', (string) $turnPort, __('controllers.admin.settings.desc_voice_turn_port'));
+            SystemSetting::set('voice_turns_port', (string) $turnsPort, __('controllers.admin.settings.desc_voice_turns_port'));
+            SystemSetting::set('voice_turns_enabled', $hasTurns ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
+            SystemSetting::set('voice_turn_realm', $turnRealm, 'TURN server authentication realm');
+            SystemSetting::set('voice_stun_urls', $stunUrls, __('controllers.admin.settings.desc_voice_stun_urls'));
+            SystemSetting::set('voice_turn_urls', $turnUrls, __('controllers.admin.settings.desc_voice_turn_urls'));
+
+            SystemSetting::set('voice_sfu_enabled', $sfuActive ? '1' : '0', 'Enable embedded SFU conference engine');
+            SystemSetting::set('voice_sfu_ws_path', $sfuWsPath, 'SFU WebSocket endpoint path');
+            SystemSetting::set('voice_sfu_ws_public_url', "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}", 'Public WSS URL for SFU conference');
+            SystemSetting::set('voice_sfu_min_port', (string) $sfuMinPort, 'SFU UDP media relay min port');
+            SystemSetting::set('voice_sfu_max_port', (string) $sfuMaxPort, 'SFU UDP media relay max port');
+
+            $this->logSettingChange($request, 'Voice bridge configuration auto-synchronized from live daemon.');
+
+            return response()->json([
+                'success' => true,
+                'message' => __('controllers.admin.settings.voice_bridge_sync_success'),
+                'synced' => [
+                    'host' => $effectiveHost,
+                    'api_port' => $apiPort,
+                    'ws_port' => $wsPort,
+                    'ws_public_url' => "ws://{$effectiveHost}:{$wsPort}/ws/signaling",
+                    'secret' => $secret,
+                    'turn_domain_or_ip' => $turnDomainOrIp,
+                    'turn_port' => $turnPort,
+                    'turns_port' => $turnsPort,
+                    'turns_enabled' => $hasTurns,
+                    'turn_realm' => $turnRealm,
+                    'stun_urls' => $stunUrls,
+                    'turn_urls' => $turnUrls,
+                    'sfu_enabled' => $sfuActive,
+                    'sfu_ws_path' => $sfuWsPath,
+                    'sfu_ws_public_url' => "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}",
+                    'sfu_min_port' => $sfuMinPort,
+                    'sfu_max_port' => $sfuMaxPort,
+                ],
+            ]);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

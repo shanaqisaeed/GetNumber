@@ -274,6 +274,7 @@ const remoteScreenVideoRef = ref<HTMLVideoElement | null>(null);
 const makingOfferMap = new Map<number, boolean>();
 const processedSignalKeys = new Set<string>();
 const pendingIceCandidates = new Map<number, RTCIceCandidateInit[]>();
+const lastIceRestartMap = new Map<number, number>();
 
 // In-Meeting Chat Notification State
 const unreadChatCount = ref(0);
@@ -498,13 +499,9 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     }
 
     const effectiveRtcConfig = props.rtcConfig || (props as any).rtc_config;
-    const defaultIceServers: RTCIceServer[] = effectiveRtcConfig?.isOfflineMode
-        ? []
-        : [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
-
-    const iceServers = Array.isArray(effectiveRtcConfig?.iceServers) && effectiveRtcConfig.iceServers.length > 0
+    const iceServers: RTCIceServer[] = Array.isArray(effectiveRtcConfig?.iceServers) && effectiveRtcConfig.iceServers.length > 0
         ? effectiveRtcConfig.iceServers
-        : defaultIceServers;
+        : [];
 
     const pc = new RTCPeerConnection({
         iceServers,
@@ -555,11 +552,20 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         const state = pc.iceConnectionState;
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 🔄 ICE Connection State: ${state}`);
         if (state === 'failed' || state === 'disconnected') {
-            console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ ICE state ${state}, attempting restartIce...`);
+            const now = Date.now();
+            const lastRestart = lastIceRestartMap.get(remoteParticipantId) || 0;
+            if (now - lastRestart < 8000) {
+                console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ ICE restart throttled.`);
+                return;
+            }
+            lastIceRestartMap.set(remoteParticipantId, now);
+            console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ ICE state ${state}, attempting restart...`);
             if (typeof pc.restartIce === 'function') {
                 pc.restartIce();
-            } else {
+            } else if (props.currentParticipant.id < remoteParticipantId) {
                 initiateOfferToPeer(remoteParticipantId, pc);
+            } else {
+                dispatchPeerSignal('renegotiate_needed', remoteParticipantId, {});
             }
         }
     };
@@ -568,8 +574,16 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         const state = pc.connectionState;
         console.log(`[WebRTC:Peer:${remoteParticipantId}] 🔗 Connection State: ${state}`);
         if (state === 'failed') {
+            const now = Date.now();
+            const lastRestart = lastIceRestartMap.get(remoteParticipantId) || 0;
+            if (now - lastRestart < 8000) return;
+            lastIceRestartMap.set(remoteParticipantId, now);
             console.warn(`[WebRTC:Peer:${remoteParticipantId}] ⚠️ Connection failed, re-establishing offer...`);
-            initiateOfferToPeer(remoteParticipantId, pc);
+            if (props.currentParticipant.id < remoteParticipantId) {
+                initiateOfferToPeer(remoteParticipantId, pc);
+            } else {
+                dispatchPeerSignal('renegotiate_needed', remoteParticipantId, {});
+            }
         }
     };
 
@@ -634,7 +648,11 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     };
 
     pc.onnegotiationneeded = async () => {
-        await initiateOfferToPeer(remoteParticipantId, pc);
+        if (props.currentParticipant.id < remoteParticipantId) {
+            await initiateOfferToPeer(remoteParticipantId, pc);
+        } else {
+            dispatchPeerSignal('renegotiate_needed', remoteParticipantId, {});
+        }
     };
 
     peerConnections.set(remoteParticipantId, pc);
@@ -642,6 +660,9 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
 }
 
 async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConnection) {
+    if (props.currentParticipant.id >= remoteParticipantId) {
+        return;
+    }
     const conn = pc || getOrCreatePeerConnection(remoteParticipantId);
     if (makingOfferMap.get(remoteParticipantId) || conn.signalingState !== 'stable') {
         return;
@@ -678,6 +699,13 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
     const pc = getOrCreatePeerConnection(senderParticipantId);
 
     try {
+        if (type === 'renegotiate_needed') {
+            if (props.currentParticipant.id < senderParticipantId) {
+                await initiateOfferToPeer(senderParticipantId, pc);
+            }
+            return;
+        }
+
         if (type === 'offer' && payload?.sdp) {
             const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
             const sanitized = sanitizeSdp(rawSdp);
@@ -799,10 +827,14 @@ async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
             } catch (e) {
                 console.warn('replaceTrack audio error:', e);
             }
-            await initiateOfferToPeer(peerId, pc);
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
+        }
+
+        if (props.currentParticipant.id < peerId) {
             await initiateOfferToPeer(peerId, pc);
+        } else {
+            dispatchPeerSignal('renegotiate_needed', peerId, {});
         }
     }
 }
@@ -819,10 +851,14 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
             } catch (e) {
                 console.warn('replaceTrack video error:', e);
             }
-            await initiateOfferToPeer(peerId, pc);
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
+        }
+
+        if (props.currentParticipant.id < peerId) {
             await initiateOfferToPeer(peerId, pc);
+        } else {
+            dispatchPeerSignal('renegotiate_needed', peerId, {});
         }
     }
 }

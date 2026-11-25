@@ -81,6 +81,7 @@ interface VoiceBridgeSettings {
     turn_port?: number;
     turns_port?: number;
     turns_enabled?: boolean;
+    turn_realm?: string;
     offline_mode?: boolean;
     stun_urls?: string;
     turn_urls?: string;
@@ -330,6 +331,7 @@ const bridgeForm = useForm({
     turn_port: props.voiceBridgeSettings?.turn_port || 3478,
     turns_port: props.voiceBridgeSettings?.turns_port || 5349,
     turns_enabled: props.voiceBridgeSettings?.turns_enabled ?? false,
+    turn_realm: props.voiceBridgeSettings?.turn_realm || 'ravy-no',
     offline_mode: props.voiceBridgeSettings?.offline_mode ?? false,
     stun_urls: props.voiceBridgeSettings?.stun_urls ?? '',
     turn_urls: props.voiceBridgeSettings?.turn_urls || '',
@@ -443,6 +445,57 @@ const submitVoiceBridge = () => {
 
 const testingBridge = ref(false);
 const bridgeTestResult = ref<{ success: boolean; message: string; data?: any; latency_ms?: number; auth_valid?: boolean; auth_required?: boolean } | null>(null);
+
+const syncingBridge = ref(false);
+const bridgeSyncResult = ref<{ success: boolean; message: string; synced?: any; data?: any } | null>(null);
+
+const syncBridgeConnection = async () => {
+    syncingBridge.value = true;
+    bridgeSyncResult.value = null;
+    try {
+        const res = await fetch(route('admin.settings.voice_bridge.sync'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            },
+            body: JSON.stringify({
+                host: bridgeForm.host,
+                api_port: bridgeForm.api_port,
+                secret: bridgeForm.secret,
+            }),
+        });
+        const result = await res.json();
+        bridgeSyncResult.value = result;
+        const synced = result.synced || result.data;
+        if (result.success && synced) {
+            if (synced.host) bridgeForm.host = synced.host;
+            if (synced.api_port) bridgeForm.api_port = synced.api_port;
+            if (synced.ws_port) bridgeForm.ws_port = synced.ws_port;
+            if (synced.ws_public_url !== undefined) bridgeForm.ws_public_url = synced.ws_public_url;
+            if (synced.turn_domain_or_ip) bridgeForm.turn_domain_or_ip = synced.turn_domain_or_ip;
+            if (synced.turn_port) bridgeForm.turn_port = synced.turn_port;
+            if (synced.turns_port) bridgeForm.turns_port = synced.turns_port;
+            if (synced.turns_enabled !== undefined) bridgeForm.turns_enabled = Boolean(synced.turns_enabled);
+            if (synced.turn_realm) bridgeForm.turn_realm = synced.turn_realm;
+            if (synced.stun_urls) bridgeForm.stun_urls = synced.stun_urls;
+            if (synced.turn_urls) bridgeForm.turn_urls = synced.turn_urls;
+            if (synced.secret) {
+                bridgeForm.secret = synced.secret;
+                bridgeForm.turn_secret = synced.secret;
+            }
+            if (synced.sfu_min_port) bridgeForm.sfu_min_port = synced.sfu_min_port;
+            if (synced.sfu_max_port) bridgeForm.sfu_max_port = synced.sfu_max_port;
+            if (synced.sfu_ws_path) bridgeForm.sfu_ws_path = synced.sfu_ws_path;
+            if (synced.sfu_ws_public_url !== undefined) bridgeForm.sfu_ws_public_url = synced.sfu_ws_public_url;
+        }
+    } catch {
+        bridgeSyncResult.value = { success: false, message: __('admin.settings.general.bridge_network_error') };
+    } finally {
+        syncingBridge.value = false;
+    }
+};
 
 const testBridgeConnection = async () => {
     testingBridge.value = true;
@@ -1097,15 +1150,44 @@ const testBridgeConnection = async () => {
                                             {{ __('admin.settings.general.bridge_health_desc') }}
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        @click="testBridgeConnection"
-                                        :disabled="testingBridge"
-                                        class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
-                                    >
-                                        <span v-if="testingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                        <span>{{ testingBridge ? __('admin.settings.general.bridge_testing') : __('admin.settings.general.bridge_test_btn') }}</span>
-                                    </button>
+                                    <div class="flex items-center gap-2">
+                                        <button
+                                            type="button"
+                                            @click="testBridgeConnection"
+                                            :disabled="testingBridge || syncingBridge"
+                                            class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            <span v-if="testingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            <span>{{ testingBridge ? __('admin.settings.general.bridge_testing') : __('admin.settings.general.bridge_test_btn') }}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            @click="syncBridgeConnection"
+                                            :disabled="testingBridge || syncingBridge"
+                                            class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            <span v-if="syncingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            <span v-else>🔄</span>
+                                            <span>{{ syncingBridge ? __('admin.settings.general.bridge_syncing') : __('admin.settings.general.bridge_sync_btn') }}</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Live Sync result -->
+                                <div
+                                    v-if="bridgeSyncResult"
+                                    class="p-3 rounded-xl border text-xs space-y-1.5"
+                                    :class="bridgeSyncResult.success ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-800 dark:text-indigo-200' : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
+                                >
+                                    <div class="font-bold flex items-center gap-1.5">
+                                        <span>{{ bridgeSyncResult.success ? '✓' : '✗' }}</span>
+                                        <span>{{ bridgeSyncResult.message }}</span>
+                                    </div>
+                                    <div v-if="bridgeSyncResult.synced || bridgeSyncResult.data" class="font-mono text-[11px] space-y-0.5 pt-1 border-t border-indigo-500/20" dir="ltr">
+                                        <div>Synced Host: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).host }} | API: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).api_port }} | WS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).ws_port }}</div>
+                                        <div>Relay: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_domain_or_ip }}:{{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_port }} | Realm: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_realm || 'ravy-no' }} | TURNS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turns_port || 5349 }}</div>
+                                        <div>SFU Media: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_min_port || 49152 }}-{{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_max_port || 49250 }}/UDP | Path: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_ws_path || '/ws/sfu' }}</div>
+                                    </div>
                                 </div>
 
                                 <!-- Feedback result -->
@@ -1395,8 +1477,8 @@ const testBridgeConnection = async () => {
                                 </div>
 
                                 <!-- Dedicated STUN/TURN Host & Ports -->
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div class="sm:col-span-1">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div>
                                         <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                                             {{ __('admin.settings.general.turn_host_label') }}
                                         </label>
@@ -1457,6 +1539,23 @@ const testBridgeConnection = async () => {
                                             </label>
                                         </div>
                                         <InputError :message="bridgeForm.errors.turns_port" class="mt-1" />
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                            {{ __('admin.settings.general.turn_realm_label') }}
+                                        </label>
+                                        <input
+                                            v-model="bridgeForm.turn_realm"
+                                            type="text"
+                                            :placeholder="__('admin.settings.general.turn_realm_placeholder')"
+                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                            dir="ltr"
+                                        />
+                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                            {{ __('admin.settings.general.turn_realm_help') }}
+                                        </p>
+                                        <InputError :message="bridgeForm.errors.turn_realm" class="mt-1" />
                                     </div>
                                 </div>
 

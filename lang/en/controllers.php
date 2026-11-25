@@ -580,6 +580,8 @@ return [
             'voice_bridge_test_ok' => 'Connected to Voice Bridge server successfully (Ping: :latencyms).',
             'voice_bridge_secret_ok' => 'Security token (Secret) was also verified and authenticated.',
             'voice_bridge_secret_invalid' => '⚠️ Warning: Bridge server is active, but the provided security token is invalid!',
+            'voice_bridge_sync_success' => 'Voice server and relay endpoints successfully retrieved and synchronized into database.',
+            'voice_bridge_sync_invalid_params' => 'Voice server host and API port parameters are invalid for synchronization.',
             'voice_bridge_bad_status' => 'Unsuccessful response from Bridge server: status :status',
             'voice_bridge_unreachable' => 'Cannot reach voice service server: :error',
         ],
