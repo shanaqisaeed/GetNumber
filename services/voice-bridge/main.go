@@ -62,6 +62,16 @@ type Config struct {
 	SFUWSPath  string
 	SFUMinPort int
 	SFUMaxPort int
+
+	// Redis Integration Configuration
+	RedisHost     string
+	RedisPort     int
+	RedisPassword string
+	RedisDB       int
+
+	// UDP Media Port Pool (Capacity up to 300 ports)
+	UDPPoolMinPort int
+	UDPPoolMaxPort int
 }
 
 // --- STRING CLEANING & DOTENV HELPERS ---
@@ -121,8 +131,18 @@ func loadConfig() Config {
 	// SFU Conference Engine flags
 	flagSFUEnabled := flag.Bool("sfu-enabled", true, "Enable embedded SFU conference engine (default true or SFU_ENABLED)")
 	flagSFUWSPath := flag.String("sfu-ws-path", "", "SFU WebSocket endpoint path (default /ws/sfu or SFU_WS_PATH)")
-	flagSFUMinPort := flag.Int("sfu-min-port", 0, "SFU media min UDP port (default 49152 or SFU_MIN_PORT)")
-	flagSFUMaxPort := flag.Int("sfu-max-port", 0, "SFU media max UDP port (default 49250 or SFU_MAX_PORT)")
+	flagSFUMinPort := flag.Int("sfu-min-port", 0, "SFU media min UDP port (default 49001 or SFU_MIN_PORT)")
+	flagSFUMaxPort := flag.Int("sfu-max-port", 0, "SFU media max UDP port (default 49300 or SFU_MAX_PORT)")
+
+	// Redis Integration flags
+	flagRedisHost := flag.String("redis-host", "", "Redis host (default 127.0.0.1 or REDIS_HOST)")
+	flagRedisPort := flag.Int("redis-port", 0, "Redis port (default 6379 or REDIS_PORT)")
+	flagRedisPass := flag.String("redis-pass", "", "Redis password (or REDIS_PASSWORD)")
+	flagRedisDB := flag.Int("redis-db", 0, "Redis DB number (default 0 or REDIS_DB)")
+
+	// UDP Media Port Pool flags (capacity up to 300 ports)
+	flagUDPPoolMin := flag.Int("udp-pool-min", 0, "UDP media port pool min (default 49001 or UDP_POOL_MIN_PORT)")
+	flagUDPPoolMax := flag.Int("udp-pool-max", 0, "UDP media port pool max (default 49300 or UDP_POOL_MAX_PORT)")
 	flag.Parse()
 
 	// Automatically load .env file if present in working directory or binary directory
@@ -278,7 +298,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnMinPort == 0 {
-		turnMinPort = 49152
+		turnMinPort = 49001
 	}
 
 	turnMaxPort := *flagTurnMaxPort
@@ -290,7 +310,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnMaxPort == 0 {
-		turnMaxPort = 49250
+		turnMaxPort = 49300
 	}
 
 	turnSecret := cleanEnvStr(*flagTurnSecret)
@@ -371,13 +391,76 @@ func loadConfig() Config {
 		sfuMaxPort = turnMaxPort
 	}
 	if sfuMinPort <= 0 || sfuMinPort > 65535 {
-		sfuMinPort = 49152
+		sfuMinPort = 49001
 	}
 	if sfuMaxPort <= 0 || sfuMaxPort > 65535 || sfuMaxPort < sfuMinPort {
-		sfuMaxPort = 49250
+		sfuMaxPort = 49300
 	}
 	if !strings.HasPrefix(sfuWSPath, "/") {
 		sfuWSPath = "/" + sfuWSPath
+	}
+
+	// UDP Media Port Pool (up to 300 UDP ports)
+	udpPoolMin := *flagUDPPoolMin
+	if udpPoolMin == 0 {
+		if p := cleanEnvStr(os.Getenv("UDP_POOL_MIN_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				udpPoolMin = val
+			}
+		}
+	}
+	if udpPoolMin == 0 {
+		udpPoolMin = sfuMinPort
+	}
+
+	udpPoolMax := *flagUDPPoolMax
+	if udpPoolMax == 0 {
+		if p := cleanEnvStr(os.Getenv("UDP_POOL_MAX_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				udpPoolMax = val
+			}
+		}
+	}
+	if udpPoolMax == 0 {
+		udpPoolMax = sfuMaxPort
+	}
+	if udpPoolMax < udpPoolMin {
+		udpPoolMax = udpPoolMin + 299
+	}
+
+	// Redis Configuration
+	redisHost := cleanEnvStr(*flagRedisHost)
+	if redisHost == "" {
+		redisHost = cleanEnvStr(os.Getenv("REDIS_HOST"))
+	}
+	if redisHost == "" {
+		redisHost = "127.0.0.1"
+	}
+
+	redisPort := *flagRedisPort
+	if redisPort == 0 {
+		if p := cleanEnvStr(os.Getenv("REDIS_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				redisPort = val
+			}
+		}
+	}
+	if redisPort == 0 {
+		redisPort = 6379
+	}
+
+	redisPass := cleanEnvStr(*flagRedisPass)
+	if redisPass == "" {
+		redisPass = cleanEnvStr(os.Getenv("REDIS_PASSWORD"))
+	}
+
+	redisDB := *flagRedisDB
+	if redisDB == 0 {
+		if p := cleanEnvStr(os.Getenv("REDIS_DB")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				redisDB = val
+			}
+		}
 	}
 
 	return Config{
@@ -403,6 +486,12 @@ func loadConfig() Config {
 		SFUWSPath:      sfuWSPath,
 		SFUMinPort:     sfuMinPort,
 		SFUMaxPort:     sfuMaxPort,
+		RedisHost:      redisHost,
+		RedisPort:      redisPort,
+		RedisPassword:  redisPass,
+		RedisDB:        redisDB,
+		UDPPoolMinPort: udpPoolMin,
+		UDPPoolMaxPort: udpPoolMax,
 	}
 }
 
@@ -1951,7 +2040,7 @@ func (lph *LocalPushHub) Count() int {
 
 // --- REST API SERVER ---
 
-func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub, turnSrv *TurnServer, sfuHub *SFUHub, startTime time.Time) *http.Server {
+func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub, turnSrv *TurnServer, sfuHub *SFUHub, redisMgr *RedisManager, udpPool *UDPPortPool, startTime time.Time) *http.Server {
 	mux := http.NewServeMux()
 
 	// CORS & Auth Middleware Helper
@@ -1959,7 +2048,7 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Bridge-Secret")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Bridge-Secret, X-Voice-Bridge-Secret")
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
@@ -1985,6 +2074,9 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 			next(w, r)
 		})
 	}
+
+	// 0. Asymmetric Handshake & Diagnostics endpoint (Two-way test & Auto-Configuration)
+	mux.HandleFunc("/api/handshake", cors(handleHandshake(&cfg, redisMgr, udpPool, turnSrv, sfuHub)))
 
 	// 1. Health check (public, but verifies secret if supplied)
 	mux.HandleFunc("/health", cors(func(w http.ResponseWriter, r *http.Request) {
@@ -2031,10 +2123,23 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 			}
 		}
 
+		redisData := map[string]interface{}{"status": "not_configured", "connected": false}
+		if redisMgr != nil {
+			conn, lat, msg := redisMgr.PingStatus()
+			redisData["connected"] = conn
+			redisData["latency_ms"] = lat
+			redisData["status"] = msg
+		}
+
+		udpPoolData := map[string]interface{}{}
+		if udpPool != nil {
+			udpPoolData = udpPool.Stats()
+		}
+
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"status":          "ok",
 			"service":         "RavyNo Voice Bridge Daemon",
-			"version":         "2.3.0",
+			"version":         "2.4.0",
 			"uptime_seconds":  uptime,
 			"active_sessions": store.TotalActive(),
 			"bridge_host":     cfg.Host,
@@ -2045,6 +2150,8 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 			"auth_valid":      authValid,
 			"stun_turn":       turnInfo,
 			"sfu":             sfuInfo,
+			"redis":           redisData,
+			"udp_pool":        udpPoolData,
 			"local_push": map[string]interface{}{
 				"enabled":           true,
 				"ws_path":           "/ws/local-push",
@@ -2357,9 +2464,26 @@ func main() {
 	hub := NewSignalingHub(store, cfg.Secret, cfg.CallbackURL)
 	localPushHub := NewLocalPushHub(cfg.Secret, cfg.CallbackURL)
 
+	// 1. Initialize Redis Manager (with high-speed local memory fallback)
+	redisMgr := NewRedisManager(RedisConfig{
+		Host:     cfg.RedisHost,
+		Port:     cfg.RedisPort,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+	defer redisMgr.Close()
+
+	// 2. Initialize 300 UDP Ports Media Pool with 5-Tuple Multiplexing
+	udpPool := NewUDPPortPool(UDPPoolConfig{
+		MinPort: cfg.UDPPoolMinPort,
+		MaxPort: cfg.UDPPoolMaxPort,
+		Host:    cfg.Host,
+	}, redisMgr)
+	defer udpPool.Close()
+
 	var sfuHub *SFUHub
 	if cfg.SFUEnabled {
-		sfuHub = NewSFUHub(cfg.Secret, cfg.SFUMinPort, cfg.SFUMaxPort)
+		sfuHub = NewSFUHub(cfg.Secret, cfg.SFUMinPort, cfg.SFUMaxPort, udpPool, redisMgr)
 	}
 
 	turnSrv, err := startTurnServer(cfg)
@@ -2368,13 +2492,23 @@ func main() {
 	}
 
 	fmt.Println("==================================================================")
-	fmt.Println("🚀 RavyNo Voice Bridge, Local Push & STUN/TURN Media Relay 2.2")
+	fmt.Println("🚀 RavyNo Voice Bridge, Local Push & STUN/TURN Media Relay 2.4")
 	fmt.Println("------------------------------------------------------------------")
 	fmt.Printf("📡 REST API Engine:       http://%s:%d\n", cfg.Host, cfg.APIPort)
 	fmt.Printf("⚡ WebSocket Signaling:   ws://%s:%d/ws/signaling\n", cfg.Host, cfg.WSPort)
 	fmt.Printf("📲 Local Push Server:     ws://%s:%d/ws/local-push\n", cfg.Host, cfg.WSPort)
 	if cfg.SFUEnabled {
 		fmt.Printf("🎥 SFU Conference Hub:    ws://%s:%d%s (UDP Ports: %d-%d)\n", cfg.Host, cfg.WSPort, cfg.SFUWSPath, cfg.SFUMinPort, cfg.SFUMaxPort)
+	}
+	if udpPool != nil {
+		fmt.Printf("🏊 UDP Media Port Pool:   %d ports (%d-%d, Capacity: 20,000 rooms)\n", udpPool.totalPorts, udpPool.minPort, udpPool.maxPort)
+	}
+	if redisMgr != nil {
+		if redisMgr.IsAvailable() {
+			fmt.Printf("📦 Redis Distributed:     redis://%s:%d (Connected)\n", cfg.RedisHost, cfg.RedisPort)
+		} else {
+			fmt.Printf("📦 State Storage Mode:    Local High-Speed In-Memory (Redis offline or uninstalled)\n")
+		}
 	}
 	if cfg.TurnEnabled {
 		fmt.Printf("🔄 STUN Server:           stun:%s:%d (UDP/TCP)\n", cfg.Host, cfg.TurnPort)
@@ -2395,7 +2529,7 @@ func main() {
 	fmt.Println("👉 Set this secret in Admin: Settings > Voice Bridge > Secret")
 	fmt.Println("==================================================================")
 
-	apiServer := startAPIServer(cfg, store, localPushHub, turnSrv, sfuHub, startTime)
+	apiServer := startAPIServer(cfg, store, localPushHub, turnSrv, sfuHub, redisMgr, udpPool, startTime)
 	wsServer := startWSServer(cfg, hub, localPushHub, sfuHub)
 
 	// Graceful shutdown handling

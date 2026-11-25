@@ -190,6 +190,14 @@ func (r *SFURoom) EnsureUDPRelay() int {
 		return r.UDPRelay.Port
 	}
 
+	if r.Hub != nil && r.Hub.udpPool != nil {
+		port, err := r.Hub.udpPool.AllocatePort(r)
+		if err == nil && port > 0 {
+			return port
+		}
+		log.Printf("[SFU] Warning: UDPPortPool AllocatePort failed: %v", err)
+	}
+
 	relay, err := r.Hub.BindUDPRelay(r)
 	if err != nil {
 		log.Printf("[SFU] Warning: Could not bind dedicated UDP relay port for room %s: %v", r.UUID, err)
@@ -244,9 +252,11 @@ type SFUHub struct {
 	activePorts         map[int]bool
 	portLock            sync.Mutex
 	totalForwardedBytes uint64
+	udpPool             *UDPPortPool
+	redisMgr            *RedisManager
 }
 
-func NewSFUHub(secret string, minPort, maxPort int) *SFUHub {
+func NewSFUHub(secret string, minPort, maxPort int, udpPool *UDPPortPool, redisMgr *RedisManager) *SFUHub {
 	if minPort <= 0 {
 		minPort = 49152
 	}
@@ -262,6 +272,8 @@ func NewSFUHub(secret string, minPort, maxPort int) *SFUHub {
 		maxPort:     maxPort,
 		nextPort:    maxPort,
 		activePorts: make(map[int]bool),
+		udpPool:     udpPool,
+		redisMgr:    redisMgr,
 	}
 }
 
@@ -281,13 +293,19 @@ func (hub *SFUHub) Stats() map[string]interface{} {
 	allocatedPorts := len(hub.activePorts)
 	hub.portLock.Unlock()
 
-	return map[string]interface{}{
+	stats := map[string]interface{}{
 		"active_rooms":        roomCount,
 		"active_peers":        peerCount,
 		"allocated_udp_ports": allocatedPorts,
 		"udp_port_range":      fmt.Sprintf("%d-%d", hub.minPort, hub.maxPort),
 		"forwarded_bytes":     atomic.LoadUint64(&hub.totalForwardedBytes),
 	}
+
+	if hub.udpPool != nil {
+		stats["udp_pool"] = hub.udpPool.Stats()
+	}
+
+	return stats
 }
 
 // Close gracefully closes all active rooms, WebSocket connections, and UDP relays on daemon shutdown.
@@ -407,9 +425,14 @@ func (hub *SFUHub) RemovePeer(roomUUID, peerID string) {
 	remaining := len(room.Peers)
 	var relayToRelease *SFUUDPRelay
 	// Release UDP relay port only when room becomes completely empty
-	if remaining == 0 && room.UDPRelay != nil {
-		relayToRelease = room.UDPRelay
-		room.UDPRelay = nil
+	if remaining == 0 {
+		if room.UDPRelay != nil {
+			relayToRelease = room.UDPRelay
+			room.UDPRelay = nil
+		}
+		if hub.udpPool != nil {
+			hub.udpPool.ReleasePort(roomUUID)
+		}
 	}
 	room.Unlock()
 
@@ -649,8 +672,15 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			}
 			currentRoom.Peers[peerID] = currentPeer
 			peerCount := len(currentRoom.Peers)
-			wbHistory := make([]json.RawMessage, len(currentRoom.WhiteboardHistory))
-			copy(wbHistory, currentRoom.WhiteboardHistory)
+
+			var wbHistory []json.RawMessage
+			if currentRoom.Hub != nil && currentRoom.Hub.redisMgr != nil {
+				wbHistory, _ = currentRoom.Hub.redisMgr.GetWhiteboardHistory(roomUUID)
+			}
+			if len(wbHistory) == 0 {
+				wbHistory = make([]json.RawMessage, len(currentRoom.WhiteboardHistory))
+				copy(wbHistory, currentRoom.WhiteboardHistory)
+			}
 			currentRoom.Unlock()
 
 			// Always enable SFU with UDP relay for guaranteed media transfer across all NATs/networks
@@ -923,11 +953,15 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			msg.PhoneNumber = currentPeer.PhoneNumber
 			msg.DisplayName = currentPeer.DisplayName
 
-			currentRoom.Lock()
-			if len(currentRoom.WhiteboardHistory) < 500 {
-				currentRoom.WhiteboardHistory = append(currentRoom.WhiteboardHistory, msg.Payload)
+			if currentRoom.Hub != nil && currentRoom.Hub.redisMgr != nil {
+				_ = currentRoom.Hub.redisMgr.SaveWhiteboardStroke(currentRoom.UUID, msg.Payload)
+			} else {
+				currentRoom.Lock()
+				if len(currentRoom.WhiteboardHistory) < 1000 {
+					currentRoom.WhiteboardHistory = append(currentRoom.WhiteboardHistory, msg.Payload)
+				}
+				currentRoom.Unlock()
 			}
-			currentRoom.Unlock()
 
 			currentRoom.Broadcast(msg, currentPeer.ID)
 
@@ -944,6 +978,9 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 		case "whiteboard_clear":
 			if currentPeer == nil || currentRoom == nil {
 				continue
+			}
+			if currentRoom.Hub != nil && currentRoom.Hub.redisMgr != nil {
+				_ = currentRoom.Hub.redisMgr.ClearWhiteboard(currentRoom.UUID)
 			}
 			currentRoom.Lock()
 			currentRoom.WhiteboardHistory = make([]json.RawMessage, 0)

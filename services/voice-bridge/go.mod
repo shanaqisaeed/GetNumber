@@ -3,6 +3,7 @@ module ravy-no/voice-bridge
 go 1.27.3
 
 require (
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/pion/dtls/v3 v3.0.7 // indirect
 	github.com/pion/logging v0.2.4 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
@@ -10,7 +11,9 @@ require (
 	github.com/pion/transport/v3 v3.0.8 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pion/turn/v4 v4.1.4 // indirect
+	github.com/redis/go-redis/v9 v9.24.0 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
+	go.uber.org/atomic v1.12.0 // indirect
 	golang.org/x/crypto v0.32.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
 )
