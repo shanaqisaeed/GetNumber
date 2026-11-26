@@ -1699,10 +1699,19 @@ function connectSFU() {
             wsUrl = `ws://${window.location.hostname}:${wsPort}${wsPath}`;
         }
     } else if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        if (!isLocal) {
-            // Avoid Mixed-Content block on HTTPS browsers by upgrading to same-origin WSS proxy
-            wsUrl = `wss://${window.location.host}${wsPath}`;
+        // Upgrade ws:// to wss:// for HTTPS to avoid Mixed-Content, preserving the remote bridge host
+        try {
+            const parsed = new URL(wsUrl.replace(/^ws:\/\//i, 'http://'));
+            const isLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+            if (isLocal) {
+                wsUrl = `ws://${parsed.hostname}:${parsed.port || wsPort}${parsed.pathname || wsPath}`;
+            } else {
+                const hasDomain = parsed.hostname.includes('.');
+                const targetPort = (!hasDomain && parsed.port && parsed.port !== '49001' && parsed.port !== '80') ? `:${parsed.port}` : '';
+                wsUrl = `wss://${parsed.hostname}${targetPort}${parsed.pathname || wsPath}`;
+            }
+        } catch {
+            wsUrl = wsUrl.replace(/^ws:\/\//i, 'wss://');
         }
     }
 
@@ -1710,7 +1719,7 @@ function connectSFU() {
         sfuSocket = new WebSocket(wsUrl);
 
         sfuSocket.onopen = () => {
-            console.log('[SFU] WebSocket connection established successfully');
+            console.log('[SFU] WebSocket connection established successfully on', wsUrl);
             sfuConnectionStatus.value = 'connected';
             sendSFUMessage('join', {
                 room_uuid: props.room.uuid,
@@ -1720,6 +1729,8 @@ function connectSFU() {
                 display_name: props.currentParticipant.display_name,
                 role: props.currentParticipant.role,
                 webinar_mode: isWebinarMode.value,
+                is_muted: isMuted.value,
+                can_share_screen: canShareScreen.value,
             });
         };
 

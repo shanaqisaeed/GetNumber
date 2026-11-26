@@ -313,6 +313,26 @@ class ConferenceController extends Controller
             $participant = $joinRes['participant'];
         }
 
+        if (! $participant && $room->admission_policy === 'open') {
+            // Auto-admit participant when entering an open room directly
+            $operableLines = SoftphoneDashboardController::resolveOperableLines($user);
+            $defaultPhone = $operableLines->first()['number'] ?? ($user->account_id ?: ('USER-' . $user->id));
+            try {
+                $joinRes = $this->conferenceService->joinRoom(
+                    $room,
+                    $user,
+                    $defaultPhone,
+                    null,
+                    [
+                        'ip' => $request->ip(),
+                        'is_camera_on' => false,
+                        'is_muted' => false,
+                    ]
+                );
+                $participant = $joinRes['participant'];
+            } catch (\Throwable $e) {}
+        }
+
         if (! $isHost && (! $participant || $participant->status !== 'admitted')) {
             return redirect()->route('org.conference.lobby', ['uuid' => $room->room_uuid])
                 ->with('error', __('conference.lobby.waiting_desc'));
@@ -350,6 +370,7 @@ class ConferenceController extends Controller
         } else {
             $bridgeHost = trim((string) SystemSetting::get('voice_bridge_host', ''));
             $turnHost = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+            $connMode = trim((string) SystemSetting::get('voice_connection_mode', ''));
             $effectiveHost = '';
             if ($bridgeHost !== '' && $bridgeHost !== '127.0.0.1' && $bridgeHost !== '0.0.0.0') {
                 $effectiveHost = $bridgeHost;
@@ -358,7 +379,12 @@ class ConferenceController extends Controller
             }
             if ($effectiveHost !== '') {
                 $cleanHost = preg_replace('#^https?://#', '', rtrim($effectiveHost, '/'));
-                $sfuWsUrl = "ws://{$cleanHost}:{$bridgeWsPort}{$sfuWsPath}";
+                $isDomain = $connMode === 'domain' || (str_contains($cleanHost, '.') && ! preg_match('#^\d{1,3}(\.\d{1,3}){3}$#', $cleanHost));
+                if ($isDomain) {
+                    $sfuWsUrl = "wss://{$cleanHost}{$sfuWsPath}";
+                } else {
+                    $sfuWsUrl = "ws://{$cleanHost}:{$bridgeWsPort}{$sfuWsPath}";
+                }
             }
         }
 

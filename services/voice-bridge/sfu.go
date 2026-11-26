@@ -175,6 +175,7 @@ type SFURoom struct {
 	WhiteboardHistory []json.RawMessage
 	UDPRelay          *SFUUDPRelay
 	Hub               *SFUHub
+	EmptySince        time.Time
 }
 
 // TopologyMode returns "sfu" for all conference rooms ensuring stable UDP media relay across all NAT/firewalls.
@@ -265,7 +266,7 @@ func NewSFUHub(secret string, minPort, maxPort int, udpPool *UDPPortPool, redisM
 	}
 
 	// Start SFU allocation from maxPort downward so it naturally avoids TURN allocations starting from minPort upward
-	return &SFUHub{
+	hub := &SFUHub{
 		rooms:       make(map[string]*SFURoom),
 		secret:      secret,
 		minPort:     minPort,
@@ -274,6 +275,59 @@ func NewSFUHub(secret string, minPort, maxPort int, udpPool *UDPPortPool, redisM
 		activePorts: make(map[int]bool),
 		udpPool:     udpPool,
 		redisMgr:    redisMgr,
+	}
+	hub.startJanitor()
+	return hub
+}
+
+// startJanitor starts a background worker that checks and releases ports for rooms that remain empty past deadline.
+func (hub *SFUHub) startJanitor() {
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			hub.cleanIdleRooms()
+		}
+	}()
+}
+
+// cleanIdleRooms scans all conference rooms and releases UDP ports for rooms that have been empty for 30+ seconds.
+func (hub *SFUHub) cleanIdleRooms() {
+	hub.Lock()
+	defer hub.Unlock()
+
+	now := time.Now()
+	for uuid, room := range hub.rooms {
+		room.Lock()
+		peerCount := len(room.Peers)
+		var relayToRelease *SFUUDPRelay
+		shouldDelete := false
+
+		if peerCount == 0 {
+			if room.EmptySince.IsZero() {
+				room.EmptySince = now
+			} else if now.Sub(room.EmptySince) >= 30*time.Second {
+				shouldDelete = true
+				if room.UDPRelay != nil {
+					relayToRelease = room.UDPRelay
+					room.UDPRelay = nil
+				}
+				if hub.udpPool != nil {
+					hub.udpPool.ReleasePort(uuid)
+				}
+				log.Printf("[SFU-GC] 🧹 Room %s deadline reached (empty for %v). UDP Port and resources released.", uuid, now.Sub(room.EmptySince).Round(time.Second))
+			}
+		} else {
+			room.EmptySince = time.Time{}
+		}
+		room.Unlock()
+
+		if relayToRelease != nil {
+			hub.ReleaseUDPRelay(relayToRelease)
+		}
+		if shouldDelete {
+			delete(hub.rooms, uuid)
+		}
 	}
 }
 
@@ -584,6 +638,8 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				DisplayName   string `json:"display_name"`
 				Role          string `json:"role"`
 				WebinarMode   *bool  `json:"webinar_mode"`
+				IsMuted       *bool  `json:"is_muted"`
+				CanShareScreen *bool `json:"can_share_screen"`
 			}
 			if len(msg.Payload) > 0 {
 				_ = json.Unmarshal(msg.Payload, &joinPayload)
@@ -630,6 +686,18 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				currentRoom.Unlock()
 			}
 
+			isMuted := false
+			if joinPayload.IsMuted != nil {
+				isMuted = *joinPayload.IsMuted
+			} else if currentRoom.WebinarMode && role != "host" {
+				isMuted = true
+			}
+
+			canShare := role == "host" || currentRoom.ScreenSharePolicy == "everyone"
+			if joinPayload.CanShareScreen != nil {
+				canShare = *joinPayload.CanShareScreen
+			}
+
 			currentPeer = &SFUPeer{
 				ID:              peerID,
 				RoomUUID:        roomUUID,
@@ -639,9 +707,9 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				Role:            role,
 				Conn:            conn,
 				Writer:          bufrw.Writer,
-				IsMuted:         role != "host",
+				IsMuted:         isMuted,
 				IsCameraOn:      false,
-				CanShareScreen:  role == "host",
+				CanShareScreen:  canShare,
 				IsSharingScreen: false,
 				HandRaised:      false,
 				JoinedAt:        time.Now(),
