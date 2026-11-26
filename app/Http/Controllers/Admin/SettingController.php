@@ -705,9 +705,25 @@ class SettingController extends Controller
      */
     public function syncVoiceBridge(Request $request): JsonResponse
     {
-        $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
-        $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+        $connectionMode = $request->input('connection_mode', SystemSetting::get('voice_bridge_connection_mode', 'domain'));
         $secret = trim((string) $request->input('secret', SystemSetting::get('voice_bridge_secret', '')));
+
+        if ($connectionMode === 'domain' || ($request->filled('domain') && ! $request->filled('host'))) {
+            $domain = trim((string) $request->input('domain', SystemSetting::get('voice_bridge_domain', '')));
+            $cleanDomain = preg_replace('#^https?://#', '', $domain);
+            $cleanDomain = rtrim($cleanDomain, '/');
+            $useSsl = $request->boolean('use_ssl', (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1'));
+            $scheme = $useSsl ? 'https' : 'http';
+            $handshakeUrl = "{$scheme}://{$cleanDomain}/api/handshake";
+            $healthUrl = "{$scheme}://{$cleanDomain}/health";
+            $host = $cleanDomain;
+            $port = $useSsl ? 443 : 80;
+        } else {
+            $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
+            $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+            $handshakeUrl = "http://{$host}:{$port}/api/handshake";
+            $healthUrl = "http://{$host}:{$port}/health";
+        }
 
         if (empty($host) || $port <= 0) {
             return response()->json([
@@ -718,8 +734,6 @@ class SettingController extends Controller
 
         try {
             $callbackUrl = route('api.voice.bridge_event');
-            $handshakeUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/api/handshake');
-            $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
 
             \Illuminate\Support\Facades\Log::info("[VoiceBridge] Two-way syncing settings via {$handshakeUrl} (Callback: {$callbackUrl})");
 
@@ -828,10 +842,22 @@ class SettingController extends Controller
             $turnUrls = implode("\n", $turnUrlLines);
 
             // 5. Persist synchronized configuration to SystemSettings
-            SystemSetting::set('voice_bridge_host', $effectiveHost, __('controllers.admin.settings.desc_voice_bridge_host'));
-            SystemSetting::set('voice_bridge_api_port', (string) $apiPort, __('controllers.admin.settings.desc_voice_bridge_api_port'));
-            SystemSetting::set('voice_bridge_ws_port', (string) $wsPort, __('controllers.admin.settings.desc_voice_bridge_ws_port'));
-            SystemSetting::set('voice_bridge_ws_public_url', "ws://{$effectiveHost}:{$wsPort}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+            SystemSetting::set('voice_bridge_connection_mode', $connectionMode);
+            if ($connectionMode === 'domain') {
+                SystemSetting::set('voice_bridge_domain', $cleanDomain);
+                SystemSetting::set('voice_bridge_use_ssl', $useSsl ? '1' : '0');
+                $wsProto = $useSsl ? 'wss' : 'ws';
+                SystemSetting::set('voice_bridge_ws_public_url', "{$wsProto}://{$cleanDomain}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+                SystemSetting::set('voice_sfu_ws_public_url', "{$wsProto}://{$cleanDomain}{$sfuWsPath}", __('controllers.admin.settings.desc_voice_sfu_ws_public_url'));
+                $turnDomainOrIp = $cleanDomain;
+            } else {
+                SystemSetting::set('voice_bridge_host', $effectiveHost, __('controllers.admin.settings.desc_voice_bridge_host'));
+                SystemSetting::set('voice_bridge_api_port', (string) $apiPort, __('controllers.admin.settings.desc_voice_bridge_api_port'));
+                SystemSetting::set('voice_bridge_ws_port', (string) $wsPort, __('controllers.admin.settings.desc_voice_bridge_ws_port'));
+                SystemSetting::set('voice_bridge_ws_public_url', "ws://{$effectiveHost}:{$wsPort}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+                SystemSetting::set('voice_sfu_ws_public_url', "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}", __('controllers.admin.settings.desc_voice_sfu_ws_public_url'));
+            }
+
             SystemSetting::set('voice_bridge_enabled', '1', __('controllers.admin.settings.desc_voice_bridge_enabled'));
             SystemSetting::set('voice_bridge_status', 'online', __('controllers.admin.settings.desc_voice_bridge_status'));
             SystemSetting::set('voice_bridge_last_synced_at', now()->toIso8601String(), __('controllers.admin.settings.desc_voice_bridge_last_synced_at'));
