@@ -139,12 +139,18 @@ function unlockAudioPlayback() {
     if (audioCtx && audioCtx.state === 'suspended') {
         audioCtx.resume().catch(() => {});
     }
+    remoteVideoRefs.forEach((v) => {
+        if (v && v.paused) v.play().catch(() => {});
+    });
     remoteAudioRefs.forEach((audioEl) => {
         if (audioEl) {
             audioEl.muted = false;
             audioEl.play().catch(() => {});
         }
     });
+    if (remoteScreenVideoRef.value && remoteScreenVideoRef.value.paused) {
+        remoteScreenVideoRef.value.play().catch(() => {});
+    }
 }
 
 // Local media states
@@ -527,13 +533,16 @@ function setRemoteVideoRef(participantId: number, el: any) {
 function setRemoteAudioRef(participantId: number, el: any) {
     if (el instanceof HTMLAudioElement) {
         remoteAudioRefs.set(participantId, el);
-        if (selectedSpeakerId.value) {
+        if (selectedSpeakerId.value && selectedSpeakerId.value !== 'default' && (el as any).sinkId !== selectedSpeakerId.value) {
             doSwitchSpeaker(selectedSpeakerId.value, [el]);
         }
         const stream = remoteStreams[participantId];
         if (stream && el.srcObject !== stream) {
             el.srcObject = stream;
-            el.play().catch(() => {});
+            el.play().catch((err) => {
+                console.warn('[WebRTC] Audio play blocked:', err);
+                isAudioPlaybackBlocked.value = true;
+            });
         }
     } else {
         remoteAudioRefs.delete(participantId);
@@ -543,6 +552,10 @@ function setRemoteAudioRef(participantId: number, el: any) {
 const liveVideoMap = reactive<Record<number, boolean>>({});
 
 function isRemoteVideoLive(participantId: number): boolean {
+    const stream = remoteStreams[participantId];
+    if (stream && stream.getVideoTracks().some((t) => t.readyState === 'live' && t.enabled)) {
+        return true;
+    }
     return Boolean(liveVideoMap[participantId]);
 }
 
@@ -688,18 +701,17 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             liveVideoMap[remoteParticipantId] = true;
             event.track.onended = () => {
                 liveVideoMap[remoteParticipantId] = false;
-                const v = remoteVideoRefs.get(remoteParticipantId);
-                if (v) v.srcObject = null;
             };
             event.track.onmute = () => {
-                liveVideoMap[remoteParticipantId] = false;
-                const v = remoteVideoRefs.get(remoteParticipantId);
-                if (v) v.srcObject = null;
+                // In WebRTC onmute fires during initial negotiation or packet latency; do NOT destroy srcObject
             };
             event.track.onunmute = () => {
                 liveVideoMap[remoteParticipantId] = true;
                 const v = remoteVideoRefs.get(remoteParticipantId);
-                if (v && v.srcObject) v.play().catch(() => {});
+                if (v) {
+                    if (v.srcObject !== stream) v.srcObject = stream;
+                    v.play().catch(() => {});
+                }
             };
         }
 
@@ -707,7 +719,12 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             setupAudioAnalyser(remoteParticipantId, stream);
             event.track.onunmute = () => {
                 const a = remoteAudioRefs.get(remoteParticipantId);
-                if (a && a.srcObject) a.play().catch(() => {});
+                if (a) {
+                    if (a.srcObject !== stream) a.srcObject = stream;
+                    a.play().catch(() => {
+                        isAudioPlaybackBlocked.value = true;
+                    });
+                }
             };
         }
     };
@@ -915,6 +932,13 @@ async function replaceOutgoingAudioTrack(newTrack: MediaStreamTrack | null) {
             } catch (e) {
                 console.warn('replaceTrack audio error:', e);
             }
+            if (newTrack && transceiver.currentDirection !== 'sendrecv') {
+                if (props.currentParticipant.id < peerId) {
+                    await initiateOfferToPeer(peerId, pc);
+                } else {
+                    dispatchPeerSignal('renegotiate_needed', peerId, {});
+                }
+            }
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
             if (props.currentParticipant.id < peerId) {
@@ -937,6 +961,13 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
                 await transceiver.sender.replaceTrack(newTrack);
             } catch (e) {
                 console.warn('replaceTrack video error:', e);
+            }
+            if (newTrack && transceiver.currentDirection !== 'sendrecv') {
+                if (props.currentParticipant.id < peerId) {
+                    await initiateOfferToPeer(peerId, pc);
+                } else {
+                    dispatchPeerSignal('renegotiate_needed', peerId, {});
+                }
             }
         } else if (newTrack && localStream.value) {
             pc.addTrack(newTrack, localStream.value);
@@ -1829,15 +1860,18 @@ function handleSFUMessage(msg: any) {
                         role: msg.role || 'participant',
                         phone_number: msg.phone_number || '',
                         display_name: msg.display_name || `USER-${msg.user_id || newPid}`,
-                        is_muted: true,
-                        is_camera_on: false,
-                        can_share_screen: false,
-                        is_sharing_screen: false,
-                        hand_raised: false,
+                        is_muted: msg.is_muted !== undefined ? Boolean(msg.is_muted) : false,
+                        is_camera_on: msg.is_camera_on !== undefined ? Boolean(msg.is_camera_on) : false,
+                        can_share_screen: Boolean(msg.can_share_screen),
+                        is_sharing_screen: Boolean(msg.is_sharing_screen),
+                        hand_raised: Boolean(msg.hand_raised),
                         hand_raised_at: null,
                         status: 'admitted',
                         is_self: false,
                     });
+                } else {
+                    if (msg.is_muted !== undefined) existing.is_muted = Boolean(msg.is_muted);
+                    if (msg.is_camera_on !== undefined) existing.is_camera_on = Boolean(msg.is_camera_on);
                 }
                 const pc = getOrCreatePeerConnection(newPid);
                 if (props.currentParticipant.id < newPid) {
@@ -2168,15 +2202,7 @@ watch(
 );
 
 function unlockAutoplay() {
-    remoteVideoRefs.forEach((v) => {
-        if (v && v.paused) v.play().catch(() => {});
-    });
-    remoteAudioRefs.forEach((a) => {
-        if (a && a.paused) a.play().catch(() => {});
-    });
-    if (remoteScreenVideoRef.value && remoteScreenVideoRef.value.paused) {
-        remoteScreenVideoRef.value.play().catch(() => {});
-    }
+    unlockAudioPlayback();
 }
 
 onMounted(async () => {
@@ -2523,8 +2549,9 @@ onUnmounted(() => {
                             :ref="(el) => setRemoteVideoRef(p.id, el)"
                             autoplay
                             playsinline
+                            muted
                             class="w-full h-full object-cover transition-opacity duration-200"
-                            :class="(p.is_camera_on && isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                            :class="(p.is_camera_on || isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                         ></video>
                         <audio
                             :ref="(el) => setRemoteAudioRef(p.id, el)"
@@ -2532,7 +2559,7 @@ onUnmounted(() => {
                             playsinline
                         ></audio>
 
-                        <div v-if="!p.is_camera_on || !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
+                        <div v-if="!p.is_camera_on && !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
                             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-indigo-300 font-bold text-base sm:text-lg">
                                 {{ p.display_name.charAt(0) }}
                             </div>

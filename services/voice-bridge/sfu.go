@@ -32,8 +32,13 @@ type SFUMessage struct {
 	Role          string          `json:"role,omitempty"`      // host, co_host, participant
 	TargetID      string          `json:"target_id,omitempty"` // specific peer participant_id, or empty for broadcast
 	TopologyMode  string          `json:"topology_mode,omitempty"`
-	MediaUDPPort  int             `json:"media_udp_port,omitempty"`
-	Payload       json.RawMessage `json:"payload,omitempty"`
+	MediaUDPPort    int             `json:"media_udp_port,omitempty"`
+	IsMuted         bool            `json:"is_muted,omitempty"`
+	IsCameraOn      bool            `json:"is_camera_on,omitempty"`
+	CanShareScreen  bool            `json:"can_share_screen,omitempty"`
+	IsSharingScreen bool            `json:"is_sharing_screen,omitempty"`
+	HandRaised      bool            `json:"hand_raised,omitempty"`
+	Payload         json.RawMessage `json:"payload,omitempty"`
 	Timestamp     int64           `json:"timestamp,omitempty"`
 }
 
@@ -775,15 +780,20 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			}
 
 			currentRoom.Broadcast(SFUMessage{
-				Type:          "peer_joined",
-				RoomUUID:      roomUUID,
-				ParticipantID: peerID,
-				UserID:        userID,
-				PhoneNumber:   phoneNumber,
-				DisplayName:   displayName,
-				Role:          role,
-				TopologyMode:  topology,
-				MediaUDPPort:  udpPort,
+				Type:            "peer_joined",
+				RoomUUID:        roomUUID,
+				ParticipantID:   peerID,
+				UserID:          userID,
+				PhoneNumber:     phoneNumber,
+				DisplayName:     displayName,
+				Role:            role,
+				TopologyMode:    topology,
+				MediaUDPPort:    udpPort,
+				IsMuted:         currentPeer.IsMuted,
+				IsCameraOn:      currentPeer.IsCameraOn,
+				CanShareScreen:  currentPeer.CanShareScreen,
+				IsSharingScreen: currentPeer.IsSharingScreen,
+				HandRaised:      currentPeer.HandRaised,
 			}, peerID)
 
 			log.Printf("[SFU] Peer %s (%s) joined room %s (peers: %d, mode: %s, udpPort: %d)", peerID, phoneNumber, roomUUID, peerCount, topology, udpPort)

@@ -393,6 +393,9 @@ export function useMediaDevices() {
         let anySuccess = false;
         for (const el of elements) {
             if (typeof (el as any).setSinkId === 'function') {
+                if ((el as any).sinkId === deviceId) {
+                    continue;
+                }
                 try {
                     await (el as any).setSinkId(deviceId);
                     anySuccess = true;
