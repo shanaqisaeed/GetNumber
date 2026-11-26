@@ -128,6 +128,10 @@ return [
         'output_indexed' => 'خروجی :index',
         'output_earpiece' => 'بلندگوی مکالمه',
         'output_speaker' => 'اسپیکر (بلندگو)',
+        'mic_default' => 'میکروفون پیش‌فرض',
+        'mic_numbered' => 'میکروفون شماره :index',
+        'cam_numbered' => 'دوربین شماره :index',
+        'user_badge' => 'کاربر شماره :id',
     ],
 
     'multi_tab' => [

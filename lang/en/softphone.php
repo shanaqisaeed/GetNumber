@@ -128,6 +128,10 @@ return [
         'output_indexed' => 'Output :index',
         'output_earpiece' => 'Earpiece',
         'output_speaker' => 'Speaker',
+        'mic_default' => 'Default Microphone',
+        'mic_numbered' => 'Microphone #:index',
+        'cam_numbered' => 'Camera #:index',
+        'user_badge' => 'User #:id',
     ],
 
     'multi_tab' => [

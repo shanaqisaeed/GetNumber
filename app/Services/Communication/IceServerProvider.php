@@ -46,11 +46,37 @@ class IceServerProvider
     ];
 
     /**
-     * Determine if offline / intranet mode is active.
+     * Determine if offline / intranet isolated mode is active.
+     * Rule: If no external public STUN/TURN URLs are configured (or only self-hosted Go daemon is configured),
+     * the system automatically operates in 100% isolated Intranet mode.
      */
     public function isOfflineMode(): bool
     {
-        return (bool) (int) SystemSetting::get('voice_offline_mode', '0');
+        // 1. Explicit setting override
+        if ((bool) (int) SystemSetting::get('voice_offline_mode', '0')) {
+            return true;
+        }
+
+        // 2. Automatic air-gapped detection:
+        // Check if any public cloud STUN or TURN servers are configured.
+        $rawStun = (string) SystemSetting::get('voice_stun_urls', '');
+        $rawTurn = (string) SystemSetting::get('voice_turn_urls', '');
+
+        $configuredStun = self::parseUrlList($rawStun);
+        $configuredTurn = self::parseUrlList($rawTurn);
+
+        $allUrls = array_merge($configuredStun, $configuredTurn);
+        if (empty($allUrls)) {
+            return true;
+        }
+
+        foreach ($allUrls as $url) {
+            if (self::isPublicCloudIceUrl($url)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -76,13 +102,16 @@ class IceServerProvider
     public function resolveStunUrls(): array
     {
         $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
-        $turnPort = (int) SystemSetting::get('voice_turn_port', 3479);
+        if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_bridge_host', ''));
+        }
+        $turnPort = (int) SystemSetting::get('voice_turn_port', 3478);
         if ($turnPort <= 0) {
-            $turnPort = 3479;
+            $turnPort = 3478;
         }
 
         $selfStun = [];
-        if ($domainOrIp !== '') {
+        if ($domainOrIp !== '' && $domainOrIp !== '0.0.0.0') {
             $selfStun[] = "stun:{$domainOrIp}:{$turnPort}";
         }
 
@@ -128,13 +157,16 @@ class IceServerProvider
         }
 
         $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
-        if ($domainOrIp === '') {
+        if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_bridge_host', ''));
+        }
+        if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
             return [];
         }
 
-        $port = (int) SystemSetting::get('voice_turn_port', 3479);
+        $port = (int) SystemSetting::get('voice_turn_port', 3478);
         if ($port <= 0) {
-            $port = 3479;
+            $port = 3478;
         }
 
         $turnsPort = (int) SystemSetting::get('voice_turns_port', 5350);
@@ -197,14 +229,14 @@ class IceServerProvider
 
     public function transportPolicy(): string
     {
-        $policy = (string) SystemSetting::get('voice_ice_transport_policy', 'all');
+        $policy = (string) SystemSetting::get('voice_ice_transport_policy', 'relay');
 
-        // Forcing relay without any TURN server would make every call silent.
-        if ($policy === 'relay' && ! $this->hasTurn()) {
-            return 'all';
+        // Force TURN relay whenever TURN is available to eliminate direct P2P mesh
+        if ($this->hasTurn()) {
+            return 'relay';
         }
 
-        return in_array($policy, ['all', 'relay'], true) ? $policy : 'all';
+        return in_array($policy, ['all', 'relay'], true) ? $policy : 'relay';
     }
 
     public function hasTurn(): bool

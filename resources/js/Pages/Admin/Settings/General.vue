@@ -332,8 +332,45 @@ const bridgeForm = useForm({
 });
 
 const bridgeSubTab = ref<'connection' | 'relay' | 'guide'>('connection');
+const relayMode = ref<'dedicated' | 'public'>('dedicated');
+
+// Detect initial relay mode based on configured URLs
+const hasPublicRelayConfigured = () => {
+    const raw = ((bridgeForm.stun_urls || '') + ' ' + (bridgeForm.turn_urls || '')).toLowerCase();
+    return /google\.com|cloudflare\.com|openrelay|metered|xirsys|twilio|sipgate/i.test(raw);
+};
+if (hasPublicRelayConfigured()) {
+    relayMode.value = 'public';
+} else {
+    relayMode.value = 'dedicated';
+}
+
+const selectRelayMode = (mode: 'dedicated' | 'public') => {
+    relayMode.value = mode;
+    if (mode === 'dedicated') {
+        // Enforce 100% air-gapped / intranet isolated mode on Go Voice Bridge
+        bridgeForm.stun_urls = '';
+        bridgeForm.turn_urls = '';
+        bridgeForm.turn_username = '';
+        bridgeForm.turn_credential = '';
+        bridgeForm.offline_mode = true;
+        bridgeForm.ice_transport_policy = 'relay';
+        if (!bridgeForm.turn_domain_or_ip && bridgeForm.host) {
+            bridgeForm.turn_domain_or_ip = bridgeForm.host;
+        }
+        if (!bridgeForm.turn_secret && bridgeForm.secret) {
+            bridgeForm.turn_secret = bridgeForm.secret;
+        }
+    } else {
+        bridgeForm.offline_mode = false;
+        if (!bridgeForm.stun_urls) {
+            applyGoogleStunPreset();
+        }
+    }
+};
 
 const applyGoogleStunPreset = () => {
+    relayMode.value = 'public';
     bridgeForm.stun_urls = "stun:stun.l.google.com:19302\nstun:stun1.l.google.com:19302\nstun:stun2.l.google.com:19302";
     bridgeForm.turn_urls = '';
     bridgeForm.turn_domain_or_ip = '';
@@ -345,6 +382,7 @@ const applyGoogleStunPreset = () => {
 };
 
 const applyCloudflarePreset = () => {
+    relayMode.value = 'public';
     bridgeForm.stun_urls = "stun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302";
     bridgeForm.turn_urls = '';
     bridgeForm.turn_domain_or_ip = '';
@@ -355,30 +393,8 @@ const applyCloudflarePreset = () => {
     bridgeForm.offline_mode = false;
 };
 
-const applyGlobalStunPoolPreset = () => {
-    bridgeForm.stun_urls = [
-        "stun:stun.l.google.com:19302",
-        "stun:stun1.l.google.com:19302",
-        "stun:stun2.l.google.com:19302",
-        "stun:stun3.l.google.com:19302",
-        "stun:stun4.l.google.com:19302",
-        "stun:stun.cloudflare.com:3478",
-        "stun:stun.sipgate.net:3478",
-        "stun:stun.sipgate.net:10000",
-        "stun:stun.voip.blackberry.com:3478",
-        "stun:stun.wire.com:3478",
-        "stun:stun.schlund.de"
-    ].join('\n');
-    bridgeForm.turn_urls = '';
-    bridgeForm.turn_domain_or_ip = '';
-    bridgeForm.turn_secret = '';
-    bridgeForm.turn_username = '';
-    bridgeForm.turn_credential = '';
-    bridgeForm.turns_enabled = false;
-    bridgeForm.offline_mode = false;
-};
-
 const applyOpenRelayPreset = () => {
+    relayMode.value = 'public';
     bridgeForm.stun_urls = [
         "stun:stun.cloudflare.com:3478",
         "stun:stun.l.google.com:19302",
@@ -397,6 +413,30 @@ const applyOpenRelayPreset = () => {
     bridgeForm.turns_port = 443;
     bridgeForm.turns_enabled = true;
     bridgeForm.turn_secret = '';
+    bridgeForm.offline_mode = false;
+};
+
+const applyGlobalStunPoolPreset = () => {
+    relayMode.value = 'public';
+    bridgeForm.stun_urls = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun.cloudflare.com:3478",
+        "stun:stun.voip.blackberry.com:3478",
+        "stun:stun.sipgate.net:3478",
+    ].join('\n');
+    bridgeForm.turn_urls = '';
+    bridgeForm.turn_domain_or_ip = '';
+    bridgeForm.turn_secret = '';
+    bridgeForm.turn_username = '';
+    bridgeForm.turn_credential = '';
+    bridgeForm.turns_enabled = false;
+    bridgeForm.offline_mode = false;
+};
+
+const applyCustomPreset = () => {
+    relayMode.value = 'public';
     bridgeForm.offline_mode = false;
 };
 
@@ -1373,205 +1413,147 @@ const testBridgeConnection = async () => {
 
                         <!-- SUB-TAB 2: STUN / TURN & WebRTC Media Relay -->
                         <div v-show="bridgeSubTab === 'relay'" class="space-y-4">
-                            <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-indigo-50/70 via-indigo-50/40 to-slate-50 dark:from-indigo-950/30 dark:via-indigo-950/20 dark:to-slate-900/40 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4 shadow-sm">
+                            <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 space-y-4 shadow-xs">
                                 <div>
-                                    <h4 class="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                                    <h4 class="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-gray-100 flex items-center gap-2">
                                         <span>🛡️</span>
                                         <span>{{ __('admin.settings.general.webrtc_relay_title') }}</span>
                                     </h4>
-                                    <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-1 leading-relaxed" v-html="__('admin.settings.general.webrtc_relay_desc_html')"></p>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed" v-html="__('admin.settings.general.webrtc_relay_desc_html')"></p>
                                 </div>
 
-                                <!-- Quick Presets (Google STUN, Cloudflare, Private STUN/TURN) -->
-                                <div class="p-3.5 rounded-xl bg-white/80 dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/40 space-y-2">
-                                    <div class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
-                                        <span>⚡</span>
-                                        <span>{{ __('admin.settings.general.quick_presets_label') }}</span>
-                                    </div>
-                                    <div class="flex flex-wrap items-center gap-2">
-                                        <button
-                                            type="button"
-                                            @click="applyGoogleStunPreset"
-                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/60 transition shadow-xs flex items-center gap-1"
-                                        >
-                                            <span>🔍</span>
-                                            <span>{{ __('admin.settings.general.preset_google_stun') }}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            @click="applyCloudflarePreset"
-                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 transition shadow-xs flex items-center gap-1"
-                                        >
-                                            <span>☁️</span>
-                                            <span>{{ __('admin.settings.general.preset_cloudflare') }}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            @click="applyGlobalStunPoolPreset"
-                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/40 dark:hover:bg-purple-900/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800/60 transition shadow-xs flex items-center gap-1"
-                                        >
-                                            <span>🌐</span>
-                                            <span>{{ __('admin.settings.general.preset_global_stun_pool') }}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            @click="applyOpenRelayPreset"
-                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-teal-50 hover:bg-teal-100 dark:bg-teal-950/40 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800/60 transition shadow-xs flex items-center gap-1"
-                                        >
-                                            <span>🔄</span>
-                                            <span>{{ __('admin.settings.general.preset_openrelay') }}</span>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            @click="applyPrivatePreset"
-                                            class="px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 transition shadow-xs flex items-center gap-1"
-                                        >
-                                            <span>🔒</span>
-                                            <span>{{ __('admin.settings.general.preset_private') }}</span>
-                                        </button>
-                                    </div>
-                                    <p class="text-[10px] text-indigo-700 dark:text-indigo-300/80 pt-1">
-                                        {{ __('admin.settings.general.preset_fallback_hint') }}
-                                    </p>
+                                <!-- Uniform Mode Selector Tabs (Dedicated / Public) -->
+                                <div class="flex items-center gap-1.5 p-1.5 bg-gray-100 dark:bg-gray-900/80 rounded-2xl border border-gray-200/80 dark:border-gray-700 w-full sm:w-fit">
+                                    <button
+                                        type="button"
+                                        @click="selectRelayMode('dedicated')"
+                                        class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                        :class="relayMode === 'dedicated'
+                                            ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm border border-gray-200 dark:border-gray-600'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                    >
+                                        <span>🏢</span>
+                                        <span>{{ __('admin.settings.general.relay_mode_dedicated') }}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="selectRelayMode('public')"
+                                        class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                        :class="relayMode === 'public'
+                                            ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm border border-gray-200 dark:border-gray-600'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                    >
+                                        <span>🌐</span>
+                                        <span>{{ __('admin.settings.general.relay_mode_public') }}</span>
+                                    </button>
+                                </div>
 
-                                    <!-- Public vs Private STUN/TURN Clarification Notice -->
-                                    <div class="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed flex items-start gap-2">
-                                        <span class="shrink-0 text-sm">💡</span>
+                                <!-- MODE 1: Dedicated Go Voice Bridge (Air-Gapped / Intranet) -->
+                                <div v-if="relayMode === 'dedicated'" class="p-4 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="p-2 rounded-xl bg-indigo-600 text-white shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                            </svg>
+                                        </div>
                                         <div class="space-y-1">
-                                            <div>
-                                                <strong>{{ __('admin.settings.general.relay_guide_title') }}</strong>
-                                                {{ __('admin.settings.general.relay_guide_intro') }}
+                                            <div class="text-xs font-extrabold text-indigo-950 dark:text-indigo-200 flex items-center gap-2">
+                                                <span>{{ __('admin.settings.general.relay_mode_dedicated') }}</span>
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                                                    {{ __('admin.settings.general.relay_badge_dedicated') }}
+                                                </span>
                                             </div>
-                                            <div v-html="__('admin.settings.general.relay_guide_openrelay_html')"></div>
-                                            <div v-html="__('admin.settings.general.relay_guide_xirsys_html')"></div>
-                                            <div v-html="__('admin.settings.general.relay_guide_coturn_html')"></div>
+                                            <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 leading-relaxed">
+                                                {{ __('admin.settings.general.relay_mode_dedicated_desc') }}
+                                            </p>
                                         </div>
                                     </div>
-                                </div>
 
-                                <!-- Dedicated STUN/TURN Host & Ports -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turn_host_label') }}
-                                        </label>
-                                        <input
-                                            v-model="bridgeForm.turn_domain_or_ip"
-                                            type="text"
-                                            :placeholder="__('admin.settings.general.turn_host_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.turn_host_help') }}
-                                        </p>
-                                        <InputError :message="bridgeForm.errors.turn_domain_or_ip" class="mt-1" />
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turn_port_label') }}
-                                        </label>
-                                        <input
-                                            v-model="bridgeForm.turn_port"
-                                            type="number"
-                                            min="1"
-                                            max="65535"
-                                            placeholder="3479"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.turn_port_help') }}
-                                        </p>
-                                        <InputError :message="bridgeForm.errors.turn_port" class="mt-1" />
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turns_port_label') }}
-                                        </label>
-                                        <input
-                                            v-model="bridgeForm.turns_port"
-                                            type="number"
-                                            min="1"
-                                            max="65535"
-                                            placeholder="5350"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                        <div class="flex items-center gap-2 mt-1.5">
-                                            <input
-                                                id="voice_turns_toggle"
-                                                v-model="bridgeForm.turns_enabled"
-                                                type="checkbox"
-                                                class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
-                                            />
-                                            <label for="voice_turns_toggle" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
-                                                {{ __('admin.settings.general.turns_enable_label') }}
+                                    <!-- Dedicated Host & Ports -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_host_label') }}
                                             </label>
+                                            <input
+                                                v-model="bridgeForm.turn_domain_or_ip"
+                                                type="text"
+                                                :placeholder="bridgeForm.host || '127.0.0.1'"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.turn_host_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.turn_domain_or_ip" class="mt-1" />
                                         </div>
-                                        <InputError :message="bridgeForm.errors.turns_port" class="mt-1" />
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_port_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.turn_port"
+                                                type="number"
+                                                min="1"
+                                                max="65535"
+                                                placeholder="3479"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.turn_port_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.turn_port" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turns_port_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.turns_port"
+                                                type="number"
+                                                min="1"
+                                                max="65535"
+                                                placeholder="5350"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <div class="flex items-center gap-2 mt-1.5">
+                                                <input
+                                                    id="voice_turns_toggle"
+                                                    v-model="bridgeForm.turns_enabled"
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                                                />
+                                                <label for="voice_turns_toggle" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                                    {{ __('admin.settings.general.turns_enable_label') }}
+                                                </label>
+                                            </div>
+                                            <InputError :message="bridgeForm.errors.turns_port" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_realm_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.turn_realm"
+                                                type="text"
+                                                placeholder="ravy-no"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.turn_realm_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.turn_realm" class="mt-1" />
+                                        </div>
                                     </div>
 
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turn_realm_label') }}
-                                        </label>
-                                        <input
-                                            v-model="bridgeForm.turn_realm"
-                                            type="text"
-                                            :placeholder="__('admin.settings.general.turn_realm_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.turn_realm_help') }}
-                                        </p>
-                                        <InputError :message="bridgeForm.errors.turn_realm" class="mt-1" />
-                                    </div>
-                                </div>
-
-                                <!-- STUN & TURN Manual URL Lists -->
-                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.stun_urls_label') }}
-                                        </label>
-                                        <textarea
-                                            v-model="bridgeForm.stun_urls"
-                                            rows="3"
-                                            :placeholder="__('admin.settings.general.stun_urls_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        ></textarea>
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.stun_urls_help') }}
-                                        </p>
-                                        <InputError :message="bridgeForm.errors.stun_urls" class="mt-1" />
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turn_urls_label') }}
-                                        </label>
-                                        <textarea
-                                            v-model="bridgeForm.turn_urls"
-                                            rows="3"
-                                            placeholder="turn:YOUR_SERVER_IP:3479?transport=udp&#10;turn:YOUR_SERVER_IP:3479?transport=tcp&#10;turns:YOUR_DOMAIN:5350?transport=tcp"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        ></textarea>
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.turn_urls_help') }}
-                                        </p>
-                                        <InputError :message="bridgeForm.errors.turn_urls" class="mt-1" />
-                                    </div>
-                                </div>
-
-                                <!-- Credentials & HMAC Secret -->
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <div>
+                                    <!-- TURN HMAC Secret & Sync -->
+                                    <div class="pt-2 border-t border-indigo-200/60 dark:border-indigo-800/40">
                                         <div class="flex items-center justify-between mb-1">
                                             <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
                                                 {{ __('admin.settings.general.turn_secret_label') }}
@@ -1579,60 +1561,175 @@ const testBridgeConnection = async () => {
                                             <button
                                                 type="button"
                                                 @click="copyBridgeSecretToTurn"
-                                                class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 flex items-center gap-1"
                                             >
-                                                {{ __('admin.settings.general.sync_bridge_secret_btn') }}
+                                                <span>🔄</span>
+                                                <span>{{ __('admin.settings.general.sync_bridge_secret_btn') }}</span>
                                             </button>
                                         </div>
-                                        <input
-                                            v-model="bridgeForm.turn_secret"
-                                            :type="showTurnCredential ? 'text' : 'password'"
-                                            :placeholder="__('admin.settings.general.turn_secret_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
-                                            {{ __('admin.settings.general.turn_secret_help') }}
-                                        </p>
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.turn_username_label') }}
-                                        </label>
-                                        <input
-                                            v-model="bridgeForm.turn_username"
-                                            type="text"
-                                            :placeholder="__('admin.settings.general.turn_username_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <div class="flex items-center justify-between mb-1">
-                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                                {{ __('admin.settings.general.turn_credential_label') }}
-                                            </label>
+                                        <div class="relative">
+                                            <input
+                                                v-model="bridgeForm.turn_secret"
+                                                :type="showTurnCredential ? 'text' : 'password'"
+                                                :placeholder="__('admin.settings.general.turn_secret_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pr-3 pl-14"
+                                                dir="ltr"
+                                            />
                                             <button
                                                 type="button"
                                                 @click="showTurnCredential = !showTurnCredential"
-                                                class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                class="absolute left-2.5 top-1/2 -translate-y-1/2 px-2 py-0.5 text-[10px] rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-500 text-gray-600 dark:text-gray-200"
                                             >
                                                 {{ showTurnCredential ? __('admin.settings.general.hide_short') : __('admin.settings.general.show_short') }}
                                             </button>
                                         </div>
-                                        <input
-                                            v-model="bridgeForm.turn_credential"
-                                            :type="showTurnCredential ? 'text' : 'password'"
-                                            :placeholder="__('admin.settings.general.turn_credential_placeholder')"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
+                                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                            {{ __('admin.settings.general.turn_secret_help') }}
+                                        </p>
                                     </div>
                                 </div>
 
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                                <!-- MODE 2: Public STUN/TURN (Internet) -->
+                                <div v-else class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 space-y-4">
+                                    <div class="flex items-start gap-3">
+                                        <div class="p-2 rounded-xl bg-blue-600 text-white shrink-0 mt-0.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                                            </svg>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="text-xs font-extrabold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                <span>{{ __('admin.settings.general.relay_mode_public') }}</span>
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                                                    {{ __('admin.settings.general.relay_badge_public') }}
+                                                </span>
+                                            </div>
+                                            <p class="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                                                {{ __('admin.settings.general.relay_mode_public_desc') }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Uniform Clean Presets -->
+                                    <div class="p-3.5 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 space-y-2">
+                                        <div class="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                            <span>⚡</span>
+                                            <span>{{ __('admin.settings.general.quick_presets_label') }}</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            <button
+                                                type="button"
+                                                @click="applyGoogleStunPreset"
+                                                class="px-3 py-2 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-indigo-50 dark:bg-gray-700/60 dark:hover:bg-indigo-950/40 text-gray-700 hover:text-indigo-700 dark:text-gray-200 dark:hover:text-indigo-300 border border-gray-200 dark:border-gray-600 transition flex items-center justify-center gap-1.5 text-center shadow-2xs"
+                                            >
+                                                <span>🔍</span>
+                                                <span>{{ __('admin.settings.general.preset_google_stun') }}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="applyCloudflarePreset"
+                                                class="px-3 py-2 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-indigo-50 dark:bg-gray-700/60 dark:hover:bg-indigo-950/40 text-gray-700 hover:text-indigo-700 dark:text-gray-200 dark:hover:text-indigo-300 border border-gray-200 dark:border-gray-600 transition flex items-center justify-center gap-1.5 text-center shadow-2xs"
+                                            >
+                                                <span>☁️</span>
+                                                <span>{{ __('admin.settings.general.preset_cloudflare') }}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="applyOpenRelayPreset"
+                                                class="px-3 py-2 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-indigo-50 dark:bg-gray-700/60 dark:hover:bg-indigo-950/40 text-gray-700 hover:text-indigo-700 dark:text-gray-200 dark:hover:text-indigo-300 border border-gray-200 dark:border-gray-600 transition flex items-center justify-center gap-1.5 text-center shadow-2xs"
+                                            >
+                                                <span>🔄</span>
+                                                <span>{{ __('admin.settings.general.preset_openrelay') }}</span>
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="applyCustomPreset"
+                                                class="px-3 py-2 rounded-xl text-xs font-semibold bg-gray-50 hover:bg-indigo-50 dark:bg-gray-700/60 dark:hover:bg-indigo-950/40 text-gray-700 hover:text-indigo-700 dark:text-gray-200 dark:hover:text-indigo-300 border border-gray-200 dark:border-gray-600 transition flex items-center justify-center gap-1.5 text-center shadow-2xs"
+                                            >
+                                                <span>⚙️</span>
+                                                <span>{{ __('admin.settings.general.preset_custom') }}</span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- STUN & TURN Manual URL Lists -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.stun_urls_label') }}
+                                            </label>
+                                            <textarea
+                                                v-model="bridgeForm.stun_urls"
+                                                rows="3"
+                                                :placeholder="__('admin.settings.general.stun_urls_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            ></textarea>
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.stun_urls_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.stun_urls" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_urls_label') }}
+                                            </label>
+                                            <textarea
+                                                v-model="bridgeForm.turn_urls"
+                                                rows="3"
+                                                placeholder="turn:turn.example.com:3478?transport=udp&#10;turn:turn.example.com:3478?transport=tcp&#10;turns:turn.example.com:5349?transport=tcp"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            ></textarea>
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.turn_urls_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.turn_urls" class="mt-1" />
+                                        </div>
+                                    </div>
+
+                                    <!-- Public Relay Username & Credential -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_username_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.turn_username"
+                                                type="text"
+                                                :placeholder="__('admin.settings.general.turn_username_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <div class="flex items-center justify-between mb-1">
+                                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                                                    {{ __('admin.settings.general.turn_credential_label') }}
+                                                </label>
+                                                <button
+                                                    type="button"
+                                                    @click="showTurnCredential = !showTurnCredential"
+                                                    class="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                                                >
+                                                    {{ showTurnCredential ? __('admin.settings.general.hide_short') : __('admin.settings.general.show_short') }}
+                                                </button>
+                                            </div>
+                                            <input
+                                                v-model="bridgeForm.turn_credential"
+                                                :type="showTurnCredential ? 'text' : 'password'"
+                                                :placeholder="__('admin.settings.general.turn_credential_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ICE Transport Policy -->
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                                     <div class="flex items-center gap-2">
                                         <label class="text-xs font-bold text-gray-700 dark:text-gray-300">
                                             {{ __('admin.settings.general.ice_policy_label') }}
@@ -1641,8 +1738,8 @@ const testBridgeConnection = async () => {
                                             v-model="bridgeForm.ice_transport_policy"
                                             class="text-xs rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white py-1.5 px-3"
                                         >
-                                            <option value="all">{{ __('admin.settings.general.ice_policy_all') }}</option>
                                             <option value="relay">{{ __('admin.settings.general.ice_policy_relay') }}</option>
+                                            <option value="all">{{ __('admin.settings.general.ice_policy_all') }}</option>
                                         </select>
                                     </div>
                                     <span class="text-[11px] text-gray-500 dark:text-gray-400" v-html="__('admin.settings.general.auto_ports_info_html')"></span>
