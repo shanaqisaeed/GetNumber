@@ -5,7 +5,7 @@ import axios from 'axios';
 import { __ } from '@/Composables/useTrans';
 import { useMediaDevices } from '@/Composables/useMediaDevices';
 import { useWhiteboard, type WhiteboardStroke } from '@/Composables/useWhiteboard';
-import { useWebRtcPeer } from '@/Composables/useWebRtcPeer';
+import { useWebRtcPeer, sanitizeSdp } from '@/Composables/useWebRtcPeer';
 
 interface ParticipantItem {
     id: number;
@@ -145,18 +145,6 @@ function unlockAudioPlayback() {
             audioEl.play().catch(() => {});
         }
     });
-}
-
-/**
- * Sanitizes SDP strings to fix compatibility issues across Chromium / WebRTC implementations.
- * Specifically fixes "OperationError: Failed to parse SessionDescription. a=ssrc:... msid:- ... Invalid SDP line".
- * Also enforces strict RFC 8866 CRLF line terminators.
- */
-function sanitizeSdp(sdp: string): string {
-    if (!sdp || typeof sdp !== 'string') return sdp || '';
-    let cleaned = sdp.replace(/^(a=ssrc:\d+\s+msid):\s*-\s+/gm, '$1:stream ');
-    cleaned = cleaned.replace(/^(a=msid):\s*-\s+/gm, '$1:stream ');
-    return cleaned.replace(/\r?\n/g, '\r\n').trim() + '\r\n';
 }
 
 // Local media states

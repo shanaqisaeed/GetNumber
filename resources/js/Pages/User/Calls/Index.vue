@@ -11,7 +11,7 @@ import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { useNativeCallingBridge } from '@/Composables/useNativeCallingBridge';
 import { useMediaDevices } from '@/Composables/useMediaDevices';
 import { useWhiteboard } from '@/Composables/useWhiteboard';
-import { useWebRtcPeer } from '@/Composables/useWebRtcPeer';
+import { useWebRtcPeer, sanitizeSdp } from '@/Composables/useWebRtcPeer';
 
 interface LineItem {
     id: number;
@@ -936,7 +936,7 @@ const renegotiatePeerConnection = async () => {
         console.log('[WebRTC-Renegotiate] 🔄 Creating renegotiation offer...');
         const offer = await peerConnection.createOffer();
         if (offer.sdp) {
-            offer.sdp = enhanceOpusSdp(offer.sdp);
+            offer.sdp = sanitizeSdp(enhanceOpusSdp(offer.sdp));
         }
         await peerConnection.setLocalDescription(offer);
         await sendSignalingMessage('offer', offer);
@@ -1855,6 +1855,13 @@ const handleSignalingPayload = async (type: string, payload: any) => {
                     await peerConnection.setLocalDescription({ type: 'rollback' } as RTCSessionDescriptionInit);
                 } catch {}
             }
+            if (offerData) {
+                if (typeof offerData.sdp === 'string') {
+                    offerData.sdp = sanitizeSdp(offerData.sdp);
+                } else if (typeof offerData.sdp?.sdp === 'string') {
+                    offerData.sdp.sdp = sanitizeSdp(offerData.sdp.sdp);
+                }
+            }
             await peerConnection.setRemoteDescription(new RTCSessionDescription(offerData));
             for (const cand of pendingCandidates) {
                 try {
@@ -1865,7 +1872,7 @@ const handleSignalingPayload = async (type: string, payload: any) => {
 
             const answer = await peerConnection.createAnswer();
             if (answer.sdp) {
-                answer.sdp = enhanceOpusSdp(answer.sdp);
+                answer.sdp = sanitizeSdp(enhanceOpusSdp(answer.sdp));
             }
             await peerConnection.setLocalDescription(answer);
             await sendSignalingMessage('answer', answer);
@@ -1876,6 +1883,13 @@ const handleSignalingPayload = async (type: string, payload: any) => {
         } else if (type === 'answer') {
             const answerData = typeof payload === 'string' ? JSON.parse(payload) : payload;
             if (peerConnection.signalingState === 'have-local-offer') {
+                if (answerData) {
+                    if (typeof answerData.sdp === 'string') {
+                        answerData.sdp = sanitizeSdp(answerData.sdp);
+                    } else if (typeof answerData.sdp?.sdp === 'string') {
+                        answerData.sdp.sdp = sanitizeSdp(answerData.sdp.sdp);
+                    }
+                }
                 await peerConnection.setRemoteDescription(new RTCSessionDescription(answerData));
                 for (const cand of pendingCandidates) {
                     try {
@@ -1967,7 +1981,7 @@ const performIceRestart = async () => {
 
         const offer = await peerConnection.createOffer({ iceRestart: true });
         if (offer.sdp) {
-            offer.sdp = enhanceOpusSdp(offer.sdp);
+            offer.sdp = sanitizeSdp(enhanceOpusSdp(offer.sdp));
         }
         await peerConnection.setLocalDescription(offer);
         await sendSignalingMessage('offer', offer);
@@ -2160,7 +2174,7 @@ const startCall = async (skipMicCheck = false, withVideo = false) => {
             const pc = createPeerConnection(true);
             const offer = await pc.createOffer();
             if (offer.sdp) {
-                offer.sdp = enhanceOpusSdp(offer.sdp);
+                offer.sdp = sanitizeSdp(enhanceOpusSdp(offer.sdp));
             }
             await pc.setLocalDescription(offer);
             await sendSignalingMessage('offer', offer);

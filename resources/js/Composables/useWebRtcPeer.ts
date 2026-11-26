@@ -15,6 +15,41 @@ export interface UseWebRtcPeerOptions {
     onConnectionStateChange?: (state: RTCPeerConnectionState) => void;
 }
 
+/**
+ * Sanitizes SDP strings to fix compatibility issues across Chromium / WebKit / Firefox implementations.
+ * - Strips `a=max-message-size:\d+` which causes "Failed to parse SessionDescription. a=max-message-size:... Invalid SDP line" in Chromium.
+ * - Fixes dummy/empty msid hyphens: `a=ssrc:... msid:- ...` and `a=msid:- ...`.
+ * - Strips empty/corrupt lines and strictly enforces RFC 8866 CRLF (\r\n) line terminators.
+ */
+export function sanitizeSdp(sdp?: string): string {
+    if (!sdp || typeof sdp !== 'string') return '';
+
+    // Normalize all line endings to \n first for consistent line processing
+    let normalized = sdp.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // Fix msid hyphens (Chromium bug with unnamed streams)
+    normalized = normalized.replace(/^(a=ssrc:\d+\s+msid):\s*-\s+/gm, '$1:stream ');
+    normalized = normalized.replace(/^(a=msid):\s*-\s+/gm, '$1:stream ');
+
+    // Filter out problematic lines and clean empty lines
+    const lines = normalized.split('\n');
+    const filteredLines: string[] = [];
+
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        // Chromium WebRTC bug: a=max-message-size causes parse error in setRemoteDescription
+        if (line.startsWith('a=max-message-size:')) {
+            continue;
+        }
+
+        filteredLines.push(line);
+    }
+
+    return filteredLines.join('\r\n') + '\r\n';
+}
+
 export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
     const connectionState = ref<RTCPeerConnectionState>('new');
     const iceConnectionState = ref<RTCIceConnectionState>('new');
@@ -42,17 +77,18 @@ export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
     // Enhance Opus SDP with In-Band Forward Error Correction (FEC) and DTX
     const enhanceOpusSdp = (sdp?: string): string => {
         if (!sdp || !sdp.includes('opus/48000')) {
-            return sdp || '';
+            return sanitizeSdp(sdp);
         }
         try {
-            return sdp.replace(/(a=fmtp:\d+\s+[^;\r\n]+)/gi, (match) => {
+            const enhanced = sdp.replace(/(a=fmtp:\d+\s+[^;\r\n]+)/gi, (match) => {
                 let updated = match;
                 if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
                 if (!updated.includes('usedtx=')) updated += ';usedtx=1';
                 return updated;
             });
+            return sanitizeSdp(enhanced);
         } catch {
-            return sdp;
+            return sanitizeSdp(sdp);
         }
     };
 
@@ -218,6 +254,7 @@ export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
         isAudioBlocked,
         buildConfiguration,
         enhanceOpusSdp,
+        sanitizeSdp,
         createPeerConnection,
         ensureTransceivers,
         replaceAudioTrack,
