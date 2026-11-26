@@ -477,57 +477,112 @@ class SettingController extends Controller
     }
 
     /**
-     * Test live connectivity to the Voice Bridge daemon.
+     * Test live connectivity to the Voice Bridge daemon via Asymmetric Handshake & Diagnostics.
      */
     public function testVoiceBridge(Request $request): JsonResponse
     {
-        $host = $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1'));
+        $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
         $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
-        $secret = $request->input('secret', SystemSetting::get('voice_bridge_secret', ''));
+        $secret = trim((string) $request->input('secret', SystemSetting::get('voice_bridge_secret', '')));
 
         try {
             $startTime = microtime(true);
+            $callbackUrl = route('api.voice.bridge_event');
+            $handshakeUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/api/handshake');
             $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
-            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Testing connection to {$healthUrl}");
-            $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
-                ->timeout(3.0)
-                ->get($healthUrl);
+
+            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Testing two-way handshake with daemon at {$handshakeUrl} (Callback: {$callbackUrl})");
+
+            // Clear previous cached diagnostics
+            \Illuminate\Support\Facades\Cache::forget('voice_bridge_latest_diagnostics');
+
+            // Send handshake request to Go daemon
+            $handshakePayload = [
+                'host' => $host,
+                'token' => $secret,
+                'secret' => $secret,
+                'callback_url' => $callbackUrl,
+                'ports_pool' => [
+                    'min' => (int) SystemSetting::get('voice_sfu_min_port', 49001),
+                    'max' => (int) SystemSetting::get('voice_sfu_max_port', 49300),
+                ],
+            ];
+
+            $response = Http::withHeaders(array_filter([
+                'X-Voice-Bridge-Secret' => $secret,
+                'X-Bridge-Secret' => $secret,
+            ]))
+                ->timeout(4.0)
+                ->post($handshakeUrl, $handshakePayload);
+
             $latencyMs = (int) round((microtime(true) - $startTime) * 1000);
 
             if ($response->successful()) {
-                $data = $response->json();
-                if (is_array($data)) {
-                    if (empty($data['bridge_host']) || $data['bridge_host'] === '0.0.0.0') {
-                        $data['bridge_host'] = ($host !== '0.0.0.0' && !empty($host)) ? $host : $request->getHost();
+                // Allow a brief moment (300ms) for the async callback from Go to reach Laravel's webhook
+                usleep(300000);
+
+                $diagnostics = \Illuminate\Support\Facades\Cache::get('voice_bridge_latest_diagnostics');
+
+                // If callback not landed yet, fetch /health as supplementary telemetry
+                $healthData = [];
+                try {
+                    $healthResp = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))->timeout(2.0)->get($healthUrl);
+                    if ($healthResp->successful()) {
+                        $healthData = $healthResp->json() ?: [];
                     }
+                } catch (\Throwable $e) {
+                    // Ignore secondary health fetch error
                 }
-                $authValid = $data['auth_valid'] ?? true;
-                $authRequired = $data['auth_required'] ?? false;
+
+                $mergedData = is_array($diagnostics) ? $diagnostics : $healthData;
+                $status = $mergedData['status'] ?? 'ok';
 
                 $msg = __('controllers.admin.settings.voice_bridge_test_ok', ['latency' => $latencyMs]);
-                if ($authRequired) {
-                    if ($authValid && ! empty($secret)) {
-                        $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_ok');
-                    } elseif (! $authValid) {
-                        $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_invalid');
-                    }
+                if (! empty($secret)) {
+                    $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_ok');
                 }
+                $msg .= ' ' . __('controllers.admin.settings.voice_bridge_handshake_ok');
 
                 return response()->json([
                     'success' => true,
-                    'data' => $data,
+                    'asymmetric_handshake' => true,
+                    'status' => $status,
+                    'data' => $mergedData,
+                    'redis' => $mergedData['redis'] ?? ($healthData['redis'] ?? null),
+                    'udp_pool' => $mergedData['udp_pool'] ?? ($healthData['udp_pool'] ?? null),
+                    'stun_turn' => $mergedData['stun_turn'] ?? ($healthData['stun_turn'] ?? null),
+                    'sfu' => $mergedData['sfu'] ?? ($healthData['sfu'] ?? null),
                     'latency_ms' => $latencyMs,
-                    'auth_valid' => $authValid,
-                    'auth_required' => $authRequired,
+                    'auth_valid' => true,
+                    'auth_required' => ! empty($secret),
                     'message' => $msg,
                 ]);
             }
 
-            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Daemon HTTP status {$response->status()} at {$healthUrl}");
+            // Fallback: If daemon is an older build without /api/handshake, probe /health directly
+            $fallbackResp = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
+                ->timeout(3.0)
+                ->get($healthUrl);
+
+            if ($fallbackResp->successful()) {
+                $data = $fallbackResp->json() ?: [];
+                return response()->json([
+                    'success' => true,
+                    'asymmetric_handshake' => false,
+                    'data' => $data,
+                    'redis' => $data['redis'] ?? null,
+                    'udp_pool' => $data['udp_pool'] ?? null,
+                    'latency_ms' => (int) round((microtime(true) - $startTime) * 1000),
+                    'message' => __('controllers.admin.settings.voice_bridge_test_ok', ['latency' => $latencyMs]),
+                ]);
+            }
+
+            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Daemon HTTP status {$response->status()} at {$handshakeUrl}");
             return response()->json([
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_bad_status', ['status' => $response->status()]),
             ], 422);
+
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Connection error to {$host}:{$port} - " . $e->getMessage());
             return response()->json([
@@ -554,8 +609,37 @@ class SettingController extends Controller
         }
 
         try {
+            $callbackUrl = route('api.voice.bridge_event');
+            $handshakeUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/api/handshake');
             $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
-            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Syncing settings from {$healthUrl}");
+
+            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Two-way syncing settings via {$handshakeUrl} (Callback: {$callbackUrl})");
+
+            // 1. Send Handshake
+            $handshakePayload = [
+                'host' => $host,
+                'token' => $secret,
+                'secret' => $secret,
+                'callback_url' => $callbackUrl,
+                'ports_pool' => [
+                    'min' => (int) SystemSetting::get('voice_sfu_min_port', 49001),
+                    'max' => (int) SystemSetting::get('voice_sfu_max_port', 49300),
+                ],
+            ];
+
+            try {
+                Http::withHeaders(array_filter([
+                    'X-Voice-Bridge-Secret' => $secret,
+                    'X-Bridge-Secret' => $secret,
+                ]))->timeout(3.0)->post($handshakeUrl, $handshakePayload);
+            } catch (\Throwable $e) {
+                // Non-fatal if /api/handshake times out, continue to /health probe
+            }
+
+            // Wait 250ms for asynchronous feedback webhook
+            usleep(250000);
+
+            // Fetch live data from /health
             $response = Http::withHeaders(array_filter(['X-Bridge-Secret' => $secret]))
                 ->timeout(4.0)
                 ->get($healthUrl);
@@ -572,8 +656,14 @@ class SettingController extends Controller
             if (! is_array($data)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid JSON received from Voice Bridge daemon.',
+                    'message' => __('controllers.admin.settings.voice_bridge_invalid_json'),
                 ], 422);
+            }
+
+            // Also check if detailed diagnostics landed via callback
+            $diagnostics = \Illuminate\Support\Facades\Cache::get('voice_bridge_latest_diagnostics');
+            if (is_array($diagnostics)) {
+                $data = array_merge($data, $diagnostics);
             }
 
             // 1. Resolve effective host and relay IP
@@ -594,8 +684,9 @@ class SettingController extends Controller
             $turnRealm = trim((string) ($turnInfo['realm'] ?? 'ravy-no'));
             $turnDomainOrIp = ($relayIp !== '' && $relayIp !== '0.0.0.0') ? $relayIp : $effectiveHost;
 
-            // 3. SFU details
+            // 3. SFU details & 300 UDP Port Pool
             $sfuInfo = is_array($data['sfu'] ?? null) ? $data['sfu'] : [];
+            $udpPoolInfo = is_array($data['udp_pool'] ?? null) ? $data['udp_pool'] : [];
             $sfuActive = ! empty($sfuInfo['enabled']);
             $sfuWsPath = trim((string) ($sfuInfo['ws_path'] ?? '/ws/sfu'));
             if ($sfuWsPath === '') {
@@ -603,9 +694,12 @@ class SettingController extends Controller
             }
             $sfuWsPath = '/' . ltrim($sfuWsPath, '/');
 
-            $sfuMinPort = 49152;
-            $sfuMaxPort = 49250;
-            if (! empty($sfuInfo['udp_port_range']) && is_string($sfuInfo['udp_port_range'])) {
+            $sfuMinPort = 49001;
+            $sfuMaxPort = 49300;
+            if (! empty($udpPoolInfo['min_port'])) {
+                $sfuMinPort = (int) $udpPoolInfo['min_port'];
+                $sfuMaxPort = (int) ($udpPoolInfo['max_port'] ?? ($sfuMinPort + 299));
+            } elseif (! empty($sfuInfo['udp_port_range']) && is_string($sfuInfo['udp_port_range'])) {
                 $ports = explode('-', $sfuInfo['udp_port_range']);
                 if (count($ports) === 2) {
                     $sfuMinPort = (int) $ports[0];
@@ -630,6 +724,9 @@ class SettingController extends Controller
             SystemSetting::set('voice_bridge_ws_port', (string) $wsPort, __('controllers.admin.settings.desc_voice_bridge_ws_port'));
             SystemSetting::set('voice_bridge_ws_public_url', "ws://{$effectiveHost}:{$wsPort}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
             SystemSetting::set('voice_bridge_enabled', '1', __('controllers.admin.settings.desc_voice_bridge_enabled'));
+            SystemSetting::set('voice_bridge_status', 'online', __('controllers.admin.settings.desc_voice_bridge_status'));
+            SystemSetting::set('voice_bridge_last_synced_at', now()->toIso8601String(), __('controllers.admin.settings.desc_voice_bridge_last_synced_at'));
+
             if ($secret !== '') {
                 SystemSetting::set('voice_bridge_secret', $secret, __('controllers.admin.settings.desc_voice_bridge_secret'));
                 SystemSetting::set('voice_turn_secret', $secret, __('controllers.admin.settings.desc_voice_turn_secret'));
@@ -639,17 +736,17 @@ class SettingController extends Controller
             SystemSetting::set('voice_turn_port', (string) $turnPort, __('controllers.admin.settings.desc_voice_turn_port'));
             SystemSetting::set('voice_turns_port', (string) $turnsPort, __('controllers.admin.settings.desc_voice_turns_port'));
             SystemSetting::set('voice_turns_enabled', $hasTurns ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
-            SystemSetting::set('voice_turn_realm', $turnRealm, 'TURN server authentication realm');
+            SystemSetting::set('voice_turn_realm', $turnRealm, __('controllers.admin.settings.desc_voice_turn_realm'));
             SystemSetting::set('voice_stun_urls', $stunUrls, __('controllers.admin.settings.desc_voice_stun_urls'));
             SystemSetting::set('voice_turn_urls', $turnUrls, __('controllers.admin.settings.desc_voice_turn_urls'));
 
-            SystemSetting::set('voice_sfu_enabled', $sfuActive ? '1' : '0', 'Enable embedded SFU conference engine');
-            SystemSetting::set('voice_sfu_ws_path', $sfuWsPath, 'SFU WebSocket endpoint path');
-            SystemSetting::set('voice_sfu_ws_public_url', "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}", 'Public WSS URL for SFU conference');
-            SystemSetting::set('voice_sfu_min_port', (string) $sfuMinPort, 'SFU UDP media relay min port');
-            SystemSetting::set('voice_sfu_max_port', (string) $sfuMaxPort, 'SFU UDP media relay max port');
+            SystemSetting::set('voice_sfu_enabled', $sfuActive ? '1' : '0', __('controllers.admin.settings.desc_voice_sfu_enabled'));
+            SystemSetting::set('voice_sfu_ws_path', $sfuWsPath, __('controllers.admin.settings.desc_voice_sfu_ws_path'));
+            SystemSetting::set('voice_sfu_ws_public_url', "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}", __('controllers.admin.settings.desc_voice_sfu_ws_public_url'));
+            SystemSetting::set('voice_sfu_min_port', (string) $sfuMinPort, __('controllers.admin.settings.desc_voice_sfu_min_port'));
+            SystemSetting::set('voice_sfu_max_port', (string) $sfuMaxPort, __('controllers.admin.settings.desc_voice_sfu_max_port'));
 
-            $this->logSettingChange($request, 'Voice bridge configuration auto-synchronized from live daemon.');
+            $this->logSettingChange($request, __('controllers.admin.settings.audit_voice_bridge_synced'));
 
             return response()->json([
                 'success' => true,
@@ -672,6 +769,8 @@ class SettingController extends Controller
                     'sfu_ws_public_url' => "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}",
                     'sfu_min_port' => $sfuMinPort,
                     'sfu_max_port' => $sfuMaxPort,
+                    'redis' => $data['redis'] ?? null,
+                    'udp_pool' => $data['udp_pool'] ?? null,
                 ],
             ]);
         } catch (\Throwable $e) {

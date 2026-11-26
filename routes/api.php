@@ -30,6 +30,8 @@ Route::post('/telemetry/errors', [\App\Http\Controllers\HealthCheckController::c
 
 Route::post('/voice/bridge-event', [\App\Http\Controllers\User\VoiceCallController::class, 'bridgeWebhook'])
     ->name('api.voice.bridge_event');
+Route::post('/voice/bridge-callback', [\App\Http\Controllers\User\VoiceCallController::class, 'bridgeWebhook'])
+    ->name('api.voice.bridge_callback');
 
 // Network Mode Health Probe (Public/Intranet non-blocking probe)
 Route::get('/v1/network/probe', [\App\Http\Controllers\Api\V1\MobileCallingApiController::class, 'networkProbe'])

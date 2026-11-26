@@ -690,7 +690,11 @@ class VoiceCallController extends Controller
     {
         $secret = SystemSetting::get('voice_bridge_secret', '');
         if (! empty($secret)) {
-            $provided = $request->header('X-Bridge-Secret') ?: $request->input('secret');
+            $provided = $request->header('X-Voice-Bridge-Secret')
+                ?: $request->header('X-Bridge-Secret')
+                ?: (string) \Illuminate\Support\Str::after($request->header('Authorization', ''), 'Bearer ')
+                ?: $request->input('secret');
+
             if ($provided !== $secret) {
                 return response()->json(['error' => __('controllers.user.calls.unauthorized_bridge_token')], 401);
             }
@@ -699,6 +703,72 @@ class VoiceCallController extends Controller
         $event = $request->input('event');
         $sessionId = $request->input('session_id');
         $durationSeconds = (int) $request->input('duration_seconds', 0);
+
+        if ($event === 'handshake_feedback') {
+            $status = (string) $request->input('status', 'healthy');
+            $redis = (array) $request->input('redis', []);
+            $udpPool = (array) $request->input('udp_pool', []);
+            $turn = (array) $request->input('stun_turn', []);
+            $sfu = (array) $request->input('sfu', []);
+            $version = (string) $request->input('version', '2.4.0');
+            $bridgeHost = trim((string) $request->input('bridge_host', ''));
+            $apiPort = (int) $request->input('api_port', 0);
+            $wsPort = (int) $request->input('ws_port', 0);
+
+            // Auto-persist health & diagnostics
+            SystemSetting::set('voice_bridge_status', $status, __('controllers.admin.settings.desc_voice_bridge_status'));
+            SystemSetting::set('voice_bridge_last_synced_at', now()->toIso8601String(), __('controllers.admin.settings.desc_voice_bridge_last_synced_at'));
+            SystemSetting::set('voice_bridge_version', $version, __('controllers.admin.settings.desc_voice_bridge_version'));
+            SystemSetting::set('voice_bridge_diagnostics', json_encode($request->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), __('controllers.admin.settings.desc_voice_bridge_diagnostics'));
+            SystemSetting::set('voice_bridge_enabled', '1', __('controllers.admin.settings.desc_voice_bridge_enabled'));
+
+            // Persist verified connection parameters
+            if ($bridgeHost !== '' && $bridgeHost !== '0.0.0.0') {
+                SystemSetting::set('voice_bridge_host', $bridgeHost, __('controllers.admin.settings.desc_voice_bridge_host'));
+            }
+            if ($apiPort > 0) {
+                SystemSetting::set('voice_bridge_api_port', (string) $apiPort, __('controllers.admin.settings.desc_voice_bridge_api_port'));
+            }
+            if ($wsPort > 0) {
+                SystemSetting::set('voice_bridge_ws_port', (string) $wsPort, __('controllers.admin.settings.desc_voice_bridge_ws_port'));
+                $effHost = ($bridgeHost !== '' && $bridgeHost !== '0.0.0.0') ? $bridgeHost : SystemSetting::get('voice_bridge_host', '127.0.0.1');
+                SystemSetting::set('voice_bridge_ws_public_url', "ws://{$effHost}:{$wsPort}/ws/signaling", __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+            }
+
+            if (! empty($turn['port'])) {
+                SystemSetting::set('voice_turn_port', (string) $turn['port'], __('controllers.admin.settings.desc_voice_turn_port'));
+            }
+            if (! empty($turn['realm'])) {
+                SystemSetting::set('voice_turn_realm', (string) $turn['realm'], __('controllers.admin.settings.desc_voice_turn_realm'));
+            }
+            if (! empty($turn['relay_ip']) && $turn['relay_ip'] !== '0.0.0.0') {
+                SystemSetting::set('voice_turn_domain_or_ip', (string) $turn['relay_ip'], __('controllers.admin.settings.desc_voice_turn_domain'));
+            }
+
+            if (! empty($sfu['ws_path'])) {
+                $wsPath = '/' . ltrim((string) $sfu['ws_path'], '/');
+                SystemSetting::set('voice_sfu_ws_path', $wsPath, __('controllers.admin.settings.desc_voice_sfu_ws_path'));
+                $effHost = ($bridgeHost !== '' && $bridgeHost !== '0.0.0.0') ? $bridgeHost : SystemSetting::get('voice_bridge_host', '127.0.0.1');
+                $wsP = $wsPort > 0 ? $wsPort : (int) SystemSetting::get('voice_bridge_ws_port', 49001);
+                SystemSetting::set('voice_sfu_ws_public_url', "ws://{$effHost}:{$wsP}{$wsPath}", __('controllers.admin.settings.desc_voice_sfu_ws_public_url'));
+            }
+            if (! empty($udpPool['min_port'])) {
+                SystemSetting::set('voice_sfu_min_port', (string) $udpPool['min_port'], __('controllers.admin.settings.desc_voice_sfu_min_port'));
+            }
+            if (! empty($udpPool['max_port'])) {
+                SystemSetting::set('voice_sfu_max_port', (string) $udpPool['max_port'], __('controllers.admin.settings.desc_voice_sfu_max_port'));
+            }
+
+            // Cache for rapid UI polling
+            \Illuminate\Support\Facades\Cache::put('voice_bridge_latest_diagnostics', $request->all(), now()->addDay());
+            \Illuminate\Support\Facades\Log::info("[VoiceBridge] Handshake diagnostic report received and auto-persisted. Status: {$status}");
+
+            return response()->json([
+                'success' => true,
+                'status' => $status,
+                'message' => __('controllers.user.calls.bridge_handshake_processed'),
+            ]);
+        }
 
         if ($event === 'session_ended' && $sessionId) {
             $call = VoiceCall::where('metadata->bridge_session_id', $sessionId)
