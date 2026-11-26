@@ -9,6 +9,9 @@ import { __ } from '@/Composables/useTrans';
 import { usePwaInstall } from '@/Composables/usePwaInstall';
 import { useWebNotifications } from '@/Composables/useWebNotifications';
 import { useNativeCallingBridge } from '@/Composables/useNativeCallingBridge';
+import { useMediaDevices } from '@/Composables/useMediaDevices';
+import { useWhiteboard } from '@/Composables/useWhiteboard';
+import { useWebRtcPeer } from '@/Composables/useWebRtcPeer';
 
 interface LineItem {
     id: number;
@@ -152,10 +155,7 @@ const isIosSafariNonStandalone = computed(() => {
 // WebRTC Video Calling & Multi-Camera Management
 const isVideoCall = ref(false);
 const isCameraOn = ref(false);
-const currentFacingMode = ref<'user' | 'environment'>('user');
 const isSwitchingCamera = ref(false);
-const availableCameras = ref<{ deviceId: string; label: string; facingMode: 'user' | 'environment' }[]>([]);
-const selectedCameraId = ref<string>('');
 const videoQuality = ref<'hd' | 'sd' | 'low'>('hd');
 const localVideo = ref<HTMLVideoElement | null>(null);
 const remoteVideo = ref<HTMLVideoElement | null>(null);
@@ -181,33 +181,19 @@ let originalCameraTrack: MediaStreamTrack | null = null;
 const isRemoteVideoStreaming = ref(false);
 
 // Audio Output Routing State (Loudspeaker vs Earpiece)
-const audioOutputDevices = ref<{ deviceId: string; label: string; isSpeaker: boolean }[]>([]);
-const selectedAudioOutputId = ref<string>('default');
-
-// Interactive Whiteboard State & WebRTC DataChannel
-const isWhiteboardOpen = ref(false);
-const isRemoteWhiteboardOpen = ref(false);
-const isExpandedWorkspace = ref(true); // Theater / Full Width Mode by default for seamless cross-device parity
-const isWhiteboardCameraActive = ref(true); // User preference: camera PiP during whiteboard session
-const whiteboardCanvasRef = ref<HTMLCanvasElement | null>(null);
-const whiteboardPipVideo = ref<HTMLVideoElement | null>(null);
-const whiteboardRemoteVideo = ref<HTMLVideoElement | null>(null);
-const whiteboardTool = ref<'pen' | 'highlighter' | 'eraser'>('pen');
-const whiteboardColor = ref<string>('#ef4444');
-const whiteboardLineWidth = ref<number>(3);
-const isDataChannelReady = ref(false);
-let whiteboardDataChannel: RTCDataChannel | null = null;
-let videoTransceiverInstance: RTCRtpTransceiver | null = null;
-let isDrawingOnCanvas = false;
-let lastCanvasNx = 0;
-let lastCanvasNy = 0;
-const whiteboardUndoStack = ref<string[]>([]);
-
-// Web Audio API for Realistic Speaker / Earpiece Acoustic Profiles
-let audioContext: AudioContext | null = null;
-let remoteAudioSourceNode: MediaStreamAudioSourceNode | null = null;
-let biquadFilterNode: BiquadFilterNode | null = null;
-let gainNode: GainNode | null = null;
+const isAudioOutputMenuOpen = ref(false);
+const {
+    cameras: availableCameras,
+    microphones: availableMicrophones,
+    speakers: audioOutputDevices,
+    selectedCameraId,
+    selectedMicrophoneId,
+    selectedSpeakerId: selectedAudioOutputId,
+    currentFacingMode,
+    switchCamera: doSwitchCamera,
+    switchMicrophone: doSwitchMicrophone,
+    switchSpeaker: doSwitchSpeaker,
+} = useMediaDevices();
 
 // User Identity for Whiteboard Attribution (Numeric user.id, e.g. "کاربر #1")
 const page = usePage();
@@ -223,6 +209,40 @@ const localUserLabel = computed(() => {
     }
     return __('user.calls.user_generic');
 });
+
+// Interactive Whiteboard State & WebRTC DataChannel via useWhiteboard
+const whiteboard = useWhiteboard({
+    userId: currentUserId.value || 0,
+    userLabel: localUserLabel.value,
+    userPhone: (props as any).currentLine?.number || '',
+    onBroadcast: (msg) => {
+        sendWhiteboardMessage(msg);
+    },
+});
+
+const isWhiteboardOpen = whiteboard.isWhiteboardOpen;
+const isRemoteWhiteboardOpen = whiteboard.isRemoteWhiteboardOpen;
+const isExpandedWorkspace = ref(true); // Theater / Full Width Mode by default for seamless cross-device parity
+const isWhiteboardCameraActive = ref(true); // User preference: camera PiP during whiteboard session
+const whiteboardCanvasRef = whiteboard.canvasRef;
+const whiteboardPipVideo = ref<HTMLVideoElement | null>(null);
+const whiteboardRemoteVideo = ref<HTMLVideoElement | null>(null);
+const whiteboardTool = whiteboard.whiteboardTool;
+const whiteboardColor = whiteboard.whiteboardColor;
+const whiteboardLineWidth = whiteboard.whiteboardLineWidth;
+const isDataChannelReady = ref(false);
+let whiteboardDataChannel: RTCDataChannel | null = null;
+let videoTransceiverInstance: RTCRtpTransceiver | null = null;
+let isDrawingOnCanvas = false;
+let lastCanvasNx = 0;
+let lastCanvasNy = 0;
+const whiteboardUndoStack = whiteboard.undoStack;
+
+// Web Audio API for Realistic Speaker / Earpiece Acoustic Profiles
+let audioContext: AudioContext | null = null;
+let remoteAudioSourceNode: MediaStreamAudioSourceNode | null = null;
+let biquadFilterNode: BiquadFilterNode | null = null;
+let gainNode: GainNode | null = null;
 
 // Live Collaborative Indicators (Remote Cursor & Stroke Attribution)
 const remotePeerCursor = ref<{ x: number; y: number; visible: boolean; name: string }>({
@@ -798,24 +818,50 @@ const toggleSpeaker = async () => {
     applySpeakerEarpieceProfile();
     setNativeAudioRoute(isSpeakerOn.value ? 'speaker' : 'earpiece');
 
-    if (remoteAudio.value && typeof (remoteAudio.value as any).setSinkId === 'function') {
+    if (remoteAudio.value) {
         try {
-            if (audioOutputDevices.value.length === 0) {
-                await enumerateAudioOutputs();
-            }
             if (isSpeakerOn.value) {
                 const speaker = audioOutputDevices.value.find(d => d.isSpeaker && d.deviceId);
-                await (remoteAudio.value as any).setSinkId(speaker ? speaker.deviceId : '');
+                await doSwitchSpeaker(speaker ? speaker.deviceId : 'default', [remoteAudio.value]);
             } else {
                 const earpiece = audioOutputDevices.value.find(d => !d.isSpeaker && d.deviceId);
-                if (earpiece) {
-                    await (remoteAudio.value as any).setSinkId(earpiece.deviceId);
-                } else {
-                    await (remoteAudio.value as any).setSinkId('');
-                }
+                await doSwitchSpeaker(earpiece ? earpiece.deviceId : 'default', [remoteAudio.value]);
             }
         } catch (err) {
             console.warn('[WebRTC-Audio] setSinkId audio routing note:', err);
+        }
+    }
+};
+
+const selectAudioOutput = async (deviceId: string) => {
+    selectedAudioOutputId.value = deviceId;
+    const target = audioOutputDevices.value.find(d => d.deviceId === deviceId);
+    isSpeakerOn.value = target ? target.isSpeaker : true;
+    applySpeakerEarpieceProfile();
+    setNativeAudioRoute(isSpeakerOn.value ? 'speaker' : 'earpiece');
+
+    if (remoteAudio.value) {
+        await doSwitchSpeaker(deviceId, [remoteAudio.value]);
+    }
+    isAudioOutputMenuOpen.value = false;
+};
+
+const selectMicrophone = async (deviceId: string) => {
+    selectedMicrophoneId.value = deviceId;
+    const res = await doSwitchMicrophone(deviceId);
+    if (res && res.track && localMediaStream) {
+        const oldAudioTrack = localMediaStream.getAudioTracks()[0];
+        if (oldAudioTrack) {
+            localMediaStream.removeTrack(oldAudioTrack);
+            oldAudioTrack.stop();
+        }
+        localMediaStream.addTrack(res.track);
+
+        if (peerConnection) {
+            const audioSender = peerConnection.getSenders().find(s => s.track?.kind === 'audio' || (s as any).kind === 'audio');
+            if (audioSender) {
+                await audioSender.replaceTrack(res.track);
+            }
         }
     }
 };
@@ -1287,6 +1333,7 @@ const sendWhiteboardMessage = (msg: any) => {
 
 const handleWhiteboardDataMessage = (data: any) => {
     if (!data || typeof data !== 'object') return;
+    whiteboard.handleRemoteMessage(data);
 
     if (data.type === 'wb_open') {
         isRemoteWhiteboardOpen.value = true;
@@ -1299,17 +1346,10 @@ const handleWhiteboardDataMessage = (data: any) => {
         if (!isCameraOn.value && !isScreenSharing.value && !isRemoteScreenSharing.value && !isRemoteVideoStreaming.value) {
             isVideoCall.value = false;
         }
-    } else if (data.type === 'wb_draw') {
-        drawSegment(data.from[0], data.from[1], data.to[0], data.to[1], data.tool, data.color, data.width);
-        if (data.author) {
-            lastDrawingAuthor.value = data.author;
-        } else if (data.userId) {
-            lastDrawingAuthor.value = __('user.calls.user_with_id', { id: data.userId });
-        }
     } else if (data.type === 'wb_cursor') {
         remotePeerCursor.value = {
-            x: data.x,
-            y: data.y,
+            x: data.nx ?? data.x ?? 0,
+            y: data.ny ?? data.y ?? 0,
             visible: true,
             name: data.author || (data.userId ? __('user.calls.user_with_id', { id: data.userId }) : __('user.calls.user_generic')),
         };
@@ -1317,309 +1357,19 @@ const handleWhiteboardDataMessage = (data: any) => {
         remoteCursorHideTimer = setTimeout(() => {
             remotePeerCursor.value.visible = false;
         }, 3000);
-    } else if (data.type === 'wb_clear') {
-        clearCanvasLocal();
-    } else if (data.type === 'wb_undo' && data.image) {
-        restoreCanvasFromDataUrl(data.image, false);
-    } else if (data.type === 'wb_sync_req') {
-        const canvas = whiteboardCanvasRef.value;
-        if (canvas) {
-            sendWhiteboardMessage({ type: 'wb_sync_res', image: canvas.toDataURL() });
-        }
-    } else if (data.type === 'wb_sync_res' && data.image) {
-        restoreCanvasFromDataUrl(data.image, false);
     }
 };
 
-let lastCursorBroadcastTime = 0;
-const broadcastCursorLocation = (nx: number, ny: number) => {
-    const now = Date.now();
-    if (now - lastCursorBroadcastTime > 80) {
-        lastCursorBroadcastTime = now;
-        sendWhiteboardMessage({
-            type: 'wb_cursor',
-            x: nx,
-            y: ny,
-            author: localUserLabel.value,
-            userId: currentUserId.value,
-        });
-    }
-};
-
-const getNormalizedCoords = (e: MouseEvent | Touch, canvas: HTMLCanvasElement) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const nx = Math.max(0, Math.min(1, x / rect.width));
-    const ny = Math.max(0, Math.min(1, y / rect.height));
-    return { nx, ny };
-};
-
-const drawSegment = (
-    fromNx: number,
-    fromNy: number,
-    toNx: number,
-    toNy: number,
-    tool: 'pen' | 'highlighter' | 'eraser',
-    color: string,
-    width: number
-) => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const fromX = fromNx * rect.width;
-    const fromY = fromNy * rect.height;
-    const toX = toNx * rect.width;
-    const toY = toNy * rect.height;
-
-    // Proportional stroke scale factor so stroke thickness is 100% identical relative to canvas width across mobile & desktop
-    const scaleFactor = Math.max(0.6, rect.width / 1000);
-    const effectiveWidth = width * scaleFactor;
-
-    ctx.save();
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    if (tool === 'eraser') {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = effectiveWidth * 4;
-        ctx.globalAlpha = 1.0;
-        ctx.globalCompositeOperation = 'source-over';
-    } else if (tool === 'highlighter') {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = effectiveWidth * 3;
-        ctx.globalAlpha = 0.35;
-        ctx.globalCompositeOperation = 'source-over';
-    } else {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = effectiveWidth;
-        ctx.globalAlpha = 1.0;
-        ctx.globalCompositeOperation = 'source-over';
-    }
-
-    ctx.beginPath();
-    ctx.moveTo(fromX, fromY);
-    ctx.lineTo(toX, toY);
-    ctx.stroke();
-    ctx.restore();
-};
-
-const clearCanvasLocal = () => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const rect = canvas.getBoundingClientRect();
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, rect.width, rect.height);
-};
-
-const clearWhiteboard = () => {
-    clearCanvasLocal();
-    saveUndoState();
-    sendWhiteboardMessage({ type: 'wb_clear' });
-};
-
-const saveUndoState = () => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const dataUrl = canvas.toDataURL();
-    if (whiteboardUndoStack.value.length > 25) {
-        whiteboardUndoStack.value.shift();
-    }
-    whiteboardUndoStack.value.push(dataUrl);
-};
-
-const undoWhiteboard = () => {
-    if (whiteboardUndoStack.value.length <= 1) {
-        clearWhiteboard();
-        return;
-    }
-    whiteboardUndoStack.value.pop();
-    const prev = whiteboardUndoStack.value[whiteboardUndoStack.value.length - 1];
-    if (prev) {
-        restoreCanvasFromDataUrl(prev, false);
-        sendWhiteboardMessage({ type: 'wb_undo', image: prev });
-    }
-};
-
-const restoreCanvasFromDataUrl = (dataUrl: string, pushUndo = true) => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    const img = new Image();
-    img.onload = () => {
-        const rect = canvas.getBoundingClientRect();
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, rect.width, rect.height);
-        ctx.drawImage(img, 0, 0, rect.width, rect.height);
-        if (pushUndo) {
-            saveUndoState();
-        }
-    };
-    img.src = dataUrl;
-};
-
-const saveWhiteboardImage = () => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const link = document.createElement('a');
-    link.download = `whiteboard-${activeCallId.value || 'session'}-${Date.now()}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-};
-
-const onCanvasMouseDown = (e: MouseEvent) => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    isDrawingOnCanvas = true;
-    const { nx, ny } = getNormalizedCoords(e, canvas);
-    lastCanvasNx = nx;
-    lastCanvasNy = ny;
-    const authorTag = localUserLabel.value;
-    lastDrawingAuthor.value = authorTag;
-    drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
-    sendWhiteboardMessage({
-        type: 'wb_draw',
-        tool: whiteboardTool.value,
-        color: whiteboardColor.value,
-        width: whiteboardLineWidth.value,
-        from: [nx, ny],
-        to: [nx + 0.0001, ny + 0.0001],
-        author: authorTag,
-        userId: currentUserId.value,
-    });
-};
-
-const onCanvasMouseMove = (e: MouseEvent) => {
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const { nx, ny } = getNormalizedCoords(e, canvas);
-    broadcastCursorLocation(nx, ny);
-
-    if (!isDrawingOnCanvas) return;
-    const authorTag = localUserLabel.value;
-    lastDrawingAuthor.value = authorTag;
-    drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
-    sendWhiteboardMessage({
-        type: 'wb_draw',
-        tool: whiteboardTool.value,
-        color: whiteboardColor.value,
-        width: whiteboardLineWidth.value,
-        from: [lastCanvasNx, lastCanvasNy],
-        to: [nx, ny],
-        author: authorTag,
-        userId: currentUserId.value,
-    });
-    lastCanvasNx = nx;
-    lastCanvasNy = ny;
-};
-
-const onCanvasMouseUp = () => {
-    if (!isDrawingOnCanvas) return;
-    isDrawingOnCanvas = false;
-    saveUndoState();
-};
-
-const handleTouchStart = (e: TouchEvent) => {
-    e.preventDefault();
-    if (e.touches.length !== 1) return;
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    isDrawingOnCanvas = true;
-    const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
-    lastCanvasNx = nx;
-    lastCanvasNy = ny;
-    const authorTag = localUserLabel.value;
-    lastDrawingAuthor.value = authorTag;
-    drawSegment(nx, ny, nx + 0.0001, ny + 0.0001, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
-    sendWhiteboardMessage({
-        type: 'wb_draw',
-        tool: whiteboardTool.value,
-        color: whiteboardColor.value,
-        width: whiteboardLineWidth.value,
-        from: [nx, ny],
-        to: [nx + 0.0001, ny + 0.0001],
-        author: authorTag,
-        userId: currentUserId.value,
-    });
-};
-
-const handleTouchMove = (e: TouchEvent) => {
-    e.preventDefault();
-    if (e.touches.length !== 1) return;
-    const canvas = whiteboardCanvasRef.value;
-    if (!canvas) return;
-    const { nx, ny } = getNormalizedCoords(e.touches[0], canvas);
-    broadcastCursorLocation(nx, ny);
-
-    if (!isDrawingOnCanvas) return;
-    const authorTag = localUserLabel.value;
-    lastDrawingAuthor.value = authorTag;
-    drawSegment(lastCanvasNx, lastCanvasNy, nx, ny, whiteboardTool.value, whiteboardColor.value, whiteboardLineWidth.value);
-    sendWhiteboardMessage({
-        type: 'wb_draw',
-        tool: whiteboardTool.value,
-        color: whiteboardColor.value,
-        width: whiteboardLineWidth.value,
-        from: [lastCanvasNx, lastCanvasNy],
-        to: [nx, ny],
-        author: authorTag,
-        userId: currentUserId.value,
-    });
-    lastCanvasNx = nx;
-    lastCanvasNy = ny;
-};
-
-const handleTouchEnd = (e: TouchEvent) => {
-    e.preventDefault();
-    if (!isDrawingOnCanvas) return;
-    isDrawingOnCanvas = false;
-    saveUndoState();
-};
-
-const setupCanvas = () => {
-    nextTick(() => {
-        const canvas = whiteboardCanvasRef.value;
-        if (!canvas) return;
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width === 0 || rect.height === 0) return;
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const oldImage = canvas.toDataURL();
-
-        canvas.width = Math.round(rect.width * dpr);
-        canvas.height = Math.round(rect.height * dpr);
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-            ctx.scale(dpr, dpr);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, rect.width, rect.height);
-            if (oldImage && oldImage.length > 100) {
-                const img = new Image();
-                img.onload = () => {
-                    ctx.drawImage(img, 0, 0, rect.width, rect.height);
-                };
-                img.src = oldImage;
-            }
-        }
-        if (whiteboardUndoStack.value.length === 0) {
-            saveUndoState();
-        }
-
-        canvas.removeEventListener('touchstart', handleTouchStart as any);
-        canvas.removeEventListener('touchmove', handleTouchMove as any);
-        canvas.removeEventListener('touchend', handleTouchEnd as any);
-        canvas.addEventListener('touchstart', handleTouchStart as any, { passive: false });
-        canvas.addEventListener('touchmove', handleTouchMove as any, { passive: false });
-        canvas.addEventListener('touchend', handleTouchEnd as any, { passive: false });
-
-        syncAllVideoElements();
-    });
-};
+const clearWhiteboard = () => whiteboard.clearWhiteboard();
+const undoWhiteboard = () => whiteboard.undo();
+const saveWhiteboardImage = () => whiteboard.saveWhiteboardImage(`whiteboard-${activeCallId.value || 'session'}-${Date.now()}.png`);
+const onCanvasMouseDown = (e: MouseEvent) => whiteboard.onMouseDown(e);
+const onCanvasMouseMove = (e: MouseEvent) => whiteboard.onMouseMove(e);
+const onCanvasMouseUp = () => whiteboard.onMouseUp();
+const handleTouchStart = (e: TouchEvent) => whiteboard.onTouchStart(e);
+const handleTouchMove = (e: TouchEvent) => whiteboard.onTouchMove(e);
+const handleTouchEnd = (e: TouchEvent) => whiteboard.onTouchEnd(e);
+const setupCanvas = () => whiteboard.setupCanvas();
 
 const toggleExpandedWorkspace = () => {
     isExpandedWorkspace.value = !isExpandedWorkspace.value;
@@ -1722,24 +1472,15 @@ const toggleNoiseCancellation = async () => {
     }
 };
 
-// Enhance Opus SDP with In-Band FEC & DTX safely without corrupting SDP structure
-const enhanceOpusSdp = (sdp?: string): string => {
-    if (!sdp || !sdp.includes('opus/48000')) {
-        return sdp || '';
-    }
-    try {
-        return sdp.replace(/(a=fmtp:\d+\s+[^;\r\n]+)/gi, (match) => {
-            let updated = match;
-            if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
-            if (!updated.includes('usedtx=')) updated += ';usedtx=1';
-            return updated;
-        });
-    } catch {
-        return sdp;
-    }
-};
+// WebRTC & Audio Infrastructure via useWebRtcPeer
+const {
+    buildConfiguration: buildPeerRtcConfig,
+    enhanceOpusSdp,
+    unblockAudioPlayback,
+} = useWebRtcPeer({
+    forceRelayOnly: true,
+});
 
-// WebRTC & Audio Infrastructure
 const remoteAudio = ref<HTMLAudioElement | null>(null);
 let peerConnection: RTCPeerConnection | null = null;
 let signalPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -1757,25 +1498,13 @@ const activeRtcConfig = ref<{
 } | null>(props.rtc_config || null);
 
 const buildRtcConfiguration = (): RTCConfiguration => {
-    const cfg = activeRtcConfig.value || props.rtc_config;
-    const iceServers: RTCIceServer[] = Array.isArray(cfg?.iceServers) ? cfg.iceServers : [];
-    return {
-        iceServers: iceServers,
-        iceTransportPolicy: (cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
-        iceCandidatePoolSize: 4,
-    };
+    return buildPeerRtcConfig(activeRtcConfig.value || props.rtc_config);
 };
 
 const unblockRemoteAudioPlayback = async () => {
     if (!remoteAudio.value) return;
-    try {
-        remoteAudio.value.muted = false;
-        remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.85;
-        await remoteAudio.value.play();
-        isAudioPlaybackBlocked.value = false;
-    } catch {
-        isAudioPlaybackBlocked.value = true;
-    }
+    const ok = await unblockAudioPlayback(remoteAudio.value);
+    isAudioPlaybackBlocked.value = !ok;
 };
 
 const sendSignalingMessage = async (type: string, payload: any) => {
@@ -1995,20 +1724,16 @@ const createPeerConnection = (isCaller = false) => {
                 remoteAudio.value.srcObject = audioStream;
                 remoteAudio.value.muted = false;
                 remoteAudio.value.volume = isSpeakerOn.value ? 1.0 : 0.35;
-                remoteAudio.value.play()
-                    .then(() => {
-                        isAudioPlaybackBlocked.value = false;
-                    })
-                    .catch(e => {
-                        console.warn('Audio autoplay blocked by browser:', e);
-                        isAudioPlaybackBlocked.value = true;
-                    });
+                if (selectedAudioOutputId.value) {
+                    doSwitchSpeaker(selectedAudioOutputId.value, [remoteAudio.value]);
+                }
+                unblockRemoteAudioPlayback();
             }
             initWebAudioRouting(audioStream);
 
             event.track.onunmute = () => {
                 if (remoteAudio.value) {
-                    remoteAudio.value.play().catch(() => {});
+                    unblockRemoteAudioPlayback();
                 }
             };
         }
@@ -2026,9 +1751,16 @@ const createPeerConnection = (isCaller = false) => {
         }
     };
 
-    // Relay local ICE candidates
+    // Relay local ICE candidates strictly (filter out non-relay candidates)
     pc.onicecandidate = (event) => {
         if (event.candidate) {
+            const candStr = event.candidate.candidate || '';
+            const candType = event.candidate.type || '';
+            const isRelay = candStr.includes('typ relay') || candType === 'relay';
+            if (!isRelay) {
+                console.log('[WebRTC] 🛡️ Filtered non-relay candidate:', candStr);
+                return;
+            }
             detectOptimalRoute(event.candidate);
             sendSignalingMessage('ice_candidate', event.candidate.toJSON());
         }
@@ -3868,24 +3600,84 @@ onUnmounted(() => {
                                 <span class="text-[9px] font-bold">{{ isWhiteboardOpen ? __('user.calls.whiteboard_close') : __('user.calls.whiteboard_btn') }}</span>
                             </button>
 
-                            <!-- Speaker / Earpiece Audio Routing Button -->
-                            <button
-                                type="button"
-                                @click="toggleSpeaker"
-                                class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 shadow-sm"
-                                :class="isSpeakerOn
-                                    ? 'bg-sky-600/30 border-sky-500 text-sky-300 ring-2 ring-sky-500/40 shadow-sky-500/20'
-                                    : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
-                                :title="isSpeakerOn ? __('user.calls.output_speaker_title') : __('user.calls.output_earpiece_title')"
-                            >
-                                <svg v-if="isSpeakerOn" class="w-5 h-5 mb-0.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-                                </svg>
-                                <svg v-else class="w-5 h-5 mb-0.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                                </svg>
-                                <span class="text-[9px] font-bold">{{ isSpeakerOn ? __('user.calls.speaker_on_label') : __('user.calls.speaker_off_label') }}</span>
-                            </button>
+                            <!-- Speaker / Headset Audio Routing Button with Device Selection Popover -->
+                            <div class="relative">
+                                <button
+                                    type="button"
+                                    @click="toggleSpeaker"
+                                    class="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex flex-col items-center justify-center border transition-all active:scale-95 shadow-sm"
+                                    :class="isSpeakerOn
+                                        ? 'bg-sky-600/30 border-sky-500 text-sky-300 ring-2 ring-sky-500/40 shadow-sky-500/20'
+                                        : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-slate-200 hover:bg-slate-700'"
+                                    :title="isSpeakerOn ? __('user.calls.output_speaker_title') : __('user.calls.output_earpiece_title')"
+                                >
+                                    <svg v-if="isSpeakerOn" class="w-5 h-5 mb-0.5 text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                                    </svg>
+                                    <svg v-else class="w-5 h-5 mb-0.5 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                                    </svg>
+                                    <span class="text-[9px] font-bold">{{ isSpeakerOn ? __('user.calls.speaker_on_label') : __('user.calls.speaker_off_label') }}</span>
+                                </button>
+
+                                <!-- Output switcher dropdown trigger if multiple devices exist -->
+                                <button
+                                    v-if="audioOutputDevices.length > 1 || availableMicrophones.length > 1"
+                                    type="button"
+                                    @click.stop="isAudioOutputMenuOpen = !isAudioOutputMenuOpen"
+                                    class="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-slate-800 border border-slate-600 text-[10px] text-slate-300 hover:text-white flex items-center justify-center shadow transition-transform hover:scale-110"
+                                    :title="__('user.calls.output_menu_title')"
+                                >
+                                    ▾
+                                </button>
+
+                                <!-- Audio Output & Hardware Selection Popover Menu -->
+                                <div
+                                    v-if="isAudioOutputMenuOpen"
+                                    class="absolute bottom-full right-0 mb-3 w-64 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-2.5 z-50 space-y-2 backdrop-blur-md"
+                                >
+                                    <div class="px-1 py-0.5 text-[11px] font-bold text-slate-300 border-b border-slate-800 flex items-center justify-between">
+                                        <span>🔊 {{ __('user.calls.output_menu_title') }}</span>
+                                        <button type="button" @click="isAudioOutputMenuOpen = false" class="text-slate-500 hover:text-white">✕</button>
+                                    </div>
+
+                                    <!-- Speakers / Headsets List -->
+                                    <div v-if="audioOutputDevices.length > 0" class="space-y-1">
+                                        <div class="text-[10px] text-slate-400 font-semibold px-1">
+                                            {{ __('user.calls.select_speaker_title') }}
+                                        </div>
+                                        <button
+                                            v-for="dev in audioOutputDevices"
+                                            :key="dev.deviceId"
+                                            type="button"
+                                            @click="selectAudioOutput(dev.deviceId)"
+                                            class="w-full text-right px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-colors"
+                                            :class="selectedAudioOutputId === dev.deviceId ? 'bg-indigo-600/30 text-indigo-300 font-bold' : 'text-slate-300 hover:bg-slate-800'"
+                                        >
+                                            <span class="truncate">{{ dev.label }}</span>
+                                            <span v-if="selectedAudioOutputId === dev.deviceId" class="text-indigo-400">✓</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Microphones List (if multiple) -->
+                                    <div v-if="availableMicrophones.length > 1" class="space-y-1 pt-1 border-t border-slate-800">
+                                        <div class="text-[10px] text-slate-400 font-semibold px-1">
+                                            {{ __('user.calls.select_mic_title') }}
+                                        </div>
+                                        <button
+                                            v-for="mic in availableMicrophones"
+                                            :key="mic.deviceId"
+                                            type="button"
+                                            @click="selectMicrophone(mic.deviceId)"
+                                            class="w-full text-right px-2.5 py-1.5 rounded-xl text-xs flex items-center justify-between transition-colors"
+                                            :class="selectedMicrophoneId === mic.deviceId ? 'bg-indigo-600/30 text-indigo-300 font-bold' : 'text-slate-300 hover:bg-slate-800'"
+                                        >
+                                            <span class="truncate">{{ mic.label }}</span>
+                                            <span v-if="selectedMicrophoneId === mic.deviceId" class="text-indigo-400">✓</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
 
                             <!-- End Call / Hangup Button -->
                             <button

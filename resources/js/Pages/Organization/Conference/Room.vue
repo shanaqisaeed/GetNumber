@@ -3,6 +3,9 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { Head } from '@inertiajs/vue3';
 import axios from 'axios';
 import { __ } from '@/Composables/useTrans';
+import { useMediaDevices } from '@/Composables/useMediaDevices';
+import { useWhiteboard, type WhiteboardStroke } from '@/Composables/useWhiteboard';
+import { useWebRtcPeer } from '@/Composables/useWebRtcPeer';
 
 interface ParticipantItem {
     id: number;
@@ -50,17 +53,6 @@ interface PollData {
     };
 }
 
-interface WhiteboardStroke {
-    x0: number;
-    y0: number;
-    x1: number;
-    y1: number;
-    color: string;
-    size: number;
-    userId: number;
-    phone: string;
-    label: string;
-}
 
 interface RemoteCursor {
     x: number;
@@ -204,10 +196,48 @@ const activePresenter = computed(() =>
 
 // UI Panel toggles
 const activeSideDrawer = ref<'participants' | 'chat' | 'polls' | null>(null);
-const isWhiteboardOpen = ref(false);
 const isPollCreateModalOpen = ref(false);
 const activeSpeakerId = ref<number | null>(null);
 const toastMessage = ref<string | null>(null);
+
+// Shared Hardware & Audio Routing via useMediaDevices
+const isDeviceSettingsOpen = ref(false);
+const {
+    cameras,
+    microphones,
+    speakers,
+    selectedCameraId,
+    selectedMicrophoneId,
+    selectedSpeakerId,
+    switchCamera: doSwitchCamera,
+    switchMicrophone: doSwitchMicrophone,
+    switchSpeaker: doSwitchSpeaker,
+} = useMediaDevices();
+
+const onSelectCamera = async (deviceId: string) => {
+    const res = await doSwitchCamera(deviceId);
+    if (res && res.track) {
+        if (!isSharingScreen.value) {
+            await replaceOutgoingVideoTrack(res.track);
+        }
+        await bindLocalVideoStream();
+    }
+};
+
+const onSelectMicrophone = async (deviceId: string) => {
+    const res = await doSwitchMicrophone(deviceId);
+    if (res && res.track) {
+        await replaceOutgoingAudioTrack(res.track);
+        if (localStream.value) {
+            setupAudioAnalyser(props.currentParticipant.id, localStream.value);
+        }
+    }
+};
+
+const onSelectSpeaker = async (deviceId: string) => {
+    const audioEls = Array.from(remoteAudioRefs.values());
+    await doSwitchSpeaker(deviceId, audioEls);
+};
 
 // Screen Share Pinch-to-Zoom & Pan states (Mobile & Desktop)
 const zoomScale = ref(1);
@@ -227,20 +257,39 @@ const chatRecipientMode = ref<'everyone' | 'host' | number>('everyone');
 const newPollQuestion = ref('');
 const newPollOptions = ref(['', '']);
 
-// Whiteboard states (16:9 locked aspect ratio with user ID + phone attribution)
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-const isDrawing = ref(false);
-const lastDrawPoint = ref<{ x: number; y: number } | null>(null);
-const currentColor = ref('#4f46e5');
-const currentBrushSize = ref(4);
-const strokeHistory = ref<WhiteboardStroke[]>([]);
-const remoteCursors = reactive<Record<number, RemoteCursor>>({});
-
+// Local Identity Label
 const localIdentityLabel = computed(() => {
     const rawName = (props.currentParticipant.display_name || '').trim();
     const fallbackName = `${__('conference.common.user')} #${props.currentParticipant.user_id}`;
     const name = rawName && rawName !== `USER-${props.currentParticipant.user_id}` ? rawName : fallbackName;
     return props.currentParticipant.phone_number ? `${name} (${props.currentParticipant.phone_number})` : name;
+});
+
+// Shared Interactive 16:9 Whiteboard via useWhiteboard
+const whiteboard = useWhiteboard({
+    userId: props.currentParticipant.user_id,
+    userLabel: localIdentityLabel.value,
+    userPhone: props.currentParticipant.phone_number,
+    onBroadcast: (msg) => {
+        sendSFUMessage('whiteboard_stroke', msg);
+        dispatchPeerSignal('whiteboard_stroke', null, msg);
+    },
+});
+
+const isWhiteboardOpen = whiteboard.isWhiteboardOpen;
+const canvasRef = whiteboard.canvasRef;
+const currentColor = whiteboard.whiteboardColor;
+const currentBrushSize = whiteboard.whiteboardLineWidth;
+const strokeHistory = whiteboard.strokeHistory;
+const isDrawing = ref(false);
+const lastDrawPoint = ref<{ x: number; y: number } | null>(null);
+const remoteCursors = reactive<Record<number, RemoteCursor>>({});
+
+// WebRTC Relay & Peer configuration via useWebRtcPeer
+const effectiveRtcConfig = computed(() => props.rtcConfig || (props as any).rtc_config);
+const { buildConfiguration: getPeerRtcConfig, enhanceOpusSdp } = useWebRtcPeer({
+    rtcConfig: effectiveRtcConfig.value,
+    forceRelayOnly: true,
 });
 
 const activeRemoteCursors = computed(() => {
@@ -476,6 +525,9 @@ function setRemoteVideoRef(participantId: number, el: any) {
 function setRemoteAudioRef(participantId: number, el: any) {
     if (el instanceof HTMLAudioElement) {
         remoteAudioRefs.set(participantId, el);
+        if (selectedSpeakerId.value) {
+            doSwitchSpeaker(selectedSpeakerId.value, [el]);
+        }
         const stream = remoteStreams[participantId];
         if (stream && el.srcObject !== stream) {
             el.srcObject = stream;
@@ -498,18 +550,7 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
         return existing;
     }
 
-    const effectiveRtcConfig = props.rtcConfig || (props as any).rtc_config;
-    const iceServers: RTCIceServer[] = Array.isArray(effectiveRtcConfig?.iceServers) && effectiveRtcConfig.iceServers.length > 0
-        ? effectiveRtcConfig.iceServers
-        : [];
-
-    const pc = new RTCPeerConnection({
-        iceServers,
-        iceTransportPolicy: (effectiveRtcConfig?.iceTransportPolicy as RTCIceTransportPolicy) || 'all',
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require',
-        iceCandidatePoolSize: 4,
-    });
+    const pc = new RTCPeerConnection(getPeerRtcConfig());
 
     // Attach local audio & active video (screen share or camera) tracks using consistent transceivers
     // Strict symmetrical ordering (0: audio, 1: video) prevents m-line order mismatches
@@ -539,7 +580,13 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
     pc.onicecandidate = (event) => {
         if (event.candidate) {
             const candType = event.candidate.type || 'unknown';
-            console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 Local ICE Candidate (${candType}):`, event.candidate.candidate);
+            const candStr = event.candidate.candidate || '';
+            const isRelay = candStr.includes('typ relay') || candType === 'relay';
+            if (!isRelay) {
+                console.log(`[WebRTC:Peer:${remoteParticipantId}] 🛡️ Suppressed non-relay ICE Candidate:`, candStr);
+                return;
+            }
+            console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 Relay ICE Candidate:`, candStr);
             dispatchPeerSignal('candidate', remoteParticipantId, {
                 candidate: event.candidate.toJSON(),
             });
@@ -685,7 +732,7 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
         dispatchPeerSignal('offer', remoteParticipantId, {
             sdp: conn.localDescription ? {
                 type: conn.localDescription.type,
-                sdp: sanitizeSdp(conn.localDescription.sdp),
+                sdp: sanitizeSdp(enhanceOpusSdp(conn.localDescription.sdp)),
             } : null,
         });
     } catch (e) {
@@ -749,7 +796,7 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
             dispatchPeerSignal('answer', senderParticipantId, {
                 sdp: pc.localDescription ? {
                     type: pc.localDescription.type,
-                    sdp: sanitizeSdp(pc.localDescription.sdp),
+                    sdp: sanitizeSdp(enhanceOpusSdp(pc.localDescription.sdp)),
                 } : null,
             });
         } else if (type === 'answer' && payload?.sdp) {
@@ -2230,13 +2277,12 @@ onUnmounted(() => {
                     <div class="w-full max-w-[calc(78vh*16/9)] aspect-video bg-white rounded-2xl shadow-2xl relative overflow-hidden border-2 border-indigo-500/40">
                         <canvas
                             ref="canvasRef"
-                            @mousedown="startDraw"
-                            @mousemove="drawMove"
-                            @mouseup="stopDraw"
-                            @mouseleave="stopDraw"
-                            @touchstart.passive="startDraw"
-                            @touchmove.passive="drawMove"
-                            @touchend="stopDraw"
+                            @mousedown="whiteboard.onMouseDown"
+                            @mousemove="whiteboard.onMouseMove"
+                            @mouseup="whiteboard.onMouseUp"
+                            @touchstart.passive="whiteboard.onTouchStart"
+                            @touchmove.passive="whiteboard.onTouchMove"
+                            @touchend="whiteboard.onTouchEnd"
                             class="w-full h-full cursor-crosshair touch-none"
                         ></canvas>
 
@@ -2784,6 +2830,91 @@ onUnmounted(() => {
                     </svg>
                     <span class="hidden md:inline">{{ isCameraOn ? __('conference.controls.camera_active_label') : __('conference.controls.camera_off_label') }}</span>
                 </button>
+
+                <!-- Hardware Device Settings (Speaker / Headset, Microphone, Camera) -->
+                <div class="relative">
+                    <button
+                        type="button"
+                        @click="isDeviceSettingsOpen = !isDeviceSettingsOpen"
+                        :class="isDeviceSettingsOpen ? 'bg-indigo-600 text-white border-indigo-400' : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border-slate-700'"
+                        class="px-3 py-3 rounded-2xl border transition shadow-lg flex items-center justify-center cursor-pointer"
+                        :title="__('conference.controls.device_settings')"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                    </button>
+
+                    <!-- Device Selection Popover Panel -->
+                    <div
+                        v-if="isDeviceSettingsOpen"
+                        class="absolute bottom-16 start-1/2 -translate-x-1/2 w-72 sm:w-80 p-4 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl space-y-3.5 z-50 text-xs text-slate-200"
+                        dir="rtl"
+                    >
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                            <span class="font-bold flex items-center gap-1.5 text-indigo-400">
+                                <span>⚙️</span>
+                                <span>{{ __('conference.controls.device_settings') }}</span>
+                            </span>
+                            <button
+                                type="button"
+                                @click="isDeviceSettingsOpen = false"
+                                class="text-slate-400 hover:text-white"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <!-- Audio Output / Speaker Selection -->
+                        <div class="space-y-1">
+                            <label class="block font-bold text-[11px] text-slate-400">
+                                🔊 {{ __('conference.controls.select_speaker') }}
+                            </label>
+                            <select
+                                :value="selectedSpeakerId"
+                                @change="onSelectSpeaker(($event.target as HTMLSelectElement).value)"
+                                class="w-full text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 py-1.5 px-2.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            >
+                                <option v-for="spk in speakers" :key="spk.deviceId" :value="spk.deviceId">
+                                    {{ spk.label }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Microphone Selection -->
+                        <div class="space-y-1">
+                            <label class="block font-bold text-[11px] text-slate-400">
+                                🎙️ {{ __('conference.controls.select_microphone') }}
+                            </label>
+                            <select
+                                :value="selectedMicrophoneId"
+                                @change="onSelectMicrophone(($event.target as HTMLSelectElement).value)"
+                                class="w-full text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 py-1.5 px-2.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            >
+                                <option v-for="mic in microphones" :key="mic.deviceId" :value="mic.deviceId">
+                                    {{ mic.label }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- Camera Selection -->
+                        <div class="space-y-1">
+                            <label class="block font-bold text-[11px] text-slate-400">
+                                📷 {{ __('conference.controls.select_camera') }}
+                            </label>
+                            <select
+                                :value="selectedCameraId"
+                                @change="onSelectCamera(($event.target as HTMLSelectElement).value)"
+                                class="w-full text-xs rounded-xl bg-slate-800 border border-slate-700 text-slate-200 py-1.5 px-2.5 focus:ring-1 focus:ring-indigo-500 outline-none"
+                            >
+                                <option v-for="cam in cameras" :key="cam.deviceId" :value="cam.deviceId">
+                                    {{ cam.label }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
                 <button
                     @click="toggleRaiseHand"

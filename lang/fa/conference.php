@@ -177,6 +177,12 @@ return [
         'is_writing' => 'در حال نوشتن است...',
         'autoplay_unblock_hint' => 'برای فعال‌سازی صدای شرکت‌کنندگان روی این نوار ضربه بزنید.',
         'unblock_audio_btn' => 'فعال‌سازی صدا',
+        'device_settings' => 'تنظیمات سخت‌افزار و خروجی صدا',
+        'select_camera' => 'دوربین تصویر:',
+        'select_microphone' => 'میکروفون ورودی:',
+        'select_speaker' => 'بلندگو / هدست خروجی:',
+        'no_devices_found' => 'دستگاهی یافت نشد.',
+        'device_switched_success' => 'تغییر دستگاه با موفقیت اعمال گردید.',
     ],
 
     'chat' => [

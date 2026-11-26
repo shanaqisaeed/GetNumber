@@ -502,6 +502,20 @@ export function useWhiteboard(options: UseWhiteboardOptions = {}) {
         }
     };
 
+    const saveWhiteboardImage = (filename?: string) => {
+        const canvas = canvasRef.value;
+        if (!canvas) return;
+        try {
+            const dataUrl = canvas.toDataURL('image/png');
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = filename || `whiteboard-${Date.now()}.png`;
+            a.click();
+        } catch (e) {
+            console.error('[useWhiteboard] Failed to save image:', e);
+        }
+    };
+
     return {
         isWhiteboardOpen,
         isRemoteWhiteboardOpen,
@@ -528,6 +542,7 @@ export function useWhiteboard(options: UseWhiteboardOptions = {}) {
         onTouchStart,
         onTouchMove,
         onTouchEnd,
+        saveWhiteboardImage,
         handleRemoteMessage,
     };
 }

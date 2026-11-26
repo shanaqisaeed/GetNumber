@@ -177,6 +177,12 @@ return [
         'is_writing' => 'is writing...',
         'autoplay_unblock_hint' => 'Tap here to enable remote audio playback.',
         'unblock_audio_btn' => 'Unblock Audio',
+        'device_settings' => 'Hardware & Audio Output Settings',
+        'select_camera' => 'Camera Device:',
+        'select_microphone' => 'Microphone Device:',
+        'select_speaker' => 'Speaker / Headset Output:',
+        'no_devices_found' => 'No devices detected.',
+        'device_switched_success' => 'Device switched successfully.',
     ],
 
     'chat' => [
