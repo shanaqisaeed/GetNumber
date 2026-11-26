@@ -57,7 +57,7 @@ class ConferenceController extends Controller
                     'creator_name' => $room->creator?->name ?: ($room->creator?->account_id ?: __('conference.common.user')),
                     'has_pin' => ! empty($room->pin_code),
                     'admission_policy' => $room->admission_policy,
-                    'webinar_mode' => $room->webinar_mode,
+                    'webinar_mode' => false,
                     'screen_share_policy' => $room->screen_share_policy,
                     'watermark_enabled' => (bool) $room->watermark_enabled,
                     'is_locked' => $room->is_locked,
@@ -212,7 +212,7 @@ class ConferenceController extends Controller
                 'scheduled_end_at' => $room->scheduled_end_at?->toIso8601String(),
                 'is_future' => $room->isScheduledInFuture(),
                 'admission_policy' => $room->admission_policy,
-                'webinar_mode' => $room->webinar_mode,
+                'webinar_mode' => false,
                 'is_locked' => $room->is_locked,
             ],
             'operableLines' => $operableLines,
@@ -397,7 +397,7 @@ class ConferenceController extends Controller
                 'host_user_id' => $room->created_by_user_id,
                 'admission_policy' => $room->admission_policy,
                 'initial_audio_state' => $room->initial_audio_state,
-                'webinar_mode' => $room->webinar_mode,
+                'webinar_mode' => false,
                 'screen_share_policy' => $room->screen_share_policy,
                 'mute_others_on_share' => $room->mute_others_on_share,
                 'allow_whiteboard' => $room->allow_whiteboard,
@@ -552,7 +552,7 @@ class ConferenceController extends Controller
                 'is_locked' => $room->is_locked,
                 'admission_policy' => $room->admission_policy,
                 'initial_audio_state' => $room->initial_audio_state,
-                'webinar_mode' => $room->webinar_mode,
+                'webinar_mode' => false,
                 'screen_share_policy' => $room->screen_share_policy,
                 'mute_others_on_share' => $room->mute_others_on_share,
                 'allow_whiteboard' => $room->allow_whiteboard,
@@ -678,13 +678,10 @@ class ConferenceController extends Controller
 
     public function toggleWebinar(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
-        $updated = $this->conferenceService->toggleWebinarMode($room, $request->user());
-
         return response()->json([
             'success' => true,
-            'webinar_mode' => $updated->webinar_mode,
-            'message' => $updated->webinar_mode ? __('conference.room.webinar_toggled_on') : __('conference.room.webinar_toggled_off'),
+            'webinar_mode' => false,
+            'message' => 'Webinar mode is disabled',
         ]);
     }
 
@@ -883,7 +880,7 @@ class ConferenceController extends Controller
                     'initial_audio_state' => $updatedRoom->initial_audio_state,
                     'screen_share_policy' => $updatedRoom->screen_share_policy,
                     'mute_others_on_share' => $updatedRoom->mute_others_on_share,
-                    'webinar_mode' => $updatedRoom->webinar_mode,
+                    'webinar_mode' => false,
                     'allow_whiteboard' => $updatedRoom->allow_whiteboard,
                     'watermark_enabled' => $updatedRoom->watermark_enabled,
                     'is_locked' => $updatedRoom->is_locked,

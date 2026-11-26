@@ -46,7 +46,7 @@ class ConferenceService implements ConferenceServiceInterface
             'pin_code' => ! empty($data['pin_code']) ? (string) $data['pin_code'] : null,
             'admission_policy' => $data['admission_policy'] ?? 'open',
             'initial_audio_state' => $data['initial_audio_state'] ?? 'open',
-            'webinar_mode' => (bool) ($data['webinar_mode'] ?? false),
+            'webinar_mode' => false,
             'screen_share_policy' => $data['screen_share_policy'] ?? 'everyone',
             'mute_others_on_share' => (bool) ($data['mute_others_on_share'] ?? false),
             'allow_whiteboard' => (bool) ($data['allow_whiteboard'] ?? true),
@@ -152,10 +152,10 @@ class ConferenceService implements ConferenceServiceInterface
             ? 'admitted'
             : ($room->admission_policy === 'open' ? 'admitted' : 'waiting_approval');
 
-        $canShareScreen = $isHost || ($room->screen_share_policy === 'everyone');
-        $defaultMuted = $isHost ? false : ($room->initial_audio_state === 'muted' || $room->webinar_mode);
+        $canShareScreen = true;
+        $defaultMuted = false;
         $initialMuted = array_key_exists('is_muted', $clientMeta) && $clientMeta['is_muted'] !== null
-            ? (($room->webinar_mode && ! $isHost && ! $canShareScreen) ? true : (bool) $clientMeta['is_muted'])
+            ? (bool) $clientMeta['is_muted']
             : $defaultMuted;
 
         // Camera MUST NOT turn on automatically under any circumstances unless user explicitly turned it on
@@ -275,10 +275,7 @@ class ConferenceService implements ConferenceServiceInterface
             $updates['is_muted'] = (bool) $state['is_muted'];
         }
         if (array_key_exists('is_camera_on', $state) && $state['is_camera_on'] !== null) {
-            // In webinar mode, non-hosts without screen share permission stay in listener mode unless allowed
-            $updates['is_camera_on'] = ($room->webinar_mode && ! $participant->isHost() && ! $participant->can_share_screen)
-                ? false
-                : (bool) $state['is_camera_on'];
+            $updates['is_camera_on'] = (bool) $state['is_camera_on'];
         }
 
         if (! empty($updates)) {
@@ -314,23 +311,10 @@ class ConferenceService implements ConferenceServiceInterface
     {
         $this->ensureHost($room, $hostUser);
 
-        $newMode = ! $room->webinar_mode;
         $room->update([
-            'webinar_mode' => $newMode,
+            'webinar_mode' => false,
             'last_active_at' => Carbon::now(),
         ]);
-
-        if ($newMode) {
-            // In webinar mode, mute and turn off camera of regular non-presenter participants to save 100GB server bandwidth
-            ConferenceParticipant::where('conference_room_id', $room->id)
-                ->where('status', 'admitted')
-                ->where('role', '!=', 'host')
-                ->where('can_share_screen', false)
-                ->update([
-                    'is_muted' => true,
-                    'is_camera_on' => false,
-                ]);
-        }
 
         return $room;
     }
@@ -353,9 +337,7 @@ class ConferenceService implements ConferenceServiceInterface
         if (array_key_exists('mute_others_on_share', $settings)) {
             $updates['mute_others_on_share'] = (bool) $settings['mute_others_on_share'];
         }
-        if (array_key_exists('webinar_mode', $settings)) {
-            $updates['webinar_mode'] = (bool) $settings['webinar_mode'];
-        }
+        $updates['webinar_mode'] = false;
         if (array_key_exists('allow_whiteboard', $settings)) {
             $updates['allow_whiteboard'] = (bool) $settings['allow_whiteboard'];
         }
@@ -367,17 +349,6 @@ class ConferenceService implements ConferenceServiceInterface
         }
 
         $room->update($updates);
-
-        if (! empty($updates['webinar_mode'])) {
-            ConferenceParticipant::where('conference_room_id', $room->id)
-                ->where('status', 'admitted')
-                ->where('role', '!=', 'host')
-                ->where('can_share_screen', false)
-                ->update([
-                    'is_muted' => true,
-                    'is_camera_on' => false,
-                ]);
-        }
 
         // Buffer signaling broadcast for all attendees
         $cacheKey = "conf_signals:{$room->id}";

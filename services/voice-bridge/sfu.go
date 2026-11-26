@@ -685,20 +685,13 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			}
 
 			currentRoom = hub.GetOrCreateRoom(roomUUID)
-			if joinPayload.WebinarMode != nil && role == "host" {
-				currentRoom.Lock()
-				currentRoom.WebinarMode = *joinPayload.WebinarMode
-				currentRoom.Unlock()
-			}
 
 			isMuted := false
 			if joinPayload.IsMuted != nil {
 				isMuted = *joinPayload.IsMuted
-			} else if currentRoom.WebinarMode && role != "host" {
-				isMuted = true
 			}
 
-			canShare := role == "host" || currentRoom.ScreenSharePolicy == "everyone"
+			canShare := true
 			if joinPayload.CanShareScreen != nil {
 				canShare = *joinPayload.CanShareScreen
 			}
@@ -845,11 +838,7 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 					currentPeer.IsMuted = *state.IsMuted
 				}
 				if state.IsCameraOn != nil {
-					if currentRoom.WebinarMode && currentPeer.Role != "host" && !currentPeer.CanShareScreen {
-						currentPeer.IsCameraOn = false
-					} else {
-						currentPeer.IsCameraOn = *state.IsCameraOn
-					}
+					currentPeer.IsCameraOn = *state.IsCameraOn
 				}
 				if state.IsSharingScreen != nil {
 					currentPeer.IsSharingScreen = *state.IsSharingScreen
@@ -948,14 +937,10 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			var policy struct {
-				WebinarMode *bool `json:"webinar_mode"`
-				IsLocked    *bool `json:"is_locked"`
+				IsLocked *bool `json:"is_locked"`
 			}
 			if err := json.Unmarshal(msg.Payload, &policy); err == nil {
 				currentRoom.Lock()
-				if policy.WebinarMode != nil {
-					currentRoom.WebinarMode = *policy.WebinarMode
-				}
 				if policy.IsLocked != nil {
 					currentRoom.IsLocked = *policy.IsLocked
 				}

@@ -397,9 +397,6 @@ onUnmounted(() => {
                         <span class="px-2.5 py-0.5 rounded-full bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 text-xs font-bold border border-purple-200 dark:border-purple-800">
                             {{ __('conference.title') }}
                         </span>
-                        <span v-if="room.webinar_mode" class="px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 text-xs font-semibold border border-amber-200 dark:border-amber-800/40">
-                            {{ __('conference.room.webinar_mode') }}
-                        </span>
                     </div>
                     <h1 class="text-2xl font-black text-slate-900 dark:text-white">
                         {{ room.title }}

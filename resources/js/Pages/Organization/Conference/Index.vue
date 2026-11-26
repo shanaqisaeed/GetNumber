@@ -348,9 +348,6 @@ function deleteRoom(uuid: string) {
                                 </span>
 
                                 <div class="flex items-center gap-1.5">
-                                    <span v-if="room.webinar_mode" class="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 text-[10px] font-semibold border border-amber-200 dark:border-amber-800/50">
-                                        {{ __('conference.room.webinar_badge') }}
-                                    </span>
                                     <span v-if="room.has_pin" class="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500" :title="__('conference.room.has_pin_tooltip')">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -514,14 +511,6 @@ function deleteRoom(uuid: string) {
                             <div class="text-xs">
                                 <span class="font-bold text-slate-800 dark:text-slate-200 block">{{ __('conference.room.mute_others_on_share') }}</span>
                                 <span class="text-slate-500 text-[11px]">{{ __('conference.room.mute_others_on_share_desc') }}</span>
-                            </div>
-                        </label>
-
-                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40 cursor-pointer">
-                            <input v-model="form.webinar_mode" type="checkbox" class="w-4 h-4 text-purple-600 rounded" />
-                            <div class="text-xs">
-                                <span class="font-bold text-slate-800 dark:text-slate-200 block">{{ __('conference.room.webinar_mode') }}</span>
-                                <span class="text-slate-500 text-[11px]">{{ __('conference.room.webinar_mode_desc') }}</span>
                             </div>
                         </label>
 

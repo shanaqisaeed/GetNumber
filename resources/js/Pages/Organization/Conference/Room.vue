@@ -119,7 +119,7 @@ const roomState = ref({
     initial_audio_state: props.room.initial_audio_state || 'open',
     screen_share_policy: props.room.screen_share_policy,
     mute_others_on_share: props.room.mute_others_on_share,
-    webinar_mode: props.room.webinar_mode,
+    webinar_mode: false,
     allow_whiteboard: props.room.allow_whiteboard,
     watermark_enabled: Boolean(props.room.watermark_enabled),
     is_locked: props.room.is_locked,
@@ -127,8 +127,8 @@ const roomState = ref({
 const isSettingsModalOpen = ref(false);
 const settingsForm = ref({ ...roomState.value });
 const isRoomLocked = ref(props.room.is_locked);
-const isWebinarMode = ref(props.room.webinar_mode);
-const canShareScreen = ref(props.currentParticipant.can_share_screen);
+const isWebinarMode = ref(false);
+const canShareScreen = ref(true);
 const topologyMode = ref<'p2p' | 'sfu'>('sfu');
 
 const isAudioPlaybackBlocked = ref(false);
@@ -347,6 +347,8 @@ let pollTimer: any = null;
 let speakerDetectInterval: any = null;
 let audioCtx: AudioContext | null = null;
 const peerAnalysers = new Map<number, AnalyserNode>();
+const peerAudioSources = new Map<number, MediaStreamAudioSourceNode>();
+const peerGainNodes = new Map<number, GainNode>();
 
 function showToast(msg: string) {
     toastMessage.value = msg;
@@ -385,8 +387,8 @@ async function initLocalMedia() {
         return;
     }
 
-    const canBroadcastVideo = !(isWebinarMode.value && !props.room.is_host && !canShareScreen.value);
-    const shouldStartWithVideo = isCameraOn.value && canBroadcastVideo;
+    const canBroadcastVideo = true;
+    const shouldStartWithVideo = isCameraOn.value;
     const shouldStartWithAudio = !isMuted.value;
     let stream: MediaStream | null = null;
 
@@ -448,6 +450,10 @@ async function initLocalMedia() {
         setupAudioAnalyser(props.currentParticipant.id, stream);
     } else {
         isMuted.value = true;
+        if (audioTrack) {
+            audioTrack.stop();
+            stream.removeTrack(audioTrack);
+        }
         await replaceOutgoingAudioTrack(null);
     }
 
@@ -458,6 +464,10 @@ async function initLocalMedia() {
         await replaceOutgoingVideoTrack(videoTrack);
     } else {
         isCameraOn.value = false;
+        if (videoTrack) {
+            videoTrack.stop();
+            stream.removeTrack(videoTrack);
+        }
         await replaceOutgoingVideoTrack(null);
     }
 
@@ -472,7 +482,7 @@ async function initLocalMedia() {
         .catch(() => {});
 }
 
-// 2. Web Audio API Active Speaker Detection
+// 2. Web Audio API Active Speaker Detection & Direct Hardware Audio Route
 function setupAudioAnalyser(participantId: number, stream: MediaStream) {
     try {
         if (stream.getAudioTracks().length === 0) return;
@@ -482,11 +492,34 @@ function setupAudioAnalyser(participantId: number, stream: MediaStream) {
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().catch(() => {});
         }
+
+        const oldSource = peerAudioSources.get(participantId);
+        if (oldSource) {
+            try { oldSource.disconnect(); } catch {}
+            peerAudioSources.delete(participantId);
+        }
+        const oldGain = peerGainNodes.get(participantId);
+        if (oldGain) {
+            try { oldGain.disconnect(); } catch {}
+            peerGainNodes.delete(participantId);
+        }
+
         const source = audioCtx.createMediaStreamSource(stream);
+        peerAudioSources.set(participantId, source);
+
         const analyser = audioCtx.createAnalyser();
         analyser.fftSize = 64;
         source.connect(analyser);
         peerAnalysers.set(participantId, analyser);
+
+        // Web Audio Direct Hardware Output (Same architecture as User/Calls/Index.vue)
+        if (participantId !== props.currentParticipant.id) {
+            const gain = audioCtx.createGain();
+            gain.gain.value = 1.0;
+            source.connect(gain);
+            gain.connect(audioCtx.destination);
+            peerGainNodes.set(participantId, gain);
+        }
     } catch {
         // Ignore audio context restriction until user gesture
     }
@@ -903,6 +936,16 @@ function syncPeerConnectionsWithRoster() {
             peerConnections.delete(peerId);
             delete remoteStreams[peerId];
             peerAnalysers.delete(peerId);
+            const s = peerAudioSources.get(peerId);
+            if (s) {
+                try { s.disconnect(); } catch {}
+                peerAudioSources.delete(peerId);
+            }
+            const g = peerGainNodes.get(peerId);
+            if (g) {
+                try { g.disconnect(); } catch {}
+                peerGainNodes.delete(peerId);
+            }
             remoteAudioRefs.delete(peerId);
             remoteVideoRefs.delete(peerId);
             pendingIceCandidates.delete(peerId);
@@ -915,6 +958,8 @@ function syncPeerConnectionsWithRoster() {
             const pc = getOrCreatePeerConnection(p.id);
             if (props.currentParticipant.id < p.id) {
                 initiateOfferToPeer(p.id, pc);
+            } else {
+                dispatchPeerSignal('renegotiate_needed', p.id, {});
             }
         }
     });
@@ -1024,6 +1069,12 @@ async function toggleAudio() {
                 localStream.value?.removeTrack(t);
             });
         }
+        const s = peerAudioSources.get(props.currentParticipant.id);
+        if (s) {
+            try { s.disconnect(); } catch {}
+            peerAudioSources.delete(props.currentParticipant.id);
+        }
+        peerAnalysers.delete(props.currentParticipant.id);
         await replaceOutgoingAudioTrack(null);
     } else {
         // Unmute: Lazily acquire microphone hardware track and attach to all peer connections
@@ -1062,11 +1113,6 @@ async function toggleAudio() {
 
 // 6. Toggle Camera (With Lazy Acquisition & Playback Guarantee)
 async function toggleVideo() {
-    if (isWebinarMode.value && !props.room.is_host && !canShareScreen.value) {
-        showToast(__('conference.room.webinar_mode_desc'));
-        return;
-    }
-
     const targetState = !isCameraOn.value;
 
     if (targetState) {
@@ -1351,13 +1397,7 @@ async function toggleRoomLock() {
 }
 
 async function toggleWebinarMode() {
-    const resp = await axios.post(route('org.conference.webinar', { uuid: props.room.uuid }));
-    if (resp.data.success) {
-        isWebinarMode.value = resp.data.webinar_mode;
-        sendSFUMessage('room_policy_update', { webinar_mode: isWebinarMode.value });
-        showToast(resp.data.message);
-        fetchState();
-    }
+    // Deprecated: Webinar mode removed for full bidirectional multi-peer communication
 }
 
 // 11. In-Meeting Chat (Public & Private to Host)
@@ -1759,7 +1799,7 @@ function connectSFU() {
                 phone_number: props.currentParticipant.phone_number,
                 display_name: props.currentParticipant.display_name,
                 role: props.currentParticipant.role,
-                webinar_mode: isWebinarMode.value,
+                webinar_mode: false,
                 is_muted: isMuted.value,
                 can_share_screen: canShareScreen.value,
             });
@@ -1913,9 +1953,6 @@ function handleSFUMessage(msg: any) {
                 if (msg.payload.is_locked !== undefined) {
                     isRoomLocked.value = Boolean(msg.payload.is_locked);
                 }
-                if (msg.payload.webinar_mode !== undefined) {
-                    isWebinarMode.value = Boolean(msg.payload.webinar_mode);
-                }
             }
             fetchState();
             break;
@@ -1935,9 +1972,19 @@ function handleSFUMessage(msg: any) {
             if (!props.room.is_host) {
                 isMuted.value = true;
                 if (localStream.value) {
-                    const audioTrack = localStream.value.getAudioTracks()[0];
-                    if (audioTrack) audioTrack.enabled = false;
+                    const audioTracks = localStream.value.getAudioTracks();
+                    audioTracks.forEach((t) => {
+                        t.stop();
+                        localStream.value?.removeTrack(t);
+                    });
                 }
+                const s = peerAudioSources.get(props.currentParticipant.id);
+                if (s) {
+                    try { s.disconnect(); } catch {}
+                    peerAudioSources.delete(props.currentParticipant.id);
+                }
+                peerAnalysers.delete(props.currentParticipant.id);
+                replaceOutgoingAudioTrack(null);
                 showToast(__('conference.controls.muted_by_host'));
             }
             fetchState();
@@ -2031,7 +2078,6 @@ async function fetchState() {
 
         if (resp.data.room) {
             isRoomLocked.value = Boolean(resp.data.room.is_locked);
-            isWebinarMode.value = Boolean(resp.data.room.webinar_mode);
             Object.assign(roomState.value, resp.data.room);
             roomState.value.watermark_enabled = Boolean(resp.data.room.watermark_enabled);
         }
@@ -2070,9 +2116,19 @@ async function fetchState() {
         if (selfRecord) {
             if (selfRecord.is_muted !== isMuted.value) {
                 isMuted.value = selfRecord.is_muted;
-                if (localStream.value) {
-                    const audioTrack = localStream.value.getAudioTracks()[0];
-                    if (audioTrack) audioTrack.enabled = !isMuted.value;
+                if (localStream.value && isMuted.value) {
+                    const audioTracks = localStream.value.getAudioTracks();
+                    audioTracks.forEach((t) => {
+                        t.stop();
+                        localStream.value?.removeTrack(t);
+                    });
+                    const s = peerAudioSources.get(props.currentParticipant.id);
+                    if (s) {
+                        try { s.disconnect(); } catch {}
+                        peerAudioSources.delete(props.currentParticipant.id);
+                    }
+                    peerAnalysers.delete(props.currentParticipant.id);
+                    replaceOutgoingAudioTrack(null);
                 }
             }
             if (selfRecord.can_share_screen !== canShareScreen.value) {
@@ -2082,17 +2138,6 @@ async function fetchState() {
                         ? __('conference.controls.screen_share_granted')
                         : __('conference.controls.screen_share_revoked')
                 );
-            }
-            if (isWebinarMode.value && !props.room.is_host && !canShareScreen.value && isCameraOn.value) {
-                isCameraOn.value = false;
-                if (localStream.value) {
-                    const videoTracks = localStream.value.getVideoTracks();
-                    videoTracks.forEach((t) => {
-                        t.stop();
-                        localStream.value?.removeTrack(t);
-                    });
-                }
-                bindLocalVideoStream();
             }
         }
 
@@ -2113,7 +2158,6 @@ async function fetchState() {
                     Object.assign(roomState.value, sig.payload);
                     roomState.value.watermark_enabled = Boolean(sig.payload.watermark_enabled);
                     isRoomLocked.value = Boolean(sig.payload.is_locked);
-                    isWebinarMode.value = Boolean(sig.payload.webinar_mode);
                 } else if (sig.type === 'whiteboard_draw' && sig.payload) {
                     if (!isWsConnected) {
                         handleSFUMessage({
@@ -2157,7 +2201,6 @@ async function saveRoomSettings() {
             Object.assign(roomState.value, resp.data.room);
             roomState.value.watermark_enabled = Boolean(resp.data.room.watermark_enabled);
             isRoomLocked.value = Boolean(resp.data.room.is_locked);
-            isWebinarMode.value = Boolean(resp.data.room.webinar_mode);
             isSettingsModalOpen.value = false;
             showToast(__('conference.room.settings_saved'));
             sendSFUMessage('room_settings_updated', roomState.value);
@@ -2234,6 +2277,15 @@ onUnmounted(() => {
     }
     peerConnections.forEach((pc) => pc.close());
     peerConnections.clear();
+    peerAudioSources.forEach((s) => {
+        try { s.disconnect(); } catch {}
+    });
+    peerAudioSources.clear();
+    peerGainNodes.forEach((g) => {
+        try { g.disconnect(); } catch {}
+    });
+    peerGainNodes.clear();
+    peerAnalysers.clear();
     if (audioCtx) {
         try {
             audioCtx.close();
@@ -2275,10 +2327,6 @@ onUnmounted(() => {
                 <h1 class="text-xs sm:text-base font-bold text-white truncate max-w-[160px] sm:max-w-md">
                     {{ room.title }}
                 </h1>
-
-                <span v-if="isWebinarMode" class="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-bold border border-amber-500/30">
-                    {{ __('conference.room.webinar_badge') }}
-                </span>
             </div>
 
             <div class="flex items-center gap-2 shrink-0">
@@ -2551,7 +2599,7 @@ onUnmounted(() => {
                             playsinline
                             muted
                             class="w-full h-full object-cover transition-opacity duration-200"
-                            :class="(p.is_camera_on || isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                            :class="p.is_camera_on ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                         ></video>
                         <audio
                             :ref="(el) => setRemoteAudioRef(p.id, el)"
@@ -2559,7 +2607,7 @@ onUnmounted(() => {
                             playsinline
                         ></audio>
 
-                        <div v-if="!p.is_camera_on && !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
+                        <div v-if="!p.is_camera_on" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
                             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-indigo-300 font-bold text-base sm:text-lg">
                                 {{ p.display_name.charAt(0) }}
                             </div>
@@ -3238,13 +3286,6 @@ onUnmounted(() => {
                             </div>
                         </label>
 
-                        <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
-                            <input v-model="settingsForm.webinar_mode" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
-                            <div class="text-xs">
-                                <span class="font-bold text-slate-200 block">{{ __('conference.room.webinar_mode') }}</span>
-                                <span class="text-slate-400 text-[11px]">{{ __('conference.room.webinar_mode_desc') }}</span>
-                            </div>
-                        </label>
 
                         <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-800 bg-slate-800/50 cursor-pointer">
                             <input v-model="settingsForm.allow_whiteboard" type="checkbox" class="w-4 h-4 text-indigo-600 rounded" />
