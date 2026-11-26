@@ -416,14 +416,24 @@ echo -e "  ${PURPLE}${BOLD}◈ DEPLOYMENT PIPELINE EXECUTION${RESET}"
 
 # Step 1: Clean/Purge old instance if requested
 printf "    ${CYAN}➜${RESET} ${GRAY}[1/5] Preparing environment & socket cleanup...${RESET}"
+# Stop systemd service first to prevent Restart=always from immediately respawning
+systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
 if [ "$CLEAN_INSTALL" = true ]; then
-    systemctl stop "${SERVICE_NAME}" 2>/dev/null || true
     systemctl disable "${SERVICE_NAME}" 2>/dev/null || true
     rm -f "${SERVICE_FILE}"
     systemctl daemon-reload 2>/dev/null || true
 fi
-# Terminate lingering instances on these ports if any
+# Terminate lingering instances and forcefully release runtime ports
 pkill -9 -f "voice-bridge" 2>/dev/null || true
+if command -v fuser >/dev/null 2>&1; then
+    fuser -k ${API_PORT}/tcp 2>/dev/null || true
+    fuser -k ${WS_PORT}/tcp 2>/dev/null || true
+    fuser -k ${STUN_PORT}/udp 2>/dev/null || true
+    fuser -k ${TURN_PORT}/udp 2>/dev/null || true
+    fuser -k ${TURN_PORT}/tcp 2>/dev/null || true
+    fuser -k ${TURNS_PORT}/tcp 2>/dev/null || true
+fi
+sleep 1
 mkdir -p "${INSTALL_DIR}"
 chmod 755 "${INSTALL_DIR}"
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[1/5] Environment provisioned & ports freed${RESET}          ${GREEN}[DONE]${RESET}\n"
