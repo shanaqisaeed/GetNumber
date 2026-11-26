@@ -185,10 +185,10 @@ func NewUDPPortPool(cfg UDPPoolConfig, redisMgr *RedisManager) *UDPPortPool {
 	maxP := cfg.MaxPort
 
 	if minP <= 0 {
-		minP = 49001
+		minP = 49005
 	}
 	if maxP <= 0 || maxP < minP {
-		maxP = minP + 299 // Default to 300 UDP ports (e.g. 49001 - 49300)
+		maxP = minP + 300 // Default to 300 UDP ports (e.g. 49005 - 49305)
 	}
 
 	host := cfg.Host

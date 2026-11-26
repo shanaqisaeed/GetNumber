@@ -357,6 +357,14 @@ class DeviceRegistryService
             return preg_replace('#/ws/signaling$#', '/ws/local-push', $publicWs) ?: $publicWs;
         }
 
+        $mode = SystemSetting::get('voice_bridge_connection_mode', 'domain');
+        $domain = trim((string) SystemSetting::get('voice_bridge_domain', ''));
+        if ($mode === 'domain' && $domain !== '') {
+            $useSsl = (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1');
+            $scheme = $useSsl ? 'wss' : 'ws';
+            return "{$scheme}://{$domain}/ws/local-push";
+        }
+
         $host = trim((string) SystemSetting::get('voice_bridge_host', '127.0.0.1'));
         $wsPort = (int) SystemSetting::get('voice_bridge_ws_port', 49001);
 

@@ -256,9 +256,40 @@ SYSEOF
     sysctl --system >/dev/null 2>&1 || true
 fi
 
+# Ensure UDP Media Pool (300 ports) parameters are provisioned into existing .env
+if ! grep -q "^UDP_POOL_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "UDP_POOL_MIN_PORT=49001" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^UDP_POOL_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "UDP_POOL_MAX_PORT=49300" >> "${INSTALL_DIR}/.env"
+fi
+
+# Ensure Redis settings are provisioned into existing .env
+if ! grep -q "^REDIS_HOST=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "REDIS_HOST=127.0.0.1" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^REDIS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "REDIS_PORT=6379" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^REDIS_PASSWORD=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "REDIS_PASSWORD=" >> "${INSTALL_DIR}/.env"
+fi
+if ! grep -q "^REDIS_DB=" "${INSTALL_DIR}/.env" 2>/dev/null; then
+    echo "REDIS_DB=0" >> "${INSTALL_DIR}/.env"
+fi
+
+ACTIVE_UDP_MIN=$(grep "^UDP_POOL_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49005")
+ACTIVE_UDP_MAX=$(grep "^UDP_POOL_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49305")
+ACTIVE_STUN_PORT=$(grep "^STUN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49002")
+ACTIVE_TURN_PORT=$(grep "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49003")
+ACTIVE_TURNS_PORT=$(grep "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49004")
+ACTIVE_TURN_MIN=$(grep "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49005")
+ACTIVE_TURN_MAX=$(grep "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d= -f2 | tr -d '\r\n ' || echo "49305")
+
 # Firewall update if UFW active
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     if [ "$ACTIVE_TURN_EN" = "true" ] || [ "$ACTIVE_TURN_EN" = "1" ] || [ "$ACTIVE_TURN_EN" = "yes" ]; then
+        ufw allow ${ACTIVE_STUN_PORT}/udp >/dev/null 2>&1 || true
         ufw allow ${ACTIVE_TURN_PORT}/udp >/dev/null 2>&1 || true
         ufw allow ${ACTIVE_TURN_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${ACTIVE_TURNS_PORT}/tcp >/dev/null 2>&1 || true
@@ -267,6 +298,13 @@ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: a
     if [ "$ACTIVE_SFU_EN" = "true" ] || [ "$ACTIVE_SFU_EN" = "1" ] || [ "$ACTIVE_SFU_EN" = "yes" ]; then
         ufw allow ${ACTIVE_SFU_MIN}:${ACTIVE_SFU_MAX}/udp >/dev/null 2>&1 || true
     fi
+    # 300 UDP Media Ports Pool (49005 - 49305)
+    ufw allow ${ACTIVE_UDP_MIN}:${ACTIVE_UDP_MAX}/udp >/dev/null 2>&1 || true
+fi
+
+if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
+    firewall-cmd --permanent --add-port=${ACTIVE_UDP_MIN}-${ACTIVE_UDP_MAX}/udp >/dev/null 2>&1 || true
+    firewall-cmd --reload >/dev/null 2>&1 || true
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/4] Auth secret preserved & environment synchronized${RESET} ${GREEN}[DONE]${RESET}\n"
 
@@ -303,22 +341,54 @@ SERVER_IP="${SERVER_IP:-127.0.0.1}"
 
 LATENCY_MS=$(curl -s -w "%{time_total}\n" -o /dev/null -m 2 "http://127.0.0.1:${API_PORT}/ping" 2>/dev/null | awk '{printf "%.1f", $1 * 1000}' || echo "0.7")
 
+CONNECTION_MODE=$(grep "^CONNECTION_MODE=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+SERVER_DOMAIN=$(grep "^SERVER_DOMAIN=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+USE_SSL=$(grep "^USE_SSL=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+
+TARGET_HOST="${SERVER_DOMAIN:-$SERVER_IP}"
+if [ "$USE_SSL" = "true" ] || [ "$USE_SSL" = "1" ] || [ "$USE_SSL" = "yes" ]; then
+    HTTP_SCHEME="https"
+    WS_SCHEME="wss"
+else
+    HTTP_SCHEME="http"
+    WS_SCHEME="ws"
+fi
+
+STUN_PORT=$(grep "^STUN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+STUN_PORT="${STUN_PORT:-49002}"
 TURN_PORT=$(grep "^TURN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
-TURN_PORT="${TURN_PORT:-3478}"
+TURN_PORT="${TURN_PORT:-49003}"
+TURNS_PORT=$(grep "^TURNS_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
+TURNS_PORT="${TURNS_PORT:-49004}"
 TURN_MIN_PORT=$(grep "^TURN_MIN_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
-TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
+TURN_MIN_PORT="${TURN_MIN_PORT:-49005}"
 TURN_MAX_PORT=$(grep "^TURN_MAX_PORT=" "${INSTALL_DIR}/.env" 2>/dev/null | cut -d'=' -f2 | tr -d '\r\n ')
-TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
+TURN_MAX_PORT="${TURN_MAX_PORT:-49305}"
 
 # Result Card
 echo -e "${GREEN}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
 echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE UPGRADED SUCCESSFULLY (2026 RUNTIME ENGINE)${RESET}            ${GREEN}│${RESET}"
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${ACTIVE_SFU_WS}"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 SFU UDP Media Pool" "${ACTIVE_SFU_MIN}-${ACTIVE_SFU_MAX}/udp"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
+if [ "$CONNECTION_MODE" = "domain" ] && [ -n "$SERVER_DOMAIN" ]; then
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌐 Topology Mode" "Domain / Standard Ports (443/80)"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "${HTTP_SCHEME}://${TARGET_HOST}/api"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "${WS_SCHEME}://${TARGET_HOST}/ws/signaling"
+else
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🖥️ Topology Mode" "Direct IP / Dedicated High Ports"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
+fi
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🏊 300 UDP Media Pool" "${ACTIVE_UDP_MIN}-${ACTIVE_UDP_MAX}/udp (Capacity: 20k rooms)"
+if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
+    if [ "$CONNECTION_MODE" = "domain" ] && [ -n "$SERVER_DOMAIN" ]; then
+        printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "${WS_SCHEME}://${TARGET_HOST}${ACTIVE_SFU_WS}"
+    else
+        printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${ACTIVE_SFU_WS}"
+    fi
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 SFU UDP Media Pool" "${ACTIVE_SFU_MIN}-${ACTIVE_SFU_MAX}/udp"
+fi
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun:${TARGET_HOST}:${STUN_PORT} • turn:${TARGET_HOST}:${TURN_PORT}"
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔒 TURNS TLS Relay" "turns:${TARGET_HOST}:${TURNS_PORT} (TCP)"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
 printf "${GREEN}│${RESET}  %-24s │ ${GREEN}${BOLD}%-45s${RESET} ${GREEN}│${RESET}\n" "🔑 Bridge & TURN Secret" "${SECRET}"
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚙️ Systemd Status" "active (running) • Latency: ${LATENCY_MS}ms"

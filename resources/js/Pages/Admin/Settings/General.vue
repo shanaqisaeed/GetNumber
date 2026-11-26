@@ -72,6 +72,9 @@ interface SmtpSettings {
 }
 
 interface VoiceBridgeSettings {
+    connection_mode?: 'domain' | 'ip';
+    domain?: string;
+    use_ssl?: boolean;
     host: string;
     api_port: number;
     ws_port: number;
@@ -79,6 +82,7 @@ interface VoiceBridgeSettings {
     secret?: string;
     enabled: boolean;
     turn_domain_or_ip?: string;
+    stun_port?: number;
     turn_port?: number;
     turns_port?: number;
     turns_enabled?: boolean;
@@ -305,7 +309,13 @@ const testSmtpConnection = async () => {
 // 7. Voice Bridge Form & Testing
 const showBridgeSecret = ref(false);
 const showTurnCredential = ref(false);
+const showAdvancedPorts = ref(false);
+const autoConfigApplied = ref(false);
+
 const bridgeForm = useForm({
+    connection_mode: props.voiceBridgeSettings?.connection_mode || 'domain',
+    domain: props.voiceBridgeSettings?.domain || '',
+    use_ssl: props.voiceBridgeSettings?.use_ssl ?? true,
     host: props.voiceBridgeSettings?.host || '127.0.0.1',
     api_port: props.voiceBridgeSettings?.api_port || 49000,
     ws_port: props.voiceBridgeSettings?.ws_port || 49001,
@@ -313,8 +323,9 @@ const bridgeForm = useForm({
     secret: props.voiceBridgeSettings?.secret || '',
     enabled: props.voiceBridgeSettings?.enabled ?? true,
     turn_domain_or_ip: props.voiceBridgeSettings?.turn_domain_or_ip || '',
-    turn_port: props.voiceBridgeSettings?.turn_port || 3479,
-    turns_port: props.voiceBridgeSettings?.turns_port || 5350,
+    stun_port: props.voiceBridgeSettings?.stun_port || 49002,
+    turn_port: props.voiceBridgeSettings?.turn_port || 49003,
+    turns_port: props.voiceBridgeSettings?.turns_port || 49004,
     turns_enabled: props.voiceBridgeSettings?.turns_enabled ?? false,
     turn_realm: props.voiceBridgeSettings?.turn_realm || 'ravy-no',
     offline_mode: props.voiceBridgeSettings?.offline_mode ?? false,
@@ -327,8 +338,8 @@ const bridgeForm = useForm({
     sfu_enabled: props.voiceBridgeSettings?.sfu_enabled ?? true,
     sfu_ws_path: props.voiceBridgeSettings?.sfu_ws_path || '/ws/sfu',
     sfu_ws_public_url: props.voiceBridgeSettings?.sfu_ws_public_url || '',
-    sfu_min_port: props.voiceBridgeSettings?.sfu_min_port || 49152,
-    sfu_max_port: props.voiceBridgeSettings?.sfu_max_port || 49250,
+    sfu_min_port: props.voiceBridgeSettings?.sfu_min_port || 49005,
+    sfu_max_port: props.voiceBridgeSettings?.sfu_max_port || 49305,
 });
 
 const bridgeSubTab = ref<'connection' | 'relay' | 'guide'>('connection');
@@ -441,15 +452,18 @@ const applyCustomPreset = () => {
 };
 
 const applyPrivatePreset = () => {
-    const host = (bridgeForm.host && bridgeForm.host !== '0.0.0.0' && bridgeForm.host !== '127.0.0.1')
-        ? bridgeForm.host
-        : (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1');
+    const host = (bridgeForm.connection_mode === 'domain' && bridgeForm.domain)
+        ? bridgeForm.domain
+        : ((bridgeForm.host && bridgeForm.host !== '0.0.0.0' && bridgeForm.host !== '127.0.0.1')
+            ? bridgeForm.host
+            : (typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1'));
     bridgeForm.turn_domain_or_ip = host;
-    bridgeForm.turn_port = 3479;
-    bridgeForm.turns_port = 5350;
+    bridgeForm.stun_port = 49002;
+    bridgeForm.turn_port = 49003;
+    bridgeForm.turns_port = 49004;
     bridgeForm.turns_enabled = true;
-    bridgeForm.stun_urls = `stun:${host}:3479\nstun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302`;
-    bridgeForm.turn_urls = `turn:${host}:3479?transport=udp\nturn:${host}:3479?transport=tcp\nturns:${host}:5350?transport=tcp`;
+    bridgeForm.stun_urls = `stun:${host}:49002\nstun:stun.cloudflare.com:3478\nstun:stun.l.google.com:19302`;
+    bridgeForm.turn_urls = `turn:${host}:49003?transport=udp\nturn:${host}:49003?transport=tcp\nturns:${host}:49004?transport=tcp`;
     bridgeForm.offline_mode = false;
     if (!bridgeForm.turn_secret && bridgeForm.secret) {
         bridgeForm.turn_secret = bridgeForm.secret;
@@ -469,7 +483,7 @@ const submitVoiceBridge = () => {
 };
 
 const testingBridge = ref(false);
-const bridgeTestResult = ref<{ success: boolean; message: string; data?: any; latency_ms?: number; auth_valid?: boolean; auth_required?: boolean } | null>(null);
+const bridgeTestResult = ref<{ success: boolean; message: string; data?: any; latency_ms?: number; auth_valid?: boolean; auth_required?: boolean; ws_verified?: boolean; auto_config?: any } | null>(null);
 
 const syncingBridge = ref(false);
 const bridgeSyncResult = ref<{ success: boolean; message: string; synced?: any; data?: any } | null>(null);
@@ -478,20 +492,30 @@ const syncBridgeConnection = async () => {
     syncingBridge.value = true;
     bridgeSyncResult.value = null;
     try {
-        const res = await axios.post(route('admin.settings.voice_bridge.sync'), {
-            host: bridgeForm.host,
-            api_port: bridgeForm.api_port,
+        const payload: Record<string, any> = {
+            connection_mode: bridgeForm.connection_mode,
             secret: bridgeForm.secret,
-        });
+        };
+        if (bridgeForm.connection_mode === 'domain') {
+            payload.domain = bridgeForm.domain;
+            payload.use_ssl = bridgeForm.use_ssl;
+        } else {
+            payload.host = bridgeForm.host;
+            payload.api_port = bridgeForm.api_port;
+            payload.ws_port = bridgeForm.ws_port;
+        }
+
+        const res = await axios.post(route('admin.settings.voice_bridge.sync'), payload);
         const result = res.data;
         bridgeSyncResult.value = result;
         const synced = result.synced || result.data;
         if (result.success && synced) {
-            if (synced.host) bridgeForm.host = synced.host;
+            if (bridgeForm.connection_mode === 'ip' && synced.host) bridgeForm.host = synced.host;
             if (synced.api_port) bridgeForm.api_port = synced.api_port;
             if (synced.ws_port) bridgeForm.ws_port = synced.ws_port;
             if (synced.ws_public_url !== undefined) bridgeForm.ws_public_url = synced.ws_public_url;
             if (synced.turn_domain_or_ip) bridgeForm.turn_domain_or_ip = synced.turn_domain_or_ip;
+            if (synced.stun_port) bridgeForm.stun_port = synced.stun_port;
             if (synced.turn_port) bridgeForm.turn_port = synced.turn_port;
             if (synced.turns_port) bridgeForm.turns_port = synced.turns_port;
             if (synced.turns_enabled !== undefined) bridgeForm.turns_enabled = Boolean(synced.turns_enabled);
@@ -519,13 +543,44 @@ const syncBridgeConnection = async () => {
 const testBridgeConnection = async () => {
     testingBridge.value = true;
     bridgeTestResult.value = null;
+    autoConfigApplied.value = false;
     try {
-        const res = await axios.post(route('admin.settings.voice_bridge.test'), {
-            host: bridgeForm.host,
-            api_port: bridgeForm.api_port,
+        const payload: Record<string, any> = {
+            connection_mode: bridgeForm.connection_mode,
             secret: bridgeForm.secret,
-        });
+        };
+        if (bridgeForm.connection_mode === 'domain') {
+            payload.domain = bridgeForm.domain;
+            payload.use_ssl = bridgeForm.use_ssl;
+        } else {
+            payload.host = bridgeForm.host;
+            payload.api_port = bridgeForm.api_port;
+            payload.ws_port = bridgeForm.ws_port;
+        }
+
+        const res = await axios.post(route('admin.settings.voice_bridge.test'), payload);
         bridgeTestResult.value = res.data;
+
+        // Auto-configure remaining fields if auto_config returned by daemon
+        if (res.data?.success && res.data?.auto_config) {
+            const ac = res.data.auto_config;
+            if (ac.stun_port) bridgeForm.stun_port = ac.stun_port;
+            if (ac.turn_port) bridgeForm.turn_port = ac.turn_port;
+            if (ac.turns_port) bridgeForm.turns_port = ac.turns_port;
+            if (ac.turn_realm) bridgeForm.turn_realm = ac.turn_realm;
+            if (ac.sfu_ws_path) bridgeForm.sfu_ws_path = ac.sfu_ws_path;
+            if (ac.udp_pool_min) bridgeForm.sfu_min_port = ac.udp_pool_min;
+            if (ac.udp_pool_max) bridgeForm.sfu_max_port = ac.udp_pool_max;
+
+            // In domain mode, auto-align public URLs
+            if (bridgeForm.connection_mode === 'domain' && bridgeForm.domain) {
+                const scheme = bridgeForm.use_ssl ? 'wss://' : 'ws://';
+                bridgeForm.ws_public_url = `${scheme}${bridgeForm.domain}/ws/signaling`;
+                bridgeForm.sfu_ws_public_url = `${scheme}${bridgeForm.domain}${ac.sfu_ws_path || '/ws/sfu'}`;
+                bridgeForm.turn_domain_or_ip = bridgeForm.domain;
+            }
+            autoConfigApplied.value = true;
+        }
     } catch (err: any) {
         console.error('Voice bridge test error:', err);
         const errMsg = err.response?.data?.message || err.message || __('admin.settings.general.bridge_network_error');
@@ -1154,7 +1209,227 @@ const testBridgeConnection = async () => {
                                 </div>
                             </div>
 
-                            <!-- Live Test Connection Action -->
+                            <!-- Connection Topology Selector (Domain vs IP) -->
+                            <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 space-y-4 shadow-xs">
+                                <div>
+                                    <h4 class="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                        <span>🧭</span>
+                                        <span>{{ __('admin.settings.general.topology_mode_title') }}</span>
+                                    </h4>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
+                                        {{ __('admin.settings.general.topology_mode_desc') }}
+                                    </p>
+                                </div>
+
+                                <!-- Segmented Switcher -->
+                                <div class="flex items-center gap-1.5 p-1.5 bg-gray-100 dark:bg-gray-900/80 rounded-2xl border border-gray-200/80 dark:border-gray-700 w-full sm:w-fit">
+                                    <button
+                                        type="button"
+                                        @click="bridgeForm.connection_mode = 'domain'"
+                                        class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                        :class="bridgeForm.connection_mode === 'domain'
+                                            ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm border border-gray-200 dark:border-gray-600'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                    >
+                                        <span>{{ __('admin.settings.general.mode_domain_tab') }}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        @click="bridgeForm.connection_mode = 'ip'"
+                                        class="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
+                                        :class="bridgeForm.connection_mode === 'ip'
+                                            ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm border border-gray-200 dark:border-gray-600'
+                                            : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                    >
+                                        <span>{{ __('admin.settings.general.mode_ip_tab') }}</span>
+                                    </button>
+                                </div>
+
+                                <!-- DOMAIN MODE FIELDS -->
+                                <div v-if="bridgeForm.connection_mode === 'domain'" class="space-y-4 pt-1">
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+                                        <div class="sm:col-span-2">
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.domain_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.domain"
+                                                type="text"
+                                                required
+                                                :placeholder="__('admin.settings.general.domain_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.domain_help') }}
+                                            </p>
+                                            <InputError :message="bridgeForm.errors.domain" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.ssl_toggle_label') }}
+                                            </label>
+                                            <div class="flex items-center gap-2 h-10 px-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                                                <input
+                                                    id="voice_bridge_ssl_toggle"
+                                                    v-model="bridgeForm.use_ssl"
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                                                />
+                                                <label for="voice_bridge_ssl_toggle" class="text-xs font-semibold text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                                    {{ bridgeForm.use_ssl ? 'HTTPS / WSS (SSL On)' : 'HTTP / WS (SSL Off)' }}
+                                                </label>
+                                            </div>
+                                            <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1">
+                                                {{ __('admin.settings.general.ssl_toggle_hint') }}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Standard Fixed Paths Preview for Shared Hosts -->
+                                    <div class="p-3.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/20 border border-indigo-200/80 dark:border-indigo-800/50 space-y-2">
+                                        <div class="flex flex-wrap items-center justify-between gap-2">
+                                            <div class="text-xs font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                                <span>🔗</span>
+                                                <span>{{ __('admin.settings.general.domain_paths_title') }}</span>
+                                            </div>
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20">
+                                                {{ __('admin.settings.general.domain_paths_badge') }}
+                                            </span>
+                                        </div>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px] pt-1" dir="ltr">
+                                            <div class="p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/50">
+                                                <div class="text-[10px] font-sans font-bold text-gray-500 dark:text-gray-400" dir="rtl">{{ __('admin.settings.general.domain_path_api') }}</div>
+                                                <div class="text-indigo-700 dark:text-indigo-300 truncate" :title="(bridgeForm.use_ssl ? 'https://' : 'http://') + (bridgeForm.domain || 'voice.example.com') + '/api'">
+                                                    {{ (bridgeForm.use_ssl ? 'https://' : 'http://') + (bridgeForm.domain || 'voice.example.com') + '/api' }}
+                                                </div>
+                                            </div>
+                                            <div class="p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/50">
+                                                <div class="text-[10px] font-sans font-bold text-gray-500 dark:text-gray-400" dir="rtl">{{ __('admin.settings.general.domain_path_ws') }}</div>
+                                                <div class="text-indigo-700 dark:text-indigo-300 truncate" :title="(bridgeForm.use_ssl ? 'wss://' : 'ws://') + (bridgeForm.domain || 'voice.example.com') + '/ws/signaling'">
+                                                    {{ (bridgeForm.use_ssl ? 'wss://' : 'ws://') + (bridgeForm.domain || 'voice.example.com') + '/ws/signaling' }}
+                                                </div>
+                                            </div>
+                                            <div class="p-2 rounded-lg bg-white/80 dark:bg-gray-800/80 border border-indigo-100 dark:border-indigo-900/50">
+                                                <div class="text-[10px] font-sans font-bold text-gray-500 dark:text-gray-400" dir="rtl">{{ __('admin.settings.general.domain_path_sfu') }}</div>
+                                                <div class="text-indigo-700 dark:text-indigo-300 truncate" :title="(bridgeForm.use_ssl ? 'wss://' : 'ws://') + (bridgeForm.domain || 'voice.example.com') + (bridgeForm.sfu_ws_path || '/ws/sfu')">
+                                                    {{ (bridgeForm.use_ssl ? 'wss://' : 'ws://') + (bridgeForm.domain || 'voice.example.com') + (bridgeForm.sfu_ws_path || '/ws/sfu') }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- DIRECT IP MODE FIELDS -->
+                                <div v-else class="space-y-4 pt-1">
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.bridge_host_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.host"
+                                                type="text"
+                                                required
+                                                :placeholder="__('admin.settings.general.bridge_host_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <InputError :message="bridgeForm.errors.host" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.bridge_api_port_label') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.api_port"
+                                                type="number"
+                                                required
+                                                min="1"
+                                                max="65535"
+                                                :placeholder="__('admin.settings.general.bridge_api_port_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <InputError :message="bridgeForm.errors.api_port" class="mt-1" />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.bridge_ws_port_label') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.ws_port"
+                                                type="number"
+                                                required
+                                                min="1"
+                                                max="65535"
+                                                :placeholder="__('admin.settings.general.bridge_ws_port_placeholder')"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <InputError :message="bridgeForm.errors.ws_port" class="mt-1" />
+                                        </div>
+                                    </div>
+
+                                    <!-- Auto-configure Button in IP mode -->
+                                    <div class="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700">
+                                        <div class="text-[11px] text-gray-600 dark:text-gray-300">
+                                            {{ __('admin.settings.general.bridge_health_desc') }}
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="testBridgeConnection"
+                                            :disabled="testingBridge || syncingBridge"
+                                            class="px-4 py-2 text-xs font-bold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-50"
+                                        >
+                                            <span v-if="testingBridge" class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                                            <span v-else>⚡</span>
+                                            <span>{{ testingBridge ? __('admin.settings.general.bridge_testing') : __('admin.settings.general.test_and_autoconfig_btn') }}</span>
+                                        </button>
+                                    </div>
+                                    <div v-if="autoConfigApplied" class="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs font-semibold text-emerald-800 dark:text-emerald-200 flex items-center gap-2">
+                                        <span>✓</span>
+                                        <span>{{ __('admin.settings.general.autoconfig_success_msg') }}</span>
+                                    </div>
+                                </div>
+
+                                <!-- Bridge Secret Token Field -->
+                                <div class="pt-2 border-t border-gray-200/60 dark:border-gray-700/60">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
+                                            {{ __('admin.settings.general.bridge_secret_label') }}
+                                        </label>
+                                        <button
+                                            type="button"
+                                            @click="showBridgeSecret = !showBridgeSecret"
+                                            class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+                                        >
+                                            <span>{{ showBridgeSecret ? __('admin.settings.general.hide_token') : __('admin.settings.general.show_token') }}</span>
+                                        </button>
+                                    </div>
+                                    <div class="relative">
+                                        <input
+                                            v-model="bridgeForm.secret"
+                                            :type="showBridgeSecret ? 'text' : 'password'"
+                                            :placeholder="__('admin.settings.general.bridge_secret_placeholder')"
+                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10 pr-3"
+                                            dir="ltr"
+                                        />
+                                        <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_secret_help_html')"></p>
+                                    <InputError :message="bridgeForm.errors.secret" class="mt-1" />
+                                </div>
+                            </div>
+
+                            <!-- Live Test Connection Action & Diagnostics -->
                             <div class="p-4 rounded-xl bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 space-y-3">
                                 <div class="flex flex-wrap items-center justify-between gap-3">
                                     <div class="space-y-0.5">
@@ -1197,9 +1472,9 @@ const testBridgeConnection = async () => {
                                         <span>{{ bridgeSyncResult.message }}</span>
                                     </div>
                                     <div v-if="bridgeSyncResult.synced || bridgeSyncResult.data" class="font-mono text-[11px] space-y-0.5 pt-1 border-t border-indigo-500/20" dir="ltr">
-                                        <div>Synced Host: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).host }} | API: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).api_port }} | WS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).ws_port }}</div>
-                                        <div>Relay: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_domain_or_ip }}:{{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_port }} | Realm: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_realm || 'ravy-no' }} | TURNS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turns_port || 5349 }}</div>
-                                        <div>SFU Media: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_min_port || 49152 }}-{{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_max_port || 49250 }}/UDP | Path: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_ws_path || '/ws/sfu' }}</div>
+                                        <div>Synced Mode: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).connection_mode || bridgeForm.connection_mode }} | Host: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).host || bridgeForm.host }} | API: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).api_port }} | WS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).ws_port }}</div>
+                                        <div>STUN: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).stun_port || 49002 }} | TURN: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turn_port || 49003 }} | TURNS: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).turns_port || 49004 }}</div>
+                                        <div>SFU Media: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_min_port || 49005 }}-{{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_max_port || 49305 }}/UDP | Path: {{ (bridgeSyncResult.synced || bridgeSyncResult.data).sfu_ws_path || '/ws/sfu' }}</div>
                                     </div>
                                 </div>
 
@@ -1209,204 +1484,206 @@ const testBridgeConnection = async () => {
                                     class="p-3 rounded-xl border text-xs space-y-1.5"
                                     :class="bridgeTestResult.success ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-200' : 'bg-rose-500/10 border-rose-500/30 text-rose-800 dark:text-rose-200'"
                                 >
-                                    <div class="font-bold flex items-center gap-1.5">
-                                        <span>{{ bridgeTestResult.success ? '✓' : '✗' }}</span>
-                                        <span>{{ bridgeTestResult.message }}</span>
+                                    <div class="font-bold flex items-center justify-between gap-2">
+                                        <div class="flex items-center gap-1.5">
+                                            <span>{{ bridgeTestResult.success ? '✓' : '✗' }}</span>
+                                            <span>{{ bridgeTestResult.message }}</span>
+                                        </div>
+                                        <div class="flex items-center gap-1.5">
+                                            <span v-if="bridgeTestResult.ws_verified" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-800 dark:text-emerald-200">
+                                                {{ __('admin.settings.general.ws_verified_badge') }}
+                                            </span>
+                                            <span v-else-if="bridgeTestResult.ws_verified === false" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-800 dark:text-amber-200">
+                                                {{ __('admin.settings.general.ws_unreachable_badge') }}
+                                            </span>
+                                        </div>
                                     </div>
                                     <div v-if="bridgeTestResult.data" class="font-mono text-[11px] space-y-0.5 pt-1 border-t border-emerald-500/20" dir="ltr">
                                         <div>Service: {{ bridgeTestResult.data.service }} (v{{ bridgeTestResult.data.version }})</div>
                                         <div>Uptime: {{ bridgeTestResult.data.uptime_seconds }}s | Active Calls: {{ bridgeTestResult.data.active_sessions }}</div>
                                         <div>Endpoints: http://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.api_port }} & ws://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.ws_port }}</div>
                                         <div v-if="bridgeTestResult.data.sfu">
-                                            SFU Conference Hub: {{ bridgeTestResult.data.sfu.active ? 'ACTIVE' : 'DISABLED' }} | Path: ws://{{ (bridgeTestResult.data.bridge_host && bridgeTestResult.data.bridge_host !== '0.0.0.0') ? bridgeTestResult.data.bridge_host : (bridgeForm.host && bridgeForm.host !== '0.0.0.0' ? bridgeForm.host : '127.0.0.1') }}:{{ bridgeTestResult.data.ws_port }}{{ bridgeTestResult.data.sfu.ws_path || '/ws/sfu' }} | UDP Media Pool: {{ bridgeTestResult.data.sfu.udp_port_range || '49152-49250' }} (Rooms: {{ bridgeTestResult.data.sfu.active_rooms ?? 0 }}, Peers: {{ bridgeTestResult.data.sfu.active_peers ?? 0 }})
+                                            SFU Conference Hub: {{ bridgeTestResult.data.sfu.active ? 'ACTIVE' : 'DISABLED' }} | Path: {{ bridgeTestResult.data.sfu.ws_path || '/ws/sfu' }} | UDP Media Pool: {{ bridgeTestResult.data.sfu.udp_port_range || '49005-49305' }} (Rooms: {{ bridgeTestResult.data.sfu.active_rooms ?? 0 }}, Peers: {{ bridgeTestResult.data.sfu.active_peers ?? 0 }})
                                         </div>
                                         <div v-if="bridgeTestResult.data.stun_turn">
-                                            STUN/TURN Relay: {{ bridgeTestResult.data.stun_turn.active ? 'ACTIVE' : 'DISABLED' }} | Port: {{ bridgeTestResult.data.stun_turn.port }} | Relay Pool: {{ bridgeTestResult.data.stun_turn.relay_range || '49152-49250' }}
+                                            STUN Port: {{ bridgeTestResult.data.stun_turn.stun_port || 49002 }} | TURN: {{ bridgeTestResult.data.stun_turn.turn_port || 49003 }} | TURNS TLS: {{ bridgeTestResult.data.stun_turn.turns_port || 49004 }} | UDP Pool: {{ bridgeTestResult.data.stun_turn.relay_range || '49005-49305' }}
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Host & Ports -->
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        {{ __('admin.settings.general.bridge_host_label') }}
-                                    </label>
-                                    <input
-                                        v-model="bridgeForm.host"
-                                        type="text"
-                                        required
-                                        :placeholder="__('admin.settings.general.bridge_host_placeholder')"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                        dir="ltr"
-                                    />
-                                    <InputError :message="bridgeForm.errors.host" class="mt-1" />
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        {{ __('admin.settings.general.bridge_api_port_label') }}
-                                    </label>
-                                    <input
-                                        v-model="bridgeForm.api_port"
-                                        type="number"
-                                        required
-                                        min="1"
-                                        max="65535"
-                                        :placeholder="__('admin.settings.general.bridge_api_port_placeholder')"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                        dir="ltr"
-                                    />
-                                    <InputError :message="bridgeForm.errors.api_port" class="mt-1" />
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        {{ __('admin.settings.general.bridge_ws_port_label') }}
-                                    </label>
-                                    <input
-                                        v-model="bridgeForm.ws_port"
-                                        type="number"
-                                        required
-                                        min="1"
-                                        max="65535"
-                                        :placeholder="__('admin.settings.general.bridge_ws_port_placeholder')"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                        dir="ltr"
-                                    />
-                                    <InputError :message="bridgeForm.errors.ws_port" class="mt-1" />
-                                </div>
-                            </div>
-
-                            <!-- Bridge Secret Token Field -->
-                            <div>
-                                <div class="flex items-center justify-between mb-1">
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300">
-                                        {{ __('admin.settings.general.bridge_secret_label') }}
-                                    </label>
-                                    <button
-                                        type="button"
-                                        @click="showBridgeSecret = !showBridgeSecret"
-                                        class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
-                                    >
-                                        <span>{{ showBridgeSecret ? __('admin.settings.general.hide_token') : __('admin.settings.general.show_token') }}</span>
-                                    </button>
-                                </div>
-                                <div class="relative">
-                                    <input
-                                        v-model="bridgeForm.secret"
-                                        :type="showBridgeSecret ? 'text' : 'password'"
-                                        :placeholder="__('admin.settings.general.bridge_secret_placeholder')"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white pl-10 pr-3"
-                                        dir="ltr"
-                                    />
-                                    <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                        </svg>
-                                    </div>
-                                </div>
-                                <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_secret_help_html')"></p>
-                                <InputError :message="bridgeForm.errors.secret" class="mt-1" />
-                            </div>
-
-                            <!-- Public WSS URL for HTTPS Browsers -->
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                    {{ __('admin.settings.general.bridge_wss_label') }}
-                                </label>
-                                <input
-                                    v-model="bridgeForm.ws_public_url"
-                                    type="text"
-                                    :placeholder="__('admin.settings.general.bridge_wss_placeholder')"
-                                    class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                    dir="ltr"
-                                />
-                                <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_wss_help_html')"></p>
-                                <InputError :message="bridgeForm.errors.ws_public_url" class="mt-1" />
-                            </div>
-
-                            <!-- SFU Multi-Party Video Conference & UDP Port Pool Settings -->
-                            <div class="p-4 sm:p-5 rounded-2xl bg-indigo-50/60 dark:bg-indigo-950/25 border border-indigo-200/80 dark:border-indigo-800/50 space-y-4">
-                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                    <div>
-                                        <h4 class="text-xs sm:text-sm font-extrabold text-indigo-950 dark:text-indigo-200">
-                                            {{ __('admin.settings.general.sfu_section_title') }}
+                            <!-- Collapsible Advanced Ports Panel (User Requirement: Ports must be configurable for specific networks) -->
+                            <div class="p-4 sm:p-5 rounded-2xl bg-white dark:bg-gray-800/90 border border-gray-200 dark:border-gray-700/80 space-y-4 shadow-xs">
+                                <div class="flex items-center justify-between gap-2">
+                                    <div class="space-y-0.5">
+                                        <h4 class="text-xs sm:text-sm font-extrabold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                                            <span>⚙️</span>
+                                            <span>{{ __('admin.settings.general.advanced_ports_title') }}</span>
                                         </h4>
-                                        <p class="text-[11px] text-indigo-800/80 dark:text-indigo-300/80 mt-0.5">
-                                            {{ __('admin.settings.general.sfu_section_desc') }}
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                            {{ __('admin.settings.general.advanced_ports_desc') }}
                                         </p>
                                     </div>
-                                    <label class="inline-flex items-center gap-2 cursor-pointer shrink-0">
-                                        <input
-                                            v-model="bridgeForm.sfu_enabled"
-                                            type="checkbox"
-                                            class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-                                        />
-                                        <span class="text-xs font-bold text-indigo-900 dark:text-indigo-200">
-                                            {{ __('admin.settings.general.sfu_enabled_label') }}
-                                        </span>
-                                    </label>
+                                    <button
+                                        type="button"
+                                        @click="showAdvancedPorts = !showAdvancedPorts"
+                                        class="px-3 py-1.5 text-xs font-bold rounded-xl border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 transition-all flex items-center gap-1.5 shrink-0"
+                                    >
+                                        <span>{{ showAdvancedPorts ? __('admin.settings.general.advanced_ports_hide') : __('admin.settings.general.advanced_ports_show') }}</span>
+                                        <span class="text-xs">{{ showAdvancedPorts ? '▲' : '▼' }}</span>
+                                    </button>
                                 </div>
 
-                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <div v-show="showAdvancedPorts" class="space-y-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                    <!-- STUN / TURN / TURNS Ports -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.stun_port_label') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.stun_port"
+                                                type="number"
+                                                min="1"
+                                                max="65535"
+                                                placeholder="49002"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_port_label_v2') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.turn_port"
+                                                type="number"
+                                                min="1"
+                                                max="65535"
+                                                placeholder="49003"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turns_port_label_v2') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.turns_port"
+                                                type="number"
+                                                min="1"
+                                                max="65535"
+                                                placeholder="49004"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <div class="flex items-center gap-2 mt-1.5">
+                                                <input
+                                                    id="voice_turns_toggle_advanced"
+                                                    v-model="bridgeForm.turns_enabled"
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                                                />
+                                                <label for="voice_turns_toggle_advanced" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                                    {{ __('admin.settings.general.turns_enable_label') }}
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- UDP Media Pool Range -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.udp_pool_min_label') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.sfu_min_port"
+                                                type="number"
+                                                min="1024"
+                                                max="65535"
+                                                placeholder="49005"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.udp_pool_max_label') }}
+                                            </label>
+                                            <input
+                                                v-model.number="bridgeForm.sfu_max_port"
+                                                type="number"
+                                                min="1024"
+                                                max="65535"
+                                                placeholder="49305"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                        {{ __('admin.settings.general.udp_pool_range_help') }}
+                                    </p>
+
+                                    <!-- SFU path & realm & toggle -->
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.sfu_ws_path_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.sfu_ws_path"
+                                                type="text"
+                                                placeholder="/ws/sfu"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                            <div class="flex items-center gap-2 mt-1.5">
+                                                <input
+                                                    id="voice_sfu_toggle_advanced"
+                                                    v-model="bridgeForm.sfu_enabled"
+                                                    type="checkbox"
+                                                    class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer"
+                                                />
+                                                <label for="voice_sfu_toggle_advanced" class="text-[11px] text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+                                                    {{ __('admin.settings.general.sfu_enabled_label') }}
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                                                {{ __('admin.settings.general.turn_realm_label') }}
+                                            </label>
+                                            <input
+                                                v-model="bridgeForm.turn_realm"
+                                                type="text"
+                                                placeholder="ravy-no"
+                                                class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                                                dir="ltr"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <!-- Optional Public WSS URL override for custom reverse proxies -->
                                     <div>
                                         <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.sfu_ws_path_label') }}
+                                            {{ __('admin.settings.general.bridge_wss_label') }}
                                         </label>
                                         <input
-                                            v-model="bridgeForm.sfu_ws_path"
+                                            v-model="bridgeForm.ws_public_url"
                                             type="text"
-                                            placeholder="/ws/sfu"
+                                            :placeholder="__('admin.settings.general.bridge_wss_placeholder')"
                                             class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                             dir="ltr"
                                         />
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.bridge_wss_help_html')"></p>
                                     </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.sfu_min_port_label') }}
-                                        </label>
-                                        <input
-                                            v-model.number="bridgeForm.sfu_min_port"
-                                            type="number"
-                                            min="1024"
-                                            max="65535"
-                                            placeholder="49152"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                            {{ __('admin.settings.general.sfu_max_port_label') }}
-                                        </label>
-                                        <input
-                                            v-model.number="bridgeForm.sfu_max_port"
-                                            type="number"
-                                            min="1024"
-                                            max="65535"
-                                            placeholder="49250"
-                                            class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                            dir="ltr"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                                        {{ __('admin.settings.general.sfu_wss_label') }}
-                                    </label>
-                                    <input
-                                        v-model="bridgeForm.sfu_ws_public_url"
-                                        type="text"
-                                        :placeholder="__('admin.settings.general.sfu_wss_placeholder')"
-                                        class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                                        dir="ltr"
-                                    />
-                                    <p class="text-[11px] text-gray-500 dark:text-gray-400 mt-1" v-html="__('admin.settings.general.sfu_wss_help_html')"></p>
                                 </div>
                             </div>
                         </div>
@@ -1478,7 +1755,7 @@ const testBridgeConnection = async () => {
                                             <input
                                                 v-model="bridgeForm.turn_domain_or_ip"
                                                 type="text"
-                                                :placeholder="bridgeForm.host || '127.0.0.1'"
+                                                :placeholder="bridgeForm.connection_mode === 'domain' ? (bridgeForm.domain || 'voice.example.com') : (bridgeForm.host || '127.0.0.1')"
                                                 class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                 dir="ltr"
                                             />
@@ -1497,7 +1774,7 @@ const testBridgeConnection = async () => {
                                                 type="number"
                                                 min="1"
                                                 max="65535"
-                                                placeholder="3479"
+                                                placeholder="49003"
                                                 class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                 dir="ltr"
                                             />
@@ -1516,7 +1793,7 @@ const testBridgeConnection = async () => {
                                                 type="number"
                                                 min="1"
                                                 max="65535"
-                                                placeholder="5350"
+                                                placeholder="49004"
                                                 class="w-full text-xs font-mono rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                                                 dir="ltr"
                                             />

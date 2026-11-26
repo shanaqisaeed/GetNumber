@@ -100,12 +100,40 @@ func handleHandshake(
 
 		log.Printf("[HANDSHAKE] 🤝 Received handshake request from %s | Callback: %s", r.RemoteAddr, targetCallback)
 
-		// Acknowledge receipt immediately to avoid Laravel timeout on slow connections
+		// Prepare auto-config metadata for Laravel auto-configuration
+		autoConfig := map[string]interface{}{
+			"api_port":       cfg.APIPort,
+			"ws_port":        cfg.WSPort,
+			"stun_port":      cfg.StunPort,
+			"turn_port":      cfg.TurnPort,
+			"turns_port":     cfg.TurnsPort,
+			"turn_realm":     cfg.TurnRealm,
+			"sfu_ws_path":    cfg.SFUWSPath,
+			"udp_pool_min":   49005,
+			"udp_pool_max":   49305,
+			"capacity_rooms": 20000,
+			"server_time":    time.Now().Unix(),
+		}
+		if udpPool != nil {
+			autoConfig["udp_pool_min"] = udpPool.minPort
+			autoConfig["udp_pool_max"] = udpPool.maxPort
+		}
+		if redisMgr != nil {
+			connected, latency, msg := redisMgr.PingStatus()
+			autoConfig["redis"] = map[string]interface{}{
+				"connected":  connected,
+				"latency_ms": latency,
+				"status":     msg,
+			}
+		}
+
+		// Acknowledge receipt immediately with full auto-config metadata
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success":      true,
 			"status":       "acknowledged",
-			"message":      "Handshake received. Internal diagnostics running; full report will be posted to callback_url.",
+			"message":      "Handshake received. Auto-configuration metadata provided.",
+			"auto_config":  autoConfig,
 			"callback_url": targetCallback,
 			"daemon_time":  time.Now().Unix(),
 		})

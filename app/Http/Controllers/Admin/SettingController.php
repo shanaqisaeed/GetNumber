@@ -81,6 +81,9 @@ class SettingController extends Controller
                 'require_email_verification' => (bool) (int) SystemSetting::get('require_email_verification', '1'),
             ],
             'voiceBridgeSettings' => [
+                'connection_mode' => SystemSetting::get('voice_bridge_connection_mode', 'domain'),
+                'domain' => SystemSetting::get('voice_bridge_domain', ''),
+                'use_ssl' => (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1'),
                 'host' => SystemSetting::get('voice_bridge_host', '127.0.0.1'),
                 'api_port' => (int) SystemSetting::get('voice_bridge_api_port', 49000),
                 'ws_port' => (int) SystemSetting::get('voice_bridge_ws_port', 49001),
@@ -88,8 +91,9 @@ class SettingController extends Controller
                 'secret' => SystemSetting::get('voice_bridge_secret', ''),
                 'enabled' => (bool) (int) SystemSetting::get('voice_bridge_enabled', '1'),
                 'turn_domain_or_ip' => SystemSetting::get('voice_turn_domain_or_ip', ''),
-                'turn_port' => (int) SystemSetting::get('voice_turn_port', 3479),
-                'turns_port' => (int) SystemSetting::get('voice_turns_port', 5350),
+                'stun_port' => (int) SystemSetting::get('voice_stun_port', 49002),
+                'turn_port' => (int) SystemSetting::get('voice_turn_port', 49003),
+                'turns_port' => (int) SystemSetting::get('voice_turns_port', 49004),
                 'turns_enabled' => (bool) (int) SystemSetting::get('voice_turns_enabled', '0'),
                 'turn_realm' => SystemSetting::get('voice_turn_realm', 'ravy-no'),
                 'offline_mode' => (bool) (int) SystemSetting::get('voice_offline_mode', '0'),
@@ -105,8 +109,8 @@ class SettingController extends Controller
                 'sfu_enabled' => (bool) (int) SystemSetting::get('voice_sfu_enabled', '1'),
                 'sfu_ws_path' => SystemSetting::get('voice_sfu_ws_path', '/ws/sfu'),
                 'sfu_ws_public_url' => SystemSetting::get('voice_sfu_ws_public_url', ''),
-                'sfu_min_port' => (int) SystemSetting::get('voice_sfu_min_port', 49152),
-                'sfu_max_port' => (int) SystemSetting::get('voice_sfu_max_port', 49250),
+                'sfu_min_port' => (int) SystemSetting::get('voice_sfu_min_port', 49005),
+                'sfu_max_port' => (int) SystemSetting::get('voice_sfu_max_port', 49305),
             ],
         ]);
     }
@@ -367,18 +371,21 @@ class SettingController extends Controller
      */
     public function updateVoiceBridge(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'host' => ['required', 'string', 'max:100'],
-            'api_port' => ['required', 'integer', 'min:1', 'max:65535'],
-            'ws_port' => ['required', 'integer', 'min:1', 'max:65535'],
-            'ws_public_url' => ['nullable', 'string', 'max:255'],
-            'secret' => ['nullable', 'string', 'max:255'],
+        $connectionMode = $request->input('connection_mode', 'domain');
+        if (! in_array($connectionMode, ['domain', 'ip'], true)) {
+            $connectionMode = 'domain';
+        }
+
+        $rules = [
+            'connection_mode' => ['required', 'string', 'in:domain,ip'],
             'enabled' => ['boolean'],
-            'turn_domain_or_ip' => ['nullable', 'string', 'max:255'],
+            'secret' => ['nullable', 'string', 'max:255'],
+            'stun_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'turn_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'turns_port' => ['nullable', 'integer', 'min:1', 'max:65535'],
             'turns_enabled' => ['boolean'],
             'turn_realm' => ['nullable', 'string', 'max:100'],
+            'turn_domain_or_ip' => ['nullable', 'string', 'max:255'],
             'offline_mode' => ['boolean'],
             'stun_urls' => ['nullable', 'string', 'max:1000'],
             'turn_urls' => ['nullable', 'string', 'max:1000'],
@@ -394,27 +401,68 @@ class SettingController extends Controller
             'sfu_ws_public_url' => ['nullable', 'string', 'max:255'],
             'sfu_min_port' => ['nullable', 'integer', 'min:1024', 'max:65535'],
             'sfu_max_port' => ['nullable', 'integer', 'min:1024', 'max:65535'],
-        ], [
+        ];
+
+        if ($connectionMode === 'domain') {
+            $rules['domain'] = ['required', 'string', 'max:255'];
+            $rules['use_ssl'] = ['boolean'];
+            $rules['host'] = ['nullable', 'string', 'max:100'];
+            $rules['api_port'] = ['nullable', 'integer', 'min:1', 'max:65535'];
+            $rules['ws_port'] = ['nullable', 'integer', 'min:1', 'max:65535'];
+        } else {
+            $rules['host'] = ['required', 'string', 'max:100'];
+            $rules['api_port'] = ['required', 'integer', 'min:1', 'max:65535'];
+            $rules['ws_port'] = ['required', 'integer', 'min:1', 'max:65535'];
+            $rules['domain'] = ['nullable', 'string', 'max:255'];
+            $rules['use_ssl'] = ['boolean'];
+        }
+
+        $validated = $request->validate($rules, [
+            'domain.required' => __('controllers.admin.settings.val_voice_domain_required'),
             'host.required' => __('controllers.admin.settings.val_voice_host_required'),
             'api_port.required' => __('controllers.admin.settings.val_voice_api_port_required'),
             'ws_port.required' => __('controllers.admin.settings.val_voice_ws_port_required'),
         ]);
 
-        SystemSetting::set('voice_bridge_host', $validated['host'], __('controllers.admin.settings.desc_voice_bridge_host'));
-        SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], __('controllers.admin.settings.desc_voice_bridge_api_port'));
-        SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], __('controllers.admin.settings.desc_voice_bridge_ws_port'));
-        SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+        SystemSetting::set('voice_bridge_connection_mode', $connectionMode, 'Audio connection topology mode (domain or ip)');
         SystemSetting::set('voice_bridge_secret', (string) ($validated['secret'] ?? ''), __('controllers.admin.settings.desc_voice_bridge_secret'));
         SystemSetting::set('voice_bridge_enabled', $request->boolean('enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_bridge_enabled'));
 
-        if ($request->has('turn_domain_or_ip')) {
+        if ($connectionMode === 'domain') {
+            $cleanDomain = preg_replace('#^https?://#', '', trim($validated['domain']));
+            $cleanDomain = rtrim($cleanDomain, '/');
+            $useSsl = $request->boolean('use_ssl', true);
+
+            SystemSetting::set('voice_bridge_domain', $cleanDomain, 'Audio Bridge domain name or FQDN');
+            SystemSetting::set('voice_bridge_use_ssl', $useSsl ? '1' : '0', 'Enable SSL/TLS for Domain Mode');
+
+            // Synchronize standard endpoints for shared hosting / reverse proxy (Ports 443 / 80)
+            $wsScheme = $useSsl ? 'wss://' : 'ws://';
+            $stdWsUrl = "{$wsScheme}{$cleanDomain}/ws/signaling";
+            $stdSfuUrl = "{$wsScheme}{$cleanDomain}/ws/sfu";
+
+            SystemSetting::set('voice_bridge_ws_public_url', $stdWsUrl, __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+            SystemSetting::set('voice_sfu_ws_public_url', $stdSfuUrl, 'Public WSS URL for SFU conference');
+            SystemSetting::set('voice_bridge_host', $cleanDomain, __('controllers.admin.settings.desc_voice_bridge_host'));
+            SystemSetting::set('voice_turn_domain_or_ip', $cleanDomain, __('controllers.admin.settings.desc_voice_turn_domain'));
+        } else {
+            SystemSetting::set('voice_bridge_host', $validated['host'], __('controllers.admin.settings.desc_voice_bridge_host'));
+            SystemSetting::set('voice_bridge_api_port', (string) $validated['api_port'], __('controllers.admin.settings.desc_voice_bridge_api_port'));
+            SystemSetting::set('voice_bridge_ws_port', (string) $validated['ws_port'], __('controllers.admin.settings.desc_voice_bridge_ws_port'));
+            SystemSetting::set('voice_bridge_ws_public_url', trim((string) ($validated['ws_public_url'] ?? '')), __('controllers.admin.settings.desc_voice_bridge_ws_public_url'));
+        }
+
+        if ($request->has('turn_domain_or_ip') && $connectionMode !== 'domain') {
             SystemSetting::set('voice_turn_domain_or_ip', trim((string) ($validated['turn_domain_or_ip'] ?? '')), __('controllers.admin.settings.desc_voice_turn_domain'));
         }
+        if ($request->has('stun_port')) {
+            SystemSetting::set('voice_stun_port', (string) ($validated['stun_port'] ?? 49002), 'STUN server UDP port');
+        }
         if ($request->has('turn_port')) {
-            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 3479), __('controllers.admin.settings.desc_voice_turn_port'));
+            SystemSetting::set('voice_turn_port', (string) ($validated['turn_port'] ?? 49003), __('controllers.admin.settings.desc_voice_turn_port'));
         }
         if ($request->has('turns_port')) {
-            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 5350), __('controllers.admin.settings.desc_voice_turns_port'));
+            SystemSetting::set('voice_turns_port', (string) ($validated['turns_port'] ?? 49004), __('controllers.admin.settings.desc_voice_turns_port'));
         }
         if ($request->has('turns_enabled')) {
             SystemSetting::set('voice_turns_enabled', $request->boolean('turns_enabled') ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
@@ -461,14 +509,14 @@ class SettingController extends Controller
             $normSfuPath = '/' . ltrim($rawSfuPath ?: 'ws/sfu', '/');
             SystemSetting::set('voice_sfu_ws_path', $normSfuPath, 'SFU WebSocket endpoint path');
         }
-        if ($request->has('sfu_ws_public_url')) {
+        if ($request->has('sfu_ws_public_url') && $connectionMode !== 'domain') {
             SystemSetting::set('voice_sfu_ws_public_url', trim((string) ($validated['sfu_ws_public_url'] ?? '')), 'Public WSS URL for SFU conference');
         }
         if ($request->has('sfu_min_port')) {
-            SystemSetting::set('voice_sfu_min_port', (string) ($validated['sfu_min_port'] ?? 49152), 'SFU UDP media relay min port');
+            SystemSetting::set('voice_sfu_min_port', (string) ($validated['sfu_min_port'] ?? 49005), 'SFU UDP media relay min port');
         }
         if ($request->has('sfu_max_port')) {
-            SystemSetting::set('voice_sfu_max_port', (string) ($validated['sfu_max_port'] ?? 49250), 'SFU UDP media relay max port');
+            SystemSetting::set('voice_sfu_max_port', (string) ($validated['sfu_max_port'] ?? 49305), 'SFU UDP media relay max port');
         }
 
         $this->logSettingChange($request, __('controllers.admin.settings.audit_voice_bridge_updated'));
@@ -481,16 +529,40 @@ class SettingController extends Controller
      */
     public function testVoiceBridge(Request $request): JsonResponse
     {
-        $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
-        $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+        $connectionMode = $request->input('connection_mode', SystemSetting::get('voice_bridge_connection_mode', 'domain'));
         $secret = trim((string) $request->input('secret', SystemSetting::get('voice_bridge_secret', '')));
+        $startTime = microtime(true);
+        $wsSocketVerified = true;
+
+        if ($connectionMode === 'domain' || ($request->filled('domain') && ! $request->filled('host'))) {
+            $domain = trim((string) $request->input('domain', SystemSetting::get('voice_bridge_domain', '')));
+            $cleanDomain = preg_replace('#^https?://#', '', $domain);
+            $cleanDomain = rtrim($cleanDomain, '/');
+            $useSsl = $request->boolean('use_ssl', (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1'));
+            $scheme = $useSsl ? 'https' : 'http';
+            $handshakeUrl = "{$scheme}://{$cleanDomain}/api/handshake";
+            $healthUrl = "{$scheme}://{$cleanDomain}/health";
+            $host = $cleanDomain;
+            $port = $useSsl ? 443 : 80;
+            $wsPort = $port;
+        } else {
+            $host = trim((string) $request->input('host', SystemSetting::get('voice_bridge_host', '127.0.0.1')));
+            $port = (int) $request->input('api_port', SystemSetting::get('voice_bridge_api_port', 49000));
+            $wsPort = (int) $request->input('ws_port', SystemSetting::get('voice_bridge_ws_port', 49001));
+            $handshakeUrl = "http://{$host}:{$port}/api/handshake";
+            $healthUrl = "http://{$host}:{$port}/health";
+
+            // Verify WebSocket TCP Socket
+            $fp = @stream_socket_client("tcp://{$host}:{$wsPort}", $errno, $errstr, 1.5);
+            if ($fp) {
+                fclose($fp);
+            } else {
+                $wsSocketVerified = false;
+            }
+        }
 
         try {
-            $startTime = microtime(true);
             $callbackUrl = route('api.voice.bridge_event');
-            $handshakeUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/api/handshake');
-            $healthUrl = \App\Services\Communication\VoiceCallService::buildBridgeUrl($host, $port, '/health');
-
             \Illuminate\Support\Facades\Log::info("[VoiceBridge] Testing two-way handshake with daemon at {$handshakeUrl} (Callback: {$callbackUrl})");
 
             // Clear previous cached diagnostics
@@ -503,8 +575,8 @@ class SettingController extends Controller
                 'secret' => $secret,
                 'callback_url' => $callbackUrl,
                 'ports_pool' => [
-                    'min' => (int) SystemSetting::get('voice_sfu_min_port', 49001),
-                    'max' => (int) SystemSetting::get('voice_sfu_max_port', 49300),
+                    'min' => (int) SystemSetting::get('voice_sfu_min_port', 49005),
+                    'max' => (int) SystemSetting::get('voice_sfu_max_port', 49305),
                 ],
             ];
 
@@ -537,17 +609,39 @@ class SettingController extends Controller
                 $mergedData = is_array($diagnostics) ? $diagnostics : $healthData;
                 $status = $mergedData['status'] ?? 'ok';
 
+                // Extract auto_config from Go daemon response
+                $autoConfig = $response->json('auto_config');
+                if (! is_array($autoConfig)) {
+                    $autoConfig = [
+                        'api_port' => $port,
+                        'ws_port' => $wsPort,
+                        'stun_port' => (int) ($mergedData['stun_turn']['stun_port'] ?? 49002),
+                        'turn_port' => (int) ($mergedData['stun_turn']['turn_port'] ?? 49003),
+                        'turns_port' => (int) ($mergedData['stun_turn']['turns_port'] ?? 49004),
+                        'turn_realm' => (string) ($mergedData['stun_turn']['realm'] ?? 'ravy-no'),
+                        'sfu_ws_path' => (string) ($mergedData['sfu']['ws_path'] ?? '/ws/sfu'),
+                        'udp_pool_min' => 49005,
+                        'udp_pool_max' => 49305,
+                        'capacity_rooms' => 20000,
+                    ];
+                }
+
                 $msg = __('controllers.admin.settings.voice_bridge_test_ok', ['latency' => $latencyMs]);
                 if (! empty($secret)) {
                     $msg .= ' ' . __('controllers.admin.settings.voice_bridge_secret_ok');
                 }
                 $msg .= ' ' . __('controllers.admin.settings.voice_bridge_handshake_ok');
+                if (! $wsSocketVerified && $connectionMode === 'ip') {
+                    $msg .= ' ' . __('controllers.admin.settings.voice_bridge_ws_warning', ['port' => $wsPort]);
+                }
 
                 return response()->json([
                     'success' => true,
                     'asymmetric_handshake' => true,
                     'status' => $status,
                     'data' => $mergedData,
+                    'auto_config' => $autoConfig,
+                    'ws_verified' => $wsSocketVerified,
                     'redis' => $mergedData['redis'] ?? ($healthData['redis'] ?? null),
                     'udp_pool' => $mergedData['udp_pool'] ?? ($healthData['udp_pool'] ?? null),
                     'stun_turn' => $mergedData['stun_turn'] ?? ($healthData['stun_turn'] ?? null),
@@ -566,10 +660,24 @@ class SettingController extends Controller
 
             if ($fallbackResp->successful()) {
                 $data = $fallbackResp->json() ?: [];
+                $autoConfig = [
+                    'api_port' => $port,
+                    'ws_port' => $wsPort,
+                    'stun_port' => 49002,
+                    'turn_port' => 49003,
+                    'turns_port' => 49004,
+                    'turn_realm' => 'ravy-no',
+                    'sfu_ws_path' => '/ws/sfu',
+                    'udp_pool_min' => 49005,
+                    'udp_pool_max' => 49305,
+                ];
+
                 return response()->json([
                     'success' => true,
                     'asymmetric_handshake' => false,
                     'data' => $data,
+                    'auto_config' => $autoConfig,
+                    'ws_verified' => $wsSocketVerified,
                     'redis' => $data['redis'] ?? null,
                     'udp_pool' => $data['udp_pool'] ?? null,
                     'latency_ms' => (int) round((microtime(true) - $startTime) * 1000),
@@ -584,7 +692,7 @@ class SettingController extends Controller
             ], 422);
 
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Connection error to {$host}:{$port} - " . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning("[VoiceBridge] Connection error to {$handshakeUrl} - " . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('controllers.admin.settings.voice_bridge_unreachable', ['error' => $e->getMessage()]),
@@ -678,8 +786,9 @@ class SettingController extends Controller
 
             // 2. TURN / STUN details
             $turnInfo = is_array($data['stun_turn'] ?? null) ? $data['stun_turn'] : [];
-            $turnPort = (int) ($turnInfo['port'] ?? 3479);
-            $turnsPort = (int) ($turnInfo['turns_port'] ?? 5350);
+            $stunPort = (int) ($turnInfo['stun_port'] ?? 49002);
+            $turnPort = (int) ($turnInfo['turn_port'] ?? ($turnInfo['port'] ?? 49003));
+            $turnsPort = (int) ($turnInfo['turns_port'] ?? 49004);
             $hasTurns = ! empty($turnInfo['has_tls']) || $turnsPort > 0;
             $turnRealm = trim((string) ($turnInfo['realm'] ?? 'ravy-no'));
             $turnDomainOrIp = ($relayIp !== '' && $relayIp !== '0.0.0.0') ? $relayIp : $effectiveHost;
@@ -694,11 +803,11 @@ class SettingController extends Controller
             }
             $sfuWsPath = '/' . ltrim($sfuWsPath, '/');
 
-            $sfuMinPort = 49001;
-            $sfuMaxPort = 49300;
+            $sfuMinPort = 49005;
+            $sfuMaxPort = 49305;
             if (! empty($udpPoolInfo['min_port'])) {
                 $sfuMinPort = (int) $udpPoolInfo['min_port'];
-                $sfuMaxPort = (int) ($udpPoolInfo['max_port'] ?? ($sfuMinPort + 299));
+                $sfuMaxPort = (int) ($udpPoolInfo['max_port'] ?? ($sfuMinPort + 300));
             } elseif (! empty($sfuInfo['udp_port_range']) && is_string($sfuInfo['udp_port_range'])) {
                 $ports = explode('-', $sfuInfo['udp_port_range']);
                 if (count($ports) === 2) {
@@ -708,7 +817,7 @@ class SettingController extends Controller
             }
 
             // 4. Construct dedicated STUN and TURN URLs strictly from server parameters
-            $stunUrls = "stun:{$turnDomainOrIp}:{$turnPort}";
+            $stunUrls = "stun:{$turnDomainOrIp}:{$stunPort}";
             $turnUrlLines = [
                 "turn:{$turnDomainOrIp}:{$turnPort}?transport=udp",
                 "turn:{$turnDomainOrIp}:{$turnPort}?transport=tcp",
@@ -733,6 +842,7 @@ class SettingController extends Controller
             }
 
             SystemSetting::set('voice_turn_domain_or_ip', $turnDomainOrIp, __('controllers.admin.settings.desc_voice_turn_domain'));
+            SystemSetting::set('voice_stun_port', (string) $stunPort, 'STUN server UDP port');
             SystemSetting::set('voice_turn_port', (string) $turnPort, __('controllers.admin.settings.desc_voice_turn_port'));
             SystemSetting::set('voice_turns_port', (string) $turnsPort, __('controllers.admin.settings.desc_voice_turns_port'));
             SystemSetting::set('voice_turns_enabled', $hasTurns ? '1' : '0', __('controllers.admin.settings.desc_voice_turns_enabled'));
@@ -758,6 +868,7 @@ class SettingController extends Controller
                     'ws_public_url' => "ws://{$effectiveHost}:{$wsPort}/ws/signaling",
                     'secret' => $secret,
                     'turn_domain_or_ip' => $turnDomainOrIp,
+                    'stun_port' => $stunPort,
                     'turn_port' => $turnPort,
                     'turns_port' => $turnsPort,
                     'turns_enabled' => $hasTurns,
@@ -769,6 +880,17 @@ class SettingController extends Controller
                     'sfu_ws_public_url' => "ws://{$effectiveHost}:{$wsPort}{$sfuWsPath}",
                     'sfu_min_port' => $sfuMinPort,
                     'sfu_max_port' => $sfuMaxPort,
+                    'auto_config' => [
+                        'api_port' => $apiPort,
+                        'ws_port' => $wsPort,
+                        'stun_port' => $stunPort,
+                        'turn_port' => $turnPort,
+                        'turns_port' => $turnsPort,
+                        'turn_realm' => $turnRealm,
+                        'sfu_ws_path' => $sfuWsPath,
+                        'udp_pool_min' => $sfuMinPort,
+                        'udp_pool_max' => $sfuMaxPort,
+                    ],
                     'redis' => $data['redis'] ?? null,
                     'udp_pool' => $data['udp_pool'] ?? null,
                 ],

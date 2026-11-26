@@ -101,18 +101,25 @@ class IceServerProvider
      */
     public function resolveStunUrls(): array
     {
-        $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        $mode = SystemSetting::get('voice_bridge_connection_mode', 'domain');
+        $domainOrIp = '';
+        if ($mode === 'domain') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_bridge_domain', ''));
+        }
+        if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        }
         if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
             $domainOrIp = trim((string) SystemSetting::get('voice_bridge_host', ''));
         }
-        $turnPort = (int) SystemSetting::get('voice_turn_port', 3478);
-        if ($turnPort <= 0) {
-            $turnPort = 3478;
+        $stunPort = (int) SystemSetting::get('voice_stun_port', 49002);
+        if ($stunPort <= 0) {
+            $stunPort = (int) SystemSetting::get('voice_turn_port', 49002);
         }
 
         $selfStun = [];
         if ($domainOrIp !== '' && $domainOrIp !== '0.0.0.0') {
-            $selfStun[] = "stun:{$domainOrIp}:{$turnPort}";
+            $selfStun[] = "stun:{$domainOrIp}:{$stunPort}";
         }
 
         $rawConfiguredStun = trim((string) SystemSetting::get('voice_stun_urls', ''));
@@ -156,7 +163,14 @@ class IceServerProvider
             return $explicitUrls;
         }
 
-        $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        $mode = SystemSetting::get('voice_bridge_connection_mode', 'domain');
+        $domainOrIp = '';
+        if ($mode === 'domain') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_bridge_domain', ''));
+        }
+        if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
+            $domainOrIp = trim((string) SystemSetting::get('voice_turn_domain_or_ip', ''));
+        }
         if ($domainOrIp === '' || $domainOrIp === '0.0.0.0') {
             $domainOrIp = trim((string) SystemSetting::get('voice_bridge_host', ''));
         }
@@ -164,14 +178,14 @@ class IceServerProvider
             return [];
         }
 
-        $port = (int) SystemSetting::get('voice_turn_port', 3478);
+        $port = (int) SystemSetting::get('voice_turn_port', 49003);
         if ($port <= 0) {
-            $port = 3478;
+            $port = 49003;
         }
 
-        $turnsPort = (int) SystemSetting::get('voice_turns_port', 5350);
+        $turnsPort = (int) SystemSetting::get('voice_turns_port', 49004);
         if ($turnsPort <= 0) {
-            $turnsPort = 5350;
+            $turnsPort = 49004;
         }
 
         $hasTurns = (bool) (int) SystemSetting::get('voice_turns_enabled', '0');

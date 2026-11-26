@@ -1,6 +1,6 @@
 [Unit]
 Description=RavyNo Voice Bridge & Audio Signaling Daemon
-After=network.target network-online.target
+After=network.target network-online.target redis.service redis-server.service
 Wants=network-online.target
 
 [Service]
@@ -12,6 +12,7 @@ ExecStart=/opt/ravy-no-bridge/voice-bridge
 Restart=always
 RestartSec=3s
 LimitNOFILE=65535
+LimitNPROC=32768
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=ravy-no-voice-bridge

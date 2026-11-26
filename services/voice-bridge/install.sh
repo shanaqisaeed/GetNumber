@@ -49,16 +49,34 @@ HOST="${HOST:-0.0.0.0}"
 SECRET="${SECRET:-}"
 CALLBACK_URL="${BRIDGE_CALLBACK_URL:-}"
 TURN_ENABLED="${TURN_ENABLED:-true}"
-TURN_PORT="${TURN_PORT:-3479}"
-TURNS_PORT="${TURNS_PORT:-5350}"
+STUN_PORT="${STUN_PORT:-49002}"
+TURN_PORT="${TURN_PORT:-49003}"
+TURNS_PORT="${TURNS_PORT:-49004}"
 TURN_REALM="${TURN_REALM:-ravy-no}"
 TURN_PUBLIC_IP="${TURN_PUBLIC_IP:-}"
-TURN_MIN_PORT="${TURN_MIN_PORT:-49152}"
-TURN_MAX_PORT="${TURN_MAX_PORT:-49250}"
+TURN_MIN_PORT="${TURN_MIN_PORT:-49005}"
+TURN_MAX_PORT="${TURN_MAX_PORT:-49305}"
 SFU_ENABLED="${SFU_ENABLED:-true}"
 SFU_WS_PATH="${SFU_WS_PATH:-/ws/sfu}"
-SFU_MIN_PORT="${SFU_MIN_PORT:-}"
-SFU_MAX_PORT="${SFU_MAX_PORT:-}"
+SFU_MIN_PORT="${SFU_MIN_PORT:-49005}"
+SFU_MAX_PORT="${SFU_MAX_PORT:-49305}"
+
+# 300 UDP Media Ports Pool (49005 - 49305) with 5-Tuple Multiplexing
+UDP_POOL_MIN_PORT="${UDP_POOL_MIN_PORT:-49005}"
+UDP_POOL_MAX_PORT="${UDP_POOL_MAX_PORT:-49305}"
+
+# Redis Multi-Room Coordination Cache
+REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_PASSWORD="${REDIS_PASSWORD:-}"
+REDIS_DB="${REDIS_DB:-0}"
+SKIP_REDIS_INSTALL=false
+
+# Connection Mode (Domain / FQDN vs Direct IP)
+CONNECTION_MODE="${CONNECTION_MODE:-domain}"
+SERVER_DOMAIN="${SERVER_DOMAIN:-}"
+USE_SSL="${USE_SSL:-true}"
+
 CLEAN_INSTALL=false
 NON_INTERACTIVE=false
 
@@ -80,6 +98,23 @@ while [[ $# -gt 0 ]]; do
             SECRET="$2"
             shift 2
             ;;
+        --domain|-d)
+            SERVER_DOMAIN="$2"
+            CONNECTION_MODE="domain"
+            shift 2
+            ;;
+        --mode|-m)
+            CONNECTION_MODE="$2"
+            shift 2
+            ;;
+        --ssl)
+            USE_SSL="true"
+            shift
+            ;;
+        --no-ssl)
+            USE_SSL="false"
+            shift
+            ;;
         --callback-url|-c)
             CALLBACK_URL="$2"
             shift 2
@@ -95,6 +130,10 @@ while [[ $# -gt 0 ]]; do
         --enable-turn)
             TURN_ENABLED="true"
             shift
+            ;;
+        --stun-port)
+            STUN_PORT="$2"
+            shift 2
             ;;
         --turn-port)
             TURN_PORT="$2"
@@ -144,6 +183,34 @@ while [[ $# -gt 0 ]]; do
             SFU_MAX_PORT="$2"
             shift 2
             ;;
+        --udp-pool-min)
+            UDP_POOL_MIN_PORT="$2"
+            shift 2
+            ;;
+        --udp-pool-max)
+            UDP_POOL_MAX_PORT="$2"
+            shift 2
+            ;;
+        --redis-host)
+            REDIS_HOST="$2"
+            shift 2
+            ;;
+        --redis-port)
+            REDIS_PORT="$2"
+            shift 2
+            ;;
+        --redis-pass|--redis-password)
+            REDIS_PASSWORD="$2"
+            shift 2
+            ;;
+        --redis-db)
+            REDIS_DB="$2"
+            shift 2
+            ;;
+        --skip-redis-install|--no-redis)
+            SKIP_REDIS_INSTALL=true
+            shift
+            ;;
         --clean|--reinstall)
             CLEAN_INSTALL=true
             shift
@@ -160,6 +227,13 @@ while [[ $# -gt 0 ]]; do
             echo -e "  ${CYAN}--host,         -h <ip>${RESET}     Interface bind address ${DIM}(default: 0.0.0.0)${RESET}"
             echo -e "  ${CYAN}--secret,       -s <token>${RESET}  Custom 32-hex secret token ${DIM}(default: auto-generate)${RESET}"
             echo -e "  ${CYAN}--callback-url, -c <url>${RESET}    Default Laravel webhook callback URL"
+            echo -e "${WHITE}UDP Media Pool & Redis Options (300 Ports Multiplexing):${RESET}"
+            echo -e "  ${CYAN}--udp-pool-min <port>${RESET}          Media pool min UDP port ${DIM}(default: 49001)${RESET}"
+            echo -e "  ${CYAN}--udp-pool-max <port>${RESET}          Media pool max UDP port ${DIM}(default: 49300)${RESET}"
+            echo -e "  ${CYAN}--redis-host <host>${RESET}            Redis host address ${DIM}(default: 127.0.0.1)${RESET}"
+            echo -e "  ${CYAN}--redis-port <port>${RESET}            Redis port ${DIM}(default: 6379)${RESET}"
+            echo -e "  ${CYAN}--redis-pass <pass>${RESET}            Redis auth password ${DIM}(default: empty)${RESET}"
+            echo -e "  ${CYAN}--skip-redis-install${RESET}           Skip auto-installing redis-server via package manager"
             echo -e "${WHITE}STUN / TURN Media Relay Options:${RESET}"
             echo -e "  ${CYAN}--enable-turn / --disable-turn${RESET}  Enable/disable embedded STUN/TURN server ${DIM}(default: enabled)${RESET}"
             echo -e "  ${CYAN}--turn-port <port>${RESET}              STUN/TURN UDP/TCP port ${DIM}(default: 3479)${RESET}"
@@ -212,6 +286,27 @@ echo -e "    ${GREEN}✔${RESET} ${GRAY}Installation Root${RESET}    ${WHITE}${I
 
 # 4. Interactive Configuration Prompts (if interactive terminal)
 if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
+    echo -e "  ${PURPLE}${BOLD}◈ CONNECTION TOPOLOGY (DOMAIN VS DIRECT IP)${RESET}"
+    echo -e "    ${WHITE}1)${RESET} ${BOLD}Domain Name / Reverse Proxy${RESET} ${DIM}(Standard HTTPS/WSS on port 443/80 - Recommended)${RESET}"
+    echo -e "    ${CYAN}2)${RESET} ${BOLD}Direct IP & High Ports${RESET}      ${DIM}(Direct connection using ports 49000-49305)${RESET}"
+    read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Select Topology Mode (1/2)${RESET} ${DIM}[1]${RESET} › ")" mode_choice
+    if [ "$mode_choice" = "2" ] || [ "$mode_choice" = "ip" ]; then
+        CONNECTION_MODE="ip"
+        echo -e "      ${AMBER}↳ Mode: Direct IP Connection${RESET}\n"
+    else
+        CONNECTION_MODE="domain"
+        echo -e "      ${GREEN}↳ Mode: Domain Name / Reverse Proxy (Standard 443/80)${RESET}"
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Server Domain (FQDN)${RESET} ${DIM}[${SERVER_DOMAIN:-voice.example.com}]${RESET} › ")" input_domain
+        SERVER_DOMAIN="${input_domain:-$SERVER_DOMAIN}"
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Enable SSL/TLS (HTTPS/WSS)? (Y/n)${RESET} ${DIM}[Y]${RESET} › ")" input_ssl
+        if [[ "$input_ssl" =~ ^[Nn] ]]; then
+            USE_SSL="false"
+        else
+            USE_SSL="true"
+        fi
+        echo ""
+    fi
+
     echo -e "  ${PURPLE}${BOLD}◈ RUNTIME PORT CONFIGURATION${RESET} ${DIM}(Press Enter to confirm defaults)${RESET}"
     
     read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}REST API Port${RESET}       ${DIM}[${API_PORT}]${RESET} › ")" input_api
@@ -243,20 +338,25 @@ if [ "$NON_INTERACTIVE" = false ] && [ -t 0 ]; then
         TURN_ENABLED="true"
         echo -e "      ${GREEN}↳ Embedded STUN/TURN Relay: ENABLED${RESET}"
 
-        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}STUN/TURN Port (UDP/TCP)${RESET}  ${DIM}[${TURN_PORT}]${RESET} › ")" input_tport
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}STUN Port (UDP)${RESET}           ${DIM}[${STUN_PORT}]${RESET} › ")" input_sport
+        STUN_PORT="${input_sport:-$STUN_PORT}"
+
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}TURN Port (UDP/TCP)${RESET}       ${DIM}[${TURN_PORT}]${RESET} › ")" input_tport
         TURN_PORT="${input_tport:-$TURN_PORT}"
 
         read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}TURNS TLS Port (TCP)${RESET}      ${DIM}[${TURNS_PORT}]${RESET} › ")" input_tsport
         TURNS_PORT="${input_tsport:-$TURNS_PORT}"
 
-        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Public IP for Media Relay${RESET} ${DIM}[${TURN_PUBLIC_IP}]${RESET} › ")" input_pubip
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Public IP / Host for Relay${RESET} ${DIM}[${TURN_PUBLIC_IP}]${RESET} › ")" input_pubip
         TURN_PUBLIC_IP="${input_pubip:-$TURN_PUBLIC_IP}"
 
-        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Relay Min UDP Port${RESET}  ${DIM}[${TURN_MIN_PORT}]${RESET} › ")" input_min
-        TURN_MIN_PORT="${input_min:-$TURN_MIN_PORT}"
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Pool Min UDP Port${RESET}   ${DIM}[${UDP_POOL_MIN_PORT}]${RESET} › ")" input_min
+        UDP_POOL_MIN_PORT="${input_min:-$UDP_POOL_MIN_PORT}"
+        TURN_MIN_PORT="$UDP_POOL_MIN_PORT"
 
-        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Relay Max UDP Port${RESET}  ${DIM}[${TURN_MAX_PORT}]${RESET} › ")" input_max
-        TURN_MAX_PORT="${input_max:-$TURN_MAX_PORT}"
+        read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}Media Pool Max UDP Port${RESET}   ${DIM}[${UDP_POOL_MAX_PORT}]${RESET} › ")" input_max
+        UDP_POOL_MAX_PORT="${input_max:-$UDP_POOL_MAX_PORT}"
+        TURN_MAX_PORT="$UDP_POOL_MAX_PORT"
 
         read -p "$(echo -e "    ${CYAN}?${RESET} ${WHITE}TURN Auth Realm${RESET}           ${DIM}[${TURN_REALM}]${RESET} › ")" input_realm
         TURN_REALM="${input_realm:-$TURN_REALM}"
@@ -328,6 +428,45 @@ mkdir -p "${INSTALL_DIR}"
 chmod 755 "${INSTALL_DIR}"
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[1/5] Environment provisioned & ports freed${RESET}          ${GREEN}[DONE]${RESET}\n"
 
+# Step 1.5: Redis Server Provisioning & Verification
+printf "    ${CYAN}➜${RESET} ${GRAY}[*] Verifying Redis cache server for 20,000-room UDP multiplexing...${RESET}"
+REDIS_ACTIVE=false
+
+if command -v redis-cli >/dev/null 2>&1 && redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping 2>/dev/null | grep -q "PONG"; then
+    REDIS_ACTIVE=true
+fi
+
+if [ "$REDIS_ACTIVE" = false ] && [ "$SKIP_REDIS_INSTALL" = false ] && ([ "${REDIS_HOST}" = "127.0.0.1" ] || [ "${REDIS_HOST}" = "localhost" ]); then
+    # Attempt automatic package installation
+    if command -v apt-get >/dev/null 2>&1; then
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -qq >/dev/null 2>&1 || true
+        apt-get install -y -qq redis-server >/dev/null 2>&1 || true
+    elif command -v dnf >/dev/null 2>&1; then
+        dnf install -y redis >/dev/null 2>&1 || true
+    elif command -v yum >/dev/null 2>&1; then
+        yum install -y redis >/dev/null 2>&1 || true
+    elif command -v apk >/dev/null 2>&1; then
+        apk add --no-cache redis >/dev/null 2>&1 || true
+    elif command -v pacman >/dev/null 2>&1; then
+        pacman -Sy --noconfirm redis >/dev/null 2>&1 || true
+    fi
+
+    # Activate & start systemd service
+    systemctl enable --now redis-server >/dev/null 2>&1 || systemctl enable --now redis >/dev/null 2>&1 || service redis-server start >/dev/null 2>&1 || true
+    sleep 1
+
+    if command -v redis-cli >/dev/null 2>&1 && redis-cli -h "${REDIS_HOST}" -p "${REDIS_PORT}" ping 2>/dev/null | grep -q "PONG"; then
+        REDIS_ACTIVE=true
+    fi
+fi
+
+if [ "$REDIS_ACTIVE" = true ]; then
+    printf "\r    ${GREEN}✔${RESET} ${WHITE}[*] Redis server active & responsive on ${REDIS_HOST}:${REDIS_PORT}${RESET} ${GREEN}[ONLINE]${RESET}\n"
+else
+    printf "\r    ${AMBER}⚠${RESET} ${WHITE}[*] Redis inactive on ${REDIS_HOST}:${REDIS_PORT} - In-memory fallback engaged${RESET} ${AMBER}[FALLBACK]${RESET}\n"
+fi
+
 # Step 2: Binary Deployment
 printf "    ${CYAN}➜${RESET} ${GRAY}[2/5] Locating and deploying runtime binary...${RESET}"
 BINARY_SRC=""
@@ -379,27 +518,41 @@ if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" =
 fi
 
 cat > "${INSTALL_DIR}/.env" << EOF
+CONNECTION_MODE=${CONNECTION_MODE}
+SERVER_DOMAIN=${SERVER_DOMAIN}
+USE_SSL=${USE_SSL}
 BRIDGE_HOST=${HOST}
 BRIDGE_API_PORT=${API_PORT}
 BRIDGE_WS_PORT=${WS_PORT}
 BRIDGE_SECRET=${SECRET}
 BRIDGE_CALLBACK_URL=${CALLBACK_URL}
 
+# 300 UDP Media Ports Pool (49005 - 49305) with 5-Tuple Multiplexing
+UDP_POOL_MIN_PORT=${UDP_POOL_MIN_PORT}
+UDP_POOL_MAX_PORT=${UDP_POOL_MAX_PORT}
+
+# Redis Multi-Room Coordination Cache (20,000 rooms capacity)
+REDIS_HOST=${REDIS_HOST}
+REDIS_PORT=${REDIS_PORT}
+REDIS_PASSWORD=${REDIS_PASSWORD}
+REDIS_DB=${REDIS_DB}
+
 # Embedded STUN & TURN Relay Settings (RFC 5389 / RFC 5766)
 TURN_ENABLED=${TURN_ENABLED}
+STUN_PORT=${STUN_PORT}
 TURN_PORT=${TURN_PORT}
 TURNS_PORT=${TURNS_PORT}
 TURN_REALM=${TURN_REALM}
 TURN_PUBLIC_IP=${TURN_PUBLIC_IP}
-TURN_MIN_PORT=${TURN_MIN_PORT}
-TURN_MAX_PORT=${TURN_MAX_PORT}
+TURN_MIN_PORT=${UDP_POOL_MIN_PORT}
+TURN_MAX_PORT=${UDP_POOL_MAX_PORT}
 TURN_SECRET=${SECRET}
 
-# Embedded SFU Conference Engine Settings (Reusing 49152-49250 UDP Range)
+# Embedded SFU Conference Engine Settings (Reusing 49005-49305 UDP Range)
 SFU_ENABLED=${SFU_ENABLED}
 SFU_WS_PATH=${SFU_WS_PATH}
-SFU_MIN_PORT=${SFU_MIN_PORT}
-SFU_MAX_PORT=${SFU_MAX_PORT}
+SFU_MIN_PORT=${UDP_POOL_MIN_PORT}
+SFU_MAX_PORT=${UDP_POOL_MAX_PORT}
 EOF
 chmod 600 "${INSTALL_DIR}/.env"
 
@@ -415,11 +568,12 @@ SYSEOF
     sysctl --system >/dev/null 2>&1 || true
 fi
 
-# Configure Firewall (UFW) if active
+# Configure Firewall (UFW / Firewalld / Iptables)
 if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active"; then
     ufw allow ${API_PORT}/tcp >/dev/null 2>&1 || true
     ufw allow ${WS_PORT}/tcp >/dev/null 2>&1 || true
     if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
+        ufw allow ${STUN_PORT}/udp >/dev/null 2>&1 || true
         ufw allow ${TURN_PORT}/udp >/dev/null 2>&1 || true
         ufw allow ${TURN_PORT}/tcp >/dev/null 2>&1 || true
         ufw allow ${TURNS_PORT}/tcp >/dev/null 2>&1 || true
@@ -427,6 +581,34 @@ if command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: a
     fi
     if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
         ufw allow ${SFU_MIN_PORT}:${SFU_MAX_PORT}/udp >/dev/null 2>&1 || true
+    fi
+    # 300 UDP Media Ports Pool (49001-49300)
+    ufw allow ${UDP_POOL_MIN_PORT}:${UDP_POOL_MAX_PORT}/udp >/dev/null 2>&1 || true
+fi
+
+if command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null; then
+    firewall-cmd --permanent --add-port=${API_PORT}/tcp >/dev/null 2>&1 || true
+    firewall-cmd --permanent --add-port=${WS_PORT}/tcp >/dev/null 2>&1 || true
+    if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
+        firewall-cmd --permanent --add-port=${STUN_PORT}/udp >/dev/null 2>&1 || true
+        firewall-cmd --permanent --add-port=${TURN_PORT}/udp >/dev/null 2>&1 || true
+        firewall-cmd --permanent --add-port=${TURN_PORT}/tcp >/dev/null 2>&1 || true
+        firewall-cmd --permanent --add-port=${TURNS_PORT}/tcp >/dev/null 2>&1 || true
+        firewall-cmd --permanent --add-port=${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp >/dev/null 2>&1 || true
+    fi
+    if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
+        firewall-cmd --permanent --add-port=${SFU_MIN_PORT}-${SFU_MAX_PORT}/udp >/dev/null 2>&1 || true
+    fi
+    # 300 UDP Media Ports Pool
+    firewall-cmd --permanent --add-port=${UDP_POOL_MIN_PORT}-${UDP_POOL_MAX_PORT}/udp >/dev/null 2>&1 || true
+    firewall-cmd --reload >/dev/null 2>&1 || true
+fi
+
+if ! (command -v ufw >/dev/null 2>&1 && ufw status 2>/dev/null | grep -q "Status: active") && ! (command -v firewall-cmd >/dev/null 2>&1 && systemctl is-active --quiet firewalld 2>/dev/null); then
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -C INPUT -p tcp --dport ${API_PORT} -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport ${API_PORT} -j ACCEPT 2>/dev/null || true
+        iptables -C INPUT -p tcp --dport ${WS_PORT} -j ACCEPT 2>/dev/null || iptables -A INPUT -p tcp --dport ${WS_PORT} -j ACCEPT 2>/dev/null || true
+        iptables -C INPUT -p udp --dport ${UDP_POOL_MIN_PORT}:${UDP_POOL_MAX_PORT} -j ACCEPT 2>/dev/null || iptables -A INPUT -p udp --dport ${UDP_POOL_MIN_PORT}:${UDP_POOL_MAX_PORT} -j ACCEPT 2>/dev/null || true
     fi
 fi
 printf "\r    ${GREEN}✔${RESET} ${WHITE}[3/5] Cryptographic tokens sealed into .env & .secret${RESET} ${GREEN}[DONE]${RESET}\n"
@@ -437,7 +619,7 @@ cat > "${SERVICE_FILE}" << EOF
 [Unit]
 Description=RavyNo Voice Bridge & High-Port Signaling Daemon
 Documentation=https://github.com/ravy-no
-After=network.target network-online.target
+After=network.target network-online.target redis.service redis-server.service
 Wants=network-online.target
 
 [Service]
@@ -495,19 +677,45 @@ SERVER_IP="${SERVER_IP:-127.0.0.1}"
 HEALTH_STATUS="OK (HTTP 200)"
 LATENCY_MS=$(curl -s -w "%{time_total}\n" -o /dev/null -m 2 "http://127.0.0.1:${API_PORT}/ping" 2>/dev/null | awk '{printf "%.1f", $1 * 1000}' || echo "0.8")
 
+TARGET_HOST="${SERVER_DOMAIN:-$SERVER_IP}"
+if [ "$USE_SSL" = "true" ] || [ "$USE_SSL" = "1" ] || [ "$USE_SSL" = "yes" ]; then
+    HTTP_SCHEME="https"
+    WS_SCHEME="wss"
+else
+    HTTP_SCHEME="http"
+    WS_SCHEME="ws"
+fi
+
 # 8. Modern 2026 Telemetry Dashboard Card
 echo -e "${GREEN}╭─────────────────────────────────────────────────────────────────────────╮${RESET}"
 echo -e "${GREEN}│${RESET}  ${GREEN}${BOLD}● VOICE BRIDGE DAEMON IS ONLINE AND HEALTHY (2026 RUNTIME)${RESET}              ${GREEN}│${RESET}"
 echo -e "${GREEN}├─────────────────────────────────────────────────────────────────────────┤${RESET}"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
-printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
+if [ "$CONNECTION_MODE" = "domain" ] && [ -n "$SERVER_DOMAIN" ]; then
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌐 Topology Mode" "Domain / Standard Ports (443/80)"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "${HTTP_SCHEME}://${TARGET_HOST}/api"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "${WS_SCHEME}://${TARGET_HOST}/ws/signaling"
+else
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🖥️ Topology Mode" "Direct IP / Dedicated High Ports"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 REST API Endpoint" "http://${SERVER_IP}:${API_PORT}"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ WebSocket Signaling" "ws://${SERVER_IP}:${WS_PORT}/ws/signaling"
+fi
+printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🏊 300 UDP Media Pool" "${UDP_POOL_MIN_PORT}-${UDP_POOL_MAX_PORT}/udp (Capacity: 20k rooms)"
+if [ "$REDIS_ACTIVE" = true ]; then
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ Redis Multiplexer" "Active (${REDIS_HOST}:${REDIS_PORT})"
+else
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚡ Redis Multiplexer" "In-Memory Fallback (${REDIS_HOST}:${REDIS_PORT})"
+fi
 if [ "$SFU_ENABLED" = "true" ] || [ "$SFU_ENABLED" = "1" ] || [ "$SFU_ENABLED" = "yes" ]; then
-    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${SFU_WS_PATH}"
+    if [ "$CONNECTION_MODE" = "domain" ] && [ -n "$SERVER_DOMAIN" ]; then
+        printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "${WS_SCHEME}://${TARGET_HOST}${SFU_WS_PATH}"
+    else
+        printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎥 SFU Conference Hub" "ws://${SERVER_IP}:${WS_PORT}${SFU_WS_PATH}"
+    fi
     printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "📡 SFU UDP Media Pool" "${SFU_MIN_PORT}-${SFU_MAX_PORT}/udp"
 fi
 if [ "$TURN_ENABLED" = "true" ] || [ "$TURN_ENABLED" = "1" ] || [ "$TURN_ENABLED" = "yes" ]; then
-    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun/turn:${SERVER_IP}:${TURN_PORT} (UDP/TCP)"
-    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔒 TURNS TLS Relay" "turns:${SERVER_IP}:${TURNS_PORT} (TCP)"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔄 STUN & TURN Relay" "stun:${TARGET_HOST}:${STUN_PORT} • turn:${TARGET_HOST}:${TURN_PORT}"
+    printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🔒 TURNS TLS Relay" "turns:${TARGET_HOST}:${TURNS_PORT} (TCP)"
     printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🎙️ Audio UDP Media Range" "${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
     if [ -n "$TURN_PUBLIC_IP" ]; then
         printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "🌍 Relay Public IP" "${TURN_PUBLIC_IP}"
@@ -523,14 +731,26 @@ printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "⚙️ Syst
 printf "${GREEN}│${RESET}  %-24s │ %-45s ${GREEN}│${RESET}\n" "💾 Local Configuration" "${INSTALL_DIR}/.env"
 echo -e "${GREEN}╰─────────────────────────────────────────────────────────────────────────╯${RESET}\n"
 
-echo -e "  ${PURPLE}${BOLD}◈ NEXT STEPS (LARAVEL ADMIN INTEGRATION)${RESET}"
-echo -e "    ${WHITE}1.${RESET} Navigate to: ${CYAN}Admin Panel › Settings › Voice Bridge${RESET}"
-echo -e "    ${WHITE}2.${RESET} Configure Server Host:  ${AMBER}${SERVER_IP}${RESET}"
-echo -e "    ${WHITE}3.${RESET} Set REST API Port:      ${AMBER}${API_PORT}${RESET}"
-echo -e "    ${WHITE}4.${RESET} Set WebSocket Port:     ${AMBER}${WS_PORT}${RESET}"
-echo -e "    ${WHITE}5.${RESET} Paste Secret Token:     ${GREEN}${SECRET}${RESET}"
-echo -e "    ${WHITE}6.${RESET} Click ${CYAN}'Test Bridge Server Connection'${RESET} to verify authorization"
-echo -e "    ${WHITE}7.${RESET} Click ${GREEN}'Save Audio Bridge Server Settings'${RESET}\n"
+if [ "$CONNECTION_MODE" = "domain" ] && [ -n "$SERVER_DOMAIN" ]; then
+    echo -e "  ${PURPLE}${BOLD}◈ NEXT STEPS (LARAVEL ADMIN INTEGRATION - DOMAIN MODE)${RESET}"
+    echo -e "    ${WHITE}1.${RESET} Navigate to: ${CYAN}Admin Panel › Settings › Voice Bridge${RESET}"
+    echo -e "    ${WHITE}2.${RESET} Connection Mode:        ${GREEN}Domain Name (Reverse Proxy)${RESET}"
+    echo -e "    ${WHITE}3.${RESET} Set Server Domain:      ${AMBER}${SERVER_DOMAIN}${RESET}"
+    echo -e "    ${WHITE}4.${RESET} Enable SSL/TLS:         ${AMBER}${USE_SSL}${RESET}"
+    echo -e "    ${WHITE}5.${RESET} Paste Secret Token:     ${GREEN}${SECRET}${RESET}"
+    echo -e "    ${WHITE}6.${RESET} Click ${CYAN}'Test Bridge Server Connection'${RESET} to verify authorization"
+    echo -e "    ${WHITE}7.${RESET} Click ${GREEN}'Save Voice Bridge Settings'${RESET}\n"
+else
+    echo -e "  ${PURPLE}${BOLD}◈ NEXT STEPS (LARAVEL ADMIN INTEGRATION - DIRECT IP MODE)${RESET}"
+    echo -e "    ${WHITE}1.${RESET} Navigate to: ${CYAN}Admin Panel › Settings › Voice Bridge${RESET}"
+    echo -e "    ${WHITE}2.${RESET} Connection Mode:        ${AMBER}Direct IP Address${RESET}"
+    echo -e "    ${WHITE}3.${RESET} Configure Server Host:  ${AMBER}${SERVER_IP}${RESET}"
+    echo -e "    ${WHITE}4.${RESET} Set REST API Port:      ${AMBER}${API_PORT}${RESET}"
+    echo -e "    ${WHITE}5.${RESET} Set WebSocket Port:     ${AMBER}${WS_PORT}${RESET}"
+    echo -e "    ${WHITE}6.${RESET} Paste Secret Token:     ${GREEN}${SECRET}${RESET}"
+    echo -e "    ${WHITE}7.${RESET} Click ${CYAN}'Test Connection & Auto-Configure'${RESET} to automatically pull remaining ports"
+    echo -e "    ${WHITE}8.${RESET} Click ${GREEN}'Save Voice Bridge Settings'${RESET}\n"
+fi
 
 echo -e "  ${PURPLE}${BOLD}◈ DAEMON MANAGEMENT COMMANDS${RESET}"
 echo -e "    ${GRAY}• Live Log Stream  :${RESET}  ${WHITE}sudo journalctl -u ${SERVICE_NAME} -f${RESET}"

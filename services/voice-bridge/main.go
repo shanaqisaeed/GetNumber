@@ -45,6 +45,7 @@ type Config struct {
 
 	// Embedded STUN / TURN Relay Configuration
 	TurnEnabled    bool
+	StunPort       int
 	TurnPort       int
 	TurnsPort      int
 	TurnRealm      string
@@ -116,12 +117,13 @@ func loadConfig() Config {
 
 	// STUN / TURN Relay flags
 	flagTurnEnabled := flag.Bool("turn-enabled", true, "Enable embedded STUN and TURN relay (default true or TURN_ENABLED)")
-	flagTurnPort := flag.Int("turn-port", 0, "STUN/TURN UDP/TCP port (default 3478 or TURN_PORT)")
-	flagTurnsPort := flag.Int("turns-port", 0, "TURNS TLS port (default 5349 or TURNS_PORT)")
+	flagStunPort := flag.Int("stun-port", 0, "STUN UDP port (default 49002 or STUN_PORT)")
+	flagTurnPort := flag.Int("turn-port", 0, "TURN UDP/TCP port (default 49003 or TURN_PORT)")
+	flagTurnsPort := flag.Int("turns-port", 0, "TURNS TLS port (default 49004 or TURNS_PORT)")
 	flagTurnRealm := flag.String("turn-realm", "", "TURN authentication realm (default ravy-no or TURN_REALM)")
 	flagTurnPublicIP := flag.String("turn-public-ip", "", "Explicit public or routable IP for TURN relay (default auto-detected or TURN_PUBLIC_IP)")
-	flagTurnMinPort := flag.Int("turn-min-port", 0, "TURN media relay min UDP port (default 49152 or TURN_MIN_PORT)")
-	flagTurnMaxPort := flag.Int("turn-max-port", 0, "TURN media relay max UDP port (default 49250 or TURN_MAX_PORT)")
+	flagTurnMinPort := flag.Int("turn-min-port", 0, "TURN media relay min UDP port (default 49005 or TURN_MIN_PORT)")
+	flagTurnMaxPort := flag.Int("turn-max-port", 0, "TURN media relay max UDP port (default 49305 or TURN_MAX_PORT)")
 	flagTurnSecret := flag.String("turn-secret", "", "Shared secret for TURN REST API authentication (default bridge secret or TURN_SECRET)")
 	flagTurnStaticUser := flag.String("turn-user", "", "Optional static TURN username (or TURN_STATIC_USER)")
 	flagTurnStaticPass := flag.String("turn-pass", "", "Optional static TURN password (or TURN_STATIC_PASS)")
@@ -131,8 +133,8 @@ func loadConfig() Config {
 	// SFU Conference Engine flags
 	flagSFUEnabled := flag.Bool("sfu-enabled", true, "Enable embedded SFU conference engine (default true or SFU_ENABLED)")
 	flagSFUWSPath := flag.String("sfu-ws-path", "", "SFU WebSocket endpoint path (default /ws/sfu or SFU_WS_PATH)")
-	flagSFUMinPort := flag.Int("sfu-min-port", 0, "SFU media min UDP port (default 49001 or SFU_MIN_PORT)")
-	flagSFUMaxPort := flag.Int("sfu-max-port", 0, "SFU media max UDP port (default 49300 or SFU_MAX_PORT)")
+	flagSFUMinPort := flag.Int("sfu-min-port", 0, "SFU media min UDP port (default 49005 or SFU_MIN_PORT)")
+	flagSFUMaxPort := flag.Int("sfu-max-port", 0, "SFU media max UDP port (default 49305 or SFU_MAX_PORT)")
 
 	// Redis Integration flags
 	flagRedisHost := flag.String("redis-host", "", "Redis host (default 127.0.0.1 or REDIS_HOST)")
@@ -140,9 +142,9 @@ func loadConfig() Config {
 	flagRedisPass := flag.String("redis-pass", "", "Redis password (or REDIS_PASSWORD)")
 	flagRedisDB := flag.Int("redis-db", 0, "Redis DB number (default 0 or REDIS_DB)")
 
-	// UDP Media Port Pool flags (capacity up to 300 ports)
-	flagUDPPoolMin := flag.Int("udp-pool-min", 0, "UDP media port pool min (default 49001 or UDP_POOL_MIN_PORT)")
-	flagUDPPoolMax := flag.Int("udp-pool-max", 0, "UDP media port pool max (default 49300 or UDP_POOL_MAX_PORT)")
+	// UDP Media Port Pool flags (capacity up to 300 ports: 49005 - 49305)
+	flagUDPPoolMin := flag.Int("udp-pool-min", 0, "UDP media port pool min (default 49005 or UDP_POOL_MIN_PORT)")
+	flagUDPPoolMax := flag.Int("udp-pool-max", 0, "UDP media port pool max (default 49305 or UDP_POOL_MAX_PORT)")
 	flag.Parse()
 
 	// Automatically load .env file if present in working directory or binary directory
@@ -252,6 +254,19 @@ func loadConfig() Config {
 		turnEnabled = te == "true" || te == "1" || te == "yes"
 	}
 
+	// STUN Port
+	stunPort := *flagStunPort
+	if stunPort == 0 {
+		if p := cleanEnvStr(os.Getenv("STUN_PORT")); p != "" {
+			if val, err := strconv.Atoi(p); err == nil {
+				stunPort = val
+			}
+		}
+	}
+	if stunPort == 0 {
+		stunPort = 49002
+	}
+
 	turnPort := *flagTurnPort
 	if turnPort == 0 {
 		if p := cleanEnvStr(os.Getenv("TURN_PORT")); p != "" {
@@ -261,7 +276,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnPort == 0 {
-		turnPort = 3478
+		turnPort = 49003
 	}
 
 	turnsPort := *flagTurnsPort
@@ -273,7 +288,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnsPort == 0 {
-		turnsPort = 5349
+		turnsPort = 49004
 	}
 
 	turnRealm := cleanEnvStr(*flagTurnRealm)
@@ -298,7 +313,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnMinPort == 0 {
-		turnMinPort = 49001
+		turnMinPort = 49005
 	}
 
 	turnMaxPort := *flagTurnMaxPort
@@ -310,7 +325,7 @@ func loadConfig() Config {
 		}
 	}
 	if turnMaxPort == 0 {
-		turnMaxPort = 49300
+		turnMaxPort = 49305
 	}
 
 	turnSecret := cleanEnvStr(*flagTurnSecret)
@@ -391,16 +406,16 @@ func loadConfig() Config {
 		sfuMaxPort = turnMaxPort
 	}
 	if sfuMinPort <= 0 || sfuMinPort > 65535 {
-		sfuMinPort = 49001
+		sfuMinPort = 49005
 	}
 	if sfuMaxPort <= 0 || sfuMaxPort > 65535 || sfuMaxPort < sfuMinPort {
-		sfuMaxPort = 49300
+		sfuMaxPort = 49305
 	}
 	if !strings.HasPrefix(sfuWSPath, "/") {
 		sfuWSPath = "/" + sfuWSPath
 	}
 
-	// UDP Media Port Pool (up to 300 UDP ports)
+	// UDP Media Port Pool (up to 300 UDP ports: 49005 - 49305)
 	udpPoolMin := *flagUDPPoolMin
 	if udpPoolMin == 0 {
 		if p := cleanEnvStr(os.Getenv("UDP_POOL_MIN_PORT")); p != "" {
@@ -410,7 +425,7 @@ func loadConfig() Config {
 		}
 	}
 	if udpPoolMin == 0 {
-		udpPoolMin = sfuMinPort
+		udpPoolMin = 49005
 	}
 
 	udpPoolMax := *flagUDPPoolMax
@@ -422,10 +437,10 @@ func loadConfig() Config {
 		}
 	}
 	if udpPoolMax == 0 {
-		udpPoolMax = sfuMaxPort
+		udpPoolMax = 49305
 	}
 	if udpPoolMax < udpPoolMin {
-		udpPoolMax = udpPoolMin + 299
+		udpPoolMax = udpPoolMin + 300
 	}
 
 	// Redis Configuration
@@ -471,6 +486,7 @@ func loadConfig() Config {
 		SecretFile:     secretFile,
 		CallbackURL:    callbackURL,
 		TurnEnabled:    turnEnabled,
+		StunPort:       stunPort,
 		TurnPort:       turnPort,
 		TurnsPort:      turnsPort,
 		TurnRealm:      turnRealm,
@@ -1492,10 +1508,12 @@ func buildTurnAuthHandler(sharedSecret, realm, staticUser, staticPass string) tu
 
 type TurnServer struct {
 	server       *turn.Server
+	stunUDPConn  net.PacketConn
 	udpConn      net.PacketConn
 	tcpListener  net.Listener
 	tlsListener  net.Listener
 	relayIP      net.IP
+	stunPort     int
 	port         int
 	turnsPort    int
 	realm        string
@@ -1509,7 +1527,11 @@ func (t *TurnServer) Close() error {
 		return nil
 	}
 	log.Println("[Voice Bridge TURN] Stopping STUN/TURN server...")
-	return t.server.Close()
+	err := t.server.Close()
+	if t.stunUDPConn != nil {
+		_ = t.stunUDPConn.Close()
+	}
+	return err
 }
 
 func startTurnServer(cfg Config) (*TurnServer, error) {
@@ -1546,19 +1568,52 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 		bindHost = "127.0.0.1"
 	}
 
-	// 1. UDP Listener for STUN (RFC 5389) and TURN (RFC 5766 / RFC 8656)
-	udpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
-	udpConn, err := net.ListenPacket("udp4", udpAddr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to bind UDP STUN/TURN on %s: %w", udpAddr, err)
+	// 1. UDP Listener for dedicated STUN (RFC 5389) on StunPort (default 49002)
+	var stunUDPConn net.PacketConn
+	if cfg.StunPort > 0 {
+		stunUDPAddr := fmt.Sprintf("%s:%d", bindHost, cfg.StunPort)
+		conn, err := net.ListenPacket("udp4", stunUDPAddr)
+		if err != nil {
+			log.Printf("[Voice Bridge STUN] ⚠️ Failed to bind dedicated STUN on %s: %v", stunUDPAddr, err)
+		} else {
+			stunUDPConn = conn
+			packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
+				PacketConn:             &stunLoggingPacketConn{PacketConn: stunUDPConn, label: fmt.Sprintf("STUN:%d", cfg.StunPort)},
+				RelayAddressGenerator: relayGen,
+			})
+			log.Printf("[Voice Bridge STUN] 📡 STUN active on udp://%s:%d", bindHost, cfg.StunPort)
+		}
 	}
 
-	packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
-		PacketConn:             &stunLoggingPacketConn{PacketConn: udpConn, label: fmt.Sprintf("UDP:%d", cfg.TurnPort)},
-		RelayAddressGenerator: relayGen,
-	})
+	// 2. UDP Listener for TURN (RFC 5766 / RFC 8656) on TurnPort (default 49003)
+	var udpConn net.PacketConn
+	if cfg.TurnPort > 0 && cfg.TurnPort != cfg.StunPort {
+		udpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
+		conn, err := net.ListenPacket("udp4", udpAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind UDP TURN on %s: %w", udpAddr, err)
+		}
+		udpConn = conn
+		packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
+			PacketConn:             &stunLoggingPacketConn{PacketConn: udpConn, label: fmt.Sprintf("TURN-UDP:%d", cfg.TurnPort)},
+			RelayAddressGenerator: relayGen,
+		})
+	} else if cfg.TurnPort == cfg.StunPort && stunUDPConn != nil {
+		udpConn = stunUDPConn
+	} else if cfg.TurnPort > 0 {
+		udpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
+		conn, err := net.ListenPacket("udp4", udpAddr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to bind UDP TURN on %s: %w", udpAddr, err)
+		}
+		udpConn = conn
+		packetConnConfigs = append(packetConnConfigs, turn.PacketConnConfig{
+			PacketConn:             &stunLoggingPacketConn{PacketConn: udpConn, label: fmt.Sprintf("TURN-UDP:%d", cfg.TurnPort)},
+			RelayAddressGenerator: relayGen,
+		})
+	}
 
-	// 2. TCP Listener for TURN over TCP
+	// 3. TCP Listener for TURN over TCP on TurnPort (default 49003)
 	tcpAddr := fmt.Sprintf("%s:%d", bindHost, cfg.TurnPort)
 	tcpListener, err := net.Listen("tcp4", tcpAddr)
 	if err != nil {
@@ -1622,10 +1677,12 @@ func startTurnServer(cfg Config) (*TurnServer, error) {
 
 	return &TurnServer{
 		server:      server,
+		stunUDPConn: stunUDPConn,
 		udpConn:     udpConn,
 		tcpListener: tcpListener,
 		tlsListener: tlsListener,
 		relayIP:     relayIP,
+		stunPort:    cfg.StunPort,
 		port:        cfg.TurnPort,
 		turnsPort:   cfg.TurnsPort,
 		realm:       cfg.TurnRealm,
@@ -2090,12 +2147,18 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 		}
 
 		turnInfo := map[string]interface{}{
-			"enabled": cfg.TurnEnabled,
-			"port":    cfg.TurnPort,
-			"realm":   cfg.TurnRealm,
+			"enabled":    cfg.TurnEnabled,
+			"stun_port":  cfg.StunPort,
+			"turn_port":  cfg.TurnPort,
+			"turns_port": cfg.TurnsPort,
+			"realm":      cfg.TurnRealm,
 		}
 		if turnSrv != nil {
 			turnInfo["active"] = true
+			if turnSrv.stunPort > 0 {
+				turnInfo["stun_port"] = turnSrv.stunPort
+			}
+			turnInfo["turn_port"] = turnSrv.port
 			if turnSrv.relayIP != nil {
 				turnInfo["relay_ip"] = turnSrv.relayIP.String()
 			}
@@ -2166,6 +2229,17 @@ func startAPIServer(cfg Config, store *SessionStore, localPushHub *LocalPushHub,
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"pong":                true,
+			"service":             "ravy-no-voice-bridge",
+			"version":             "2.2",
+			"api_port":            cfg.APIPort,
+			"ws_port":             cfg.WSPort,
+			"stun_port":           cfg.StunPort,
+			"turn_port":           cfg.TurnPort,
+			"turns_port":          cfg.TurnsPort,
+			"udp_pool_min":        cfg.UDPPoolMinPort,
+			"udp_pool_max":        cfg.UDPPoolMaxPort,
+			"turn_realm":          cfg.TurnRealm,
+			"sfu_ws_path":         cfg.SFUWSPath,
 			"server_time_ms":      time.Now().UnixMilli(),
 			"latency_baseline_ms": 1,
 			"audio_sampling_rate": 48000,

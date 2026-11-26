@@ -189,10 +189,19 @@ class VoiceCallService implements VoiceCallServiceInterface
 
         $wsEndpoint = null;
         if ($bridgeSessionId) {
+            $mode = SystemSetting::get('voice_bridge_connection_mode', 'domain');
+            $domain = trim((string) SystemSetting::get('voice_bridge_domain', ''));
+            $useSsl = (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1');
+
             $publicWsUrl = trim((string) SystemSetting::get('voice_bridge_ws_public_url', ''));
-            $wsEndpoint = $publicWsUrl !== ''
-                ? $publicWsUrl
-                : "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling";
+            if ($publicWsUrl !== '') {
+                $wsEndpoint = $publicWsUrl;
+            } elseif ($mode === 'domain' && $domain !== '') {
+                $scheme = $useSsl ? 'wss' : 'ws';
+                $wsEndpoint = "{$scheme}://{$domain}/ws/signaling";
+            } else {
+                $wsEndpoint = "ws://{$bridgeHost}:{$bridgeWsPort}/ws/signaling";
+            }
             $wsEndpoint .= (str_contains($wsEndpoint, '?') ? '&' : '?') . 'session=' . urlencode($bridgeSessionId);
         }
 
@@ -740,10 +749,34 @@ class VoiceCallService implements VoiceCallServiceInterface
         ];
     }
 
-    public static function buildBridgeUrl(string $host, int $port, string $path): string
+    public static function buildBridgeUrl(?string $host = null, ?int $port = null, string $path = '/'): string
     {
         $path = '/' . ltrim($path, '/');
+        $mode = SystemSetting::get('voice_bridge_connection_mode', 'domain');
+
+        if ($host === null || $host === '') {
+            if ($mode === 'domain') {
+                $host = trim((string) SystemSetting::get('voice_bridge_domain', ''));
+                if ($host === '') {
+                    $host = trim((string) SystemSetting::get('voice_bridge_host', '127.0.0.1'));
+                }
+            } else {
+                $host = trim((string) SystemSetting::get('voice_bridge_host', '127.0.0.1'));
+            }
+        }
+
         $cleanHost = trim($host);
+
+        // If in domain mode and cleanHost has no protocol and no port specified, route via standard HTTP/HTTPS
+        if ($mode === 'domain' && ! str_starts_with($cleanHost, 'http://') && ! str_starts_with($cleanHost, 'https://') && ! str_contains($cleanHost, ':')) {
+            $useSsl = (bool) (int) SystemSetting::get('voice_bridge_use_ssl', '1');
+            $scheme = $useSsl ? 'https' : 'http';
+            return "{$scheme}://{$cleanHost}{$path}";
+        }
+
+        if ($port === null || $port <= 0) {
+            $port = (int) SystemSetting::get('voice_bridge_api_port', 49000);
+        }
 
         if (str_starts_with($cleanHost, 'http://') || str_starts_with($cleanHost, 'https://')) {
             $base = rtrim($cleanHost, '/');
