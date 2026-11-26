@@ -277,7 +277,7 @@ const remoteCursors = reactive<Record<number, RemoteCursor>>({});
 const effectiveRtcConfig = computed(() => props.rtcConfig || (props as any).rtc_config);
 const { buildConfiguration: getPeerRtcConfig, enhanceOpusSdp } = useWebRtcPeer({
     rtcConfig: effectiveRtcConfig.value,
-    forceRelayOnly: true,
+    forceRelayOnly: false,
 });
 
 const activeRemoteCursors = computed(() => {
@@ -381,9 +381,10 @@ async function initLocalMedia() {
 
     const canBroadcastVideo = !(isWebinarMode.value && !props.room.is_host && !canShareScreen.value);
     const shouldStartWithVideo = isCameraOn.value && canBroadcastVideo;
+    const shouldStartWithAudio = !isMuted.value;
     let stream: MediaStream | null = null;
 
-    if (shouldStartWithVideo) {
+    if (shouldStartWithVideo && shouldStartWithAudio) {
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 video: { width: { ideal: 1280 }, height: { ideal: 720 } },
@@ -404,8 +405,15 @@ async function initLocalMedia() {
                 });
             } catch {}
         }
-    } else {
-        // DO NOT request camera video at all! Hardware webcam and LED will NOT turn on!
+    } else if (shouldStartWithVideo && !shouldStartWithAudio) {
+        // Video only: Do NOT request audio so hardware microphone remains 100% idle
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+            });
+        } catch {}
+    } else if (!shouldStartWithVideo && shouldStartWithAudio) {
+        // Audio only: Do NOT request video so webcam LED remains 100% idle
         try {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -415,33 +423,39 @@ async function initLocalMedia() {
                 },
             });
         } catch {}
+    } else {
+        // User joined with both camera and microphone off: start empty stream
+        stream = new MediaStream();
     }
 
     if (!stream) {
-        isCameraOn.value = false;
-        showToast(__('conference.controls.media_permission_error'));
-        return;
+        stream = new MediaStream();
     }
 
     localStream.value = stream;
 
-    const audioTrack = stream.getAudioTracks()[0];
-    if (audioTrack) {
-        audioTrack.enabled = !isMuted.value;
+    const audioTrack = stream.getAudioTracks()[0] || null;
+    if (audioTrack && shouldStartWithAudio) {
+        audioTrack.enabled = true;
+        isMuted.value = false;
+        await replaceOutgoingAudioTrack(audioTrack);
+        setupAudioAnalyser(props.currentParticipant.id, stream);
     } else {
         isMuted.value = true;
+        await replaceOutgoingAudioTrack(null);
     }
 
-    const videoTrack = stream.getVideoTracks()[0];
+    const videoTrack = stream.getVideoTracks()[0] || null;
     if (videoTrack && shouldStartWithVideo) {
         videoTrack.enabled = true;
         isCameraOn.value = true;
+        await replaceOutgoingVideoTrack(videoTrack);
     } else {
         isCameraOn.value = false;
+        await replaceOutgoingVideoTrack(null);
     }
 
     await bindLocalVideoStream();
-    setupAudioAnalyser(props.currentParticipant.id, stream);
 
     // Sync actual initial media state with backend
     axios
@@ -570,11 +584,11 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             const candType = event.candidate.type || 'unknown';
             const candStr = event.candidate.candidate || '';
             const isRelay = candStr.includes('typ relay') || candType === 'relay';
-            if (!isRelay) {
+            if (effectiveRtcConfig.value?.iceTransportPolicy === 'relay' && !isRelay) {
                 console.log(`[WebRTC:Peer:${remoteParticipantId}] 🛡️ Suppressed non-relay ICE Candidate:`, candStr);
                 return;
             }
-            console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 Relay ICE Candidate:`, candStr);
+            console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 ICE Candidate (${candType}):`, candStr);
             dispatchPeerSignal('candidate', remoteParticipantId, {
                 candidate: event.candidate.toJSON(),
             });
@@ -674,6 +688,13 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
             liveVideoMap[remoteParticipantId] = true;
             event.track.onended = () => {
                 liveVideoMap[remoteParticipantId] = false;
+                const v = remoteVideoRefs.get(remoteParticipantId);
+                if (v) v.srcObject = null;
+            };
+            event.track.onmute = () => {
+                liveVideoMap[remoteParticipantId] = false;
+                const v = remoteVideoRefs.get(remoteParticipantId);
+                if (v) v.srcObject = null;
             };
             event.track.onunmute = () => {
                 liveVideoMap[remoteParticipantId] = true;
@@ -744,6 +765,24 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
     const pc = getOrCreatePeerConnection(senderParticipantId);
 
     try {
+        if (type === 'media_state' && payload) {
+            const targetPeer = participants.value.find((p) => p.id === senderParticipantId);
+            if (targetPeer) {
+                if (typeof payload.is_camera_on === 'boolean') {
+                    targetPeer.is_camera_on = payload.is_camera_on;
+                    if (!payload.is_camera_on) {
+                        liveVideoMap[senderParticipantId] = false;
+                        const v = remoteVideoRefs.get(senderParticipantId);
+                        if (v) v.srcObject = null;
+                    }
+                }
+                if (typeof payload.is_muted === 'boolean') {
+                    targetPeer.is_muted = payload.is_muted;
+                }
+            }
+            return;
+        }
+
         if (type === 'renegotiate_needed') {
             if (props.currentParticipant.id < senderParticipantId) {
                 await initiateOfferToPeer(senderParticipantId, pc);
@@ -940,9 +979,23 @@ function dispatchPeerSignal(type: string, targetParticipantId: number | null, pa
         .catch(() => {});
 }
 
-// 5. Toggle Audio / Mute
+// 5. Toggle Audio / Mute (Full Hardware Release on Mute & Lazy Acquisition on Unmute)
 async function toggleAudio() {
-    if (!localStream.value || localStream.value.getAudioTracks().length === 0) {
+    const targetMuted = !isMuted.value;
+
+    if (targetMuted) {
+        // Mute: Stop hardware microphone track completely so OS/browser recording indicator turns off
+        isMuted.value = true;
+        if (localStream.value) {
+            const audioTracks = localStream.value.getAudioTracks();
+            audioTracks.forEach((t) => {
+                t.stop();
+                localStream.value?.removeTrack(t);
+            });
+        }
+        await replaceOutgoingAudioTrack(null);
+    } else {
+        // Unmute: Lazily acquire microphone hardware track and attach to all peer connections
         try {
             const aStream = await navigator.mediaDevices.getUserMedia({
                 audio: {
@@ -958,24 +1011,22 @@ async function toggleAudio() {
                 } else {
                     localStream.value.addTrack(aTrack);
                 }
+                isMuted.value = false;
                 setupAudioAnalyser(props.currentParticipant.id, localStream.value);
                 await replaceOutgoingAudioTrack(aTrack);
             }
         } catch {
+            isMuted.value = true;
             showToast(__('conference.controls.media_permission_error'));
             return;
         }
     }
 
-    isMuted.value = !isMuted.value;
-    if (localStream.value) {
-        const audioTrack = localStream.value.getAudioTracks()[0];
-        if (audioTrack) audioTrack.enabled = !isMuted.value;
-    }
     await axios.post(route('org.conference.media_state', { uuid: props.room.uuid }), {
         is_muted: isMuted.value,
     });
     sendSFUMessage('media_state', { is_muted: isMuted.value });
+    dispatchPeerSignal('media_state', null, { is_muted: isMuted.value });
 }
 
 // 6. Toggle Camera (With Lazy Acquisition & Playback Guarantee)
@@ -1039,6 +1090,7 @@ async function toggleVideo() {
         is_camera_on: isCameraOn.value,
     });
     sendSFUMessage('media_state', { is_camera_on: isCameraOn.value });
+    dispatchPeerSignal('media_state', null, { is_camera_on: isCameraOn.value });
 }
 
 // 7. Toggle Screen Sharing (Condition Check, Mobile Fallback & Auto-Mute Others)
@@ -1790,6 +1842,11 @@ function handleSFUMessage(msg: any) {
             if (targetPeer && msg.payload) {
                 if (typeof msg.payload.is_camera_on === 'boolean') {
                     targetPeer.is_camera_on = msg.payload.is_camera_on;
+                    if (!msg.payload.is_camera_on) {
+                        liveVideoMap[pid] = false;
+                        const v = remoteVideoRefs.get(pid);
+                        if (v) v.srcObject = null;
+                    }
                 }
                 if (typeof msg.payload.is_muted === 'boolean') {
                     targetPeer.is_muted = msg.payload.is_muted;
@@ -2456,7 +2513,7 @@ onUnmounted(() => {
                             autoplay
                             playsinline
                             class="w-full h-full object-cover transition-opacity duration-200"
-                            :class="(p.is_camera_on || isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                            :class="(p.is_camera_on && isRemoteVideoLive(p.id)) ? 'opacity-100' : 'opacity-0 pointer-events-none'"
                         ></video>
                         <audio
                             :ref="(el) => setRemoteAudioRef(p.id, el)"
@@ -2464,7 +2521,7 @@ onUnmounted(() => {
                             playsinline
                         ></audio>
 
-                        <div v-if="!p.is_camera_on && !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
+                        <div v-if="!p.is_camera_on || !isRemoteVideoLive(p.id)" class="absolute inset-0 flex flex-col items-center justify-center text-slate-500 space-y-2 p-2 bg-slate-900">
                             <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-indigo-950/60 border border-indigo-700/40 flex items-center justify-center text-indigo-300 font-bold text-base sm:text-lg">
                                 {{ p.display_name.charAt(0) }}
                             </div>

@@ -61,9 +61,9 @@ export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
         const iceServers: RTCIceServer[] = Array.isArray(cfg?.iceServers) ? cfg.iceServers : [];
 
         // When forceRelayOnly is true or policy is relay, strictly enforce relay
-        const policy: RTCIceTransportPolicy = (options.forceRelayOnly !== false)
+        const policy: RTCIceTransportPolicy = (options.forceRelayOnly === true)
             ? 'relay'
-            : ((cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'relay');
+            : ((cfg?.iceTransportPolicy as RTCIceTransportPolicy) || 'all');
 
         return {
             iceServers,
