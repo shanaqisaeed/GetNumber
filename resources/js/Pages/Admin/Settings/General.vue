@@ -344,6 +344,7 @@ const bridgeForm = useForm({
 
 const bridgeSubTab = ref<'connection' | 'relay' | 'guide'>('connection');
 const relayMode = ref<'dedicated' | 'public'>('dedicated');
+const guideWebserver = ref<'nginx' | 'apache'>('nginx');
 
 // Detect initial relay mode based on configured URLs
 const hasPublicRelayConfigured = () => {
@@ -2044,27 +2045,122 @@ const testBridgeConnection = async () => {
 
                                 <div class="space-y-2 pt-2">
                                     <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_2_title') }}</div>
-                                    <div class="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-xs select-all" dir="ltr">
+                                    <div class="p-3 rounded-xl bg-gray-900 text-emerald-400 font-mono text-xs select-all space-y-1" dir="ltr">
                                         <div>sudo ufw allow {{ bridgeForm.api_port || 49000 }}/tcp comment "Voice Bridge REST API"</div>
                                         <div>sudo ufw allow {{ bridgeForm.ws_port || 49001 }}/tcp comment "Voice Bridge & SFU WebSocket"</div>
-                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 3479 }}/tcp comment "STUN / TURN TCP"</div>
-                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 3479 }}/udp comment "STUN / TURN UDP"</div>
-                                        <div>sudo ufw allow {{ bridgeForm.turns_port || 5350 }}/tcp comment "TURNS TLS TCP"</div>
-                                        <div>sudo ufw allow {{ bridgeForm.sfu_min_port || 49152 }}:{{ bridgeForm.sfu_max_port || 49250 }}/udp comment "WebRTC TURN & SFU Media UDP Ports"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.stun_port || 49002 }}/udp comment "Voice Bridge STUN UDP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 49003 }}/tcp comment "Voice Bridge TURN TCP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turn_port || 49003 }}/udp comment "Voice Bridge TURN UDP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.turns_port || 49004 }}/tcp comment "Voice Bridge TURNS TLS TCP"</div>
+                                        <div>sudo ufw allow {{ bridgeForm.sfu_min_port || 49005 }}:{{ bridgeForm.sfu_max_port || 49305 }}/udp comment "WebRTC UDP Media Pool"</div>
                                     </div>
                                 </div>
 
-                                <div class="space-y-2 pt-2">
-                                    <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.linux_step_3_title') }}</div>
-                                    <pre class="p-3 rounded-xl bg-gray-900 text-slate-300 font-mono text-[11px] overflow-x-auto select-all" dir="ltr">
-location ~ ^/ws/(signaling|sfu|local-push) {
-    proxy_pass http://127.0.0.1:{{ bridgeForm.ws_port || 49001 }};
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_read_timeout 86400s;
+                                <div class="space-y-3 pt-2">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div class="font-bold text-slate-700 dark:text-slate-300">{{ __('admin.settings.general.webserver_guide_title') }}</div>
+                                        <div class="flex items-center gap-1 p-1 bg-gray-200 dark:bg-gray-800 rounded-xl border border-gray-300 dark:border-gray-700">
+                                            <button
+                                                type="button"
+                                                @click="guideWebserver = 'nginx'"
+                                                class="px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                                                :class="guideWebserver === 'nginx' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                            >
+                                                {{ __('admin.settings.general.webserver_nginx_tab') }}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                @click="guideWebserver = 'apache'"
+                                                class="px-3 py-1 rounded-lg text-xs font-bold transition-all"
+                                                :class="guideWebserver === 'apache' ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-xs' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'"
+                                            >
+                                                {{ __('admin.settings.general.webserver_apache_tab') }}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Nginx Configuration Snippet -->
+                                    <div v-show="guideWebserver === 'nginx'" class="space-y-1">
+                                        <pre class="p-3.5 rounded-xl bg-gray-900 text-slate-300 font-mono text-[11px] overflow-x-auto select-all leading-relaxed" dir="ltr"># Nginx Reverse Proxy for Voice Bridge (Domain Mode)
+server {
+    listen 80;
+    server_name {{ bridgeForm.domain || 'voice.example.com' }};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name {{ bridgeForm.domain || 'voice.example.com' }};
+
+    ssl_certificate /etc/letsencrypt/live/{{ bridgeForm.domain || 'voice.example.com' }}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/{{ bridgeForm.domain || 'voice.example.com' }}/privkey.pem;
+
+    # 1. WebSockets: Signaling, SFU Conference, and Local Push
+    location ~ ^/ws/(signaling|sfu|local-push) {
+        proxy_pass http://127.0.0.1:{{ bridgeForm.ws_port || 49001 }};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+
+    # 2. REST API & Daemon Health Checks
+    location / {
+        proxy_pass http://127.0.0.1:{{ bridgeForm.api_port || 49000 }};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_read_timeout 60s;
+    }
 }</pre>
+                                    </div>
+
+                                    <!-- Apache Configuration Snippet -->
+                                    <div v-show="guideWebserver === 'apache'" class="space-y-2">
+                                        <p class="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                                            {{ __('admin.settings.general.webserver_apache_prereq_hint') }}
+                                        </p>
+                                        <pre class="p-3.5 rounded-xl bg-gray-900 text-slate-300 font-mono text-[11px] overflow-x-auto select-all leading-relaxed" dir="ltr"># Apache Reverse Proxy for Voice Bridge (Domain Mode)
+&lt;VirtualHost *:80&gt;
+    ServerName {{ bridgeForm.domain || 'voice.example.com' }}
+    RewriteEngine On
+    RewriteCond %{HTTPS} !=on
+    RewriteRule ^/?(.*) https://%{SERVER_NAME}/$1 [R=301,L]
+&lt;/VirtualHost&gt;
+
+&lt;VirtualHost *:443&gt;
+    ServerName {{ bridgeForm.domain || 'voice.example.com' }}
+
+    SSLEngine on
+    SSLCertificateFile /etc/letsencrypt/live/{{ bridgeForm.domain || 'voice.example.com' }}/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/{{ bridgeForm.domain || 'voice.example.com' }}/privkey.pem
+
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "https"
+
+    # 1. WebSockets: Signaling, SFU Conference, and Local Push
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule ^/ws/(.*) ws://127.0.0.1:{{ bridgeForm.ws_port || 49001 }}/ws/$1 [P,L]
+
+    ProxyPassReverse /ws/ http://127.0.0.1:{{ bridgeForm.ws_port || 49001 }}/ws/
+
+    # 2. REST API & Health Checks
+    ProxyPass / http://127.0.0.1:{{ bridgeForm.api_port || 49000 }}/
+    ProxyPassReverse / http://127.0.0.1:{{ bridgeForm.api_port || 49000 }}/
+
+    # Keep WebSocket connections alive
+    ProxyTimeout 86400
+&lt;/VirtualHost&gt;</pre>
+                                    </div>
                                 </div>
 
                                 <p class="text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800" v-html="__('admin.settings.general.linux_setup_tip_html')"></p>
