@@ -840,17 +840,16 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
 async function handleIncomingRtcSignal(type: string, senderParticipantId: number, payload: any) {
     if (!senderParticipantId || senderParticipantId === props.currentParticipant.id) return;
 
-    const candDetail = type === 'candidate'
-        ? (payload?.candidate?.candidate || (typeof payload?.candidate === 'string' ? payload.candidate : '') || JSON.stringify(payload))
-        : (type === 'offer' || type === 'answer')
-            ? `${type}:${payload?.sdp?.type || ''}:${(payload?.sdp?.sdp || typeof payload?.sdp === 'string' ? payload.sdp : '').slice(0, 180)}`
-            : JSON.stringify(payload);
-    const sigKey = `${type}:${senderParticipantId}:${candDetail}`;
-    if (processedSignalKeys.has(sigKey)) return;
-    processedSignalKeys.add(sigKey);
-    if (processedSignalKeys.size > 800) {
-        const firstKey = processedSignalKeys.values().next().value;
-        if (firstKey) processedSignalKeys.delete(firstKey);
+    // Only deduplicate candidate signals. Offer and answer signals represent negotiations and recovery resends!
+    if (type === 'candidate') {
+        const candDetail = payload?.candidate?.candidate || (typeof payload?.candidate === 'string' ? payload.candidate : '') || JSON.stringify(payload);
+        const sigKey = `candidate:${senderParticipantId}:${candDetail}`;
+        if (processedSignalKeys.has(sigKey)) return;
+        processedSignalKeys.add(sigKey);
+        if (processedSignalKeys.size > 800) {
+            const firstKey = processedSignalKeys.values().next().value;
+            if (firstKey) processedSignalKeys.delete(firstKey);
+        }
     }
 
     const pc = getOrCreatePeerConnection(senderParticipantId);
@@ -886,6 +885,19 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
             console.log(`[WebRTC:Peer:${senderParticipantId}] 📥 Received offer (current signalingState: ${pc.signalingState})`);
             const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
             const sanitized = sanitizeSdp(rawSdp);
+
+            // Fast path: If already stable, and we already answered this peer, re-dispatch local answer
+            if (pc.signalingState === 'stable' && pc.localDescription?.type === 'answer') {
+                console.log(`[WebRTC:Peer:${senderParticipantId}] 🔁 Already stable with answer; re-dispatching answer to waiting peer`);
+                dispatchPeerSignal('answer', senderParticipantId, {
+                    sdp: {
+                        type: 'answer',
+                        sdp: sanitizeSdp(enhanceOpusSdp(pc.localDescription.sdp)),
+                    },
+                });
+                return;
+            }
+
             const polite = props.currentParticipant.id > senderParticipantId;
             const offerCollision = makingOfferMap.get(senderParticipantId) || pc.signalingState !== 'stable';
             if (offerCollision) {
@@ -898,30 +910,35 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                     await pc.setLocalDescription({ type: 'rollback' });
                 } catch {}
             }
-            await pc.setRemoteDescription(new RTCSessionDescription({
-                type: 'offer',
-                sdp: sanitized,
-            }));
 
-            // Drain queued ICE candidates
-            const queue = pendingIceCandidates.get(senderParticipantId) || [];
-            pendingIceCandidates.delete(senderParticipantId);
-            for (const cand of queue) {
-                try {
-                    const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
-                    await pc.addIceCandidate(new RTCIceCandidate(c));
-                } catch {}
+            try {
+                await pc.setRemoteDescription(new RTCSessionDescription({
+                    type: 'offer',
+                    sdp: sanitized,
+                }));
+
+                // Drain queued ICE candidates
+                const queue = pendingIceCandidates.get(senderParticipantId) || [];
+                pendingIceCandidates.delete(senderParticipantId);
+                for (const cand of queue) {
+                    try {
+                        const c: any = cand?.candidate !== undefined ? cand : { candidate: cand };
+                        await pc.addIceCandidate(new RTCIceCandidate(c));
+                    } catch {}
+                }
+
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                console.log(`[WebRTC:Peer:${senderParticipantId}] 📤 Created and dispatched answer (signalingState: ${pc.signalingState})`);
+                dispatchPeerSignal('answer', senderParticipantId, {
+                    sdp: pc.localDescription ? {
+                        type: pc.localDescription.type,
+                        sdp: sanitizeSdp(enhanceOpusSdp(pc.localDescription.sdp)),
+                    } : null,
+                });
+            } catch (offerErr) {
+                console.error(`[WebRTC:Peer:${senderParticipantId}] Error handling incoming offer:`, offerErr);
             }
-
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            console.log(`[WebRTC:Peer:${senderParticipantId}] 📤 Created and dispatched answer (signalingState: ${pc.signalingState})`);
-            dispatchPeerSignal('answer', senderParticipantId, {
-                sdp: pc.localDescription ? {
-                    type: pc.localDescription.type,
-                    sdp: sanitizeSdp(enhanceOpusSdp(pc.localDescription.sdp)),
-                } : null,
-            });
         } else if (type === 'answer' && payload?.sdp) {
             console.log(`[WebRTC:Peer:${senderParticipantId}] 📥 Received answer (current signalingState: ${pc.signalingState})`);
             offerTimestampMap.delete(senderParticipantId);
@@ -1020,7 +1037,12 @@ function syncPeerConnectionsWithRoster() {
                 const elapsed = Date.now() - offerTime;
                 if (elapsed > 4000) {
                     console.warn(`[WebRTC:Peer:${p.id}] ⚠️ Peer connection stuck in have-local-offer (${elapsed}ms), resending offer...`);
-                    initiateOfferToPeer(p.id, pc);
+                    if (elapsed > 12000) {
+                        console.warn(`[WebRTC:Peer:${p.id}] 🔄 Signaling state have-local-offer timeout > 12s, triggering rollback and ICE restart`);
+                        initiateOfferToPeer(p.id, pc, true);
+                    } else {
+                        initiateOfferToPeer(p.id, pc, false);
+                    }
                 }
             }
         }

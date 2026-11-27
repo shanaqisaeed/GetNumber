@@ -75,17 +75,30 @@ export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
     };
 
     // Enhance Opus SDP with In-Band Forward Error Correction (FEC) and DTX
+    // Strictly targets only the Opus payload type so video formats (H264, VP8, VP9) are never corrupted
     const enhanceOpusSdp = (sdp?: string): string => {
-        if (!sdp || !sdp.includes('opus/48000')) {
-            return sanitizeSdp(sdp);
-        }
+        if (!sdp) return '';
         try {
-            const enhanced = sdp.replace(/(a=fmtp:\d+\s+[^;\r\n]+)/gi, (match) => {
-                let updated = match;
-                if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
-                if (!updated.includes('usedtx=')) updated += ';usedtx=1';
-                return updated;
-            });
+            // Find the dynamic payload type for Opus: e.g. "a=rtpmap:111 opus/48000/2" -> 111
+            const opusMatch = sdp.match(/a=rtpmap:(\d+)\s+opus\/48000/i);
+            if (!opusMatch) {
+                return sanitizeSdp(sdp);
+            }
+            const opusPt = opusMatch[1];
+            const fmtpRegex = new RegExp(`(a=fmtp:${opusPt}\\s+[^;\\r\\n]+)`, 'i');
+
+            let enhanced = sdp;
+            if (fmtpRegex.test(sdp)) {
+                enhanced = sdp.replace(fmtpRegex, (match) => {
+                    let updated = match;
+                    if (!updated.includes('useinbandfec=')) updated += ';useinbandfec=1';
+                    if (!updated.includes('usedtx=')) updated += ';usedtx=1';
+                    return updated;
+                });
+            } else {
+                const rtpmapRegex = new RegExp(`(a=rtpmap:${opusPt}\\s+opus\\/48000[^\\r\\n]*\\r?\\n)`, 'i');
+                enhanced = sdp.replace(rtpmapRegex, `$1a=fmtp:${opusPt} useinbandfec=1;usedtx=1\r\n`);
+            }
             return sanitizeSdp(enhanced);
         } catch {
             return sanitizeSdp(sdp);
