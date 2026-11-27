@@ -864,10 +864,28 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                         liveVideoMap[senderParticipantId] = false;
                         const v = remoteVideoRefs.get(senderParticipantId);
                         if (v) v.srcObject = null;
+                    } else {
+                        liveVideoMap[senderParticipantId] = true;
+                        const v = remoteVideoRefs.get(senderParticipantId);
+                        const s = remoteStreams[senderParticipantId];
+                        if (v && s && v.srcObject !== s) {
+                            v.srcObject = s;
+                            v.play().catch(() => {});
+                        }
                     }
                 }
                 if (typeof payload.is_muted === 'boolean') {
                     targetPeer.is_muted = payload.is_muted;
+                    if (!payload.is_muted) {
+                        const a = remoteAudioRefs.get(senderParticipantId);
+                        const s = remoteStreams[senderParticipantId];
+                        if (a && s && a.srcObject !== s) {
+                            a.srcObject = s;
+                            a.play().catch(() => {
+                                isAudioPlaybackBlocked.value = true;
+                            });
+                        }
+                    }
                 }
             }
             return;
@@ -886,9 +904,10 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
             const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
             const sanitized = sanitizeSdp(rawSdp);
 
-            // Fast path: If already stable, and we already answered this peer, re-dispatch local answer
-            if (pc.signalingState === 'stable' && pc.localDescription?.type === 'answer') {
-                console.log(`[WebRTC:Peer:${senderParticipantId}] 🔁 Already stable with answer; re-dispatching answer to waiting peer`);
+            // Fast path: Only re-dispatch local answer if connection is ALREADY stable AND the incoming offer
+            // is strictly identical to our existing remoteDescription (re-transmitted offer packet).
+            if (pc.signalingState === 'stable' && pc.localDescription?.type === 'answer' && pc.remoteDescription?.sdp === sanitized) {
+                console.log(`[WebRTC:Peer:${senderParticipantId}] 🔁 Duplicate offer received; re-dispatching existing answer`);
                 dispatchPeerSignal('answer', senderParticipantId, {
                     sdp: {
                         type: 'answer',
@@ -1111,9 +1130,7 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
 
 // 4. Dual-Path Signal Dispatcher (Go /ws/sfu WebSocket + HTTP Cache Queue Fallback)
 function dispatchPeerSignal(type: string, targetParticipantId: number | null, payload: any) {
-    const isWsOpen = sfuSocket && sfuSocket.readyState === WebSocket.OPEN;
-
-    // Path 1: Fast Go SFU WebSocket
+    // Path 1: Fast Go SFU WebSocket (Primary signaling path)
     if (sfuSocket && sfuSocket.readyState === WebSocket.OPEN) {
         sfuSocket.send(
             JSON.stringify({
@@ -1128,20 +1145,17 @@ function dispatchPeerSignal(type: string, targetParticipantId: number | null, pa
                 payload,
             })
         );
+        return;
     }
 
-    // Path 2: Resilient HTTP/Cache Signaling Bus
-    // Always sync critical SDP negotiation frames (offer/answer/renegotiate) and candidate signals to HTTP queue as well
-    // so peers connecting or experiencing WebSocket drops never miss an SDP handshake
-    if (!isWsOpen || type === 'offer' || type === 'answer' || type === 'renegotiate_needed') {
-        axios
-            .post(route('org.conference.signal', { uuid: props.room.uuid }), {
-                type,
-                target_participant_id: targetParticipantId,
-                payload,
-            })
-            .catch(() => {});
-    }
+    // Path 2: Resilient HTTP/Cache Signaling Bus (Fallback only when WebSocket is disconnected)
+    axios
+        .post(route('org.conference.signal', { uuid: props.room.uuid }), {
+            type,
+            target_participant_id: targetParticipantId,
+            payload,
+        })
+        .catch(() => {});
 }
 
 // 5. Toggle Audio / Mute (Full Hardware Release on Mute & Lazy Acquisition on Unmute)
@@ -2240,7 +2254,7 @@ async function fetchState() {
         if (typeof resp.data.latest_seq === 'number' && resp.data.latest_seq > latestSignalSeq.value) {
             latestSignalSeq.value = resp.data.latest_seq;
         }
-        if (Array.isArray(resp.data.signals)) {
+        if (!isWsConnected && Array.isArray(resp.data.signals)) {
             const now = Date.now();
             for (const sig of resp.data.signals) {
                 if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate' || sig.type === 'renegotiate_needed') {
