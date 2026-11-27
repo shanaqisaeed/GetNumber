@@ -243,14 +243,9 @@ class IceServerProvider
 
     public function transportPolicy(): string
     {
-        $policy = (string) SystemSetting::get('voice_ice_transport_policy', 'relay');
+        $policy = (string) SystemSetting::get('voice_ice_transport_policy', 'all');
 
-        // Force TURN relay whenever TURN is available to eliminate direct P2P mesh
-        if ($this->hasTurn()) {
-            return 'relay';
-        }
-
-        return in_array($policy, ['all', 'relay'], true) ? $policy : 'relay';
+        return in_array($policy, ['all', 'relay'], true) ? $policy : 'all';
     }
 
     public function hasTurn(): bool

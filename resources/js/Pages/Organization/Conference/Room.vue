@@ -512,12 +512,11 @@ function setupAudioAnalyser(participantId: number, stream: MediaStream) {
         source.connect(analyser);
         peerAnalysers.set(participantId, analyser);
 
-        // Web Audio Direct Hardware Output (Same architecture as User/Calls/Index.vue)
+        // Active speaker detection analysis only (Audio playback is handled by HTMLAudioElement to prevent echo and sinkId conflicts)
         if (participantId !== props.currentParticipant.id) {
             const gain = audioCtx.createGain();
             gain.gain.value = 1.0;
             source.connect(gain);
-            gain.connect(audioCtx.destination);
             peerGainNodes.set(participantId, gain);
         }
     } catch {
@@ -804,10 +803,15 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
 async function handleIncomingRtcSignal(type: string, senderParticipantId: number, payload: any) {
     if (!senderParticipantId || senderParticipantId === props.currentParticipant.id) return;
 
-    const sigKey = `${type}:${senderParticipantId}:${JSON.stringify(payload).slice(0, 120)}`;
+    const candDetail = type === 'candidate'
+        ? (payload?.candidate?.candidate || (typeof payload?.candidate === 'string' ? payload.candidate : '') || JSON.stringify(payload))
+        : (type === 'offer' || type === 'answer')
+            ? `${type}:${payload?.sdp?.type || ''}:${(payload?.sdp?.sdp || typeof payload?.sdp === 'string' ? payload.sdp : '').slice(0, 180)}`
+            : JSON.stringify(payload);
+    const sigKey = `${type}:${senderParticipantId}:${candDetail}`;
     if (processedSignalKeys.has(sigKey)) return;
     processedSignalKeys.add(sigKey);
-    if (processedSignalKeys.size > 400) {
+    if (processedSignalKeys.size > 800) {
         const firstKey = processedSignalKeys.values().next().value;
         if (firstKey) processedSignalKeys.delete(firstKey);
     }
@@ -1027,7 +1031,9 @@ async function replaceOutgoingVideoTrack(newTrack: MediaStreamTrack | null) {
 
 // 4. Dual-Path Signal Dispatcher (Go /ws/sfu WebSocket + HTTP Cache Queue Fallback)
 function dispatchPeerSignal(type: string, targetParticipantId: number | null, payload: any) {
-    // Path 1: Fast Go SFU WebSocket (Primary - Prevents double-signaling collisions)
+    const isWsOpen = sfuSocket && sfuSocket.readyState === WebSocket.OPEN;
+
+    // Path 1: Fast Go SFU WebSocket
     if (sfuSocket && sfuSocket.readyState === WebSocket.OPEN) {
         sfuSocket.send(
             JSON.stringify({
@@ -1042,17 +1048,20 @@ function dispatchPeerSignal(type: string, targetParticipantId: number | null, pa
                 payload,
             })
         );
-        return;
     }
 
-    // Path 2: Resilient HTTP/Cache Signaling Bus (Fallback only when WebSocket is unavailable)
-    axios
-        .post(route('org.conference.signal', { uuid: props.room.uuid }), {
-            type,
-            target_participant_id: targetParticipantId,
-            payload,
-        })
-        .catch(() => {});
+    // Path 2: Resilient HTTP/Cache Signaling Bus
+    // Always sync critical SDP negotiation frames (offer/answer/renegotiate) and candidate signals to HTTP queue as well
+    // so peers connecting or experiencing WebSocket drops never miss an SDP handshake
+    if (!isWsOpen || type === 'offer' || type === 'answer' || type === 'renegotiate_needed') {
+        axios
+            .post(route('org.conference.signal', { uuid: props.room.uuid }), {
+                type,
+                target_participant_id: targetParticipantId,
+                payload,
+            })
+            .catch(() => {});
+    }
 }
 
 // 5. Toggle Audio / Mute (Full Hardware Release on Mute & Lazy Acquisition on Unmute)
@@ -1769,20 +1778,21 @@ function connectSFU() {
         } else {
             wsUrl = `ws://${window.location.hostname}:${wsPort}${wsPath}`;
         }
-    } else if (window.location.protocol === 'https:' && wsUrl.startsWith('ws://')) {
-        // Upgrade ws:// to wss:// for HTTPS to avoid Mixed-Content, preserving the remote bridge host
-        try {
-            const parsed = new URL(wsUrl.replace(/^ws:\/\//i, 'http://'));
-            const isLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
-            if (isLocal) {
-                wsUrl = `ws://${parsed.hostname}:${parsed.port || wsPort}${parsed.pathname || wsPath}`;
-            } else {
-                const hasDomain = parsed.hostname.includes('.');
-                const targetPort = (!hasDomain && parsed.port && parsed.port !== '49001' && parsed.port !== '80') ? `:${parsed.port}` : '';
-                wsUrl = `wss://${parsed.hostname}${targetPort}${parsed.pathname || wsPath}`;
+    } else if (window.location.protocol === 'https:') {
+        // Enforce wss:// on HTTPS to avoid browser Mixed-Content blocks
+        if (wsUrl.startsWith('ws://')) {
+            try {
+                const parsed = new URL(wsUrl.replace(/^ws:\/\//i, 'http://'));
+                const isLocal = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1';
+                if (isLocal) {
+                    wsUrl = `wss://${window.location.host}${wsPath}`;
+                } else {
+                    const targetPort = (!parsed.hostname.includes('.') && parsed.port && parsed.port !== '49001' && parsed.port !== '80' && parsed.port !== '443') ? `:${parsed.port}` : '';
+                    wsUrl = `wss://${parsed.hostname}${targetPort}${parsed.pathname || wsPath}`;
+                }
+            } catch {
+                wsUrl = wsUrl.replace(/^ws:\/\//i, 'wss://');
             }
-        } catch {
-            wsUrl = wsUrl.replace(/^ws:\/\//i, 'wss://');
         }
     }
 
@@ -2151,7 +2161,7 @@ async function fetchState() {
             for (const sig of resp.data.signals) {
                 if (sig.type === 'offer' || sig.type === 'answer' || sig.type === 'candidate' || sig.type === 'renegotiate_needed') {
                     const sigAge = sig.timestamp ? now - Number(sig.timestamp) : 0;
-                    if (!isWsConnected && sigAge < 10000) {
+                    if (sigAge < 15000) {
                         await handleIncomingRtcSignal(sig.type, Number(sig.sender_participant_id), sig.payload);
                     }
                 } else if (sig.type === 'room_settings_updated' && sig.payload) {

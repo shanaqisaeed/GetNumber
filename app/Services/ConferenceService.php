@@ -153,10 +153,12 @@ class ConferenceService implements ConferenceServiceInterface
             : ($room->admission_policy === 'open' ? 'admitted' : 'waiting_approval');
 
         $canShareScreen = true;
-        $defaultMuted = false;
-        $initialMuted = array_key_exists('is_muted', $clientMeta) && $clientMeta['is_muted'] !== null
-            ? (bool) $clientMeta['is_muted']
-            : $defaultMuted;
+        $defaultMuted = ($room->initial_audio_state === 'muted');
+        $initialMuted = $isHost ? false : (
+            array_key_exists('is_muted', $clientMeta) && $clientMeta['is_muted'] !== null
+                ? (bool) $clientMeta['is_muted']
+                : $defaultMuted
+        );
 
         // Camera MUST NOT turn on automatically under any circumstances unless user explicitly turned it on
         $initialCameraOn = array_key_exists('is_camera_on', $clientMeta) && $clientMeta['is_camera_on'] !== null

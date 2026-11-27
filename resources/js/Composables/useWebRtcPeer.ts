@@ -117,7 +117,7 @@ export function useWebRtcPeer(options: UseWebRtcPeerOptions = {}) {
             const candidateStr = event.candidate.candidate || '';
             const isRelayCandidate = candidateStr.includes('typ relay') || event.candidate.type === 'relay';
 
-            if (options.forceRelayOnly !== false && !isRelayCandidate) {
+            if (options.forceRelayOnly === true && !isRelayCandidate) {
                 console.log('[useWebRtcPeer] 🛡️ Filtered non-relay candidate:', candidateStr);
                 return;
             }
