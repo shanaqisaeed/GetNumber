@@ -167,6 +167,13 @@ func (relay *SFUUDPRelay) Close() {
 	}
 }
 
+// normalizeRoomUUID ensures room UUIDs with or without conf_ prefix map to the identical SFURoom instance.
+func normalizeRoomUUID(uuid string) string {
+	clean := strings.TrimSpace(uuid)
+	clean = strings.TrimPrefix(clean, "conf_")
+	return clean
+}
+
 // SFURoom represents an active conference session with Smart Hybrid (P2P <= 2, SFU >= 3) routing.
 type SFURoom struct {
 	sync.RWMutex
@@ -177,6 +184,7 @@ type SFURoom struct {
 	MuteOthersOnShare bool
 	AllowWhiteboard   bool
 	Peers             map[string]*SFUPeer // ID -> SFUPeer
+	PendingOffers     map[string]SFUMessage // targetID -> latest pending SFUMessage
 	WhiteboardHistory []json.RawMessage
 	UDPRelay          *SFUUDPRelay
 	Hub               *SFUHub
@@ -446,6 +454,7 @@ func (hub *SFUHub) ReleaseUDPRelay(relay *SFUUDPRelay) {
 }
 
 func (hub *SFUHub) GetOrCreateRoom(uuid string) *SFURoom {
+	uuid = normalizeRoomUUID(uuid)
 	hub.Lock()
 	defer hub.Unlock()
 
@@ -461,6 +470,7 @@ func (hub *SFUHub) GetOrCreateRoom(uuid string) *SFURoom {
 		MuteOthersOnShare: true,
 		AllowWhiteboard:   true,
 		Peers:             make(map[string]*SFUPeer),
+		PendingOffers:     make(map[string]SFUMessage),
 		WhiteboardHistory: make([]json.RawMessage, 0),
 		Hub:               hub,
 	}
@@ -469,6 +479,7 @@ func (hub *SFUHub) GetOrCreateRoom(uuid string) *SFURoom {
 }
 
 func (hub *SFUHub) RemovePeer(roomUUID, peerID string) {
+	roomUUID = normalizeRoomUUID(roomUUID)
 	hub.Lock()
 	room, exists := hub.rooms[roomUUID]
 	if !exists {
@@ -650,9 +661,9 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				_ = json.Unmarshal(msg.Payload, &joinPayload)
 			}
 
-			roomUUID := strings.TrimSpace(msg.RoomUUID)
+			roomUUID := normalizeRoomUUID(msg.RoomUUID)
 			if roomUUID == "" {
-				roomUUID = strings.TrimSpace(joinPayload.RoomUUID)
+				roomUUID = normalizeRoomUUID(joinPayload.RoomUUID)
 			}
 			if roomUUID == "" {
 				_ = writeWSFrame(bufrw.Writer, 0x01, []byte(`{"type":"error","payload":"missing room_uuid"}`))
@@ -739,6 +750,16 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			currentRoom.Peers[peerID] = currentPeer
 			peerCount := len(currentRoom.Peers)
 
+			// Check and extract any pending offer queued for this peer before they connected
+			var pendingOffer *SFUMessage
+			if currentRoom.PendingOffers != nil {
+				if po, exists := currentRoom.PendingOffers[peerID]; exists {
+					pendingOfferCopy := po
+					pendingOffer = &pendingOfferCopy
+					delete(currentRoom.PendingOffers, peerID)
+				}
+			}
+
 			var wbHistory []json.RawMessage
 			if currentRoom.Hub != nil && currentRoom.Hub.redisMgr != nil {
 				wbHistory, _ = currentRoom.Hub.redisMgr.GetWhiteboardHistory(roomUUID)
@@ -762,6 +783,12 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 				MediaUDPPort:  udpPort,
 				Payload:       peersJSON,
 			})
+
+			// Deliver buffered offer if peer joined after offer was dispatched
+			if pendingOffer != nil {
+				log.Printf("[SFU] Delivering buffered offer to newly connected peer %s in room %s", peerID, roomUUID)
+				_ = currentPeer.Send(*pendingOffer)
+			}
 
 			if len(wbHistory) > 0 {
 				wbData, _ := json.Marshal(wbHistory)
@@ -821,7 +848,26 @@ func (hub *SFUHub) HandleWS(w http.ResponseWriter, r *http.Request) {
 			msg.PhoneNumber = currentPeer.PhoneNumber
 			msg.DisplayName = currentPeer.DisplayName
 			msg.Role = currentPeer.Role
-			currentRoom.SendTo(targetID, msg)
+
+			if msg.Type == "offer" {
+				currentRoom.Lock()
+				if currentRoom.PendingOffers == nil {
+					currentRoom.PendingOffers = make(map[string]SFUMessage)
+				}
+				currentRoom.PendingOffers[targetID] = msg
+				currentRoom.Unlock()
+			} else if msg.Type == "answer" {
+				currentRoom.Lock()
+				if currentRoom.PendingOffers != nil {
+					delete(currentRoom.PendingOffers, currentPeer.ID)
+				}
+				currentRoom.Unlock()
+			}
+
+			delivered := currentRoom.SendTo(targetID, msg)
+			if !delivered && msg.Type != "offer" {
+				log.Printf("[SFU] Info: Signal %s from %s to %s could not be directly delivered (target not currently connected to SFU in room %s)", msg.Type, currentPeer.ID, targetID, currentRoom.UUID)
+			}
 
 		case "media_state":
 			if currentPeer == nil || currentRoom == nil {

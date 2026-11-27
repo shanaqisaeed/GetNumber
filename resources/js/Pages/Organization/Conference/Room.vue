@@ -317,6 +317,8 @@ const remoteScreenVideoRef = ref<HTMLVideoElement | null>(null);
 const makingOfferMap = new Map<number, boolean>();
 const processedSignalKeys = new Set<string>();
 const pendingIceCandidates = new Map<number, RTCIceCandidateInit[]>();
+const localIceCandidatesMap = new Map<number, RTCIceCandidateInit[]>();
+const offerTimestampMap = new Map<number, number>();
 const lastIceRestartMap = new Map<number, number>();
 
 // In-Meeting Chat Notification State
@@ -634,8 +636,13 @@ function getOrCreatePeerConnection(remoteParticipantId: number): RTCPeerConnecti
                 return;
             }
             console.log(`[WebRTC:Peer:${remoteParticipantId}] 📡 ICE Candidate (${candType}):`, candStr);
+            const candJson = event.candidate.toJSON();
+            if (!localIceCandidatesMap.has(remoteParticipantId)) {
+                localIceCandidatesMap.set(remoteParticipantId, []);
+            }
+            localIceCandidatesMap.get(remoteParticipantId)!.push(candJson);
             dispatchPeerSignal('candidate', remoteParticipantId, {
-                candidate: event.candidate.toJSON(),
+                candidate: candJson,
             });
         } else {
             console.log(`[WebRTC:Peer:${remoteParticipantId}] 🏁 Local ICE Gathering Complete`);
@@ -778,7 +785,36 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
         return;
     }
     const conn = pc || getOrCreatePeerConnection(remoteParticipantId);
-    if (makingOfferMap.get(remoteParticipantId) || conn.signalingState !== 'stable') {
+    if (makingOfferMap.get(remoteParticipantId)) {
+        return;
+    }
+
+    // Critical: If the peer connection is already in have-local-offer (e.g. created earlier or race condition),
+    // we MUST re-dispatch the existing localDescription offer to the newly joined peer, rather than dropping it!
+    if (conn.signalingState === 'have-local-offer') {
+        if (iceRestart) {
+            try {
+                await conn.setLocalDescription({ type: 'rollback' });
+            } catch {}
+        } else if (conn.localDescription) {
+            console.log(`[WebRTC:Peer:${remoteParticipantId}] 🔄 Resending local offer to peer (peer joined/renegotiating)`);
+            offerTimestampMap.set(remoteParticipantId, Date.now());
+            dispatchPeerSignal('offer', remoteParticipantId, {
+                sdp: {
+                    type: conn.localDescription.type,
+                    sdp: sanitizeSdp(enhanceOpusSdp(conn.localDescription.sdp)),
+                },
+            });
+            // Also flush any gathered local ICE candidates
+            const gathered = localIceCandidatesMap.get(remoteParticipantId) || [];
+            for (const cand of gathered) {
+                dispatchPeerSignal('candidate', remoteParticipantId, { candidate: cand });
+            }
+            return;
+        }
+    }
+
+    if (conn.signalingState !== 'stable') {
         return;
     }
 
@@ -787,6 +823,7 @@ async function initiateOfferToPeer(remoteParticipantId: number, pc?: RTCPeerConn
         const offer = await conn.createOffer(iceRestart ? { iceRestart: true } : undefined);
         if (conn.signalingState !== 'stable') return;
         await conn.setLocalDescription(offer);
+        offerTimestampMap.set(remoteParticipantId, Date.now());
         dispatchPeerSignal('offer', remoteParticipantId, {
             sdp: conn.localDescription ? {
                 type: conn.localDescription.type,
@@ -838,6 +875,7 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
         }
 
         if (type === 'renegotiate_needed') {
+            console.log(`[WebRTC:Peer:${senderParticipantId}] 📥 Received renegotiate_needed (current signalingState: ${pc.signalingState})`);
             if (props.currentParticipant.id < senderParticipantId) {
                 await initiateOfferToPeer(senderParticipantId, pc);
             }
@@ -845,14 +883,17 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
         }
 
         if (type === 'offer' && payload?.sdp) {
+            console.log(`[WebRTC:Peer:${senderParticipantId}] 📥 Received offer (current signalingState: ${pc.signalingState})`);
             const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
             const sanitized = sanitizeSdp(rawSdp);
             const polite = props.currentParticipant.id > senderParticipantId;
             const offerCollision = makingOfferMap.get(senderParticipantId) || pc.signalingState !== 'stable';
             if (offerCollision) {
                 if (!polite) {
+                    console.log(`[WebRTC:Peer:${senderParticipantId}] ⚔️ Offer collision: impolite peer ignoring offer`);
                     return;
                 }
+                console.log(`[WebRTC:Peer:${senderParticipantId}] ⚔️ Offer collision: polite peer rolling back local offer`);
                 try {
                     await pc.setLocalDescription({ type: 'rollback' });
                 } catch {}
@@ -874,6 +915,7 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
 
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
+            console.log(`[WebRTC:Peer:${senderParticipantId}] 📤 Created and dispatched answer (signalingState: ${pc.signalingState})`);
             dispatchPeerSignal('answer', senderParticipantId, {
                 sdp: pc.localDescription ? {
                     type: pc.localDescription.type,
@@ -881,6 +923,8 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                 } : null,
             });
         } else if (type === 'answer' && payload?.sdp) {
+            console.log(`[WebRTC:Peer:${senderParticipantId}] 📥 Received answer (current signalingState: ${pc.signalingState})`);
+            offerTimestampMap.delete(senderParticipantId);
             if (pc.signalingState === 'have-local-offer') {
                 const rawSdp = typeof payload.sdp === 'string' ? payload.sdp : (payload.sdp?.sdp || '');
                 const sanitized = sanitizeSdp(rawSdp);
@@ -902,6 +946,8 @@ async function handleIncomingRtcSignal(type: string, senderParticipantId: number
                 } catch (ansErr) {
                     console.warn(`[WebRTC:Peer:${senderParticipantId}] Ignored mismatched answer:`, ansErr);
                 }
+            } else {
+                console.log(`[WebRTC:Peer:${senderParticipantId}] ⚠️ Ignored answer because signalingState is ${pc.signalingState} (expected have-local-offer)`);
             }
         } else if (type === 'candidate') {
             const cand: any = payload?.candidate || payload;
@@ -964,6 +1010,18 @@ function syncPeerConnectionsWithRoster() {
                 initiateOfferToPeer(p.id, pc);
             } else {
                 dispatchPeerSignal('renegotiate_needed', p.id, {});
+            }
+        } else {
+            // Watchdog: If an active peer connection is stuck in 'have-local-offer' for more than 4 seconds,
+            // re-send the offer to heal any dropped or lost negotiation packets!
+            const pc = peerConnections.get(p.id);
+            if (pc && pc.signalingState === 'have-local-offer') {
+                const offerTime = offerTimestampMap.get(p.id) || 0;
+                const elapsed = Date.now() - offerTime;
+                if (elapsed > 4000) {
+                    console.warn(`[WebRTC:Peer:${p.id}] ⚠️ Peer connection stuck in have-local-offer (${elapsed}ms), resending offer...`);
+                    initiateOfferToPeer(p.id, pc);
+                }
             }
         }
     });
@@ -1892,6 +1950,8 @@ function handleSFUMessage(msg: any) {
                         const pc = getOrCreatePeerConnection(epId);
                         if (props.currentParticipant.id < epId) {
                             initiateOfferToPeer(epId, pc);
+                        } else {
+                            dispatchPeerSignal('renegotiate_needed', epId, {});
                         }
                     }
                 });
@@ -1926,6 +1986,8 @@ function handleSFUMessage(msg: any) {
                 const pc = getOrCreatePeerConnection(newPid);
                 if (props.currentParticipant.id < newPid) {
                     initiateOfferToPeer(newPid, pc);
+                } else {
+                    dispatchPeerSignal('renegotiate_needed', newPid, {});
                 }
             }
             fetchState();

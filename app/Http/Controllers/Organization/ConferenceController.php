@@ -435,7 +435,7 @@ class ConferenceController extends Controller
     public function state(Request $request, string $uuid): JsonResponse
     {
         $user = $request->user();
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         $selfParticipant = ConferenceParticipant::where('conference_room_id', $room->id)
             ->where('user_id', $user->id)
@@ -573,7 +573,7 @@ class ConferenceController extends Controller
     public function sendSignal(Request $request, string $uuid): JsonResponse
     {
         $user = $request->user();
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         $participant = ConferenceParticipant::where('conference_room_id', $room->id)
             ->where('user_id', $user->id)
@@ -617,7 +617,7 @@ class ConferenceController extends Controller
 
     public function admitParticipant(Request $request, string $uuid, int $participantId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = $this->conferenceService->admitParticipant($room, $request->user(), $participantId);
 
         return response()->json(['success' => true, 'participant' => $participant]);
@@ -625,7 +625,7 @@ class ConferenceController extends Controller
 
     public function rejectParticipant(Request $request, string $uuid, int $participantId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = $this->conferenceService->rejectParticipant($room, $request->user(), $participantId);
 
         return response()->json(['success' => true, 'participant' => $participant]);
@@ -633,7 +633,7 @@ class ConferenceController extends Controller
 
     public function kickParticipant(Request $request, string $uuid, int $participantId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = $this->conferenceService->kickParticipant($room, $request->user(), $participantId);
 
         return response()->json(['success' => true, 'participant' => $participant]);
@@ -641,7 +641,7 @@ class ConferenceController extends Controller
 
     public function toggleMute(Request $request, string $uuid, int $participantId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $muteState = $request->has('is_muted') ? (bool) $request->input('is_muted') : null;
         $participant = $this->conferenceService->toggleMuteParticipant($room, $request->user(), $participantId, $muteState);
 
@@ -650,7 +650,7 @@ class ConferenceController extends Controller
 
     public function updateMediaState(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = $this->conferenceService->updateMediaState($room, $request->user(), $request->only(['is_muted', 'is_camera_on']));
 
         return response()->json(['success' => true, 'participant' => $participant]);
@@ -658,7 +658,7 @@ class ConferenceController extends Controller
 
     public function muteAll(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $this->conferenceService->muteAllParticipants($room, $request->user());
 
         return response()->json(['success' => true]);
@@ -666,7 +666,7 @@ class ConferenceController extends Controller
 
     public function toggleLock(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $updated = $this->conferenceService->toggleLockRoom($room, $request->user());
 
         return response()->json([
@@ -687,7 +687,7 @@ class ConferenceController extends Controller
 
     public function grantScreenShare(Request $request, string $uuid, int $participantId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $canShare = (bool) $request->input('can_share', true);
         $participant = $this->conferenceService->grantScreenShare($room, $request->user(), $participantId, $canShare);
 
@@ -696,7 +696,7 @@ class ConferenceController extends Controller
 
     public function startScreenShare(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = ConferenceParticipant::where('conference_room_id', $room->id)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
@@ -711,7 +711,7 @@ class ConferenceController extends Controller
 
     public function stopScreenShare(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = ConferenceParticipant::where('conference_room_id', $room->id)
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
@@ -722,7 +722,7 @@ class ConferenceController extends Controller
 
     public function toggleRaiseHand(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $participant = $this->conferenceService->toggleRaiseHand($room, $request->user());
 
         return response()->json(['success' => true, 'participant' => $participant]);
@@ -730,7 +730,7 @@ class ConferenceController extends Controller
 
     public function leave(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $this->conferenceService->leaveRoom($room, $request->user());
 
         return response()->json(['success' => true]);
@@ -738,7 +738,7 @@ class ConferenceController extends Controller
 
     public function endRoom(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $this->conferenceService->endRoomForAll($room, $request->user());
 
         return response()->json(['success' => true]);
@@ -746,7 +746,7 @@ class ConferenceController extends Controller
 
     public function sendMessage(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         $validated = $request->validate([
             'message' => 'required|string|max:1000',
@@ -765,7 +765,7 @@ class ConferenceController extends Controller
 
     public function createPoll(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         $validated = $request->validate([
             'question' => 'required|string|max:255',
@@ -780,7 +780,7 @@ class ConferenceController extends Controller
 
     public function closePoll(Request $request, string $uuid, int $pollId): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
         $poll = $this->conferenceService->closePoll($room, $request->user(), $pollId);
 
         return response()->json(['success' => true, 'poll' => $poll]);
@@ -804,7 +804,7 @@ class ConferenceController extends Controller
 
     public function exportAttendance(Request $request, string $uuid): StreamedResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         if ((int) $room->created_by_user_id !== (int) $request->user()->id) {
             abort(403);
@@ -857,7 +857,7 @@ class ConferenceController extends Controller
      */
     public function updateSettings(Request $request, string $uuid): JsonResponse
     {
-        $room = ConferenceRoom::where('room_uuid', $uuid)->firstOrFail();
+        $room = $this->resolveRoom($uuid);
 
         $validated = $request->validate([
             'admission_policy' => 'nullable|in:open,approval',
